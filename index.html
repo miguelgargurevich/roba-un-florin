@@ -199,6 +199,13 @@
      en celular el botón queda debajo de la barra, no a su lado. */
   @media (min-width:561px){ #app.touch .wbar{width:calc(100% - 122px)} }
   #app.touch .chip{padding:6px;gap:4px}
+
+  /* modo zurdo: espeja los controles — botón de chancla a la izquierda,
+     armas y minimapa a la derecha, y el joystick pasa al lado contrario */
+  #app.zurdo #throwBtn{left:20px;right:auto}
+  #app.zurdo .wbar{justify-content:flex-end}
+  #app.zurdo .bottom{flex-direction:row-reverse}
+  @media (min-width:561px){ #app.touch.zurdo .wbar{margin-left:auto} }
   #app.touch .chip .nm,#app.touch .chip .u{display:none}
   #app.touch .chip .ic{font-size:21px}
   #app.touch .chip .n{font-size:12px}
@@ -238,6 +245,8 @@
   @media (max-width:560px){
     #minimap{width:112px;height:76px}
     .rack{grid-template-columns:repeat(2,1fr)}
+    #app.zurdo #throwBtn{left:14px;right:auto}
+    #app.touch.zurdo .bottom{padding-left:104px}
     /* en pantalla angosta: solo icono y número, para que quepan las 6 armas.
        El margen inferior levanta la barra sobre el botón redondo de chancla,
        cuyo área táctil llegaba a la esquina del último chip. */
@@ -272,6 +281,7 @@
       <div class="card stolen"><div class="label">Te robaron</div><div class="val" id="uiLost">0</div></div>
       <div class="spacer"></div>
       <div class="btns">
+        <button class="iconbtn" id="btnHand" title="Diestro / zurdo" aria-label="Cambiar a modo zurdo">✋</button>
         <button class="iconbtn" id="btnSound" title="Silenciar" aria-label="Silenciar sonido">🔊</button>
         <button class="iconbtn" id="btnPause" title="Pausa" aria-label="Pausa">⏸</button>
       </div>
@@ -324,11 +334,12 @@
         <li><span class="pip">😼</span><span>Tus vecinos vienen por los tuyos: <b style="color:#FFD84D">Mayo</b> es lento pero siempre agarra el más caro, <b style="color:#37D6E0">Vicnix</b> corre muchísimo, y <b style="color:#FF9EC4">El Sobri</b> agarra lo que pilla.</span></li>
         <li><span class="pip">👵</span><span>Cada base tiene su <b>abuela</b>. Si te alcanza, sueltas el Florín y quedas mareado.</span></li>
         <li><span class="pip">🩴</span><span>Lanza la chancla para <b>noquear abuelas y ladrones</b>. Regresa como bumerán: espérala para volver a lanzar.</span></li>
+        <li><span class="pip">🎯</span><span><b>Apunta antes de tirar:</b> con ratón, hacia donde pongas el cursor (la línea punteada te lo muestra). En celular o iPad, <b>arrastra desde el botón rosa</b> y suelta.</span></li>
         <li><span class="pip">🧰</span><span>En la <b>Armería</b> (abajo al centro) compras gadgets: 🧊 congeladora, 💨 secadora, ⚡ chicharra, 🥤 refresco turbo y 👻 capa invisible.</span></li>
         <li><span class="pip">💰</span><span>Llega a <b>$20 000</b> antes de que los vecinos te dejen el patio pelado.</span></li>
       </ul>
       <button class="play" id="btnStart">¡A robar! ▸</button>
-      <p class="foot">Teclado: <span class="k">WASD</span> / <span class="k">flechas</span> para moverte · <span class="k">espacio</span> usar arma · <span class="k">1</span>–<span class="k">6</span> cambiar de arma · <span class="k">P</span> pausa · <span class="k">M</span> sonido. En celular: arrastra en la mitad izquierda, toca el botón rosa y elige el arma en los chips de abajo.</p>
+      <p class="foot">Teclado: <span class="k">WASD</span> / <span class="k">flechas</span> para moverte · <span class="k">espacio</span> o <b>clic</b> para usar el arma · <span class="k">1</span>–<span class="k">6</span> cambiar de arma · <span class="k">P</span> pausa · <span class="k">M</span> sonido. En celular: arrastra en una mitad de la pantalla para moverte y usa el botón rosa para el arma. Si eres <b>zurdo</b>, toca <b>✋</b> arriba y todos los controles se voltean.</p>
     </div>
   </div>
 
@@ -502,6 +513,7 @@ const el = {
   throwB: document.getElementById("throwBtn"),
   pause:  document.getElementById("btnPause"),
   sound:  document.getElementById("btnSound"),
+  hand:   document.getElementById("btnHand"),
   wbar:   document.getElementById("wbar"),
   arm:    document.getElementById("armeria"),
   rack:   document.getElementById("rack"),
@@ -607,10 +619,48 @@ window.addEventListener("keydown", e => {
 window.addEventListener("keyup", e => keys.delete(e.key.toLowerCase()));
 window.addEventListener("blur", () => keys.clear());
 
-// Joystick táctil
+/* ---- modo zurdo: espeja los controles y se recuerda entre partidas ---- */
+let zurdo = false;
+try { zurdo = localStorage.getItem("florin_zurdo") === "1"; } catch (_){}
+function aplicarZurdo(){
+  document.getElementById("app").classList.toggle("zurdo", zurdo);
+  el.hand.textContent = zurdo ? "🤚" : "✋";
+  el.hand.title = zurdo ? "Zurdo (toca para diestro)" : "Diestro (toca para zurdo)";
+  el.hand.setAttribute("aria-label", zurdo ? "Cambiar a modo diestro" : "Cambiar a modo zurdo");
+}
+function toggleZurdo(){
+  zurdo = !zurdo;
+  try { localStorage.setItem("florin_zurdo", zurdo ? "1" : "0"); } catch (_){}
+  aplicarZurdo();
+}
+
+/* ---- puntería: a dónde mandar la chancla ----
+   Con ratón, el arma va hacia el cursor. En táctil, arrastras desde el botón rosa
+   y sale en esa dirección. Sin apuntar, sale hacia donde caminas (como antes). */
+const aim = { on:false, wx:0, wy:0 };
+function pantallaAMundo(px, py){ return { x: cam.x + px/ZOOM, y: cam.y + py/ZOOM }; }
+function apuntarAPantalla(px, py){
+  const w = pantallaAMundo(px, py);
+  aim.wx = w.x; aim.wy = w.y; aim.on = true;
+}
+function rumboDeTiro(){
+  const p = G.player;
+  if (aim.on){
+    const dx = aim.wx - p.x, dy = aim.wy - (p.y - 12), m = Math.hypot(dx, dy);
+    if (m > 8) return { x: dx/m, y: dy/m };
+  }
+  const m2 = Math.hypot(p.dirx, p.diry) || 1;
+  return { x: p.dirx/m2, y: p.diry/m2 };
+}
+
+// Joystick táctil (el ratón no lo usa: con ratón apuntas y haces clic)
 const joy = { id:null, ox:0, oy:0, dx:0, dy:0, on:false };
+function ladoDelJoystick(x){
+  return zurdo ? x > VW*0.44 : x < VW*0.56;   // el lado libre, opuesto al botón
+}
 function joyStart(e){
-  if (e.clientX > VW*0.56) return;      // mitad derecha reservada al botón
+  if (e.pointerType === "mouse") return;
+  if (!ladoDelJoystick(e.clientX)) return;
   joy.id = e.pointerId; joy.ox = e.clientX; joy.oy = e.clientY;
   joy.dx = 0; joy.dy = 0; joy.on = true;
   el.ring.style.left = joy.ox+"px"; el.ring.style.top = joy.oy+"px";
@@ -634,15 +684,51 @@ function joyEnd(e){
 cv.addEventListener("pointerdown", e => {
   // si la captura falla, el joystick debe arrancar igual: sin esto te quedas sin moverte
   try { cv.setPointerCapture?.(e.pointerId); } catch (_){}
+  if (e.pointerType === "mouse"){         // con ratón: clic = lanzar hacia el cursor
+    Snd.unlock();
+    apuntarAPantalla(e.clientX, e.clientY);
+    useWeapon();
+    return;
+  }
   joyStart(e);
 });
-cv.addEventListener("pointermove", joyMove);
+cv.addEventListener("pointermove", e => {
+  if (e.pointerType === "mouse") apuntarAPantalla(e.clientX, e.clientY);
+  joyMove(e);
+});
 cv.addEventListener("pointerup", joyEnd);
 cv.addEventListener("pointercancel", joyEnd);
 
-el.throwB.addEventListener("click", e => { e.preventDefault(); Snd.unlock(); useWeapon(); });
+/* Botón de arma: un toque lanza hacia donde caminas; si arrastras, apuntas */
+const tiro = { id:null, ox:0, oy:0, apuntando:false };
+el.throwB.addEventListener("pointerdown", e => {
+  e.preventDefault(); Snd.unlock();
+  tiro.id = e.pointerId; tiro.ox = e.clientX; tiro.oy = e.clientY; tiro.apuntando = false;
+  try { el.throwB.setPointerCapture?.(e.pointerId); } catch (_){}
+});
+el.throwB.addEventListener("pointermove", e => {
+  if (e.pointerId !== tiro.id) return;
+  const dx = e.clientX - tiro.ox, dy = e.clientY - tiro.oy, m = Math.hypot(dx, dy);
+  if (m < 14) return;                     // margen para que un toque simple no cuente como apuntar
+  tiro.apuntando = true;
+  const p = G.player;
+  aim.on = true;
+  aim.wx = p.x + dx/m*300; aim.wy = (p.y - 12) + dy/m*300;
+});
+el.throwB.addEventListener("pointerup", e => {
+  if (e.pointerId !== tiro.id) return;
+  tiro.id = null;
+  useWeapon();
+  if (tiro.apuntando) aim.on = false;     // el apuntado táctil dura un lanzamiento
+});
+el.throwB.addEventListener("pointercancel", () => { tiro.id = null; });
+el.throwB.addEventListener("keydown", e => {
+  if (e.key === "Enter" || e.key === " "){ e.preventDefault(); useWeapon(); }
+});
 el.pause.addEventListener("click", togglePause);
 el.sound.addEventListener("click", toggleSound);
+el.hand.addEventListener("click", toggleZurdo);
+aplicarZurdo();
 document.getElementById("btnStart").addEventListener("click", startGame);
 document.getElementById("btnAgain").addEventListener("click", startGame);
 
@@ -704,8 +790,8 @@ function useWeapon(){
   const p = G.player;
   if (p.stun > 0 || G.cd > 0) return;
   const w = WEAPONS[G.wsel];
-  const len = Math.hypot(p.dirx, p.diry) || 1;
-  const dx = p.dirx/len, dy = p.diry/len;
+  const r = rumboDeTiro();                // hacia donde apuntas, o hacia donde caminas
+  const dx = r.x, dy = r.y;
 
   if (w.id === "chancla"){
     const c = G.chancla;
@@ -1597,6 +1683,40 @@ function drawGrabRing(){
   ctx.restore();
 }
 
+/* Guía de puntería: muestra a dónde va el arma seleccionada antes de lanzarla */
+function drawAim(){
+  if (!G.started || G.over || G.paused) return;
+  const p = G.player, w = WEAPONS[G.wsel];
+  if (w.id === "refresco" || w.id === "capa") return;      // se usan sobre ti, no se apuntan
+  const listo = (w.id === "chancla") ? G.chancla.state === "held" : G.ammo[w.id] > 0;
+  if (!listo || G.cd > 0 || p.stun > 0) return;
+
+  const d = rumboDeTiro(), ox = p.x, oy = p.y - 12;
+  ctx.save();
+  ctx.globalAlpha = .8;
+  ctx.strokeStyle = w.color;
+  if (w.id === "taser"){                                   // radio de la descarga
+    ctx.lineWidth = 2.5; ctx.setLineDash([9,7]);
+    ctx.beginPath(); ctx.arc(ox, oy, 140, 0, 6.283); ctx.stroke();
+  } else if (w.id === "secadora"){                          // cono de la ráfaga
+    const a = Math.atan2(d.y, d.x);
+    ctx.fillStyle = "rgba(191,233,255,.15)";
+    ctx.beginPath(); ctx.moveTo(ox,oy); ctx.arc(ox, oy, 260, a-.7, a+.7); ctx.closePath();
+    ctx.fill();
+    ctx.lineWidth = 2; ctx.setLineDash([9,7]); ctx.stroke();
+  } else {                                                 // línea y mirilla
+    const alcance = w.id === "hielo" ? 620 : 420;
+    const tx = ox + d.x*alcance, ty = oy + d.y*alcance;
+    ctx.lineWidth = 2.5; ctx.setLineDash([10,8]);
+    ctx.beginPath(); ctx.moveTo(ox,oy); ctx.lineTo(tx,ty); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.beginPath(); ctx.arc(tx, ty, 7, 0, 6.283); ctx.stroke();
+    ctx.fillStyle = w.color;
+    ctx.beginPath(); ctx.arc(tx, ty, 2.5, 0, 6.283); ctx.fill();
+  }
+  ctx.restore();
+}
+
 function draw(){
   ctx.setTransform(DPR,0,0,DPR,0,0);
   ctx.clearRect(0,0,VW,VH);
@@ -1615,6 +1735,7 @@ function draw(){
   drawVivero();
   drawArmeria();
   drawGrabRing();
+  drawAim();
 
   // florines en el suelo
   for (const g of G.ground){
@@ -1861,7 +1982,8 @@ function hud(){
   else if (w.id === "chancla" && G.chancla.state !== "held") tip = "Tu chancla viene de regreso… <b>espérala</b>.";
   else if (notReady) tip = "Sin usos de <b>" + w.name + "</b>. Compra más en la <b>Armería</b> (abajo, al centro).";
   else if (G.stats.lost > 0 && G.stats.lost % 3 === 0) tip = "Los vecinos vienen seguido. <b>Quédate cerca</b> de tu vitrina y chanclea.";
-  else tip = "Arma: <b>" + w.name + "</b> · úsala con " + useKey + " y esquiva a la <b>abuela</b>.";
+  else tip = "Arma: <b>" + w.name + "</b> · " +
+    (isTouch ? "arrastra desde el botón rosa para <b>apuntar</b>" : "apunta con el cursor y " + useKey) + ".";
   if (tip !== lastTip){ el.tip.innerHTML = tip; lastTip = tip; }
 }
 

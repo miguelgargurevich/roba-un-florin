@@ -23,9 +23,21 @@ Un Florín tirado en el suelo lo puede recoger cualquiera: si le pegas a un ladr
 
 ## Controles
 
-**Teclado** — `WASD` / flechas para moverte · `espacio` usar arma · `1`–`6` cambiar de arma · `P` pausa · `M` sonido
+**Teclado y ratón** — `WASD` / flechas para moverte · `espacio` o **clic** para usar el arma · `1`–`6` cambiar de arma · `P` pausa · `M` sonido
 
-**Táctil (celular y iPad)** — arrastra en la mitad izquierda de la pantalla para el joystick · toca el botón rosa para usar el arma · toca los chips de abajo para cambiarla
+**Táctil (celular y iPad)** — arrastra en una mitad de la pantalla para el joystick · toca el botón rosa para usar el arma · toca los chips para cambiarla
+
+### Apuntar
+
+El arma no sale solo hacia donde caminas: puedes elegir la dirección.
+
+- **Con ratón:** va hacia el cursor. Una línea punteada te muestra el rumbo y la mirilla marca el **alcance real** del arma, así ves si llegas o no.
+- **En táctil:** mantén el botón rosa y **arrastra** en la dirección que quieras; suelta para lanzar. Un toque simple (sin arrastrar) lanza hacia donde caminas, como antes.
+- La guía se adapta al arma: línea y mirilla para la chancla y la congeladora, el cono para la secadora, y el radio de la descarga para la chicharra.
+
+### Modo zurdo
+
+El botón **✋** de la barra superior voltea todos los controles: el botón de arma pasa a la izquierda, y las armas, el minimapa y el joystick al lado contrario. Queda guardado para la próxima vez que entres.
 
 ## Los 7 Florines
 
