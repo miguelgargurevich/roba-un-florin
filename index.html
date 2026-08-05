@@ -67,6 +67,14 @@
   .bar>i{display:block;height:100%;width:0%;border-radius:99px;background:linear-gradient(90deg,var(--leaf),var(--gold));transition:width .25s linear}
 
   .spacer{flex:1}
+  .card.j2{border-color:#B37F0D;min-width:150px}
+  .card.j2 .val{color:#FFB020}
+  .card.j2 .val.small{font-size:13px;color:var(--cream-dim)}
+  .j2row{display:flex;gap:8px;align-items:baseline;justify-content:space-between}
+  .card.j2 .bar>i{background:linear-gradient(90deg,#FFB020,var(--gold))}
+  /* en dos jugadores no hay gadgets: solo la chancla, igual para ambos */
+  #app.dos .wbar{display:none}
+  #app.dos #armeria{display:none}
 
   .btns{display:flex;gap:6px;pointer-events:auto}
   .iconbtn{
@@ -202,6 +210,13 @@
     background:linear-gradient(180deg,#FF6B90,var(--chancla));color:#2A0512;
     box-shadow:0 8px 0 #8E1338;
   }
+  .modos{display:flex;gap:9px;flex-wrap:wrap}
+  .modos .play{flex:1 1 190px}
+  .play.dos{
+    background:linear-gradient(180deg,#FFD066,var(--gold));color:#3A2400;box-shadow:0 8px 0 #A97800;
+  }
+  .play.dos:active{box-shadow:0 4px 0 #A97800}
+  .dosNota{border-top:1px solid var(--plum-700);padding-top:10px}
   .play:active{transform:translateY(4px);box-shadow:0 4px 0 #8E1338}
   .play:focus-visible{outline:3px solid var(--cosmo);outline-offset:3px}
   .foot{margin:12px 2px 0;font-size:11.5px;color:#9C8090;line-height:1.5}
@@ -319,6 +334,14 @@
         <div class="bar"><i id="uiBar"></i></div>
       </div>
       <div class="card stolen"><div class="label">Te robaron</div><div class="val" id="uiLost">0</div></div>
+      <div class="card j2" id="hudJ2" hidden>
+        <div class="label">Jugador 2</div>
+        <div class="j2row">
+          <span class="val" id="uiJ2Money">$0</span>
+          <span class="val small" id="uiJ2Rate">$0/s</span>
+        </div>
+        <div class="bar"><i id="uiJ2Bar"></i></div>
+      </div>
       <div class="spacer"></div>
       <div class="btns">
         <button class="iconbtn" id="btnHand" title="Diestro / zurdo" aria-label="Cambiar a modo zurdo">✋</button>
@@ -394,7 +417,11 @@
         <li><span class="pip">🧰</span><span>En la <b>Armería</b> (abajo al centro) compras gadgets: 🧊 congeladora, 💨 secadora, ⚡ chicharra, 🥤 refresco turbo y 👻 capa invisible.</span></li>
         <li><span class="pip">💰</span><span>Llega a <b>$20 000</b> antes de que los vecinos te dejen el patio pelado.</span></li>
       </ul>
-      <button class="play" id="btnStart">¡A robar! ▸</button>
+      <div class="modos">
+        <button class="play" id="btnStart">1 jugador ▸</button>
+        <button class="play dos" id="btnStart2">2 jugadores ▸</button>
+      </div>
+      <p class="foot dosNota"><b>Dos jugadores en la misma pantalla:</b> J1 con <span class="k">WASD</span> y <span class="k">espacio</span>, J2 con las <span class="k">flechas</span> y <span class="k">.</span> (punto). Cada uno tiene su patio — J1 abajo a la izquierda, J2 abajo a la derecha — y pueden robarse entre ellos y darse chancletazos. Gana el primero que llegue a $20 000. En este modo solo se usa la chancla.</p>
       <p class="foot">Teclado: <span class="k">WASD</span> / <span class="k">flechas</span> para moverte · <span class="k">espacio</span> o <b>clic</b> para usar el arma · <span class="k">1</span>–<span class="k">6</span> cambiar de arma · <span class="k">P</span> pausa · <span class="k">M</span> sonido. En celular: arrastra en una mitad de la pantalla para moverte y usa el botón rosa para el arma. Si eres <b>zurdo</b>, toca <b>✋</b> arriba y todos los controles se voltean.</p>
     </div>
   </div>
@@ -575,6 +602,10 @@ const el = {
   rack:   document.getElementById("rack"),
   armMon: document.getElementById("armMoney"),
   wIcon:  document.getElementById("wIcon"),
+  j2:      document.getElementById("hudJ2"),
+  j2money: document.getElementById("uiJ2Money"),
+  j2rate:  document.getElementById("uiJ2Rate"),
+  j2bar:   document.getElementById("uiJ2Bar"),
   wSvg:   document.getElementById("wSvg"),
 };
 
@@ -601,12 +632,36 @@ function makeBase(id, name, x, y, isPlayer, color, who){
   return { id, name, rect, peds, isPlayer, color, who:who||null, refill: rnd(3,7), guard:null };
 }
 
-function newGame(){
+/* Teclas de cada jugador. Con un jugador, WASD y flechas hacen lo mismo. */
+const TECLAS_1P = { up:["w","arrowup"], down:["s","arrowdown"], left:["a","arrowleft"], right:["d","arrowright"], fire:[" "] };
+const TECLAS_J1 = { up:["w"], down:["s"], left:["a"], right:["d"], fire:[" "] };
+const TECLAS_J2 = { up:["arrowup"], down:["arrowdown"], left:["arrowleft"], right:["arrowright"], fire:[".",",","enter"] };
+
+function mkJugador(idx, base, teclas, shirt){
+  const ammo = {};
+  for (const w of WEAPONS) ammo[w.id] = 0;
+  return {
+    idx, base, teclas, shirt,
+    x: base.rect.x + base.rect.w/2, y: base.rect.y + base.rect.h/2,
+    vx:0, vy:0, face:1, walk:0, dirx:1, diry:0,
+    carry:null, stun:0, boost:0, invis:0,
+    money:260, ammo, wsel:0, cd:0, inShop:false, fullWarn:0,
+    chancla:{ state:"held", x:0, y:0, vx:0, vy:0, spin:0, travel:0 },
+    grab:{ ped:null, t:0 },
+    aim:{ on:false, wx:0, wy:0 },
+    stats:{ steals:0, hits:0, lost:0, froze:0 }
+  };
+}
+
+function newGame(modo){
+  const mode = modo === 2 ? 2 : 1;
   const bases = [
-    makeBase(0,"Tu patio",         70, 780, true,  "#3DDC97"),
+    makeBase(0, mode === 2 ? "Patio del J1" : "Tu patio", 70, 780, true,  "#3DDC97"),
     makeBase(1,"Casa de Mayo",     70,  90, false, "#FFD84D", "mayo"),
     makeBase(2,"Torre de Vicnix",1350,  90, false, "#37D6E0", "vicnix"),
-    makeBase(3,"Doña Chancla",   1350, 780, false, "#FF9EC4", "sobri"),
+    mode === 2
+      ? makeBase(3,"Patio del J2",1350, 780, true,  "#FFB020")
+      : makeBase(3,"Doña Chancla",1350, 780, false, "#FF9EC4", "sobri"),
   ];
 
   // Florines iniciales de los vecinos
@@ -615,7 +670,7 @@ function newGame(){
     const n = 2 + ((Math.random()*2)|0);
     for (let i=0;i<n;i++) b.peds[i].florin = { tier: (Math.random()*2)|0, bob: rnd(0,6.28) };
   }
-  // Abuelas guardianas
+  // Abuelas guardianas (solo en las bases de los vecinos)
   for (const b of bases){
     if (b.isPlayer) continue;
     b.guard = {
@@ -632,25 +687,30 @@ function newGame(){
 
   const armeria = { x: WORLD_W/2-150, y: 920, w:300, h:130 };
 
-  const ammo = {};
-  for (const w of WEAPONS) ammo[w.id] = 0;
+  const jugadores = [ mkJugador(0, bases[0], mode === 2 ? TECLAS_J1 : TECLAS_1P, "#3DDC97") ];
+  if (mode === 2) jugadores.push( mkJugador(1, bases[3], TECLAS_J2, "#FFB020") );
+  for (const p of jugadores) p.base.owner = p;
 
-  return {
-    t: 0, money: 260, bases, vivero, armeria,
-    player: {
-      x: bases[0].rect.x+bases[0].rect.w/2, y: bases[0].rect.y+bases[0].rect.h/2,
-      vx:0, vy:0, face:1, walk:0, carry:null, stun:0, dirx:1, diry:0,
-      boost:0, invis:0
-    },
-    chancla: { state:"held", x:0, y:0, vx:0, vy:0, spin:0, travel:0 },
-    ammo, wsel: 0, cd: 0, bolts: [], blasts: [],
+  const g = {
+    t: 0, mode, bases, vivero, armeria,
+    players: jugadores,
+    player: jugadores[0],
+    bolts: [], blasts: [],
     thieves: [], ground: [], pops: [], puffs: [],
-    grab: { ped:null, t:0 },
     thiefTimer: 8,
-    stats: { steals:0, hits:0, lost:0, froze:0 },
-    inShop: false,
-    over: false, won: false, paused: false, started: false
+    over: false, winner: null, paused: false, started: false
   };
+
+  /* Compatibilidad: G.money, G.ammo, G.chancla… siguen refiriéndose al jugador 1.
+     Así el código de un jugador y las pruebas no tienen que cambiar. */
+  for (const k of ["money","ammo","wsel","cd","chancla","grab","aim","stats","inShop"]){
+    Object.defineProperty(g, k, {
+      get(){ return g.players[0][k]; },
+      set(v){ g.players[0][k] = v; },
+      configurable: true, enumerable: false
+    });
+  }
+  return g;
 }
 
 /* ============================================================
@@ -661,16 +721,16 @@ window.addEventListener("keydown", e => {
   if (["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"," "].includes(e.key)) e.preventDefault();
   const k = e.key.toLowerCase();
   keys.add(k);
-  if (k === " ") useWeapon();
+  if (k === " ") useWeapon(G.players[0]);
+  if (G.mode === 2 && G.players[1] && G.players[1].teclas.fire.includes(k)) useWeapon(G.players[1]);
   if (k === "p") togglePause();
   if (k === "m") toggleSound();
   if (k === "n") abrirBautizo();
   if (k >= "1" && k <= "6") selectWeapon(+k - 1);
   if (k === "q") selectWeapon((G.wsel + WEAPONS.length - 1) % WEAPONS.length);
   if (k === "e") selectWeapon((G.wsel + 1) % WEAPONS.length);
-  if (k === "enter"){
-    if (!G.started) startGame();
-    else if (G.over) startGame();
+  if (k === "enter" && G.mode !== 2){
+    if (!G.started || G.over) startGame(1);
   }
 });
 window.addEventListener("keyup", e => keys.delete(e.key.toLowerCase()));
@@ -694,14 +754,14 @@ function toggleZurdo(){
 /* ---- puntería: a dónde mandar la chancla ----
    Con ratón, el arma va hacia el cursor. En táctil, arrastras desde el botón rosa
    y sale en esa dirección. Sin apuntar, sale hacia donde caminas (como antes). */
-const aim = { on:false, wx:0, wy:0 };
 function pantallaAMundo(px, py){ return { x: cam.x + px/ZOOM, y: cam.y + py/ZOOM }; }
-function apuntarAPantalla(px, py){
-  const w = pantallaAMundo(px, py);
-  aim.wx = w.x; aim.wy = w.y; aim.on = true;
+function apuntarAPantalla(px, py){          // el ratón y el arrastre apuntan al jugador 1
+  const w = pantallaAMundo(px, py), a = G.player.aim;
+  a.wx = w.x; a.wy = w.y; a.on = true;
 }
-function rumboDeTiro(){
-  const p = G.player;
+function rumboDeTiro(p){
+  p = p || G.player;
+  const aim = p.aim;
   if (aim.on){
     const dx = aim.wx - p.x, dy = aim.wy - (p.y - 12), m = Math.hypot(dx, dy);
     if (m > 8) return { x: dx/m, y: dy/m };
@@ -768,15 +828,15 @@ el.throwB.addEventListener("pointermove", e => {
   const dx = e.clientX - tiro.ox, dy = e.clientY - tiro.oy, m = Math.hypot(dx, dy);
   if (m < 14) return;                     // margen para que un toque simple no cuente como apuntar
   tiro.apuntando = true;
-  const p = G.player;
-  aim.on = true;
-  aim.wx = p.x + dx/m*300; aim.wy = (p.y - 12) + dy/m*300;
+  const p = G.player, a = p.aim;
+  a.on = true;
+  a.wx = p.x + dx/m*300; a.wy = (p.y - 12) + dy/m*300;
 });
 el.throwB.addEventListener("pointerup", e => {
   if (e.pointerId !== tiro.id) return;
   tiro.id = null;
   useWeapon();
-  if (tiro.apuntando) aim.on = false;     // el apuntado táctil dura un lanzamiento
+  if (tiro.apuntando) G.player.aim.on = false;   // el apuntado táctil dura un lanzamiento
 });
 el.throwB.addEventListener("pointercancel", () => { tiro.id = null; });
 el.throwB.addEventListener("keydown", e => {
@@ -786,8 +846,9 @@ el.pause.addEventListener("click", togglePause);
 el.sound.addEventListener("click", toggleSound);
 el.hand.addEventListener("click", toggleZurdo);
 aplicarZurdo();
-document.getElementById("btnStart").addEventListener("click", startGame);
-document.getElementById("btnAgain").addEventListener("click", startGame);
+document.getElementById("btnStart").addEventListener("click", () => startGame(1));
+document.getElementById("btnStart2").addEventListener("click", () => startGame(2));
+document.getElementById("btnAgain").addEventListener("click", () => startGame());   // repite el modo
 
 const isTouch = matchMedia("(pointer: coarse)").matches;
 if (isTouch){
@@ -810,13 +871,13 @@ const bau = {
 // El pedestal de TU vitrina que tienes al lado (o null)
 function florinAlLado(){
   if (!G || !G.started || G.over) return null;
-  const p = G.player, mia = G.bases[0];
   let cerca = null, d2 = 66*66;
-  for (const ped of mia.peds){
-    if (!ped.florin) continue;
-    const d = dist2(p.x, p.y, ped.x, ped.y);
-    if (d < d2){ d2 = d; cerca = ped; }
-  }
+  for (const p of G.players)
+    for (const ped of p.base.peds){
+      if (!ped.florin) continue;
+      const d = dist2(p.x, p.y, ped.x, ped.y);
+      if (d < d2){ d2 = d; cerca = ped; }
+    }
   return cerca;
 }
 
@@ -887,9 +948,10 @@ function puff(x, y, color, n=8){
 }
 
 /* ---- armas ---------------------------------------------------- */
-function allFoes(){
+function blancosDe(dueno){
   const out = G.thieves.slice();
   for (const b of G.bases) if (b.guard) out.push(b.guard);
+  for (const p of G.players) if (p !== dueno) out.push(p);
   return out;
 }
 
@@ -905,22 +967,24 @@ function zap(e, secs, frozen){
   if (e.carry) dropCarried(e, e.x, e.y+14);
 }
 
-function selectWeapon(i){
+function selectWeapon(i, p){
+  p = p || G.player;
   if (!G || i < 0 || i >= WEAPONS.length) return;
-  G.wsel = i;
+  if (G.mode === 2) return;            // en dos jugadores solo se usa la chancla
+  p.wsel = i;
   renderWbar();
 }
 
-function useWeapon(){
+function useWeapon(p){
+  p = p || G.player;
   if (!G || !G.started || G.over || G.paused) return;
-  const p = G.player;
-  if (p.stun > 0 || G.cd > 0) return;
-  const w = WEAPONS[G.wsel];
-  const r = rumboDeTiro();                // hacia donde apuntas, o hacia donde caminas
+  if (p.stun > 0 || p.cd > 0) return;
+  const w = WEAPONS[p.wsel];
+  const r = rumboDeTiro(p);               // hacia donde apuntas, o hacia donde caminas
   const dx = r.x, dy = r.y;
 
   if (w.id === "chancla"){
-    const c = G.chancla;
+    const c = p.chancla;
     if (c.state !== "held") return;
     c.state = "out"; c.x = p.x; c.y = p.y - 12;
     c.vx = dx*640; c.vy = dy*640;
@@ -929,22 +993,22 @@ function useWeapon(){
     return;
   }
 
-  if (G.ammo[w.id] <= 0){
+  if (p.ammo[w.id] <= 0){
     pop(p.x, p.y-62, "Sin " + w.name.toLowerCase() + " · ve a la Armería", "#FF6B90");
     return;
   }
-  G.ammo[w.id]--;
-  G.cd = w.cd;
+  p.ammo[w.id]--;
+  p.cd = w.cd;
 
   if (w.id === "hielo"){
-    G.bolts.push({ x:p.x+dx*16, y:p.y-12+dy*16, vx:dx*820, vy:dy*820, life:1.1 });
+    G.bolts.push({ x:p.x+dx*16, y:p.y-12+dy*16, vx:dx*820, vy:dy*820, life:1.1, owner:p });
     Snd.throw_();
   }
 
   if (w.id === "secadora"){
     G.blasts.push({ x:p.x, y:p.y-10, ang:Math.atan2(dy,dx), life:.4, kind:"cone" });
     let n = 0;
-    for (const e of allFoes()){
+    for (const e of blancosDe(p)){
       const ex = e.x-p.x, ey = (e.y-14)-(p.y-10);
       const d = Math.hypot(ex,ey);
       if (d > 260) continue;
@@ -955,7 +1019,7 @@ function useWeapon(){
       zap(e, 1.6, false);
       n++;
     }
-    if (n){ G.stats.hits += n; pop(p.x+dx*90, p.y-60, "¡A volar! ×"+n, "#BFE9FF"); }
+    if (n){ p.stats.hits += n; pop(p.x+dx*90, p.y-60, "¡A volar! ×"+n, "#BFE9FF"); }
     puff(p.x+dx*40, p.y-10, "#BFE9FF", 16);
     Snd.throw_();
   }
@@ -963,13 +1027,13 @@ function useWeapon(){
   if (w.id === "taser"){
     G.blasts.push({ x:p.x, y:p.y-10, life:.45, kind:"ring", r:140 });
     let n = 0;
-    for (const e of allFoes()){
+    for (const e of blancosDe(p)){
       if (dist2(e.x, e.y-14, p.x, p.y-10) > 140*140) continue;
       knock(e, e.x-p.x, e.y-p.y, 260);
       zap(e, 5, false);
       n++;
     }
-    if (n){ G.stats.hits += n; pop(p.x, p.y-64, "¡CHICHARRAZO! ×"+n, "#FFE066"); }
+    if (n){ p.stats.hits += n; pop(p.x, p.y-64, "¡CHICHARRAZO! ×"+n, "#FFE066"); }
     puff(p.x, p.y-10, "#FFE066", 20);
     Snd.whack();
   }
@@ -993,16 +1057,17 @@ function useWeapon(){
 
 function buyWeapon(i){
   const w = WEAPONS[i];
-  if (!G || !G.inShop || w.price === 0) return;
-  if (G.money < w.price){
-    pop(G.player.x, G.player.y-62, "Falta " + money(w.price-G.money), "#FF6B90");
+  const p = G.players.find(q => q.inShop);
+  if (!G || !p || w.price === 0) return;
+  if (p.money < w.price){
+    pop(p.x, p.y-62, "Falta " + money(w.price-p.money), "#FF6B90");
     Snd.ouch();
     return;
   }
-  G.money -= w.price;
-  G.ammo[w.id] += w.uses;
-  G.wsel = i;
-  pop(G.player.x, G.player.y-62, w.icon + " +" + w.uses + " usos", w.color);
+  p.money -= w.price;
+  p.ammo[w.id] += w.uses;
+  p.wsel = i;
+  pop(p.x, p.y-62, w.icon + " +" + w.uses + " usos", w.color);
   Snd.buy();
   renderWbar(); renderRack();
 }
@@ -1022,8 +1087,9 @@ function rollShopTier(){                   // el vivero vende barato
 function freePed(base){ return base.peds.find(p => !p.florin) || null; }
 function occupied(base){ return base.peds.filter(p => p.florin); }
 
-function playerIncome(){
-  return occupied(G.bases[0]).reduce((s,p) => s + TIERS[p.florin.tier].income, 0);
+function playerIncome(p){
+  p = p || G.player;
+  return occupied(p.base).reduce((s,q) => s + TIERS[q.florin.tier].income, 0);
 }
 
 function dropCarried(who, x, y){
@@ -1044,15 +1110,19 @@ function applyKnock(e, dt){
 }
 
 function spawnThief(){
-  const pb = G.bases[0];
-  if (!occupied(pb).length) return;
-  const from = pick(G.bases.slice(1));
+  // elige víctima entre los jugadores que tengan algo que robar
+  const victimas = G.players.filter(p => occupied(p.base).length);
+  if (!victimas.length) return;
+  const victim = pick(victimas);
+  const ladronas = G.bases.filter(b => !b.isPlayer && b.who);
+  if (!ladronas.length) return;
+  const from = pick(ladronas);
   const K = LADRONES[from.who];
   const spd = (150 + Math.min(70, G.t*0.28)) * K.spd;
   G.thieves.push({
     x: from.rect.x + from.rect.w/2 + rnd(-90,90),
     y: from.rect.y + from.rect.h/2 + rnd(-70,70),
-    home: from, state:"go", target:null, carry:null,
+    home: from, victim: victim.base, state:"go", target:null, carry:null,
     stun:0, frozen:0, kx:0, ky:0, grabT:0, spd, walk:0, face:1,
     who: from.who, hue: K.shirt
   });
@@ -1062,157 +1132,21 @@ function spawnThief(){
    Update
    ============================================================ */
 function update(dt){
-  const p = G.player;
   G.t += dt;
 
-  /* ---- dinero ---- */
-  const inc = playerIncome();
-  G.money += inc*dt;
+  for (const p of G.players) updateJugador(p, dt);
 
-  /* ---- movimiento del jugador ---- */
-  let ix = 0, iy = 0;
-  if (keys.has("a") || keys.has("arrowleft"))  ix -= 1;
-  if (keys.has("d") || keys.has("arrowright")) ix += 1;
-  if (keys.has("w") || keys.has("arrowup"))    iy -= 1;
-  if (keys.has("s") || keys.has("arrowdown"))  iy += 1;
-  if (joy.on){ ix += joy.dx; iy += joy.dy; }
-  const im = Math.hypot(ix,iy);
-  if (im > 1){ ix/=im; iy/=im; }
-
-  if (p.stun > 0){ p.stun -= dt; ix = iy = 0; }
-  if (p.boost > 0) p.boost -= dt;
-  if (p.invis > 0) p.invis -= dt;
-  if (G.cd > 0) G.cd -= dt;
-
-  const speed = (p.carry ? 196 : 268) * (p.boost > 0 ? 1.75 : 1);
-  p.vx = lerp(p.vx, ix*speed, 1-Math.pow(.0009, dt));
-  p.vy = lerp(p.vy, iy*speed, 1-Math.pow(.0009, dt));
-  p.x = clamp(p.x + p.vx*dt, 22, WORLD_W-22);
-  p.y = clamp(p.y + p.vy*dt, 22, WORLD_H-22);
-  if (Math.abs(ix)+Math.abs(iy) > .1){ p.dirx = ix; p.diry = iy; if (ix) p.face = ix>0?1:-1; }
-  p.walk += Math.hypot(p.vx,p.vy)*dt*0.055;
-
-  /* ---- vivero: refrescar y comprar ---- */
-  for (const s of G.vivero.slots){
-    if (s.tier == null){
-      s.t -= dt;
-      if (s.t <= 0){ s.tier = rollShopTier(); s.pop = .5; }
-      continue;
-    }
-    if (!p.carry && p.stun<=0 && dist2(p.x,p.y,s.x,s.y) < 44*44){
-      const T = TIERS[s.tier];
-      if (G.money >= T.price){
-        G.money -= T.price;
-        p.carry = { tier: s.tier };
-        pop(s.x, s.y-52, "-"+money(T.price), "#FFC53D");
-        puff(s.x, s.y, T.petal, 10);
-        s.tier = null; s.t = 6.5;
-        Snd.buy();
-      } else if (!s.warn || G.t - s.warn > 1.4){
-        s.warn = G.t;
-        pop(s.x, s.y-52, "Falta " + money(T.price - G.money), "#FF6B90");
-      }
-    }
-  }
-
-  /* ---- robar de bases vecinas ---- */
-  if (!p.carry && p.stun<=0){
-    let best = null, bd = 52*52;
-    for (const b of G.bases){
-      if (b.isPlayer) continue;
-      for (const ped of b.peds){
-        if (!ped.florin) continue;
-        const d = dist2(p.x, p.y, ped.x, ped.y);
-        if (d < bd){ bd = d; best = ped; }
-      }
-    }
-    if (best){
-      if (G.grab.ped !== best){ G.grab.ped = best; G.grab.t = 0; }
-      G.grab.t += dt;
-      if (G.grab.t >= .55){
-        p.carry = { tier: best.florin.tier, nombre: best.florin.nombre || null };
-        pop(best.x, best.y-56, best.florin.nombre ? "¡"+best.florin.nombre+" es mío!" : "¡Robado!", "#FF3D6E");
-        puff(best.x, best.y, TIERS[best.florin.tier].petal, 12);
-        best.florin = null; G.grab.ped = null; G.grab.t = 0;
-        G.stats.steals++;
-        Snd.grab();
-      }
-    } else { G.grab.ped = null; G.grab.t = 0; }
-  } else { G.grab.ped = null; G.grab.t = 0; }
-
-  /* ---- florines en el suelo ---- */
-  for (let i=G.ground.length-1;i>=0;i--){
-    const g = G.ground[i];
-    g.bob += dt*3; g.t += dt;
-    if (!p.carry && p.stun<=0 && dist2(p.x,p.y,g.x,g.y) < 40*40){
-      p.carry = { tier: g.tier, nombre: g.nombre || null };
-      pop(g.x, g.y-50, g.nombre ? "¡"+g.nombre+" volvió!" : "¡Recogido!", "#3DDC97");
-      G.ground.splice(i,1);
-      Snd.grab();
-    }
-  }
-
-  /* ---- entregar en tu patio ---- */
-  const pb = G.bases[0];
-  if (p.carry && inRect(p.x, p.y, pb.rect, 8)){
-    const ped = freePed(pb);
-    if (ped){
-      ped.florin = { tier: p.carry.tier, nombre: p.carry.nombre || null, bob: 0 };
-      ped.pop = 1;
-      const T = TIERS[p.carry.tier];
-      pop(ped.x, ped.y-58, "+"+T.income+"/s", "#3DDC97");
-      puff(ped.x, ped.y, T.petal, 14);
-      p.carry = null;
-      Snd.place();
-    } else if (!G.fullWarn || G.t-G.fullWarn > 2.2){
-      G.fullWarn = G.t;
-      pop(p.x, p.y-56, "¡Vitrina llena!", "#FFC53D");
-    }
-  }
-
-  /* ---- chancla ---- */
-  const c = G.chancla;
-  if (c.state !== "held"){
-    c.spin += dt*17;
-    if (c.state === "out"){
-      c.x += c.vx*dt; c.y += c.vy*dt;
-      c.travel += Math.hypot(c.vx,c.vy)*dt;
-      if (c.travel > 420 || c.x<14 || c.x>WORLD_W-14 || c.y<14 || c.y>WORLD_H-14) c.state = "back";
-    } else {
-      const dx = p.x-c.x, dy = (p.y-12)-c.y, m = Math.hypot(dx,dy)||1;
-      c.x += dx/m*760*dt; c.y += dy/m*760*dt;
-      if (m < 26){ c.state = "held"; }
-    }
-    // impactos
-    const hit = (e) => {
-      e.stun = e.isGuard ? 4.4 : 3.6;
-      G.stats.hits++;
-      pop(e.x, e.y-52, "¡CHANCLETAZO!", "#FF3D6E");
-      puff(e.x, e.y-14, "#FFEFE2", 14);
-      Snd.whack();
-      if (e.carry) dropCarried(e, e.x, e.y+14);
-      c.state = "back";
-    };
-    for (const t of G.thieves)
-      if (t.stun<=0 && dist2(c.x,c.y,t.x,t.y-14) < 30*30){ t.isGuard=false; hit(t); break; }
-    if (c.state === "out")
-      for (const b of G.bases){
-        const g = b.guard;
-        if (g && g.stun<=0 && dist2(c.x,c.y,g.x,g.y-14) < 32*32){ g.isGuard=true; hit(g); break; }
-      }
-  } else { c.spin = 0; }
-
-  /* ---- balas de hielo ---- */
+  /* ---- balas de hielo (no le pegan a quien las dispara) ---- */
   for (let i=G.bolts.length-1;i>=0;i--){
     const b = G.bolts[i];
     b.x += b.vx*dt; b.y += b.vy*dt; b.life -= dt;
     let gone = b.life <= 0 || b.x<10 || b.x>WORLD_W-10 || b.y<10 || b.y>WORLD_H-10;
     if (!gone){
-      for (const e of allFoes()){
+      for (const e of blancosDe(b.owner)){
         if (e.stun > 0 && e.frozen > 0) continue;
         if (dist2(b.x, b.y, e.x, e.y-14) < 30*30){
           zap(e, 7, true);
-          G.stats.hits++; G.stats.froze++;
+          if (b.owner){ b.owner.stats.hits++; b.owner.stats.froze++; }
           pop(e.x, e.y-54, "¡Congelado!", "#5CE1EA");
           puff(e.x, e.y-14, "#BFE9FF", 14);
           Snd.whack();
@@ -1229,24 +1163,20 @@ function update(dt){
     if (G.blasts[i].life <= 0) G.blasts.splice(i,1);
   }
 
-  /* ---- armería ---- */
-  const nearShop = inRect(p.x, p.y, G.armeria, 30);
-  if (nearShop !== G.inShop){
-    G.inShop = nearShop;
-    el.arm.hidden = !nearShop;
-  }
-  if (nearShop) renderRack();
-
   /* ---- ladrones ---- */
   G.thiefTimer -= dt;
   if (G.thiefTimer <= 0){
     spawnThief();
-    // El ritmo lo marca TU vitrina, no el reloj: mientras te armas hay tregua, y
-    // cuanto más rica la vitrina, más vecinos vienen. Así el final es intenso
-    // porque ganaste, no porque pasó el tiempo.
-    const mios = occupied(pb);
-    const masCaro = mios.reduce((m,p) => Math.max(m, p.florin.tier), 0);
-    G.thiefTimer = clamp(16 - mios.length*1.7 - masCaro*0.4, 5.5, 16);
+    // El ritmo lo marca la vitrina más rica, no el reloj: mientras te armas hay
+    // tregua, y cuanto más vale lo que guardas, más vecinos vienen. Con dos
+    // jugadores, quien va ganando atrae más presión.
+    let peor = 16;
+    for (const p of G.players){
+      const mios = occupied(p.base);
+      const masCaro = mios.reduce((m,q) => Math.max(m, q.florin.tier), 0);
+      peor = Math.min(peor, 16 - mios.length*1.7 - masCaro*0.4);
+    }
+    G.thiefTimer = clamp(peor, 5.5, 16);
   }
   for (let i=G.thieves.length-1;i>=0;i--){
     const t = G.thieves[i];
@@ -1260,7 +1190,7 @@ function update(dt){
 
     if (t.state === "go"){
       if (!t.target || !t.target.florin){
-        const occ = occupied(pb);
+        const occ = occupied(t.victim);
         if (!occ.length){ t.state = "flee"; }
         else if (LADRONES[t.who].greedy){          // Mayo va por el más caro
           t.target = occ.reduce((a,b) =>
@@ -1292,7 +1222,7 @@ function update(dt){
             t.carry = { tier: t.target.florin.tier, nombre: t.target.florin.nombre || null };
             t.target.florin = null; t.target = null;
             t.state = "back";
-            G.stats.lost++;
+            if (t.victim.owner) t.victim.owner.stats.lost++;
             pop(t.x, t.y+52, "¡" + K.frase + " tu " + robado + "!", K.shirt);
             Snd.lost();
           }
@@ -1316,7 +1246,7 @@ function update(dt){
     }
   }
 
-  /* ---- abuelas ---- */
+  /* ---- abuelas: persiguen al jugador que se les meta al patio ---- */
   for (const b of G.bases){
     const g = b.guard; if (!g) continue;
     applyKnock(g, dt);
@@ -1326,8 +1256,15 @@ function update(dt){
       continue;
     }
     const r = b.rect;
-    const chase = inRect(p.x, p.y, r, 90) && p.stun <= 0 && p.invis <= 0;
-    if (chase){
+    let presa = null, pd = Infinity;
+    for (const p of G.players){
+      if (p.stun > 0 || p.invis > 0) continue;
+      if (!inRect(p.x, p.y, r, 90)) continue;
+      const d = dist2(p.x, p.y, g.x, g.y);
+      if (d < pd){ pd = d; presa = p; }
+    }
+    if (presa){
+      const p = presa;
       g.alert = Math.min(1, g.alert + dt*4);
       const dx = p.x-g.x, dy = p.y-g.y, m = Math.hypot(dx,dy)||1;
       g.x += dx/m*212*dt; g.y += dy/m*212*dt;
@@ -1383,8 +1320,168 @@ function update(dt){
     if (q.life <= 0) G.puffs.splice(i,1);
   }
 
-  /* ---- victoria ---- */
-  if (G.money >= GOAL && !G.over) endGame(true);
+  /* ---- victoria: el primero que llegue a la meta ---- */
+  if (!G.over) for (const p of G.players)
+    if (p.money >= GOAL){ endGame(p); break; }
+}
+
+/* Todo lo que le pasa a UN jugador. Con dos, esto corre dos veces. */
+function updateJugador(p, dt){
+  /* ---- dinero ---- */
+  p.money += playerIncome(p)*dt;
+
+  /* ---- movimiento ---- */
+  let ix = 0, iy = 0;
+  const T = p.teclas;
+  if (T.left.some(k => keys.has(k)))  ix -= 1;
+  if (T.right.some(k => keys.has(k))) ix += 1;
+  if (T.up.some(k => keys.has(k)))    iy -= 1;
+  if (T.down.some(k => keys.has(k)))  iy += 1;
+  if (p.idx === 0 && joy.on){ ix += joy.dx; iy += joy.dy; }   // el joystick es del J1
+  const im = Math.hypot(ix,iy);
+  if (im > 1){ ix/=im; iy/=im; }
+
+  if (p.stun > 0){ p.stun -= dt; ix = iy = 0; }
+  if (p.boost > 0) p.boost -= dt;
+  if (p.invis > 0) p.invis -= dt;
+  if (p.cd > 0) p.cd -= dt;
+
+  const speed = (p.carry ? 196 : 268) * (p.boost > 0 ? 1.75 : 1);
+  p.vx = lerp(p.vx, ix*speed, 1-Math.pow(.0009, dt));
+  p.vy = lerp(p.vy, iy*speed, 1-Math.pow(.0009, dt));
+  p.x = clamp(p.x + p.vx*dt, 22, WORLD_W-22);
+  p.y = clamp(p.y + p.vy*dt, 22, WORLD_H-22);
+  if (Math.abs(ix)+Math.abs(iy) > .1){ p.dirx = ix; p.diry = iy; if (ix) p.face = ix>0?1:-1; }
+  p.walk += Math.hypot(p.vx,p.vy)*dt*0.055;
+
+  /* ---- vivero: comprar ---- */
+  for (const s of G.vivero.slots){
+    if (s.tier == null){
+      if (p.idx === 0){                       // el reloj del vivero lo lleva uno solo
+        s.t -= dt;
+        if (s.t <= 0){ s.tier = rollShopTier(); s.pop = .5; }
+      }
+      continue;
+    }
+    if (!p.carry && p.stun<=0 && dist2(p.x,p.y,s.x,s.y) < 44*44){
+      const TT = TIERS[s.tier];
+      if (p.money >= TT.price){
+        p.money -= TT.price;
+        p.carry = { tier: s.tier };
+        pop(s.x, s.y-52, "-"+money(TT.price), "#FFC53D");
+        puff(s.x, s.y, TT.petal, 10);
+        s.tier = null; s.t = 6.5;
+        Snd.buy();
+      } else if (!s.warn || G.t - s.warn > 1.4){
+        s.warn = G.t;
+        pop(s.x, s.y-52, "Falta " + money(TT.price - p.money), "#FF6B90");
+      }
+    }
+  }
+
+  /* ---- robar: de cualquier vitrina que no sea la tuya (incluida la del rival) ---- */
+  if (!p.carry && p.stun<=0){
+    let best = null, bd = 52*52;
+    for (const b of G.bases){
+      if (b === p.base) continue;
+      for (const ped of b.peds){
+        if (!ped.florin) continue;
+        const d = dist2(p.x, p.y, ped.x, ped.y);
+        if (d < bd){ bd = d; best = ped; }
+      }
+    }
+    if (best){
+      if (p.grab.ped !== best){ p.grab.ped = best; p.grab.t = 0; }
+      p.grab.t += dt;
+      if (p.grab.t >= .55){
+        p.carry = { tier: best.florin.tier, nombre: best.florin.nombre || null };
+        pop(best.x, best.y-56, best.florin.nombre ? "¡"+best.florin.nombre+" es mío!" : "¡Robado!", "#FF3D6E");
+        puff(best.x, best.y, TIERS[best.florin.tier].petal, 12);
+        best.florin = null; p.grab.ped = null; p.grab.t = 0;
+        p.stats.steals++;
+        Snd.grab();
+      }
+    } else { p.grab.ped = null; p.grab.t = 0; }
+  } else { p.grab.ped = null; p.grab.t = 0; }
+
+  /* ---- florines en el suelo ---- */
+  for (let i=G.ground.length-1;i>=0;i--){
+    const g = G.ground[i];
+    if (p.idx === 0){ g.bob += dt*3; g.t += dt; }
+    if (!p.carry && p.stun<=0 && dist2(p.x,p.y,g.x,g.y) < 40*40){
+      p.carry = { tier: g.tier, nombre: g.nombre || null };
+      pop(g.x, g.y-50, g.nombre ? "¡"+g.nombre+" volvió!" : "¡Recogido!", "#3DDC97");
+      G.ground.splice(i,1);
+      Snd.grab();
+    }
+  }
+
+  /* ---- entregar en tu patio ---- */
+  if (p.carry && inRect(p.x, p.y, p.base.rect, 8)){
+    const ped = freePed(p.base);
+    if (ped){
+      ped.florin = { tier: p.carry.tier, nombre: p.carry.nombre || null, bob: 0 };
+      ped.pop = 1;
+      const TT = TIERS[p.carry.tier];
+      pop(ped.x, ped.y-58, "+"+TT.income+"/s", "#3DDC97");
+      puff(ped.x, ped.y, TT.petal, 14);
+      p.carry = null;
+      Snd.place();
+    } else if (!p.fullWarn || G.t-p.fullWarn > 2.2){
+      p.fullWarn = G.t;
+      pop(p.x, p.y-56, "¡Vitrina llena!", "#FFC53D");
+    }
+  }
+
+  /* ---- chancla ---- */
+  const c = p.chancla;
+  if (c.state !== "held"){
+    c.spin += dt*17;
+    if (c.state === "out"){
+      c.x += c.vx*dt; c.y += c.vy*dt;
+      c.travel += Math.hypot(c.vx,c.vy)*dt;
+      if (c.travel > 420 || c.x<14 || c.x>WORLD_W-14 || c.y<14 || c.y>WORLD_H-14) c.state = "back";
+    } else {
+      const dx = p.x-c.x, dy = (p.y-12)-c.y, m = Math.hypot(dx,dy)||1;
+      c.x += dx/m*760*dt; c.y += dy/m*760*dt;
+      if (m < 26){ c.state = "held"; }
+    }
+    const golpear = (e, esJugador) => {
+      e.stun = Math.max(e.stun, esJugador ? 2.2 : (e.isGuard ? 4.4 : 3.6));
+      p.stats.hits++;
+      pop(e.x, e.y-52, "¡CHANCLETAZO!", "#FF3D6E");
+      puff(e.x, e.y-14, "#FFEFE2", 14);
+      Snd.whack();
+      if (e.carry) dropCarried(e, e.x, e.y+14);
+      if (esJugador){                        // al rival lo manda de espaldas
+        const dx = e.x-p.x, dy = e.y-p.y, m = Math.hypot(dx,dy)||1;
+        e.vx = dx/m*300; e.vy = dy/m*300;
+      }
+      c.state = "back";
+    };
+    for (const t of G.thieves)
+      if (t.stun<=0 && dist2(c.x,c.y,t.x,t.y-14) < 30*30){ t.isGuard=false; golpear(t, false); break; }
+    if (c.state === "out")
+      for (const b of G.bases){
+        const g = b.guard;
+        if (g && g.stun<=0 && dist2(c.x,c.y,g.x,g.y-14) < 32*32){ g.isGuard=true; golpear(g, false); break; }
+      }
+    if (c.state === "out")                   // y al otro jugador, que para eso está
+      for (const o of G.players){
+        if (o === p || o.stun > 0) continue;
+        if (dist2(c.x,c.y,o.x,o.y-14) < 30*30){ golpear(o, true); break; }
+      }
+  } else { c.spin = 0; }
+
+  /* ---- armería (solo en un jugador) ---- */
+  if (G.mode === 1){
+    const nearShop = inRect(p.x, p.y, G.armeria, 30);
+    if (nearShop !== p.inShop){
+      p.inShop = nearShop;
+      el.arm.hidden = !nearShop;
+    }
+    if (nearShop) renderRack();
+  }
 }
 
 /* ============================================================
@@ -1697,7 +1794,9 @@ function drawArmeria(){
   ctx.fillText("ARMERÍA DE LA CUADRA", a.x+a.w/2, a.y+26);
   ctx.fillStyle = "rgba(255,239,226,.6)";
   ctx.font = "600 12px system-ui, sans-serif";
-  ctx.fillText(G.inShop ? "elige tu arma abajo ↓" : "entra para comprar armas", a.x+a.w/2, a.y+46);
+  ctx.fillText(G.mode === 2 ? "cerrada en modo dos jugadores"
+               : (G.inShop ? "elige tu arma abajo ↓" : "entra para comprar armas"),
+               a.x+a.w/2, a.y+46);
 
   // mostrador con los gadgets
   ctx.font = "26px system-ui, sans-serif";
@@ -1812,30 +1911,36 @@ function drawChanclaSprite(x, y, spin, scale){
 }
 
 function drawGrabRing(){
-  const g = G.grab;
+  for (const jug of G.players) drawGrabRingDe(jug);
+}
+function drawGrabRingDe(jug){
+  const g = jug.grab;
   if (!g.ped || g.t <= 0) return;
   const p = g.ped, frac = clamp(g.t/.55, 0, 1);
   ctx.save();
   ctx.lineWidth = 5; ctx.lineCap = "round";
   ctx.strokeStyle = "rgba(255,239,226,.25)";
   ctx.beginPath(); ctx.arc(p.x, p.y-16, 30, 0, 6.283); ctx.stroke();
-  ctx.strokeStyle = "#FF3D6E";
+  ctx.strokeStyle = jug.shirt;
   ctx.beginPath(); ctx.arc(p.x, p.y-16, 30, -1.57, -1.57+frac*6.283); ctx.stroke();
   ctx.restore();
 }
 
 /* Guía de puntería: muestra a dónde va el arma seleccionada antes de lanzarla */
 function drawAim(){
+  for (const jug of G.players) drawAimDe(jug);
+}
+function drawAimDe(p){
   if (!G.started || G.over || G.paused) return;
-  const p = G.player, w = WEAPONS[G.wsel];
+  const w = WEAPONS[p.wsel];
   if (w.id === "refresco" || w.id === "capa") return;      // se usan sobre ti, no se apuntan
-  const listo = (w.id === "chancla") ? G.chancla.state === "held" : G.ammo[w.id] > 0;
-  if (!listo || G.cd > 0 || p.stun > 0) return;
+  const listo = (w.id === "chancla") ? p.chancla.state === "held" : p.ammo[w.id] > 0;
+  if (!listo || p.cd > 0 || p.stun > 0) return;
 
-  const d = rumboDeTiro(), ox = p.x, oy = p.y - 12;
+  const d = rumboDeTiro(p), ox = p.x, oy = p.y - 12;
   ctx.save();
   ctx.globalAlpha = .8;
-  ctx.strokeStyle = w.color;
+  ctx.strokeStyle = (G.mode === 2 && w.id === "chancla") ? p.shirt : w.color;
   if (w.id === "taser"){                                   // radio de la descarga
     ctx.lineWidth = 2.5; ctx.setLineDash([9,7]);
     ctx.beginPath(); ctx.arc(ox, oy, 140, 0, 6.283); ctx.stroke();
@@ -1864,10 +1969,18 @@ function draw(){
   ctx.fillStyle = "#1B0C1A";
   ctx.fillRect(0,0,VW,VH);
 
+  // Con dos jugadores el zoom se abre lo necesario para que ambos quepan
+  if (G.mode === 2 && G.players.length > 1){
+    const a = G.players[0], b = G.players[1];
+    const ancho = Math.abs(a.x-b.x) + 420, alto = Math.abs(a.y-b.y) + 380;
+    ZOOM = clamp(Math.min(VW/ancho, VH/alto), .34, 1.05);
+  }
   const visW = VW/ZOOM, visH = VH/ZOOM;
-  const p = G.player;
-  cam.x = visW >= WORLD_W ? (WORLD_W-visW)/2 : clamp(p.x-visW/2, 0, WORLD_W-visW);
-  cam.y = visH >= WORLD_H ? (WORLD_H-visH)/2 : clamp(p.y-visH/2, 0, WORLD_H-visH);
+  const foco = G.mode === 2 && G.players.length > 1
+    ? { x:(G.players[0].x+G.players[1].x)/2, y:(G.players[0].y+G.players[1].y)/2 }
+    : G.player;
+  cam.x = visW >= WORLD_W ? (WORLD_W-visW)/2 : clamp(foco.x-visW/2, 0, WORLD_W-visW);
+  cam.y = visH >= WORLD_H ? (WORLD_H-visH)/2 : clamp(foco.y-visH/2, 0, WORLD_H-visH);
 
   ctx.setTransform(DPR*ZOOM, 0, 0, DPR*ZOOM, -cam.x*DPR*ZOOM, -cam.y*DPR*ZOOM);
 
@@ -1928,7 +2041,10 @@ function draw(){
     }
   }
 
-  // jugador
+  // jugadores
+  for (const p of G.players) drawJugador(p);
+
+  function drawJugador(p){
   if (p.boost > 0 && !REDUCED){                 // estela del refresco
     ctx.strokeStyle = "rgba(255,158,196,.5)"; ctx.lineWidth = 4; ctx.lineCap = "round";
     for (let i=1;i<=3;i++){
@@ -1941,13 +2057,22 @@ function draw(){
     ctx.globalAlpha = 1;
   }
   drawPerson(p.x, p.y, p.face, p.walk, {
-    skin:"#F0C08A", shirt:"#3DDC97", hair:"#3A1B33", stun:p.stun, carry:p.carry,
+    skin:"#F0C08A", shirt:p.shirt, hair:"#3A1B33", stun:p.stun, carry:p.carry,
     alpha: p.invis > 0 ? (p.invis < 2 ? .3 + Math.sin(G.t*14)*.15 : .34) : 1
   });
-  if (G.chancla.state === "held")
+  if (G.mode === 2){                            // etiqueta J1 / J2
+    ctx.font = "800 12px system-ui, sans-serif";
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.lineWidth = 3.5; ctx.strokeStyle = "rgba(15,7,14,.85)";
+    ctx.strokeText("J"+(p.idx+1), p.x, p.y+36);
+    ctx.fillStyle = p.shirt;
+    ctx.fillText("J"+(p.idx+1), p.x, p.y+36);
+  }
+  if (p.chancla.state === "held")
     drawChanclaSprite(p.x + 16*p.face, p.y - 4, (p.face>0?.6:-.6), .85);
   else
-    drawChanclaSprite(G.chancla.x, G.chancla.y, G.chancla.spin, 1);
+    drawChanclaSprite(p.chancla.x, p.chancla.y, p.chancla.spin, 1);
+  }
 
   // balas de hielo
   for (const b of G.bolts){
@@ -2031,9 +2156,11 @@ function drawMinimap(){
     mctx.fillStyle = "#C58BD6";
     mctx.beginPath(); mctx.arc(b.guard.x*sx, b.guard.y*sy, 4, 0, 6.283); mctx.fill();
   }
-  mctx.fillStyle = "#3DDC97";
-  mctx.beginPath(); mctx.arc(G.player.x*sx, G.player.y*sy, 6, 0, 6.283); mctx.fill();
-  mctx.strokeStyle = "#0F070E"; mctx.lineWidth = 2; mctx.stroke();
+  for (const jug of G.players){
+    mctx.fillStyle = jug.shirt;
+    mctx.beginPath(); mctx.arc(jug.x*sx, jug.y*sy, 6, 0, 6.283); mctx.fill();
+    mctx.strokeStyle = "#0F070E"; mctx.lineWidth = 2; mctx.stroke();
+  }
 }
 
 /* ============================================================
@@ -2094,6 +2221,26 @@ function renderRack(){
    ============================================================ */
 let lastTip = "";
 function hud(){
+  if (G.mode === 2){
+    const a = G.players[0], b = G.players[1];
+    el.j2.hidden = false;
+    el.money.textContent = money(a.money);
+    el.rate.textContent  = money(playerIncome(a)) + "/s";
+    el.j2money.textContent = money(b.money);
+    el.j2rate.textContent  = money(playerIncome(b)) + "/s";
+    el.bar.style.width   = clamp(a.money/GOAL*100, 0, 100).toFixed(1) + "%";
+    el.j2bar.style.width = clamp(b.money/GOAL*100, 0, 100).toFixed(1) + "%";
+    el.goal.textContent  = "meta " + money(GOAL);
+    el.lost.textContent  = a.stats.lost + " / " + b.stats.lost;
+    const va = a.money >= b.money ? a : b;
+    el.tip.innerHTML = va.money === b.money && a.money === b.money
+      ? "¡Empatados! El primero en llegar a " + money(GOAL) + " gana."
+      : "Va ganando <b style='color:" + va.shirt + "'>J" + (va.idx+1) + "</b> · " +
+        "róbate su vitrina o dale un <b>chancletazo</b> para que suelte lo que carga.";
+    bau.boton.hidden = !(isTouch && florinAlLado() && bau.caja.hidden);
+    return;
+  }
+  el.j2.hidden = true;
   const inc = playerIncome();
   el.money.textContent = money(G.money);
   el.rate.textContent = money(inc) + "/s";
@@ -2138,9 +2285,11 @@ function hud(){
 /* ============================================================
    Flujo del juego
    ============================================================ */
-function startGame(){
-  G = newGame();
+function startGame(modo){
+  const m = modo === 2 ? 2 : (modo === 1 ? 1 : (G && G.mode) || 1);
+  G = newGame(m);
   G.started = true;
+  document.getElementById("app").classList.toggle("dos", m === 2);
   el.title.hidden = true;
   el.end.hidden = true;
   el.arm.hidden = true;
@@ -2150,8 +2299,25 @@ function startGame(){
   Snd.unlock();
 }
 
-function endGame(won){
-  G.over = true; G.won = won;
+function endGame(ganador){
+  G.over = true; G.winner = ganador || null;
+  const won = !!ganador;
+  if (G.mode === 2 && ganador){
+    const perdedor = G.players.find(p => p !== ganador);
+    document.getElementById("endEyebrow").textContent = "Duelo terminado";
+    document.getElementById("endTitle").innerHTML =
+      "¡Gana <em>J" + (ganador.idx+1) + "</em>!";
+    document.getElementById("endSub").textContent =
+      "J" + (ganador.idx+1) + " llegó a " + money(GOAL) + " mientras J" + (perdedor.idx+1) +
+      " se quedó en " + money(perdedor.money) + ". Las abuelas del barrio no quieren volver a ver a ninguno de los dos.";
+    document.getElementById("stSteals").textContent = ganador.stats.steals + " / " + perdedor.stats.steals;
+    document.getElementById("stHits").textContent   = ganador.stats.hits + " / " + perdedor.stats.hits;
+    document.getElementById("stTime").textContent   = mmss(G.t);
+    document.getElementById("stRate").textContent   = money(playerIncome(ganador)) + "/s";
+    el.end.hidden = false;
+    Snd.win();
+    return;
+  }
   document.getElementById("endEyebrow").textContent = won ? "Meta cumplida" : "Fin del patio";
   document.getElementById("endTitle").innerHTML = won ? "¡Patio <em>lleno</em>!" : "Te dejaron <em>pelado</em>";
   document.getElementById("endSub").textContent = won

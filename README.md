@@ -35,6 +35,23 @@ El arma no sale solo hacia donde caminas: puedes elegir la dirección.
 - **En táctil:** mantén el botón rosa y **arrastra** en la dirección que quieras; suelta para lanzar. Un toque simple (sin arrastrar) lanza hacia donde caminas, como antes.
 - La guía se adapta al arma: línea y mirilla para la chancla y la congeladora, el cono para la secadora, y el radio de la descarga para la chicharra.
 
+### Ponerle nombre a tus Florines
+
+Acércate a un Florín de tu vitrina y pulsa `N` (o el botón verde ✏️ en táctil) para bautizarlo. El nombre aparece en una etiqueta sobre el bloque, y **viaja con él**: si te lo roban verás *"¡Mayo se llevó a Pepito!"*, llega con su nombre a la vitrina del ladrón, y lo conserva cuando se lo quitas de vuelta. El juego se pausa mientras escribes.
+
+### Dos jugadores en la misma pantalla
+
+Desde la portada, botón **2 jugadores**. Cada uno tiene su patio: J1 abajo a la izquierda (verde), J2 abajo a la derecha (naranja).
+
+| | Jugador 1 | Jugador 2 |
+|---|---|---|
+| Moverse | `WASD` | flechas |
+| Chancla | `espacio` | `.` (punto) |
+
+Los dos compran en el Vivero con su propio dinero, roban en las casas de Mayo y Vicnix **y también se roban entre ellos**. Un chancletazo al rival lo deja mareado y le hace soltar el Florín que llevaba. Gana el primero que llegue a $20 000.
+
+La cámara se abre sola para que los dos quepan en pantalla. En este modo solo se usa la chancla: la armería queda cerrada para que la pelea sea pareja.
+
 ### Modo zurdo
 
 El botón **✋** de la barra superior voltea todos los controles: el botón de arma pasa a la izquierda, y las armas, el minimapa y el joystick al lado contrario. Queda guardado para la próxima vez que entres.
