@@ -119,6 +119,46 @@
   #throwBtn.cool{filter:grayscale(.7) brightness(.7)}
   #throwBtn svg{width:58px;height:58px;transform:rotate(-18deg)}
 
+  /* ---------- bautizo de Florines ---------- */
+  #nameBtn{
+    position:absolute;right:24px;bottom:140px;width:62px;height:62px;border-radius:50%;
+    background:radial-gradient(circle at 35% 30%,#7FE3B0,var(--leaf) 60%,#1E9A66);
+    border:4px solid #10603E;box-shadow:0 6px 0 #0B4630;
+    pointer-events:auto;cursor:pointer;font-size:26px;display:grid;place-items:center;
+  }
+  #nameBtn[hidden]{display:none}
+  #nameBtn:active{transform:translateY(3px);box-shadow:0 3px 0 #0B4630}
+  #app.zurdo #nameBtn{left:24px;right:auto}
+
+  #bautizo{
+    position:absolute;inset:0;z-index:30;display:grid;place-items:center;padding:18px;
+    background:rgba(15,7,14,.82);
+  }
+  #bautizo[hidden]{display:none}
+  .bautizoCaja{
+    width:min(400px,100%);background:linear-gradient(180deg,var(--plum-800),var(--plum-900));
+    border:3px solid var(--leaf);border-radius:18px;padding:18px;
+    box-shadow:0 14px 0 rgba(0,0,0,.4);
+  }
+  .bautizoCaja h3{
+    font-family:var(--display);font-size:22px;text-transform:uppercase;letter-spacing:.02em;
+    margin:0 0 4px;color:var(--cream);
+  }
+  .bautizoSub{margin:0 0 14px;font-size:12.5px;color:var(--leaf);font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+  #bautizoInput{
+    width:100%;padding:13px 14px;border-radius:12px;font-size:17px;font-family:var(--ui);
+    background:var(--plum-700);border:2px solid var(--plum-600);color:var(--cream);
+  }
+  #bautizoInput:focus{outline:none;border-color:var(--leaf)}
+  #bautizoInput::placeholder{color:#8C7080}
+  .bautizoBtns{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+  .bautizoBtn{
+    flex:1 1 auto;padding:12px 10px;border-radius:12px;cursor:pointer;border:2px solid var(--plum-600);
+    background:var(--plum-700);color:var(--cream);font-family:var(--ui);font-weight:800;font-size:13px;
+  }
+  .bautizoBtn.ok{background:linear-gradient(180deg,#7FE3B0,var(--leaf));color:#0B3A26;border-color:#10603E;flex:2 1 auto}
+  .bautizoBtn:focus-visible{outline:3px solid var(--cosmo);outline-offset:2px}
+
   /* ---------- pantallas ---------- */
   .screen{
     position:absolute;inset:0;display:grid;place-items:center;padding:18px;
@@ -302,9 +342,25 @@
     </div>
   </div>
 
+  <!-- Bautizar un Florín de tu vitrina -->
+  <div id="bautizo" hidden>
+    <div class="bautizoCaja">
+      <h3 id="bautizoTitulo">Bautiza tu Florín</h3>
+      <p class="bautizoSub" id="bautizoQue">Florín Común</p>
+      <input id="bautizoInput" type="text" maxlength="14" placeholder="Pepito, El Jefe, Chanclitas…"
+             autocomplete="off" spellcheck="false" aria-label="Nombre del Florín">
+      <div class="bautizoBtns">
+        <button class="bautizoBtn ok" id="bautizoOk">Ponerle nombre</button>
+        <button class="bautizoBtn" id="bautizoQuitar">Quitar</button>
+        <button class="bautizoBtn" id="bautizoCancelar">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
   <div id="touch">
     <div id="joyring"></div>
     <div id="joynub"></div>
+    <button id="nameBtn" hidden aria-label="Ponerle nombre a este Florín">✏️</button>
     <button id="throwBtn" aria-label="Usar arma">
       <span class="wicon" id="wIcon" hidden></span>
       <svg viewBox="0 0 100 100" aria-hidden="true" id="wSvg">
@@ -608,6 +664,7 @@ window.addEventListener("keydown", e => {
   if (k === " ") useWeapon();
   if (k === "p") togglePause();
   if (k === "m") toggleSound();
+  if (k === "n") abrirBautizo();
   if (k >= "1" && k <= "6") selectWeapon(+k - 1);
   if (k === "q") selectWeapon((G.wsel + WEAPONS.length - 1) % WEAPONS.length);
   if (k === "e") selectWeapon((G.wsel + 1) % WEAPONS.length);
@@ -737,6 +794,75 @@ if (isTouch){
   el.touch.classList.add("on");
   document.getElementById("app").classList.add("touch");
 }
+
+/* ============================================================
+   Bautizar Florines: acércate a uno de tu vitrina y ponle nombre
+   ============================================================ */
+const bau = {
+  caja:   document.getElementById("bautizo"),
+  input:  document.getElementById("bautizoInput"),
+  que:    document.getElementById("bautizoQue"),
+  titulo: document.getElementById("bautizoTitulo"),
+  boton:  document.getElementById("nameBtn"),
+  ped: null
+};
+
+// El pedestal de TU vitrina que tienes al lado (o null)
+function florinAlLado(){
+  if (!G || !G.started || G.over) return null;
+  const p = G.player, mia = G.bases[0];
+  let cerca = null, d2 = 66*66;
+  for (const ped of mia.peds){
+    if (!ped.florin) continue;
+    const d = dist2(p.x, p.y, ped.x, ped.y);
+    if (d < d2){ d2 = d; cerca = ped; }
+  }
+  return cerca;
+}
+
+function abrirBautizo(){
+  const ped = florinAlLado();
+  if (!ped) return;
+  bau.ped = ped;
+  const T = TIERS[ped.florin.tier];
+  bau.titulo.textContent = ped.florin.nombre ? "Cámbiale el nombre" : "Bautiza tu Florín";
+  bau.que.textContent = T.name + " · " + T.income + "/s";
+  bau.input.value = ped.florin.nombre || "";
+  bau.caja.hidden = false;
+  if (!G.paused) togglePause();          // que no te roben mientras escribes
+  setTimeout(() => { bau.input.focus(); bau.input.select(); }, 30);
+}
+
+function cerrarBautizo(){
+  bau.caja.hidden = true;
+  bau.ped = null;
+  if (G.paused) togglePause();
+}
+
+function guardarNombre(){
+  if (!bau.ped || !bau.ped.florin){ cerrarBautizo(); return; }
+  const n = bau.input.value.trim().slice(0, 14);
+  bau.ped.florin.nombre = n || null;
+  if (n){
+    pop(bau.ped.x, bau.ped.y - 78, "¡Se llama " + n + "!", "#3DDC97");
+    puff(bau.ped.x, bau.ped.y - 20, TIERS[bau.ped.florin.tier].petal, 10);
+    Snd.place();
+  }
+  cerrarBautizo();
+}
+
+document.getElementById("bautizoOk").addEventListener("click", guardarNombre);
+document.getElementById("bautizoCancelar").addEventListener("click", cerrarBautizo);
+document.getElementById("bautizoQuitar").addEventListener("click", () => {
+  if (bau.ped && bau.ped.florin) bau.ped.florin.nombre = null;
+  cerrarBautizo();
+});
+bau.input.addEventListener("keydown", e => {
+  e.stopPropagation();                    // que WASD no mueva al jugador mientras escribes
+  if (e.key === "Enter") guardarNombre();
+  if (e.key === "Escape") cerrarBautizo();
+});
+bau.boton.addEventListener("click", e => { e.preventDefault(); abrirBautizo(); });
 
 function togglePause(){
   if (!G.started || G.over) return;
@@ -902,7 +1028,8 @@ function playerIncome(){
 
 function dropCarried(who, x, y){
   if (!who.carry) return;
-  G.ground.push({ tier: who.carry.tier, x, y, bob: rnd(0,6.28), t:0 });
+  G.ground.push({ tier: who.carry.tier, nombre: who.carry.nombre || null,
+                  x, y, bob: rnd(0,6.28), t:0 });
   who.carry = null;
 }
 
@@ -1003,8 +1130,8 @@ function update(dt){
       if (G.grab.ped !== best){ G.grab.ped = best; G.grab.t = 0; }
       G.grab.t += dt;
       if (G.grab.t >= .55){
-        p.carry = { tier: best.florin.tier };
-        pop(best.x, best.y-56, "¡Robado!", "#FF3D6E");
+        p.carry = { tier: best.florin.tier, nombre: best.florin.nombre || null };
+        pop(best.x, best.y-56, best.florin.nombre ? "¡"+best.florin.nombre+" es mío!" : "¡Robado!", "#FF3D6E");
         puff(best.x, best.y, TIERS[best.florin.tier].petal, 12);
         best.florin = null; G.grab.ped = null; G.grab.t = 0;
         G.stats.steals++;
@@ -1018,8 +1145,8 @@ function update(dt){
     const g = G.ground[i];
     g.bob += dt*3; g.t += dt;
     if (!p.carry && p.stun<=0 && dist2(p.x,p.y,g.x,g.y) < 40*40){
-      p.carry = { tier: g.tier };
-      pop(g.x, g.y-50, "¡Recogido!", "#3DDC97");
+      p.carry = { tier: g.tier, nombre: g.nombre || null };
+      pop(g.x, g.y-50, g.nombre ? "¡"+g.nombre+" volvió!" : "¡Recogido!", "#3DDC97");
       G.ground.splice(i,1);
       Snd.grab();
     }
@@ -1030,7 +1157,7 @@ function update(dt){
   if (p.carry && inRect(p.x, p.y, pb.rect, 8)){
     const ped = freePed(pb);
     if (ped){
-      ped.florin = { tier: p.carry.tier, bob: 0 };
+      ped.florin = { tier: p.carry.tier, nombre: p.carry.nombre || null, bob: 0 };
       ped.pop = 1;
       const T = TIERS[p.carry.tier];
       pop(ped.x, ped.y-58, "+"+T.income+"/s", "#3DDC97");
@@ -1160,8 +1287,9 @@ function update(dt){
           t.grabT += dt;
           if (t.grabT >= .85){
             const K = LADRONES[t.who];
-            const robado = TIERS[t.target.florin.tier].name;
-            t.carry = { tier: t.target.florin.tier };
+            // si lo bautizaste, dolerá más leerlo con su nombre
+            const robado = t.target.florin.nombre || TIERS[t.target.florin.tier].name;
+            t.carry = { tier: t.target.florin.tier, nombre: t.target.florin.nombre || null };
             t.target.florin = null; t.target = null;
             t.state = "back";
             G.stats.lost++;
@@ -1178,8 +1306,9 @@ function update(dt){
         if (Math.hypot(hx - t.x, hy - t.y) < 40){
           if (t.carry){
             const ped = freePed(t.home);
-            if (ped) ped.florin = { tier: t.carry.tier, bob:0 };
-            else G.ground.push({ tier:t.carry.tier, x:t.x+rnd(-20,20), y:t.y+30, bob:0, t:0 });
+            if (ped) ped.florin = { tier: t.carry.tier, nombre: t.carry.nombre || null, bob:0 };
+            else G.ground.push({ tier:t.carry.tier, nombre: t.carry.nombre || null,
+                                 x:t.x+rnd(-20,20), y:t.y+30, bob:0, t:0 });
           }
           G.thieves.splice(i,1);
         }
@@ -1331,6 +1460,18 @@ function drawBase(b){
       const bob = Math.sin(ped.florin.bob)*4;
       const s = 1 + Math.max(0, ped.pop)*.35;
       drawFlorin(ped.x, ped.y-16+bob, s, ped.florin.tier, ped.florin.bob);
+      if (ped.florin.nombre){                        // el nombre que le pusiste
+        ctx.font = "800 13px system-ui, sans-serif";
+        ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        const w = ctx.measureText(ped.florin.nombre).width + 16;
+        const ny = ped.y - 76 + bob;
+        ctx.fillStyle = "rgba(27,12,26,.82)";
+        roundRect(ped.x - w/2, ny - 10, w, 20, 7); ctx.fill();
+        ctx.strokeStyle = b.color; ctx.lineWidth = 2;
+        roundRect(ped.x - w/2, ny - 10, w, 20, 7); ctx.stroke();
+        ctx.fillStyle = "#FFEFE2";
+        ctx.fillText(ped.florin.nombre, ped.x, ny);
+      }
     }
   }
   ctx.restore();
@@ -1960,6 +2101,9 @@ function hud(){
   el.bar.style.width = clamp(G.money/GOAL*100, 0, 100).toFixed(1) + "%";
   el.lost.textContent = G.stats.lost;
 
+  const alLado = florinAlLado();
+  bau.boton.hidden = !(isTouch && alLado && bau.caja.hidden);
+
   const w = WEAPONS[G.wsel];
   const notReady = G.cd > 0 ||
     (w.id === "chancla" ? G.chancla.state !== "held" : G.ammo[w.id] <= 0);
@@ -1970,6 +2114,10 @@ function hud(){
   const useKey = isTouch ? "el botón rosa" : "<span class='k'>espacio</span>";
   if (p.carry) tip = "Llevas un <b>" + TIERS[p.carry.tier].name + "</b> · corre a <b>tu patio</b> para que empiece a pagar.";
   else if (G.paused) tip = "<b>Pausa.</b> Toca ▶ para seguir.";
+  else if (alLado && !alLado.florin.nombre)
+    tip = "Puedes <b>bautizar</b> este Florín: " + (isTouch ? "toca el botón verde ✏️" : "tecla <span class='k'>N</span>") + ".";
+  else if (alLado)
+    tip = "Se llama <b>" + alLado.florin.nombre + "</b> · " + (isTouch ? "toca ✏️" : "<span class='k'>N</span>") + " para cambiarle el nombre.";
   else if (G.inShop) tip = "Estás en la <b>Armería</b>: compra gadgets y cámbialos con " + (isTouch ? "los chips de abajo" : "<span class='k'>1</span>–<span class='k'>6</span>") + ".";
   else if (p.invis > 0) tip = "Eres <b>invisible</b>: las abuelas no te ven. Aprovecha.";
   else if (p.boost > 0) tip = "<b>Turbo activo</b>: agarra los florines más caros.";
