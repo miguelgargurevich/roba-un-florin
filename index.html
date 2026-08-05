@@ -1,0 +1,1917 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Roba un Florín — Chancla Edition</title>
+
+<style>
+  :root{
+    --plum-900:#1B0C1A;
+    --plum-800:#2A1226;
+    --plum-700:#3A1B33;
+    --plum-600:#54294A;
+    --terra:#C4693F;
+    --terra-dark:#A2532F;
+    --chancla:#FF3D6E;
+    --gold:#FFC53D;
+    --leaf:#3DDC97;
+    --cosmo:#37D6E0;
+    --cream:#FFEFE2;
+    --cream-dim:#D8BCB0;
+
+    --display:"Arial Black","Haettenschweiler",Impact,"Franklin Gothic Bold",sans-serif;
+    --ui:"Avenir Next","Trebuchet MS","Segoe UI",system-ui,sans-serif;
+    --num:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  }
+
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;
+    background:var(--plum-900);
+    color:var(--cream);
+    font-family:var(--ui);
+    overflow:hidden;
+    -webkit-user-select:none;user-select:none;
+    -webkit-tap-highlight-color:transparent;
+  }
+
+  #app{position:fixed;inset:0;overflow:hidden}
+  #game{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+
+  /* ---------- HUD ---------- */
+  .hud{position:absolute;inset:0;pointer-events:none;padding:10px;display:flex;flex-direction:column;gap:8px}
+
+  .topbar{
+    display:flex;gap:8px;align-items:stretch;flex-wrap:wrap;
+  }
+  .card{
+    background:color-mix(in srgb, var(--plum-800) 88%, transparent);
+    border:2px solid var(--plum-600);
+    border-radius:14px;
+    padding:7px 12px;
+    box-shadow:0 6px 0 rgba(0,0,0,.35);
+    backdrop-filter:blur(3px);
+  }
+  .label{
+    font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--cream-dim);font-weight:700;line-height:1;margin-bottom:3px;
+  }
+  .val{font-family:var(--num);font-variant-numeric:tabular-nums;font-weight:700;line-height:1;font-size:19px}
+  .money .val{color:var(--gold);font-size:23px}
+  .rate .val{color:var(--leaf)}
+  .stolen .val{color:var(--chancla)}
+
+  .goal{flex:1 1 190px;min-width:170px;display:flex;flex-direction:column;justify-content:center}
+  .goalrow{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+  .goalrow .val{font-size:14px}
+  .bar{height:9px;border-radius:99px;background:var(--plum-700);margin-top:6px;overflow:hidden;border:1px solid rgba(255,255,255,.09)}
+  .bar>i{display:block;height:100%;width:0%;border-radius:99px;background:linear-gradient(90deg,var(--leaf),var(--gold));transition:width .25s linear}
+
+  .spacer{flex:1}
+
+  .btns{display:flex;gap:6px;pointer-events:auto}
+  .iconbtn{
+    width:40px;height:40px;border-radius:12px;
+    background:var(--plum-800);border:2px solid var(--plum-600);color:var(--cream);
+    font-size:17px;cursor:pointer;box-shadow:0 5px 0 rgba(0,0,0,.35);
+    display:grid;place-items:center;font-family:var(--ui);
+  }
+  .iconbtn:active{transform:translateY(3px);box-shadow:0 2px 0 rgba(0,0,0,.35)}
+  .iconbtn:focus-visible{outline:3px solid var(--cosmo);outline-offset:2px}
+
+  .vgap{flex:1 1 auto;min-height:0}
+  .bottom{display:flex;align-items:flex-end;gap:10px}
+
+  #minimap{
+    width:150px;height:100px;border-radius:12px;display:block;
+    background:color-mix(in srgb, var(--plum-800) 90%, transparent);
+    border:2px solid var(--plum-600);box-shadow:0 6px 0 rgba(0,0,0,.35);
+  }
+
+  .tip{
+    font-size:12px;color:var(--cream-dim);line-height:1.35;max-width:34ch;
+    background:color-mix(in srgb, var(--plum-800) 82%, transparent);
+    border-radius:12px;padding:7px 11px;border:2px solid var(--plum-600);
+  }
+  .tip b{color:var(--cream)}
+  .k{font-family:var(--num);font-size:11px;background:var(--plum-700);border-radius:5px;padding:1px 5px;border:1px solid var(--plum-600)}
+
+  /* ---------- controles táctiles ---------- */
+  #touch{position:absolute;inset:0;pointer-events:none;display:none}
+  #touch.on{display:block}
+  #joyring{
+    position:absolute;width:132px;height:132px;border-radius:50%;
+    border:3px dashed rgba(255,239,226,.28);background:rgba(42,18,38,.42);
+    transform:translate(-50%,-50%);opacity:0;transition:opacity .12s
+  }
+  #joynub{
+    position:absolute;width:56px;height:56px;border-radius:50%;
+    background:var(--cream);border:3px solid var(--plum-800);
+    transform:translate(-50%,-50%);opacity:0;transition:opacity .12s
+  }
+  #joyring.on,#joynub.on{opacity:1}
+  #throwBtn{
+    position:absolute;right:20px;bottom:24px;width:104px;height:104px;border-radius:50%;
+    background:radial-gradient(circle at 35% 30%,#FF6B90,var(--chancla) 60%,#C4194A);
+    border:4px solid #7A0F2E;box-shadow:0 8px 0 #5A0A21;
+    pointer-events:auto;display:grid;place-items:center;cursor:pointer;
+  }
+  #throwBtn:active{transform:translateY(4px);box-shadow:0 4px 0 #5A0A21}
+  #throwBtn.cool{filter:grayscale(.7) brightness(.7)}
+  #throwBtn svg{width:58px;height:58px;transform:rotate(-18deg)}
+
+  /* ---------- pantallas ---------- */
+  .screen{
+    position:absolute;inset:0;display:grid;place-items:center;padding:18px;
+    background:radial-gradient(ellipse at 50% 30%, rgba(84,41,74,.75), rgba(15,7,14,.94));
+    z-index:20;overflow:auto;
+  }
+  .screen[hidden]{display:none}
+  .panel{
+    width:min(560px,100%);
+    background:linear-gradient(180deg,var(--plum-800),var(--plum-900));
+    border:3px solid var(--plum-600);border-radius:22px;
+    padding:22px 22px 20px;box-shadow:0 18px 0 rgba(0,0,0,.4);
+    position:relative;
+  }
+  .sticker{
+    position:absolute;right:-14px;top:-30px;width:104px;height:104px;
+    transform:rotate(18deg);filter:drop-shadow(0 8px 0 rgba(0,0,0,.35));
+  }
+  .eyebrow{
+    font-size:10.5px;letter-spacing:.24em;text-transform:uppercase;color:var(--chancla);
+    font-weight:800;margin:0 0 8px
+  }
+  h1{
+    font-family:var(--display);font-size:clamp(34px,8.4vw,58px);line-height:.88;
+    margin:0 0 2px;text-transform:uppercase;letter-spacing:-.02em;text-wrap:balance;
+    color:var(--cream);
+    text-shadow:3px 3px 0 var(--chancla), 6px 6px 0 rgba(0,0,0,.4);
+  }
+  h1 em{font-style:normal;color:var(--gold);text-shadow:3px 3px 0 #8A5A00,6px 6px 0 rgba(0,0,0,.4)}
+  .sub{color:var(--cream-dim);font-size:14px;line-height:1.5;margin:14px 0 16px;max-width:52ch}
+  .rules{list-style:none;padding:0;margin:0 0 18px;display:grid;gap:8px}
+  .rules li{display:flex;gap:10px;align-items:flex-start;font-size:13.5px;line-height:1.4}
+  .rules .pip{
+    flex:0 0 auto;width:22px;height:22px;border-radius:7px;display:grid;place-items:center;
+    background:var(--plum-700);border:1px solid var(--plum-600);font-size:12px
+  }
+  .rules b{color:var(--cream)}
+  .play{
+    width:100%;padding:16px;border:none;border-radius:16px;cursor:pointer;
+    font-family:var(--display);font-size:22px;text-transform:uppercase;letter-spacing:.03em;
+    background:linear-gradient(180deg,#FF6B90,var(--chancla));color:#2A0512;
+    box-shadow:0 8px 0 #8E1338;
+  }
+  .play:active{transform:translateY(4px);box-shadow:0 4px 0 #8E1338}
+  .play:focus-visible{outline:3px solid var(--cosmo);outline-offset:3px}
+  .foot{margin:12px 2px 0;font-size:11.5px;color:#9C8090;line-height:1.5}
+
+  .stats{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:4px 0 18px}
+  .stat{background:var(--plum-700);border:2px solid var(--plum-600);border-radius:12px;padding:9px 12px}
+  .stat .val{font-size:21px}
+
+  /* ---------- barra de armas ---------- */
+  .wbar{
+    display:flex;gap:6px;pointer-events:auto;
+    overflow-x:auto;padding:3px 1px;scrollbar-width:none;
+  }
+  .wbar::-webkit-scrollbar{display:none}
+  .chip{
+    flex:0 0 auto;display:flex;align-items:center;gap:7px;cursor:pointer;
+    background:color-mix(in srgb, var(--plum-800) 90%, transparent);
+    border:2px solid var(--plum-600);border-radius:13px;padding:6px 10px;
+    color:var(--cream);font-family:var(--ui);
+    box-shadow:0 5px 0 rgba(0,0,0,.32);
+  }
+  .chip:active{transform:translateY(3px);box-shadow:0 2px 0 rgba(0,0,0,.32)}
+  .chip:focus-visible{outline:3px solid var(--cosmo);outline-offset:2px}
+  .chip .ic{font-size:19px;line-height:1}
+  .chip .meta{display:flex;flex-direction:column;gap:2px;align-items:flex-start}
+  .chip .nm{font-size:10px;letter-spacing:.06em;text-transform:uppercase;font-weight:800;line-height:1}
+  .chip .n{font-family:var(--num);font-variant-numeric:tabular-nums;font-size:11px;color:var(--gold);line-height:1}
+  .chip .u{font-style:normal}
+  .chip.sel{border-color:var(--chancla);background:color-mix(in srgb,var(--chancla) 22%, var(--plum-800))}
+  .chip.locked{opacity:.42}
+  .chip.locked .n{color:var(--cream-dim)}
+
+  /* en táctil (celular o iPad): chips compactos.
+     La reserva para el botón de chancla solo aplica en pantallas anchas (tablet):
+     en celular el botón queda debajo de la barra, no a su lado. */
+  @media (min-width:561px){ #app.touch .wbar{width:calc(100% - 122px)} }
+  #app.touch .chip{padding:6px;gap:4px}
+  #app.touch .chip .nm,#app.touch .chip .u{display:none}
+  #app.touch .chip .ic{font-size:21px}
+  #app.touch .chip .n{font-size:12px}
+
+  /* ---------- armería ---------- */
+  /* va dentro del flujo del HUD, justo encima de la barra de armas: así nunca la tapa */
+  #armeria{
+    align-self:center;flex:0 0 auto;
+    width:min(560px,100%);margin-bottom:8px;pointer-events:auto;
+    background:linear-gradient(180deg,color-mix(in srgb,var(--plum-800) 96%,transparent),var(--plum-900));
+    border:3px solid var(--gold);border-radius:18px;padding:12px;
+    box-shadow:0 12px 0 rgba(0,0,0,.4);
+  }
+  #armeria[hidden]{display:none}
+  #armeria h2{
+    font-family:var(--display);font-size:16px;letter-spacing:.06em;text-transform:uppercase;
+    margin:0 0 9px;color:var(--gold);display:flex;justify-content:space-between;align-items:center;gap:8px
+  }
+  #armeria h2 small{font-family:var(--ui);font-size:10.5px;letter-spacing:.1em;color:var(--cream-dim);font-weight:700}
+  .rack{display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:7px}
+  .buy{
+    display:flex;gap:9px;align-items:center;text-align:left;cursor:pointer;
+    background:var(--plum-700);border:2px solid var(--plum-600);border-radius:12px;padding:8px 9px;
+    color:var(--cream);font-family:var(--ui);
+  }
+  .buy:hover:not(:disabled){border-color:var(--gold)}
+  .buy:disabled{opacity:.4;cursor:not-allowed}
+  .buy:focus-visible{outline:3px solid var(--cosmo);outline-offset:2px}
+  .buy .ic{font-size:22px;line-height:1}
+  .buy .nm{font-size:11.5px;font-weight:800;line-height:1.15}
+  .buy .pr{font-family:var(--num);font-size:11px;color:var(--gold);line-height:1.3}
+  .buy .ds{font-size:10px;color:var(--cream-dim);line-height:1.25}
+
+  #throwBtn .wicon{font-size:44px;line-height:1}
+  #throwBtn .wicon[hidden]{display:none}
+
+  @media (max-width:560px){
+    #minimap{width:112px;height:76px}
+    .rack{grid-template-columns:repeat(2,1fr)}
+    /* en pantalla angosta: solo icono y número, para que quepan las 6 armas.
+       El margen inferior levanta la barra sobre el botón redondo de chancla,
+       cuyo área táctil llegaba a la esquina del último chip. */
+    .wbar{gap:5px;margin-bottom:16px}
+    .chip{padding:6px;gap:4px}
+    .chip .nm,.chip .u{display:none!important}
+    .chip .ic{font-size:21px}
+    .chip .n{font-size:12px}
+    .tip{font-size:11px;max-width:24ch}
+    #throwBtn{width:88px;height:88px;right:14px;bottom:18px}
+    #throwBtn svg{width:48px;height:48px}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *{animation:none!important;transition:none!important}
+  }
+</style>
+
+<div id="app">
+  <canvas id="game"></canvas>
+
+  <div class="hud">
+    <div class="topbar">
+      <div class="card money"><div class="label">Dinero</div><div class="val" id="uiMoney">$0</div></div>
+      <div class="card rate"><div class="label">Ingresos</div><div class="val" id="uiRate">$0/s</div></div>
+      <div class="card goal">
+        <div class="goalrow">
+          <span class="label" style="margin:0">Meta del patio</span>
+          <span class="val" id="uiGoal">$0 / $20 000</span>
+        </div>
+        <div class="bar"><i id="uiBar"></i></div>
+      </div>
+      <div class="card stolen"><div class="label">Te robaron</div><div class="val" id="uiLost">0</div></div>
+      <div class="spacer"></div>
+      <div class="btns">
+        <button class="iconbtn" id="btnSound" title="Silenciar" aria-label="Silenciar sonido">🔊</button>
+        <button class="iconbtn" id="btnPause" title="Pausa" aria-label="Pausa">⏸</button>
+      </div>
+    </div>
+
+    <div class="vgap"></div>
+
+    <div id="armeria" hidden>
+      <h2>🧰 Armería <small id="armMoney">$0</small></h2>
+      <div class="rack" id="rack"></div>
+    </div>
+
+    <div class="wbar" id="wbar"></div>
+
+    <div class="bottom">
+      <canvas id="minimap" width="300" height="200" aria-label="Minimapa"></canvas>
+      <div class="tip" id="uiTip"></div>
+    </div>
+  </div>
+
+  <div id="touch">
+    <div id="joyring"></div>
+    <div id="joynub"></div>
+    <button id="throwBtn" aria-label="Usar arma">
+      <span class="wicon" id="wIcon" hidden></span>
+      <svg viewBox="0 0 100 100" aria-hidden="true" id="wSvg">
+        <ellipse cx="50" cy="52" rx="24" ry="41" fill="#2A1226"/>
+        <ellipse cx="50" cy="49" rx="19" ry="36" fill="#FFEFE2"/>
+        <path d="M50 44 L36 26 M50 44 L64 26" stroke="#2A1226" stroke-width="7" stroke-linecap="round" fill="none"/>
+        <circle cx="50" cy="46" r="5" fill="#2A1226"/>
+      </svg>
+    </button>
+  </div>
+
+  <!-- Portada -->
+  <div class="screen" id="scrTitle">
+    <div class="panel">
+      <svg class="sticker" viewBox="0 0 100 100" aria-hidden="true">
+        <ellipse cx="50" cy="54" rx="26" ry="44" fill="#7A0F2E"/>
+        <ellipse cx="50" cy="50" rx="21" ry="39" fill="#FF3D6E"/>
+        <path d="M50 45 L34 25 M50 45 L66 25" stroke="#7A0F2E" stroke-width="8" stroke-linecap="round" fill="none"/>
+        <circle cx="50" cy="47" r="6" fill="#7A0F2E"/>
+      </svg>
+      <p class="eyebrow">Patio · Vivero · Chancletazo</p>
+      <h1>Roba un<br><em>Florín</em></h1>
+      <p class="sub">Un <b>Florín</b> es un bloquecito de tierra con su flor y su carita, y cada uno suelta dinero por segundo. Los vecinos tienen los suyos en la vitrina: róbatelos, llévalos a tu patio y defiéndelos a puro <b style="color:var(--chancla)">chancletazo</b>.</p>
+      <ul class="rules">
+        <li><span class="pip">🌷</span><span>Compra Florines en el <b>Vivero</b> del centro y llévalos a tu vitrina: cada uno paga solo si está en tu patio. Hay 7 rarezas, del bloque de tierra común al <b>Florín Cósmico</b>.</span></li>
+        <li><span class="pip">🏃</span><span>Métete a las bases vecinas y <b>quédate junto a un Florín</b> hasta llenar el aro para llevártelo.</span></li>
+        <li><span class="pip">😼</span><span>Tus vecinos vienen por los tuyos: <b style="color:#FFD84D">Mayo</b> es lento pero siempre agarra el más caro, <b style="color:#37D6E0">Vicnix</b> corre muchísimo, y <b style="color:#FF9EC4">El Sobri</b> agarra lo que pilla.</span></li>
+        <li><span class="pip">👵</span><span>Cada base tiene su <b>abuela</b>. Si te alcanza, sueltas el Florín y quedas mareado.</span></li>
+        <li><span class="pip">🩴</span><span>Lanza la chancla para <b>noquear abuelas y ladrones</b>. Regresa como bumerán: espérala para volver a lanzar.</span></li>
+        <li><span class="pip">🧰</span><span>En la <b>Armería</b> (abajo al centro) compras gadgets: 🧊 congeladora, 💨 secadora, ⚡ chicharra, 🥤 refresco turbo y 👻 capa invisible.</span></li>
+        <li><span class="pip">💰</span><span>Llega a <b>$20 000</b> antes de que los vecinos te dejen el patio pelado.</span></li>
+      </ul>
+      <button class="play" id="btnStart">¡A robar! ▸</button>
+      <p class="foot">Teclado: <span class="k">WASD</span> / <span class="k">flechas</span> para moverte · <span class="k">espacio</span> usar arma · <span class="k">1</span>–<span class="k">6</span> cambiar de arma · <span class="k">P</span> pausa · <span class="k">M</span> sonido. En celular: arrastra en la mitad izquierda, toca el botón rosa y elige el arma en los chips de abajo.</p>
+    </div>
+  </div>
+
+  <!-- Fin -->
+  <div class="screen" id="scrEnd" hidden>
+    <div class="panel">
+      <p class="eyebrow" id="endEyebrow">Fin del patio</p>
+      <h1 id="endTitle">¡Ganaste!</h1>
+      <p class="sub" id="endSub"></p>
+      <div class="stats">
+        <div class="stat"><div class="label">Los que robaste tú</div><div class="val" id="stSteals">0</div></div>
+        <div class="stat"><div class="label">Vecinos noqueados</div><div class="val" id="stHits">0</div></div>
+        <div class="stat"><div class="label">Tiempo</div><div class="val" id="stTime">0:00</div></div>
+        <div class="stat"><div class="label">Ingresos finales</div><div class="val" id="stRate">$0/s</div></div>
+      </div>
+      <button class="play" id="btnAgain">Otra ronda ▸</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+"use strict";
+
+/* ============================================================
+   Constantes del mundo
+   ============================================================ */
+const WORLD_W = 1800, WORLD_H = 1200;
+const GOAL = 20000;
+const REDUCED = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/* Cada Florín es un bloquecito cúbico (tierra, oro, obsidiana…) con su flor arriba.
+   top/strip = capa de arriba · side/sideDark = caras del bloque · petal/petal2/center = la flor */
+const TIERS = [
+  { name:"Florín Común",       rar:"Común",     price:100,   income:3,   n:5,  style:"plain",
+    top:"#6FBF4A", strip:"#5FAF3E", side:"#8B5A2B", sideDark:"#6B4420",
+    petal:"#E2453C", petal2:"#B82F28", center:"#FFE066" },
+  { name:"Florín Bailarín",    rar:"Fiestero",  price:340,   income:9,   n:8,  style:"dance",
+    top:"#7ED957", strip:"#63BD44", side:"#8B5A2B", sideDark:"#6B4420",
+    petal:"#FFD84D", petal2:"#E8B71E", center:"#FFF3B0" },
+  { name:"Girasolón Turbo",    rar:"Raro",      price:950,   income:24,  n:12, style:"turbo",
+    top:"#5FAF3E", strip:"#4E9632", side:"#7A4A22", sideDark:"#5C3517",
+    petal:"#FFB020", petal2:"#E08C0A", center:"#7A4A1E" },
+  { name:"Florín Ninja",       rar:"Épico",     price:2400,  income:58,  n:6,  style:"ninja",
+    top:"#5A4130", strip:"#4A3526", side:"#3E2C1E", sideDark:"#2C1E14",
+    petal:"#B57BE0", petal2:"#8B4FC4", center:"#F0E68C" },
+  { name:"Chancletín Florido", rar:"Legendario",price:5600,  income:135, n:6,  style:"chancla",
+    top:"#6FBF4A", strip:"#5FAF3E", side:"#8B5A2B", sideDark:"#6B4420",
+    petal:"#FF5C86", petal2:"#E0224F", center:"#FFD9E2" },
+  { name:"Florín Rey Sol",     rar:"Mítico",    price:13000, income:310, n:10, style:"king",
+    top:"#FFE066", strip:null,      side:"#E0A61B", sideDark:"#B37F0D",
+    petal:"#FFF0A5", petal2:"#FFC53D", center:"#FF7A2F" },
+  { name:"Florín Cósmico",     rar:"Cósmico",   price:31000, income:720, n:7,  style:"cosmic",
+    top:"#3A2470", strip:null,      side:"#241548", sideDark:"#150C2E",
+    petal:"#5CE1EA", petal2:"#2AB6C7", center:"#FFFFFF" },
+];
+
+const WEAPONS = [
+  { id:"chancla",  name:"Chancla",      icon:"🩴", price:0,    uses:0, cd:0,  color:"#FF3D6E",
+    desc:"Bumerán. Noquea 3.6 s." },
+  { id:"hielo",    name:"Congeladora",  icon:"🧊", price:900,  uses:3, cd:.5, color:"#5CE1EA",
+    desc:"Congela 7 s a quien toque." },
+  { id:"secadora", name:"Secadora",     icon:"💨", price:1500, uses:4, cd:.7, color:"#BFE9FF",
+    desc:"Ráfaga en cono: los manda a volar." },
+  { id:"taser",    name:"Chicharra",    icon:"⚡", price:2600, uses:3, cd:.9, color:"#FFE066",
+    desc:"Descarga alrededor: noquea 5 s." },
+  { id:"refresco", name:"Refresco",     icon:"🥤", price:700,  uses:2, cd:.4, color:"#FF9EC4",
+    desc:"+75 % de velocidad por 9 s." },
+  { id:"capa",     name:"Capa",         icon:"👻", price:1900, uses:2, cd:.4, color:"#D8CFD4",
+    desc:"Las abuelas no te ven 8 s." },
+];
+
+/* Los vecinos que te roban: cada base manda su propio ladrón, con maña distinta */
+const LADRONES = {
+  mayo:   { label:"Mayo",    shirt:"#FFD84D", skin:"#F0C08A", hair:"#3A2416",
+            cap:"#E8B71E", ears:null,      spd:.88, greedy:true,
+            frase:"Mayo se llevó" },
+  vicnix: { label:"Vicnix",  shirt:"#37D6E0", skin:"#EFC79A", hair:"#2A1226",
+            cap:null,      ears:"#37D6E0", spd:1.26, greedy:false,
+            frase:"Vicnix se llevó" },
+  sobri:  { label:"El Sobri",shirt:"#FF9EC4", skin:"#C98B62", hair:"#2A1226",
+            cap:null,      ears:null,      spd:1.02, greedy:false,
+            frase:"El Sobri se llevó" },
+};
+
+const RAR_COLOR = {
+  "Común":"#9BD97F","Fiestero":"#FF9EC4","Raro":"#FFB020","Épico":"#8B6BEE",
+  "Legendario":"#FF5C86","Mítico":"#FFD84D","Cósmico":"#5CE1EA"
+};
+
+/* ============================================================
+   Utilidades
+   ============================================================ */
+const clamp = (v,a,b) => v<a?a:v>b?b:v;
+const lerp  = (a,b,t) => a+(b-a)*t;
+const dist2 = (ax,ay,bx,by) => { const dx=ax-bx, dy=ay-by; return dx*dx+dy*dy; };
+const rnd   = (a,b) => a+Math.random()*(b-a);
+const pick  = arr => arr[(Math.random()*arr.length)|0];
+const money = v => "$" + Math.floor(v).toLocaleString("es-MX").replace(/,/g," ");
+const mmss  = s => Math.floor(s/60)+":"+String(Math.floor(s%60)).padStart(2,"0");
+const inRect = (x,y,r,pad=0) =>
+  x > r.x-pad && x < r.x+r.w+pad && y > r.y-pad && y < r.y+r.h+pad;
+
+/* ============================================================
+   Audio (WebAudio, sin archivos externos)
+   ============================================================ */
+const Snd = (() => {
+  let ac = null, muted = false;
+  const ensure = () => {
+    if (!ac) { try { ac = new (window.AudioContext||window.webkitAudioContext)(); } catch(e){ ac = null; } }
+    if (ac && ac.state === "suspended") ac.resume();
+    return ac;
+  };
+  function tone(freq, dur, type="square", vol=.12, slide=0){
+    if (muted) return;
+    const c = ensure(); if (!c) return;
+    const o = c.createOscillator(), g = c.createGain();
+    o.type = type; o.frequency.value = freq;
+    if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(40,freq+slide), c.currentTime+dur);
+    g.gain.value = vol;
+    g.gain.exponentialRampToValueAtTime(.0001, c.currentTime+dur);
+    o.connect(g).connect(c.destination);
+    o.start(); o.stop(c.currentTime+dur+.02);
+  }
+  function noise(dur=.12, vol=.18){
+    if (muted) return;
+    const c = ensure(); if (!c) return;
+    const len = Math.floor(c.sampleRate*dur);
+    const buf = c.createBuffer(1, len, c.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i=0;i<len;i++) d[i] = (Math.random()*2-1) * (1-i/len);
+    const s = c.createBufferSource(); s.buffer = buf;
+    const g = c.createGain(); g.gain.value = vol;
+    const f = c.createBiquadFilter(); f.type="bandpass"; f.frequency.value=1400;
+    s.connect(f).connect(g).connect(c.destination); s.start();
+  }
+  return {
+    toggle(){ muted = !muted; if(!muted) ensure(); return muted; },
+    get muted(){ return muted; },
+    unlock(){ ensure(); },
+    throw_(){ noise(.1,.1); tone(720,.12,"sawtooth",.06,-380); },
+    whack(){ noise(.16,.26); tone(180,.18,"square",.16,-120); },
+    grab(){ tone(520,.07,"triangle",.11); setTimeout(()=>tone(780,.09,"triangle",.11),60); },
+    place(){ tone(660,.08,"square",.09); setTimeout(()=>tone(990,.12,"square",.09),70); },
+    buy(){ [523,659,784].forEach((f,i)=>setTimeout(()=>tone(f,.1,"square",.09),i*55)); },
+    ouch(){ tone(300,.22,"sawtooth",.12,-190); },
+    lost(){ tone(400,.2,"sawtooth",.1,-250); setTimeout(()=>tone(240,.3,"sawtooth",.1,-140),140); },
+    win(){ [523,659,784,1047,1319].forEach((f,i)=>setTimeout(()=>tone(f,.22,"square",.1),i*130)); }
+  };
+})();
+
+/* ============================================================
+   DOM
+   ============================================================ */
+const cv = document.getElementById("game");
+const ctx = cv.getContext("2d");
+const mm = document.getElementById("minimap");
+const mctx = mm.getContext("2d");
+const el = {
+  money:  document.getElementById("uiMoney"),
+  rate:   document.getElementById("uiRate"),
+  goal:   document.getElementById("uiGoal"),
+  bar:    document.getElementById("uiBar"),
+  lost:   document.getElementById("uiLost"),
+  tip:    document.getElementById("uiTip"),
+  title:  document.getElementById("scrTitle"),
+  end:    document.getElementById("scrEnd"),
+  touch:  document.getElementById("touch"),
+  ring:   document.getElementById("joyring"),
+  nub:    document.getElementById("joynub"),
+  throwB: document.getElementById("throwBtn"),
+  pause:  document.getElementById("btnPause"),
+  sound:  document.getElementById("btnSound"),
+  wbar:   document.getElementById("wbar"),
+  arm:    document.getElementById("armeria"),
+  rack:   document.getElementById("rack"),
+  armMon: document.getElementById("armMoney"),
+  wIcon:  document.getElementById("wIcon"),
+  wSvg:   document.getElementById("wSvg"),
+};
+
+let VW=0, VH=0, DPR=1, ZOOM=1;
+function resize(){
+  DPR = Math.min(2, window.devicePixelRatio || 1);
+  VW = cv.clientWidth; VH = cv.clientHeight;
+  cv.width = Math.round(VW*DPR); cv.height = Math.round(VH*DPR);
+  ZOOM = clamp(Math.min(VW/1150, VH/820), .46, 1.05);
+  mm.width = 300; mm.height = 200;
+}
+window.addEventListener("resize", resize);
+
+/* ============================================================
+   Estado
+   ============================================================ */
+let G = null;
+
+function makeBase(id, name, x, y, isPlayer, color, who){
+  const rect = { x, y, w:380, h:330 };
+  const peds = [];
+  for (let r=0;r<2;r++) for (let c=0;c<3;c++)
+    peds.push({ x: rect.x+68+c*122, y: rect.y+108+r*138, florin:null, pop:0 });
+  return { id, name, rect, peds, isPlayer, color, who:who||null, refill: rnd(3,7), guard:null };
+}
+
+function newGame(){
+  const bases = [
+    makeBase(0,"Tu patio",         70, 780, true,  "#3DDC97"),
+    makeBase(1,"Casa de Mayo",     70,  90, false, "#FFD84D", "mayo"),
+    makeBase(2,"Torre de Vicnix",1350,  90, false, "#37D6E0", "vicnix"),
+    makeBase(3,"Doña Chancla",   1350, 780, false, "#FF9EC4", "sobri"),
+  ];
+
+  // Florines iniciales de los vecinos
+  for (const b of bases){
+    if (b.isPlayer) continue;
+    const n = 2 + ((Math.random()*2)|0);
+    for (let i=0;i<n;i++) b.peds[i].florin = { tier: (Math.random()*2)|0, bob: rnd(0,6.28) };
+  }
+  // Abuelas guardianas
+  for (const b of bases){
+    if (b.isPlayer) continue;
+    b.guard = {
+      x: b.rect.x+b.rect.w/2, y: b.rect.y+b.rect.h/2,
+      vx:0, vy:0, stun:0, wp:0, face:1, walk:0,
+      base:b, alert:0
+    };
+  }
+
+  const vivero = { x: WORLD_W/2-165, y: WORLD_H/2-100, w:330, h:186, slots:[
+    { tier:0, t:0 }, { tier:0, t:0 }, { tier:1, t:0 }
+  ]};
+  vivero.slots.forEach((s,i) => { s.x = vivero.x+62+i*103; s.y = vivero.y+100; s.tier = i===2?1:0; });
+
+  const armeria = { x: WORLD_W/2-150, y: 920, w:300, h:130 };
+
+  const ammo = {};
+  for (const w of WEAPONS) ammo[w.id] = 0;
+
+  return {
+    t: 0, money: 260, bases, vivero, armeria,
+    player: {
+      x: bases[0].rect.x+bases[0].rect.w/2, y: bases[0].rect.y+bases[0].rect.h/2,
+      vx:0, vy:0, face:1, walk:0, carry:null, stun:0, dirx:1, diry:0,
+      boost:0, invis:0
+    },
+    chancla: { state:"held", x:0, y:0, vx:0, vy:0, spin:0, travel:0 },
+    ammo, wsel: 0, cd: 0, bolts: [], blasts: [],
+    thieves: [], ground: [], pops: [], puffs: [],
+    grab: { ped:null, t:0 },
+    thiefTimer: 8,
+    stats: { steals:0, hits:0, lost:0, froze:0 },
+    inShop: false,
+    over: false, won: false, paused: false, started: false
+  };
+}
+
+/* ============================================================
+   Entrada
+   ============================================================ */
+const keys = new Set();
+window.addEventListener("keydown", e => {
+  if (["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"," "].includes(e.key)) e.preventDefault();
+  const k = e.key.toLowerCase();
+  keys.add(k);
+  if (k === " ") useWeapon();
+  if (k === "p") togglePause();
+  if (k === "m") toggleSound();
+  if (k >= "1" && k <= "6") selectWeapon(+k - 1);
+  if (k === "q") selectWeapon((G.wsel + WEAPONS.length - 1) % WEAPONS.length);
+  if (k === "e") selectWeapon((G.wsel + 1) % WEAPONS.length);
+  if (k === "enter"){
+    if (!G.started) startGame();
+    else if (G.over) startGame();
+  }
+});
+window.addEventListener("keyup", e => keys.delete(e.key.toLowerCase()));
+window.addEventListener("blur", () => keys.clear());
+
+// Joystick táctil
+const joy = { id:null, ox:0, oy:0, dx:0, dy:0, on:false };
+function joyStart(e){
+  if (e.clientX > VW*0.56) return;      // mitad derecha reservada al botón
+  joy.id = e.pointerId; joy.ox = e.clientX; joy.oy = e.clientY;
+  joy.dx = 0; joy.dy = 0; joy.on = true;
+  el.ring.style.left = joy.ox+"px"; el.ring.style.top = joy.oy+"px";
+  el.nub.style.left = joy.ox+"px";  el.nub.style.top = joy.oy+"px";
+  el.ring.classList.add("on"); el.nub.classList.add("on");
+  Snd.unlock();
+}
+function joyMove(e){
+  if (e.pointerId !== joy.id) return;
+  let dx = e.clientX-joy.ox, dy = e.clientY-joy.oy;
+  const m = Math.hypot(dx,dy), max = 52;
+  if (m > max){ dx = dx/m*max; dy = dy/m*max; }
+  joy.dx = dx/max; joy.dy = dy/max;
+  el.nub.style.left = (joy.ox+dx)+"px"; el.nub.style.top = (joy.oy+dy)+"px";
+}
+function joyEnd(e){
+  if (e.pointerId !== joy.id) return;
+  joy.id = null; joy.on = false; joy.dx = 0; joy.dy = 0;
+  el.ring.classList.remove("on"); el.nub.classList.remove("on");
+}
+cv.addEventListener("pointerdown", e => {
+  // si la captura falla, el joystick debe arrancar igual: sin esto te quedas sin moverte
+  try { cv.setPointerCapture?.(e.pointerId); } catch (_){}
+  joyStart(e);
+});
+cv.addEventListener("pointermove", joyMove);
+cv.addEventListener("pointerup", joyEnd);
+cv.addEventListener("pointercancel", joyEnd);
+
+el.throwB.addEventListener("click", e => { e.preventDefault(); Snd.unlock(); useWeapon(); });
+el.pause.addEventListener("click", togglePause);
+el.sound.addEventListener("click", toggleSound);
+document.getElementById("btnStart").addEventListener("click", startGame);
+document.getElementById("btnAgain").addEventListener("click", startGame);
+
+const isTouch = matchMedia("(pointer: coarse)").matches;
+if (isTouch){
+  el.touch.classList.add("on");
+  document.getElementById("app").classList.add("touch");
+}
+
+function togglePause(){
+  if (!G.started || G.over) return;
+  G.paused = !G.paused;
+  el.pause.textContent = G.paused ? "▶" : "⏸";
+}
+function toggleSound(){
+  const m = Snd.toggle();
+  el.sound.textContent = m ? "🔇" : "🔊";
+}
+
+/* ============================================================
+   Acciones
+   ============================================================ */
+function pop(x, y, text, color){
+  G.pops.push({ x, y, text, color, life:1.1 });
+}
+function puff(x, y, color, n=8){
+  if (REDUCED) return;
+  for (let i=0;i<n;i++)
+    G.puffs.push({ x, y, vx:rnd(-70,70), vy:rnd(-110,-20), life:rnd(.35,.7), color, r:rnd(2,5) });
+}
+
+/* ---- armas ---------------------------------------------------- */
+function allFoes(){
+  const out = G.thieves.slice();
+  for (const b of G.bases) if (b.guard) out.push(b.guard);
+  return out;
+}
+
+function knock(e, dx, dy, force){
+  const m = Math.hypot(dx,dy) || 1;
+  e.kx = (e.kx||0) + dx/m*force;
+  e.ky = (e.ky||0) + dy/m*force;
+}
+
+function zap(e, secs, frozen){
+  e.stun = Math.max(e.stun, secs);
+  if (frozen) e.frozen = Math.max(e.frozen||0, secs);
+  if (e.carry) dropCarried(e, e.x, e.y+14);
+}
+
+function selectWeapon(i){
+  if (!G || i < 0 || i >= WEAPONS.length) return;
+  G.wsel = i;
+  renderWbar();
+}
+
+function useWeapon(){
+  if (!G || !G.started || G.over || G.paused) return;
+  const p = G.player;
+  if (p.stun > 0 || G.cd > 0) return;
+  const w = WEAPONS[G.wsel];
+  const len = Math.hypot(p.dirx, p.diry) || 1;
+  const dx = p.dirx/len, dy = p.diry/len;
+
+  if (w.id === "chancla"){
+    const c = G.chancla;
+    if (c.state !== "held") return;
+    c.state = "out"; c.x = p.x; c.y = p.y - 12;
+    c.vx = dx*640; c.vy = dy*640;
+    c.travel = 0; c.spin = 0;
+    Snd.throw_();
+    return;
+  }
+
+  if (G.ammo[w.id] <= 0){
+    pop(p.x, p.y-62, "Sin " + w.name.toLowerCase() + " · ve a la Armería", "#FF6B90");
+    return;
+  }
+  G.ammo[w.id]--;
+  G.cd = w.cd;
+
+  if (w.id === "hielo"){
+    G.bolts.push({ x:p.x+dx*16, y:p.y-12+dy*16, vx:dx*820, vy:dy*820, life:1.1 });
+    Snd.throw_();
+  }
+
+  if (w.id === "secadora"){
+    G.blasts.push({ x:p.x, y:p.y-10, ang:Math.atan2(dy,dx), life:.4, kind:"cone" });
+    let n = 0;
+    for (const e of allFoes()){
+      const ex = e.x-p.x, ey = (e.y-14)-(p.y-10);
+      const d = Math.hypot(ex,ey);
+      if (d > 260) continue;
+      const a = Math.abs(Math.atan2(ey,ex) - Math.atan2(dy,dx));
+      const da = Math.min(a, 6.283-a);
+      if (da > .7) continue;
+      knock(e, ex, ey, 620);
+      zap(e, 1.6, false);
+      n++;
+    }
+    if (n){ G.stats.hits += n; pop(p.x+dx*90, p.y-60, "¡A volar! ×"+n, "#BFE9FF"); }
+    puff(p.x+dx*40, p.y-10, "#BFE9FF", 16);
+    Snd.throw_();
+  }
+
+  if (w.id === "taser"){
+    G.blasts.push({ x:p.x, y:p.y-10, life:.45, kind:"ring", r:140 });
+    let n = 0;
+    for (const e of allFoes()){
+      if (dist2(e.x, e.y-14, p.x, p.y-10) > 140*140) continue;
+      knock(e, e.x-p.x, e.y-p.y, 260);
+      zap(e, 5, false);
+      n++;
+    }
+    if (n){ G.stats.hits += n; pop(p.x, p.y-64, "¡CHICHARRAZO! ×"+n, "#FFE066"); }
+    puff(p.x, p.y-10, "#FFE066", 20);
+    Snd.whack();
+  }
+
+  if (w.id === "refresco"){
+    p.boost = 9;
+    pop(p.x, p.y-62, "¡Turbo!", "#FF9EC4");
+    puff(p.x, p.y, "#FF9EC4", 14);
+    Snd.buy();
+  }
+
+  if (w.id === "capa"){
+    p.invis = 8;
+    pop(p.x, p.y-62, "¡Modo fantasma!", "#D8CFD4");
+    puff(p.x, p.y, "#D8CFD4", 14);
+    Snd.buy();
+  }
+
+  renderWbar();
+}
+
+function buyWeapon(i){
+  const w = WEAPONS[i];
+  if (!G || !G.inShop || w.price === 0) return;
+  if (G.money < w.price){
+    pop(G.player.x, G.player.y-62, "Falta " + money(w.price-G.money), "#FF6B90");
+    Snd.ouch();
+    return;
+  }
+  G.money -= w.price;
+  G.ammo[w.id] += w.uses;
+  G.wsel = i;
+  pop(G.player.x, G.player.y-62, w.icon + " +" + w.uses + " usos", w.color);
+  Snd.buy();
+  renderWbar(); renderRack();
+}
+
+function maxTier(){ return clamp(1 + Math.floor(G.t/48), 1, TIERS.length-1); }
+
+function rollTier(){                       // sesgo hacia arriba: los vecinos suben de nivel
+  const m = maxTier();
+  const t = m - Math.floor(Math.pow(Math.random(),1.7) * (m+1));
+  return clamp(t, 0, TIERS.length-1);
+}
+function rollShopTier(){                   // el vivero vende barato
+  const m = Math.min(4, maxTier());
+  return clamp(Math.floor(Math.pow(Math.random(),1.9) * (m+1)), 0, m);
+}
+
+function freePed(base){ return base.peds.find(p => !p.florin) || null; }
+function occupied(base){ return base.peds.filter(p => p.florin); }
+
+function playerIncome(){
+  return occupied(G.bases[0]).reduce((s,p) => s + TIERS[p.florin.tier].income, 0);
+}
+
+function dropCarried(who, x, y){
+  if (!who.carry) return;
+  G.ground.push({ tier: who.carry.tier, x, y, bob: rnd(0,6.28), t:0 });
+  who.carry = null;
+}
+
+function applyKnock(e, dt){
+  if (!e.kx && !e.ky) return;
+  e.x = clamp(e.x + e.kx*dt, 20, WORLD_W-20);
+  e.y = clamp(e.y + e.ky*dt, 20, WORLD_H-20);
+  const decay = Math.pow(.015, dt);
+  e.kx *= decay; e.ky *= decay;
+  if (Math.abs(e.kx) < 4) e.kx = 0;
+  if (Math.abs(e.ky) < 4) e.ky = 0;
+}
+
+function spawnThief(){
+  const pb = G.bases[0];
+  if (!occupied(pb).length) return;
+  const from = pick(G.bases.slice(1));
+  const K = LADRONES[from.who];
+  const spd = (150 + Math.min(70, G.t*0.28)) * K.spd;
+  G.thieves.push({
+    x: from.rect.x + from.rect.w/2 + rnd(-90,90),
+    y: from.rect.y + from.rect.h/2 + rnd(-70,70),
+    home: from, state:"go", target:null, carry:null,
+    stun:0, frozen:0, kx:0, ky:0, grabT:0, spd, walk:0, face:1,
+    who: from.who, hue: K.shirt
+  });
+}
+
+/* ============================================================
+   Update
+   ============================================================ */
+function update(dt){
+  const p = G.player;
+  G.t += dt;
+
+  /* ---- dinero ---- */
+  const inc = playerIncome();
+  G.money += inc*dt;
+
+  /* ---- movimiento del jugador ---- */
+  let ix = 0, iy = 0;
+  if (keys.has("a") || keys.has("arrowleft"))  ix -= 1;
+  if (keys.has("d") || keys.has("arrowright")) ix += 1;
+  if (keys.has("w") || keys.has("arrowup"))    iy -= 1;
+  if (keys.has("s") || keys.has("arrowdown"))  iy += 1;
+  if (joy.on){ ix += joy.dx; iy += joy.dy; }
+  const im = Math.hypot(ix,iy);
+  if (im > 1){ ix/=im; iy/=im; }
+
+  if (p.stun > 0){ p.stun -= dt; ix = iy = 0; }
+  if (p.boost > 0) p.boost -= dt;
+  if (p.invis > 0) p.invis -= dt;
+  if (G.cd > 0) G.cd -= dt;
+
+  const speed = (p.carry ? 196 : 268) * (p.boost > 0 ? 1.75 : 1);
+  p.vx = lerp(p.vx, ix*speed, 1-Math.pow(.0009, dt));
+  p.vy = lerp(p.vy, iy*speed, 1-Math.pow(.0009, dt));
+  p.x = clamp(p.x + p.vx*dt, 22, WORLD_W-22);
+  p.y = clamp(p.y + p.vy*dt, 22, WORLD_H-22);
+  if (Math.abs(ix)+Math.abs(iy) > .1){ p.dirx = ix; p.diry = iy; if (ix) p.face = ix>0?1:-1; }
+  p.walk += Math.hypot(p.vx,p.vy)*dt*0.055;
+
+  /* ---- vivero: refrescar y comprar ---- */
+  for (const s of G.vivero.slots){
+    if (s.tier == null){
+      s.t -= dt;
+      if (s.t <= 0){ s.tier = rollShopTier(); s.pop = .5; }
+      continue;
+    }
+    if (!p.carry && p.stun<=0 && dist2(p.x,p.y,s.x,s.y) < 44*44){
+      const T = TIERS[s.tier];
+      if (G.money >= T.price){
+        G.money -= T.price;
+        p.carry = { tier: s.tier };
+        pop(s.x, s.y-52, "-"+money(T.price), "#FFC53D");
+        puff(s.x, s.y, T.petal, 10);
+        s.tier = null; s.t = 6.5;
+        Snd.buy();
+      } else if (!s.warn || G.t - s.warn > 1.4){
+        s.warn = G.t;
+        pop(s.x, s.y-52, "Falta " + money(T.price - G.money), "#FF6B90");
+      }
+    }
+  }
+
+  /* ---- robar de bases vecinas ---- */
+  if (!p.carry && p.stun<=0){
+    let best = null, bd = 52*52;
+    for (const b of G.bases){
+      if (b.isPlayer) continue;
+      for (const ped of b.peds){
+        if (!ped.florin) continue;
+        const d = dist2(p.x, p.y, ped.x, ped.y);
+        if (d < bd){ bd = d; best = ped; }
+      }
+    }
+    if (best){
+      if (G.grab.ped !== best){ G.grab.ped = best; G.grab.t = 0; }
+      G.grab.t += dt;
+      if (G.grab.t >= .55){
+        p.carry = { tier: best.florin.tier };
+        pop(best.x, best.y-56, "¡Robado!", "#FF3D6E");
+        puff(best.x, best.y, TIERS[best.florin.tier].petal, 12);
+        best.florin = null; G.grab.ped = null; G.grab.t = 0;
+        G.stats.steals++;
+        Snd.grab();
+      }
+    } else { G.grab.ped = null; G.grab.t = 0; }
+  } else { G.grab.ped = null; G.grab.t = 0; }
+
+  /* ---- florines en el suelo ---- */
+  for (let i=G.ground.length-1;i>=0;i--){
+    const g = G.ground[i];
+    g.bob += dt*3; g.t += dt;
+    if (!p.carry && p.stun<=0 && dist2(p.x,p.y,g.x,g.y) < 40*40){
+      p.carry = { tier: g.tier };
+      pop(g.x, g.y-50, "¡Recogido!", "#3DDC97");
+      G.ground.splice(i,1);
+      Snd.grab();
+    }
+  }
+
+  /* ---- entregar en tu patio ---- */
+  const pb = G.bases[0];
+  if (p.carry && inRect(p.x, p.y, pb.rect, 8)){
+    const ped = freePed(pb);
+    if (ped){
+      ped.florin = { tier: p.carry.tier, bob: 0 };
+      ped.pop = 1;
+      const T = TIERS[p.carry.tier];
+      pop(ped.x, ped.y-58, "+"+T.income+"/s", "#3DDC97");
+      puff(ped.x, ped.y, T.petal, 14);
+      p.carry = null;
+      Snd.place();
+    } else if (!G.fullWarn || G.t-G.fullWarn > 2.2){
+      G.fullWarn = G.t;
+      pop(p.x, p.y-56, "¡Vitrina llena!", "#FFC53D");
+    }
+  }
+
+  /* ---- chancla ---- */
+  const c = G.chancla;
+  if (c.state !== "held"){
+    c.spin += dt*17;
+    if (c.state === "out"){
+      c.x += c.vx*dt; c.y += c.vy*dt;
+      c.travel += Math.hypot(c.vx,c.vy)*dt;
+      if (c.travel > 420 || c.x<14 || c.x>WORLD_W-14 || c.y<14 || c.y>WORLD_H-14) c.state = "back";
+    } else {
+      const dx = p.x-c.x, dy = (p.y-12)-c.y, m = Math.hypot(dx,dy)||1;
+      c.x += dx/m*760*dt; c.y += dy/m*760*dt;
+      if (m < 26){ c.state = "held"; }
+    }
+    // impactos
+    const hit = (e) => {
+      e.stun = e.isGuard ? 4.4 : 3.6;
+      G.stats.hits++;
+      pop(e.x, e.y-52, "¡CHANCLETAZO!", "#FF3D6E");
+      puff(e.x, e.y-14, "#FFEFE2", 14);
+      Snd.whack();
+      if (e.carry) dropCarried(e, e.x, e.y+14);
+      c.state = "back";
+    };
+    for (const t of G.thieves)
+      if (t.stun<=0 && dist2(c.x,c.y,t.x,t.y-14) < 30*30){ t.isGuard=false; hit(t); break; }
+    if (c.state === "out")
+      for (const b of G.bases){
+        const g = b.guard;
+        if (g && g.stun<=0 && dist2(c.x,c.y,g.x,g.y-14) < 32*32){ g.isGuard=true; hit(g); break; }
+      }
+  } else { c.spin = 0; }
+
+  /* ---- balas de hielo ---- */
+  for (let i=G.bolts.length-1;i>=0;i--){
+    const b = G.bolts[i];
+    b.x += b.vx*dt; b.y += b.vy*dt; b.life -= dt;
+    let gone = b.life <= 0 || b.x<10 || b.x>WORLD_W-10 || b.y<10 || b.y>WORLD_H-10;
+    if (!gone){
+      for (const e of allFoes()){
+        if (e.stun > 0 && e.frozen > 0) continue;
+        if (dist2(b.x, b.y, e.x, e.y-14) < 30*30){
+          zap(e, 7, true);
+          G.stats.hits++; G.stats.froze++;
+          pop(e.x, e.y-54, "¡Congelado!", "#5CE1EA");
+          puff(e.x, e.y-14, "#BFE9FF", 14);
+          Snd.whack();
+          gone = true; break;
+        }
+      }
+    }
+    if (gone) G.bolts.splice(i,1);
+  }
+
+  /* ---- ráfagas visuales ---- */
+  for (let i=G.blasts.length-1;i>=0;i--){
+    G.blasts[i].life -= dt;
+    if (G.blasts[i].life <= 0) G.blasts.splice(i,1);
+  }
+
+  /* ---- armería ---- */
+  const nearShop = inRect(p.x, p.y, G.armeria, 30);
+  if (nearShop !== G.inShop){
+    G.inShop = nearShop;
+    el.arm.hidden = !nearShop;
+  }
+  if (nearShop) renderRack();
+
+  /* ---- ladrones ---- */
+  G.thiefTimer -= dt;
+  if (G.thiefTimer <= 0){
+    spawnThief();
+    // El ritmo lo marca TU vitrina, no el reloj: mientras te armas hay tregua, y
+    // cuanto más rica la vitrina, más vecinos vienen. Así el final es intenso
+    // porque ganaste, no porque pasó el tiempo.
+    const mios = occupied(pb);
+    const masCaro = mios.reduce((m,p) => Math.max(m, p.florin.tier), 0);
+    G.thiefTimer = clamp(16 - mios.length*1.7 - masCaro*0.4, 5.5, 16);
+  }
+  for (let i=G.thieves.length-1;i>=0;i--){
+    const t = G.thieves[i];
+    applyKnock(t, dt);
+    if (t.stun > 0){
+      t.stun -= dt;
+      if (t.frozen > 0) t.frozen -= dt;
+      continue;
+    }
+    let tx, ty, spd = t.spd;
+
+    if (t.state === "go"){
+      if (!t.target || !t.target.florin){
+        const occ = occupied(pb);
+        if (!occ.length){ t.state = "flee"; }
+        else if (LADRONES[t.who].greedy){          // Mayo va por el más caro
+          t.target = occ.reduce((a,b) =>
+            TIERS[b.florin.tier].income > TIERS[a.florin.tier].income ? b : a);
+        }
+        else t.target = pick(occ);
+      }
+      if (t.target && t.target.florin){ tx = t.target.x; ty = t.target.y; }
+    }
+    if (t.state === "grab"){ tx = t.target.x; ty = t.target.y; }
+    if (t.state === "back" || t.state === "flee"){
+      tx = t.home.rect.x + t.home.rect.w/2; ty = t.home.rect.y + t.home.rect.h/2;
+      spd = t.spd*1.14;
+    }
+
+    if (tx != null){
+      const dx = tx-t.x, dy = ty-t.y, m = Math.hypot(dx,dy)||1;
+      if (m > 6){ t.x += dx/m*spd*dt; t.y += dy/m*spd*dt; t.face = dx>0?1:-1; t.walk += spd*dt*0.06; }
+
+      if (t.state === "go" && m < 34){ t.state = "grab"; t.grabT = 0; }
+      if (t.state === "grab"){
+        if (!t.target.florin){ t.state = "go"; t.target = null; }
+        else {
+          t.grabT += dt;
+          if (t.grabT >= .85){
+            const K = LADRONES[t.who];
+            const robado = TIERS[t.target.florin.tier].name;
+            t.carry = { tier: t.target.florin.tier };
+            t.target.florin = null; t.target = null;
+            t.state = "back";
+            G.stats.lost++;
+            pop(t.x, t.y+52, "¡" + K.frase + " tu " + robado + "!", K.shirt);
+            Snd.lost();
+          }
+        }
+      }
+      // Ojo: `m` se midió contra el objetivo del inicio del frame. Si el ladrón acaba de
+      // robar y cambió a "back" en esta misma pasada, `m` sería la distancia al pedestal
+      // (casi 0) y "llegaría a su casa" al instante. Medimos de nuevo contra su base.
+      if (t.state === "back" || t.state === "flee"){
+        const hx = t.home.rect.x + t.home.rect.w/2, hy = t.home.rect.y + t.home.rect.h/2;
+        if (Math.hypot(hx - t.x, hy - t.y) < 40){
+          if (t.carry){
+            const ped = freePed(t.home);
+            if (ped) ped.florin = { tier: t.carry.tier, bob:0 };
+            else G.ground.push({ tier:t.carry.tier, x:t.x+rnd(-20,20), y:t.y+30, bob:0, t:0 });
+          }
+          G.thieves.splice(i,1);
+        }
+      }
+    }
+  }
+
+  /* ---- abuelas ---- */
+  for (const b of G.bases){
+    const g = b.guard; if (!g) continue;
+    applyKnock(g, dt);
+    if (g.stun > 0){
+      g.stun -= dt; g.alert = 0;
+      if (g.frozen > 0) g.frozen -= dt;
+      continue;
+    }
+    const r = b.rect;
+    const chase = inRect(p.x, p.y, r, 90) && p.stun <= 0 && p.invis <= 0;
+    if (chase){
+      g.alert = Math.min(1, g.alert + dt*4);
+      const dx = p.x-g.x, dy = p.y-g.y, m = Math.hypot(dx,dy)||1;
+      g.x += dx/m*212*dt; g.y += dy/m*212*dt;
+      g.face = dx>0?1:-1; g.walk += dt*11;
+      if (m < 30){
+        p.stun = 1.0;
+        p.vx = -dx/m*260; p.vy = -dy/m*260;
+        if (p.carry){
+          pop(p.x, p.y-58, "¡Chancletazo de la abuela!", "#FFC53D");
+          dropCarried(p, p.x+rnd(-16,16), p.y+22);
+        } else pop(p.x, p.y-58, "¡Sale de mi patio!", "#FFC53D");
+        puff(p.x, p.y-10, "#FFEFE2", 12);
+        Snd.ouch();
+      }
+    } else {
+      g.alert = Math.max(0, g.alert - dt*2);
+      const wps = [
+        {x:r.x+52, y:r.y+52}, {x:r.x+r.w-52, y:r.y+52},
+        {x:r.x+r.w-52, y:r.y+r.h-52}, {x:r.x+52, y:r.y+r.h-52}
+      ];
+      const w = wps[g.wp % 4];
+      const dx = w.x-g.x, dy = w.y-g.y, m = Math.hypot(dx,dy)||1;
+      if (m < 12) g.wp++;
+      else { g.x += dx/m*92*dt; g.y += dy/m*92*dt; g.face = dx>0?1:-1; g.walk += dt*4.4; }
+    }
+  }
+
+  /* ---- los vecinos reponen sus vitrinas ---- */
+  for (const b of G.bases){
+    if (b.isPlayer) continue;
+    b.refill -= dt;
+    if (b.refill <= 0){
+      b.refill = rnd(7, 12);
+      const ped = freePed(b);
+      if (ped){ ped.florin = { tier: rollTier(), bob: rnd(0,6.28) }; ped.pop = 1; }
+    }
+  }
+
+  /* ---- animación de vitrinas ---- */
+  for (const b of G.bases) for (const ped of b.peds){
+    if (ped.pop > 0) ped.pop -= dt*2.2;
+    if (ped.florin) ped.florin.bob += dt*2.4;
+  }
+
+  /* ---- partículas y textos ---- */
+  for (let i=G.pops.length-1;i>=0;i--){
+    const q = G.pops[i]; q.life -= dt; q.y -= 34*dt;
+    if (q.life <= 0) G.pops.splice(i,1);
+  }
+  for (let i=G.puffs.length-1;i>=0;i--){
+    const q = G.puffs[i];
+    q.life -= dt; q.x += q.vx*dt; q.y += q.vy*dt; q.vy += 320*dt;
+    if (q.life <= 0) G.puffs.splice(i,1);
+  }
+
+  /* ---- victoria ---- */
+  if (G.money >= GOAL && !G.over) endGame(true);
+}
+
+/* ============================================================
+   Dibujo del mundo
+   ============================================================ */
+const cam = { x:0, y:0 };
+
+function drawFloor(){
+  ctx.fillStyle = "#B45E38";
+  ctx.fillRect(0,0,WORLD_W,WORLD_H);
+  // losetas
+  const S = 90;
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = "rgba(255,239,226,.07)";
+  ctx.beginPath();
+  for (let x=0;x<=WORLD_W;x+=S){ ctx.moveTo(x,0); ctx.lineTo(x,WORLD_H); }
+  for (let y=0;y<=WORLD_H;y+=S){ ctx.moveTo(0,y); ctx.lineTo(WORLD_W,y); }
+  ctx.stroke();
+  // manchas del patio
+  ctx.fillStyle = "rgba(120,58,32,.22)";
+  for (let i=0;i<26;i++){
+    const x = ((i*367)%WORLD_W), y = ((i*613)%WORLD_H), r = 26+((i*53)%48);
+    ctx.beginPath(); ctx.ellipse(x,y,r,r*.6,i,0,6.283); ctx.fill();
+  }
+  // borde del mundo
+  ctx.strokeStyle = "#5C2A18"; ctx.lineWidth = 16;
+  ctx.strokeRect(8,8,WORLD_W-16,WORLD_H-16);
+}
+
+function roundRect(x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.arcTo(x+w,y,x+w,y+h,r);
+  ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r);
+  ctx.arcTo(x,y,x+w,y,r);
+  ctx.closePath();
+}
+
+function drawBase(b){
+  const r = b.rect;
+  ctx.save();
+  // piso de la base
+  ctx.fillStyle = b.isPlayer ? "rgba(61,220,151,.13)" : "rgba(0,0,0,.17)";
+  roundRect(r.x,r.y,r.w,r.h,26); ctx.fill();
+  ctx.lineWidth = 6; ctx.setLineDash([16,12]);
+  ctx.strokeStyle = b.color + (b.isPlayer ? "" : "88");
+  roundRect(r.x,r.y,r.w,r.h,26); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // letrero
+  const lw = Math.max(150, b.name.length*11 + 34);
+  ctx.fillStyle = "#2A1226";
+  roundRect(r.x+r.w/2-lw/2, r.y-38, lw, 34, 12); ctx.fill();
+  ctx.strokeStyle = b.color; ctx.lineWidth = 3;
+  roundRect(r.x+r.w/2-lw/2, r.y-38, lw, 34, 12); ctx.stroke();
+  ctx.fillStyle = b.color;
+  ctx.font = "700 16px " + "system-ui, sans-serif";
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillText(b.name.toUpperCase(), r.x+r.w/2, r.y-20);
+
+  // pedestales
+  for (const ped of b.peds){
+    ctx.fillStyle = "rgba(0,0,0,.22)";
+    ctx.beginPath(); ctx.ellipse(ped.x, ped.y+22, 30, 11, 0, 0, 6.283); ctx.fill();
+    ctx.fillStyle = ped.florin ? "#4A2540" : "rgba(42,18,38,.5)";
+    roundRect(ped.x-27, ped.y+4, 54, 20, 7); ctx.fill();
+    ctx.strokeStyle = ped.florin ? b.color : "rgba(255,239,226,.18)";
+    ctx.lineWidth = 3;
+    roundRect(ped.x-27, ped.y+4, 54, 20, 7); ctx.stroke();
+
+    if (ped.florin){
+      const bob = Math.sin(ped.florin.bob)*4;
+      const s = 1 + Math.max(0, ped.pop)*.35;
+      drawFlorin(ped.x, ped.y-16+bob, s, ped.florin.tier, ped.florin.bob);
+    }
+  }
+  ctx.restore();
+}
+
+function drawFlorin(x, y, s, tier, t){
+  const T = TIERS[tier];
+  ctx.save();
+  ctx.translate(x, y); ctx.scale(s, s);
+  if (T.style === "dance") ctx.rotate(Math.sin(t*3)*0.12);
+
+  const W = 15, H = 29, D = 9;     // medio ancho, alto y profundidad del bloque
+  const top = -H/2 + 3;            // borde superior de la cara frontal
+  const bot = top + H;
+
+  /* ---- efectos detrás del bloque ---- */
+  if (T.style === "turbo"){                     // cohete del Girasolón
+    const f = 5 + Math.sin(t*14)*3;
+    ctx.fillStyle = "#FF7A2F";
+    ctx.beginPath(); ctx.moveTo(-9,bot-2); ctx.lineTo(0,bot+9+f); ctx.lineTo(9,bot-2); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "#FFD84D";
+    ctx.beginPath(); ctx.moveTo(-4.5,bot-2); ctx.lineTo(0,bot+4+f*.6); ctx.lineTo(4.5,bot-2); ctx.closePath(); ctx.fill();
+  }
+  if (T.style === "cosmic"){                    // anillo orbital
+    ctx.strokeStyle = "rgba(92,225,234,.8)"; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.ellipse(0, top+H*.6, 27, 9, Math.sin(t*.9)*.45, 0, 6.283); ctx.stroke();
+  }
+
+  /* ---- el bloque ---- */
+  ctx.fillStyle = T.sideDark;                   // cara derecha
+  ctx.beginPath();
+  ctx.moveTo(W,top); ctx.lineTo(W+D,top-D); ctx.lineTo(W+D,top-D+H); ctx.lineTo(W,bot);
+  ctx.closePath(); ctx.fill();
+
+  ctx.fillStyle = T.top;                        // cara de arriba
+  ctx.beginPath();
+  ctx.moveTo(-W,top); ctx.lineTo(-W+D,top-D); ctx.lineTo(W+D,top-D); ctx.lineTo(W,top);
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle = "rgba(255,255,255,.13)";
+  ctx.beginPath();
+  ctx.moveTo(-W,top); ctx.lineTo(-W+D,top-D); ctx.lineTo(W+D,top-D); ctx.lineTo(W,top);
+  ctx.closePath(); ctx.fill();
+
+  ctx.fillStyle = T.side;                       // cara frontal
+  ctx.fillRect(-W, top, W*2, H);
+
+  if (T.strip){                                 // pasto dentado sobre la tierra
+    const cols = 8, cw = (W*2)/cols;
+    for (let i=0;i<cols;i++){
+      ctx.fillStyle = i%2 ? T.top : T.strip;
+      ctx.fillRect(-W+i*cw, top, cw+.4, 5 + (i%3)*2);
+    }
+    ctx.fillStyle = T.strip;
+    ctx.beginPath();
+    ctx.moveTo(W,top); ctx.lineTo(W+D,top-D); ctx.lineTo(W+D,top-D+7); ctx.lineTo(W,top+7);
+    ctx.closePath(); ctx.fill();
+  }
+
+  ctx.fillStyle = "rgba(0,0,0,.13)";            // textura pixelada
+  const spots = [[-12,12],[-4,19],[5,10],[9,22],[-9,25],[1,15],[11,15]];
+  for (const sp of spots) ctx.fillRect(sp[0], top+sp[1], 3.6, 3.6);
+
+  ctx.strokeStyle = "rgba(0,0,0,.45)"; ctx.lineWidth = 1.5;  // contorno del cubo
+  ctx.strokeRect(-W, top, W*2, H);
+  ctx.beginPath();
+  ctx.moveTo(-W,top); ctx.lineTo(-W+D,top-D); ctx.lineTo(W+D,top-D);
+  ctx.lineTo(W+D,top-D+H); ctx.lineTo(W,bot);
+  ctx.moveTo(W+D,top-D); ctx.lineTo(W,top);
+  ctx.stroke();
+
+  /* ---- la flor plantada arriba ---- */
+  const sway = Math.sin(t*2)*2;
+  const fx = 2, fy = top - D + 4;
+  ctx.strokeStyle = "#3E9C56"; ctx.lineWidth = 3; ctx.lineCap = "round";
+  ctx.beginPath(); ctx.moveTo(fx, fy);
+  ctx.quadraticCurveTo(fx+sway*.5, fy-8, fx+sway, fy-14); ctx.stroke();
+  ctx.fillStyle = "#4FB265";
+  ctx.beginPath(); ctx.ellipse(fx-4.5, fy-7, 4.2, 2.2, -0.5, 0, 6.283); ctx.fill();
+
+  const cx = fx+sway, cy = fy-15, n = T.n, R = 6.5;
+  for (let i=0;i<n;i++){
+    const a = (i/n)*6.283 + (T.style === "turbo" ? t*2 : 0);
+    ctx.save(); ctx.translate(cx,cy); ctx.rotate(a); ctx.translate(0,-R);
+    const grd = ctx.createLinearGradient(0,-5,0,5);
+    grd.addColorStop(0, T.petal); grd.addColorStop(1, T.petal2);
+    ctx.fillStyle = grd;
+    ctx.beginPath(); ctx.ellipse(0,0,3.4,5.3,0,0,6.283); ctx.fill();
+    ctx.strokeStyle = "rgba(0,0,0,.22)"; ctx.lineWidth = 1; ctx.stroke();
+    ctx.restore();
+  }
+  ctx.fillStyle = T.center;
+  ctx.beginPath(); ctx.arc(cx,cy,4.2,0,6.283); ctx.fill();
+  ctx.strokeStyle = "rgba(0,0,0,.3)"; ctx.lineWidth = 1.2; ctx.stroke();
+
+  /* ---- carita en la cara frontal ---- */
+  const dark = (T.style === "ninja" || T.style === "cosmic");
+  const ink = dark ? "#FFEFE2" : "#241209";
+  const ey = top + 13;
+  const blink = Math.sin(t*.9) > .984;
+  ctx.fillStyle = ink;
+  if (blink){
+    ctx.fillRect(-9, ey+2, 5, 1.8); ctx.fillRect(4, ey+2, 5, 1.8);
+  } else {
+    ctx.fillRect(-9, ey, 5, 5); ctx.fillRect(4, ey, 5, 5);
+    ctx.fillStyle = "rgba(255,255,255,.85)";
+    ctx.fillRect(-8.2, ey+.8, 1.7, 1.7); ctx.fillRect(4.8, ey+.8, 1.7, 1.7);
+  }
+  ctx.strokeStyle = ink; ctx.lineWidth = 1.6;
+  ctx.beginPath(); ctx.arc(0, ey+7, 3.6, .35, 2.79); ctx.stroke();
+
+  /* ---- accesorios ---- */
+  if (T.style === "ninja"){                     // banda ninja sobre los ojos
+    ctx.fillStyle = "#E0224F";
+    ctx.fillRect(-W, ey-4.5, W*2, 4.5);
+    ctx.beginPath();
+    ctx.moveTo(W-1, ey-4); ctx.lineTo(W+11, ey-9+Math.sin(t*5)*3); ctx.lineTo(W+10, ey-1);
+    ctx.closePath(); ctx.fill();
+  }
+  if (T.style === "king"){                      // corona sobre la flor
+    ctx.fillStyle = "#FFD84D"; ctx.strokeStyle = "#A97800"; ctx.lineWidth = 1.3;
+    ctx.beginPath();
+    ctx.moveTo(cx-8, cy-9); ctx.lineTo(cx-5, cy-16); ctx.lineTo(cx-1.5, cy-10.5);
+    ctx.lineTo(cx+1.5, cy-17); ctx.lineTo(cx+5, cy-10.5); ctx.lineTo(cx+8, cy-16);
+    ctx.lineTo(cx+8, cy-8); ctx.closePath();
+    ctx.fill(); ctx.stroke();
+  }
+  if (T.style === "chancla"){                   // su chanclita de la suerte
+    ctx.save(); ctx.translate(W+D+8, top+15); ctx.rotate(Math.sin(t*4)*.6 - .35);
+    ctx.fillStyle = "#7A0F2E";
+    ctx.beginPath(); ctx.ellipse(0,0,4.6,8.4,0,0,6.283); ctx.fill();
+    ctx.fillStyle = "#FF5C86";
+    ctx.beginPath(); ctx.ellipse(0,-.6,3.3,6.8,0,0,6.283); ctx.fill();
+    ctx.strokeStyle = "#7A0F2E"; ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.moveTo(0,-1); ctx.lineTo(-2.6,-5.6); ctx.moveTo(0,-1); ctx.lineTo(2.6,-5.6); ctx.stroke();
+    ctx.restore();
+  }
+  if (T.style === "dance"){                     // notas musicales
+    ctx.fillStyle = "rgba(255,239,226,.75)";
+    ctx.font = "700 11px system-ui, sans-serif";
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText("♪", -W-7, top+6+Math.sin(t*4)*4);
+    ctx.fillText("♫", W+13, top+14+Math.sin(t*4+1.6)*4);
+  }
+  if (T.style === "cosmic"){                    // chispas
+    ctx.fillStyle = "#FFEFE2";
+    for (let i=0;i<5;i++){
+      const a = t*1.3 + i*1.26, rr = 31 + Math.sin(t*2+i)*4;
+      ctx.beginPath(); ctx.arc(Math.cos(a)*rr, top+H*.55 + Math.sin(a)*rr*.5, 1.5, 0, 6.283); ctx.fill();
+    }
+  }
+  ctx.restore();
+}
+
+function drawVivero(){
+  const v = G.vivero;
+  ctx.save();
+  ctx.fillStyle = "rgba(42,18,38,.55)";
+  roundRect(v.x, v.y, v.w, v.h, 22); ctx.fill();
+  ctx.strokeStyle = "#FFC53D"; ctx.lineWidth = 5; ctx.setLineDash([14,10]);
+  roundRect(v.x, v.y, v.w, v.h, 22); ctx.stroke(); ctx.setLineDash([]);
+
+  ctx.fillStyle = "#FFC53D";
+  ctx.font = "700 17px system-ui, sans-serif";
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillText("VIVERO — TOCA PARA COMPRAR", v.x+v.w/2, v.y+17);
+
+  for (const s of G.vivero.slots){
+    // maceta
+    ctx.fillStyle = "#8E4A2A";
+    roundRect(s.x-22, s.y+2, 44, 24, 6); ctx.fill();
+    ctx.strokeStyle = "#5C2A18"; ctx.lineWidth = 3;
+    roundRect(s.x-22, s.y+2, 44, 24, 6); ctx.stroke();
+
+    if (s.tier == null){
+      ctx.fillStyle = "rgba(255,239,226,.45)";
+      ctx.font = "600 12px system-ui, sans-serif";
+      ctx.fillText("sembrando…", s.x, s.y-22);
+      continue;
+    }
+    const T = TIERS[s.tier];
+    drawFlorin(s.x, s.y-16+Math.sin(G.t*2.2+s.x)*3, .92, s.tier, G.t+s.x);
+
+    // etiqueta de precio (debajo de la maceta: arriba va la flor)
+    const afford = G.money >= T.price;
+    const txt = money(T.price);
+    ctx.font = "800 14px ui-monospace, monospace";
+    const w = ctx.measureText(txt).width + 20;
+    ctx.fillStyle = afford ? "#2A1226" : "rgba(42,18,38,.65)";
+    roundRect(s.x-w/2, s.y+32, w, 22, 8); ctx.fill();
+    ctx.strokeStyle = afford ? "#FFC53D" : "#7A5B6E"; ctx.lineWidth = 2;
+    roundRect(s.x-w/2, s.y+32, w, 22, 8); ctx.stroke();
+    ctx.fillStyle = afford ? "#FFC53D" : "#9C8090";
+    ctx.textBaseline = "middle";
+    ctx.fillText(txt, s.x, s.y+43);
+
+    ctx.fillStyle = RAR_COLOR[T.rar];
+    ctx.font = "700 10.5px system-ui, sans-serif";
+    ctx.fillText(T.rar.toUpperCase() + " · " + T.income + "/S", s.x, s.y+64);
+  }
+  ctx.restore();
+}
+
+function drawArmeria(){
+  const a = G.armeria;
+  ctx.save();
+  ctx.fillStyle = "rgba(42,18,38,.62)";
+  roundRect(a.x, a.y, a.w, a.h, 20); ctx.fill();
+  ctx.strokeStyle = G.inShop ? "#FFEFE2" : "#FFC53D";
+  ctx.lineWidth = 5; ctx.setLineDash([12,9]);
+  roundRect(a.x, a.y, a.w, a.h, 20); ctx.stroke(); ctx.setLineDash([]);
+
+  // toldo a rayas
+  for (let i=0;i<8;i++){
+    ctx.fillStyle = i%2 ? "#FF3D6E" : "#FFEFE2";
+    ctx.fillRect(a.x+8+i*(a.w-16)/8, a.y-16, (a.w-16)/8, 16);
+  }
+  ctx.strokeStyle = "#5C2A18"; ctx.lineWidth = 3;
+  ctx.strokeRect(a.x+8, a.y-16, a.w-16, 16);
+
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillStyle = "#FFC53D";
+  ctx.font = "700 17px system-ui, sans-serif";
+  ctx.fillText("ARMERÍA DE LA CUADRA", a.x+a.w/2, a.y+26);
+  ctx.fillStyle = "rgba(255,239,226,.6)";
+  ctx.font = "600 12px system-ui, sans-serif";
+  ctx.fillText(G.inShop ? "elige tu arma abajo ↓" : "entra para comprar armas", a.x+a.w/2, a.y+46);
+
+  // mostrador con los gadgets
+  ctx.font = "26px system-ui, sans-serif";
+  WEAPONS.slice(1).forEach((w,k) => {
+    const x = a.x+42+k*((a.w-84)/4), y = a.y+88 + Math.sin(G.t*2+k)*3;
+    ctx.globalAlpha = G.ammo[w.id] > 0 ? 1 : .72;
+    ctx.fillText(w.icon, x, y);
+    ctx.globalAlpha = 1;
+  });
+  ctx.restore();
+}
+
+function drawShadow(x,y,r){
+  ctx.fillStyle = "rgba(0,0,0,.26)";
+  ctx.beginPath(); ctx.ellipse(x, y, r, r*.4, 0, 0, 6.283); ctx.fill();
+}
+
+function drawPerson(x, y, face, walk, opts){
+  const { skin, shirt, hair, stun, carry, bandana, apron, frozen, alpha, cap, ears } = opts;
+  if (alpha != null) ctx.globalAlpha = alpha;
+  const bounce = Math.sin(walk)*2.6;
+  ctx.save();
+  ctx.translate(x, y + (stun>0 ? Math.sin(G.t*40)*1.5 : 0));
+  drawShadow(0, 22, 18);
+
+  // piernas
+  ctx.strokeStyle = "#3A2A44"; ctx.lineWidth = 6; ctx.lineCap = "round";
+  const sw = Math.sin(walk)*7;
+  ctx.beginPath(); ctx.moveTo(-4,10); ctx.lineTo(-4+sw, 22); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(4,10);  ctx.lineTo(4-sw, 22); ctx.stroke();
+
+  // cuerpo
+  ctx.fillStyle = shirt;
+  roundRect(-11, -8+bounce*.3, 22, 20, 8); ctx.fill();
+  ctx.strokeStyle = "rgba(0,0,0,.25)"; ctx.lineWidth = 2;
+  roundRect(-11, -8+bounce*.3, 22, 20, 8); ctx.stroke();
+  if (apron){
+    ctx.fillStyle = "rgba(255,239,226,.85)";
+    roundRect(-7, -2+bounce*.3, 14, 13, 4); ctx.fill();
+  }
+
+  // brazos
+  ctx.strokeStyle = skin; ctx.lineWidth = 5.5;
+  ctx.beginPath(); ctx.moveTo(-10,-2); ctx.lineTo(-15-Math.sin(walk)*3, 7); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(10,-2);  ctx.lineTo(15+Math.sin(walk)*3, 7); ctx.stroke();
+
+  // cabeza
+  ctx.fillStyle = skin;
+  ctx.beginPath(); ctx.arc(0, -20+bounce*.5, 11, 0, 6.283); ctx.fill();
+  ctx.strokeStyle = "rgba(0,0,0,.22)"; ctx.lineWidth = 2; ctx.stroke();
+  // pelo
+  ctx.fillStyle = hair;
+  ctx.beginPath(); ctx.arc(0, -22+bounce*.5, 11, Math.PI*1.05, Math.PI*1.95); ctx.fill();
+  if (bandana){
+    ctx.fillStyle = bandana;
+    ctx.fillRect(-11, -25+bounce*.5, 22, 5);
+  }
+  if (ears){                                   // orejas de gato (guiño a Acenix)
+    const hy = -20+bounce*.5;
+    ctx.fillStyle = ears;
+    ctx.strokeStyle = "rgba(0,0,0,.3)"; ctx.lineWidth = 1.5;
+    for (const sx of [-1,1]){
+      ctx.beginPath();
+      ctx.moveTo(sx*3, hy-9); ctx.lineTo(sx*9, hy-19); ctx.lineTo(sx*11, hy-6);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+    }
+  }
+  if (cap){                                    // gorra
+    const hy = -20+bounce*.5;
+    ctx.fillStyle = cap;
+    ctx.beginPath(); ctx.arc(0, hy-4.5, 11, Math.PI, 0); ctx.fill();   // copa
+    ctx.fillRect(-11, hy-6, 22, 2.6);                                  // banda
+    ctx.fillRect(face>0 ? 9 : -20, hy-6, 11, 2.6);                     // visera
+    ctx.fillStyle = "rgba(0,0,0,.2)";
+    ctx.fillRect(-11, hy-4.6, 22, 1.3);
+  }
+  // ojos
+  ctx.fillStyle = "#2A1226";
+  ctx.beginPath(); ctx.arc(-3.6*face+1, -20+bounce*.5, 1.7, 0, 6.283); ctx.fill();
+  ctx.beginPath(); ctx.arc(3.6*face+1, -20+bounce*.5, 1.7, 0, 6.283); ctx.fill();
+
+  if (frozen > 0){                     // bloque de hielo
+    ctx.fillStyle = "rgba(92,225,234,.32)";
+    roundRect(-17, -34, 34, 58, 8); ctx.fill();
+    ctx.strokeStyle = "rgba(191,233,255,.85)"; ctx.lineWidth = 2.5;
+    roundRect(-17, -34, 34, 58, 8); ctx.stroke();
+    ctx.strokeStyle = "rgba(255,255,255,.6)"; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(-10,-26); ctx.lineTo(4,-2); ctx.moveTo(10,-20); ctx.lineTo(-2,14); ctx.stroke();
+  } else if (stun > 0){
+    ctx.fillStyle = "#FFC53D"; ctx.font = "700 15px system-ui, sans-serif";
+    ctx.textAlign = "center";
+    const a = G.t*6;
+    ctx.fillText("★", Math.cos(a)*13, -36+Math.sin(a)*4);
+    ctx.fillText("★", Math.cos(a+2.1)*13, -36+Math.sin(a+2.1)*4);
+  }
+  ctx.restore();
+  ctx.globalAlpha = 1;
+
+  if (carry) drawFlorin(x + 2, y - 46, .8, carry.tier, G.t*2);
+}
+
+function drawChanclaSprite(x, y, spin, scale){
+  ctx.save();
+  ctx.translate(x,y); ctx.rotate(spin); ctx.scale(scale,scale);
+  ctx.fillStyle = "#7A0F2E";
+  ctx.beginPath(); ctx.ellipse(0,0,9,16,0,0,6.283); ctx.fill();
+  ctx.fillStyle = "#FF3D6E";
+  ctx.beginPath(); ctx.ellipse(0,-1,7,13.5,0,0,6.283); ctx.fill();
+  ctx.strokeStyle = "#7A0F2E"; ctx.lineWidth = 3; ctx.lineCap = "round";
+  ctx.beginPath(); ctx.moveTo(0,-2); ctx.lineTo(-5,-11); ctx.moveTo(0,-2); ctx.lineTo(5,-11); ctx.stroke();
+  ctx.restore();
+}
+
+function drawGrabRing(){
+  const g = G.grab;
+  if (!g.ped || g.t <= 0) return;
+  const p = g.ped, frac = clamp(g.t/.55, 0, 1);
+  ctx.save();
+  ctx.lineWidth = 5; ctx.lineCap = "round";
+  ctx.strokeStyle = "rgba(255,239,226,.25)";
+  ctx.beginPath(); ctx.arc(p.x, p.y-16, 30, 0, 6.283); ctx.stroke();
+  ctx.strokeStyle = "#FF3D6E";
+  ctx.beginPath(); ctx.arc(p.x, p.y-16, 30, -1.57, -1.57+frac*6.283); ctx.stroke();
+  ctx.restore();
+}
+
+function draw(){
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  ctx.clearRect(0,0,VW,VH);
+  ctx.fillStyle = "#1B0C1A";
+  ctx.fillRect(0,0,VW,VH);
+
+  const visW = VW/ZOOM, visH = VH/ZOOM;
+  const p = G.player;
+  cam.x = visW >= WORLD_W ? (WORLD_W-visW)/2 : clamp(p.x-visW/2, 0, WORLD_W-visW);
+  cam.y = visH >= WORLD_H ? (WORLD_H-visH)/2 : clamp(p.y-visH/2, 0, WORLD_H-visH);
+
+  ctx.setTransform(DPR*ZOOM, 0, 0, DPR*ZOOM, -cam.x*DPR*ZOOM, -cam.y*DPR*ZOOM);
+
+  drawFloor();
+  for (const b of G.bases) drawBase(b);
+  drawVivero();
+  drawArmeria();
+  drawGrabRing();
+
+  // florines en el suelo
+  for (const g of G.ground){
+    drawShadow(g.x, g.y+18, 15);
+    drawFlorin(g.x, g.y + Math.sin(g.bob)*4, .95, g.tier, g.bob);
+    if (g.t < 3){
+      ctx.fillStyle = "rgba(255,239,226,.8)";
+      ctx.font = "700 12px system-ui, sans-serif"; ctx.textAlign = "center";
+      ctx.fillText("¡en el suelo!", g.x, g.y+40);
+    }
+  }
+
+  // abuelas
+  for (const b of G.bases){
+    const g = b.guard; if (!g) continue;
+    drawPerson(g.x, g.y, g.face, g.walk, {
+      skin:"#E8B48C", shirt:"#8E4A9E", hair:"#D8CFD4", stun:g.stun, carry:null, apron:true,
+      frozen:g.frozen
+    });
+    // chancla en mano
+    drawChanclaSprite(g.x + 17*g.face, g.y - 2, g.stun>0 ? G.t*8 : Math.sin(g.walk)*.5 + (g.face>0?.5:-.5), .8);
+    if (g.alert > .2 && g.stun <= 0){
+      ctx.fillStyle = "#FF3D6E"; ctx.font = "800 20px system-ui, sans-serif"; ctx.textAlign = "center";
+      ctx.globalAlpha = g.alert;
+      ctx.fillText("!", g.x, g.y-44);
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  // ladrones
+  for (const t of G.thieves){
+    const K = LADRONES[t.who];
+    drawPerson(t.x, t.y, t.face, t.walk, {
+      skin:K.skin, shirt:K.shirt, hair:K.hair, cap:K.cap, ears:K.ears,
+      stun:t.stun, carry:t.carry, frozen:t.frozen
+    });
+    // nombre debajo, para saber quién te está robando
+    ctx.font = "800 12px system-ui, sans-serif";
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.lineWidth = 3.5; ctx.strokeStyle = "rgba(15,7,14,.85)";
+    ctx.strokeText(K.label, t.x, t.y+36);
+    ctx.fillStyle = K.shirt;
+    ctx.fillText(K.label, t.x, t.y+36);
+
+    if (t.state === "grab" && t.stun<=0){
+      const frac = clamp(t.grabT/.85,0,1);
+      ctx.strokeStyle = "#FF3D6E"; ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.arc(t.x, t.y-40, 16, -1.57, -1.57+frac*6.283); ctx.stroke();
+    }
+  }
+
+  // jugador
+  if (p.boost > 0 && !REDUCED){                 // estela del refresco
+    ctx.strokeStyle = "rgba(255,158,196,.5)"; ctx.lineWidth = 4; ctx.lineCap = "round";
+    for (let i=1;i<=3;i++){
+      ctx.globalAlpha = .35/i;
+      ctx.beginPath();
+      ctx.moveTo(p.x - p.vx*0.02*i, p.y - p.vy*0.02*i);
+      ctx.lineTo(p.x - p.vx*0.05*i, p.y - p.vy*0.05*i);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  }
+  drawPerson(p.x, p.y, p.face, p.walk, {
+    skin:"#F0C08A", shirt:"#3DDC97", hair:"#3A1B33", stun:p.stun, carry:p.carry,
+    alpha: p.invis > 0 ? (p.invis < 2 ? .3 + Math.sin(G.t*14)*.15 : .34) : 1
+  });
+  if (G.chancla.state === "held")
+    drawChanclaSprite(p.x + 16*p.face, p.y - 4, (p.face>0?.6:-.6), .85);
+  else
+    drawChanclaSprite(G.chancla.x, G.chancla.y, G.chancla.spin, 1);
+
+  // balas de hielo
+  for (const b of G.bolts){
+    ctx.fillStyle = "#BFE9FF";
+    ctx.beginPath(); ctx.arc(b.x, b.y, 7, 0, 6.283); ctx.fill();
+    ctx.strokeStyle = "rgba(92,225,234,.75)"; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(b.x-b.vx*.02, b.y-b.vy*.02); ctx.lineTo(b.x, b.y); ctx.stroke();
+  }
+
+  // ráfagas
+  for (const bl of G.blasts){
+    const f = clamp(bl.life/.42, 0, 1);
+    ctx.globalAlpha = f;
+    if (bl.kind === "cone"){
+      ctx.fillStyle = "rgba(191,233,255,.45)";
+      ctx.beginPath();
+      ctx.moveTo(bl.x, bl.y);
+      ctx.arc(bl.x, bl.y, 260*(1.15-f*.35), bl.ang-.7, bl.ang+.7);
+      ctx.closePath(); ctx.fill();
+    } else {
+      ctx.strokeStyle = "#FFE066"; ctx.lineWidth = 7;
+      ctx.beginPath(); ctx.arc(bl.x, bl.y, (bl.r||140)*(1.1-f*.5), 0, 6.283); ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // partículas
+  for (const q of G.puffs){
+    ctx.globalAlpha = clamp(q.life*1.6,0,1);
+    ctx.fillStyle = q.color;
+    ctx.beginPath(); ctx.arc(q.x,q.y,q.r,0,6.283); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  // textos flotantes
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  for (const q of G.pops){
+    ctx.globalAlpha = clamp(q.life,0,1);
+    ctx.font = "800 17px system-ui, sans-serif";
+    ctx.lineWidth = 4; ctx.strokeStyle = "rgba(15,7,14,.85)";
+    ctx.strokeText(q.text, q.x, q.y);
+    ctx.fillStyle = q.color;
+    ctx.fillText(q.text, q.x, q.y);
+  }
+  ctx.globalAlpha = 1;
+
+  drawMinimap();
+}
+
+function drawMinimap(){
+  const w = mm.width, h = mm.height;
+  const sx = w/WORLD_W, sy = h/WORLD_H;
+  mctx.clearRect(0,0,w,h);
+  mctx.fillStyle = "rgba(27,12,26,.6)";
+  mctx.fillRect(0,0,w,h);
+  for (const b of G.bases){
+    mctx.fillStyle = b.isPlayer ? "rgba(61,220,151,.3)" : "rgba(255,255,255,.08)";
+    mctx.fillRect(b.rect.x*sx, b.rect.y*sy, b.rect.w*sx, b.rect.h*sy);
+    mctx.strokeStyle = b.color; mctx.lineWidth = 3;
+    mctx.strokeRect(b.rect.x*sx, b.rect.y*sy, b.rect.w*sx, b.rect.h*sy);
+    const n = occupied(b).length;
+    if (n){
+      mctx.fillStyle = b.color;
+      mctx.font = "700 22px system-ui, sans-serif";
+      mctx.textAlign = "center"; mctx.textBaseline = "middle";
+      mctx.fillText(String(n), (b.rect.x+b.rect.w/2)*sx, (b.rect.y+b.rect.h/2)*sy);
+    }
+  }
+  const v = G.vivero;
+  mctx.strokeStyle = "#FFC53D"; mctx.lineWidth = 3;
+  mctx.strokeRect(v.x*sx, v.y*sy, v.w*sx, v.h*sy);
+  const a = G.armeria;
+  mctx.strokeStyle = "#FF3D6E"; mctx.lineWidth = 3;
+  mctx.strokeRect(a.x*sx, a.y*sy, a.w*sx, a.h*sy);
+
+  for (const t of G.thieves){
+    mctx.fillStyle = t.carry ? "#FF3D6E" : "#FFEFE2";
+    mctx.beginPath(); mctx.arc(t.x*sx, t.y*sy, 4.5, 0, 6.283); mctx.fill();
+  }
+  for (const b of G.bases) if (b.guard){
+    mctx.fillStyle = "#C58BD6";
+    mctx.beginPath(); mctx.arc(b.guard.x*sx, b.guard.y*sy, 4, 0, 6.283); mctx.fill();
+  }
+  mctx.fillStyle = "#3DDC97";
+  mctx.beginPath(); mctx.arc(G.player.x*sx, G.player.y*sy, 6, 0, 6.283); mctx.fill();
+  mctx.strokeStyle = "#0F070E"; mctx.lineWidth = 2; mctx.stroke();
+}
+
+/* ============================================================
+   HUD de armas (HTML)
+   ============================================================ */
+const chips = WEAPONS.map((w,i) => {
+  const b = document.createElement("button");
+  b.className = "chip";
+  b.type = "button";
+  b.innerHTML = '<span class="ic">'+w.icon+'</span><span class="meta">'+
+                '<span class="nm">'+w.name+'</span>'+
+                '<span class="n"><span class="q"></span><i class="u"> usos</i></span></span>';
+  b.setAttribute("aria-label", w.name + " — tecla " + (i+1));
+  b.addEventListener("click", () => { Snd.unlock(); selectWeapon(i); });
+  el.wbar.appendChild(b);
+  return b;
+});
+
+const rackBtns = WEAPONS.slice(1).map((w,k) => {
+  const i = k+1;
+  const b = document.createElement("button");
+  b.className = "buy"; b.type = "button";
+  b.innerHTML = '<span class="ic">'+w.icon+'</span><span>'+
+                '<span class="nm">'+w.name+'</span><br>'+
+                '<span class="pr">'+money(w.price)+' · +'+w.uses+' usos</span><br>'+
+                '<span class="ds">'+w.desc+'</span></span>';
+  b.addEventListener("click", () => buyWeapon(i));
+  el.rack.appendChild(b);
+  return b;
+});
+
+function renderWbar(){
+  WEAPONS.forEach((w,i) => {
+    const c = chips[i];
+    const inf = w.id === "chancla";
+    const n = inf ? "∞" : String(G.ammo[w.id]);
+    const qEl = c.querySelector(".q");
+    if (qEl.textContent !== n) qEl.textContent = n;
+    c.querySelector(".u").style.display = inf ? "none" : "";
+    c.classList.toggle("sel", G.wsel === i);
+    c.classList.toggle("locked", !inf && G.ammo[w.id] <= 0);
+  });
+  const w = WEAPONS[G.wsel];
+  const isCh = w.id === "chancla";
+  el.wSvg.style.display = isCh ? "" : "none";
+  el.wIcon.hidden = isCh;
+  if (!isCh) el.wIcon.textContent = w.icon;
+  el.throwB.setAttribute("aria-label", "Usar " + w.name);
+}
+
+function renderRack(){
+  el.armMon.textContent = money(G.money);
+  rackBtns.forEach((b,k) => { b.disabled = G.money < WEAPONS[k+1].price; });
+}
+
+/* ============================================================
+   HUD
+   ============================================================ */
+let lastTip = "";
+function hud(){
+  const inc = playerIncome();
+  el.money.textContent = money(G.money);
+  el.rate.textContent = money(inc) + "/s";
+  el.goal.textContent = money(G.money) + " / " + money(GOAL);
+  el.bar.style.width = clamp(G.money/GOAL*100, 0, 100).toFixed(1) + "%";
+  el.lost.textContent = G.stats.lost;
+
+  const w = WEAPONS[G.wsel];
+  const notReady = G.cd > 0 ||
+    (w.id === "chancla" ? G.chancla.state !== "held" : G.ammo[w.id] <= 0);
+  el.throwB.classList.toggle("cool", notReady);
+
+  let tip;
+  const p = G.player;
+  const useKey = isTouch ? "el botón rosa" : "<span class='k'>espacio</span>";
+  if (p.carry) tip = "Llevas un <b>" + TIERS[p.carry.tier].name + "</b> · corre a <b>tu patio</b> para que empiece a pagar.";
+  else if (G.paused) tip = "<b>Pausa.</b> Toca ▶ para seguir.";
+  else if (G.inShop) tip = "Estás en la <b>Armería</b>: compra gadgets y cámbialos con " + (isTouch ? "los chips de abajo" : "<span class='k'>1</span>–<span class='k'>6</span>") + ".";
+  else if (p.invis > 0) tip = "Eres <b>invisible</b>: las abuelas no te ven. Aprovecha.";
+  else if (p.boost > 0) tip = "<b>Turbo activo</b>: agarra los florines más caros.";
+  else if (inc === 0) tip = "Tu vitrina está vacía: compra en el <b>Vivero</b> del centro o roba en una casa vecina.";
+  else if (G.grab.ped) tip = "No te muevas… <b>estás robando</b>.";
+  else if (G.thieves.some(t => t.state === "grab")){
+    const l = G.thieves.find(t => t.state === "grab");
+    tip = "¡<b>" + LADRONES[l.who].label + "</b> está en tu vitrina! Dale con " + useKey + ".";
+  }
+  else if (w.id === "chancla" && G.chancla.state !== "held") tip = "Tu chancla viene de regreso… <b>espérala</b>.";
+  else if (notReady) tip = "Sin usos de <b>" + w.name + "</b>. Compra más en la <b>Armería</b> (abajo, al centro).";
+  else if (G.stats.lost > 0 && G.stats.lost % 3 === 0) tip = "Los vecinos vienen seguido. <b>Quédate cerca</b> de tu vitrina y chanclea.";
+  else tip = "Arma: <b>" + w.name + "</b> · úsala con " + useKey + " y esquiva a la <b>abuela</b>.";
+  if (tip !== lastTip){ el.tip.innerHTML = tip; lastTip = tip; }
+}
+
+/* ============================================================
+   Flujo del juego
+   ============================================================ */
+function startGame(){
+  G = newGame();
+  G.started = true;
+  el.title.hidden = true;
+  el.end.hidden = true;
+  el.arm.hidden = true;
+  el.pause.textContent = "⏸";
+  lastTip = "";
+  renderWbar(); renderRack();
+  Snd.unlock();
+}
+
+function endGame(won){
+  G.over = true; G.won = won;
+  document.getElementById("endEyebrow").textContent = won ? "Meta cumplida" : "Fin del patio";
+  document.getElementById("endTitle").innerHTML = won ? "¡Patio <em>lleno</em>!" : "Te dejaron <em>pelado</em>";
+  document.getElementById("endSub").textContent = won
+    ? "Llegaste a " + money(GOAL) + " con la vitrina más envidiada del barrio. Las abuelas del vecindario no te quieren volver a ver."
+    : "Los vecinos se llevaron todo.";
+  document.getElementById("stSteals").textContent = G.stats.steals;
+  document.getElementById("stHits").textContent = G.stats.hits;
+  document.getElementById("stTime").textContent = mmss(G.t);
+  document.getElementById("stRate").textContent = money(playerIncome()) + "/s";
+  el.end.hidden = false;
+  if (won) Snd.win();
+}
+
+/* ============================================================
+   Loop
+   ============================================================ */
+let last = performance.now();
+function frame(now){
+  const dt = Math.min(.05, (now-last)/1000);
+  last = now;
+  if (G.started && !G.paused && !G.over) update(dt);
+  draw();
+  hud();
+  requestAnimationFrame(frame);
+}
+
+resize();
+G = newGame();
+renderWbar(); renderRack();
+requestAnimationFrame(frame);
+
+})();
+</script>
