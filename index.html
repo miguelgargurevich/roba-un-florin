@@ -324,6 +324,45 @@
   .buy .pr{font-family:var(--num);font-size:11px;color:var(--gold);line-height:1.3}
   .buy .ds{font-size:10px;color:var(--cream-dim);line-height:1.25}
 
+  /* ---------- ruleta de Florines ---------- */
+  #ruleta{
+    align-self:center;flex:0 0 auto;
+    width:min(560px,100%);margin-bottom:8px;pointer-events:auto;
+    background:linear-gradient(180deg,color-mix(in srgb,var(--plum-800) 96%,transparent),var(--plum-900));
+    border:3px solid var(--chancla);border-radius:18px;padding:12px;
+    box-shadow:0 12px 0 rgba(0,0,0,.4);
+  }
+  #ruleta[hidden]{display:none}
+  #app.dos #ruleta{display:none}
+  #ruleta h2{
+    font-family:var(--display);font-size:16px;letter-spacing:.06em;text-transform:uppercase;
+    margin:0 0 9px;color:var(--chancla);display:flex;justify-content:space-between;align-items:center;gap:8px
+  }
+  #ruleta h2 small{font-family:var(--num);font-size:12px;color:var(--gold);font-weight:700}
+  .rulTira{
+    position:relative;overflow:hidden;border-radius:12px;
+    border:2px solid var(--plum-600);background:var(--plum-900);height:56px;
+  }
+  .rulStrip{display:flex;gap:6px;padding:6px;will-change:transform}
+  .rulCel{
+    flex:0 0 108px;height:44px;border-radius:9px;display:grid;place-items:center;
+    font-size:11px;font-weight:800;text-align:center;line-height:1.2;padding:0 6px;
+    background:var(--plum-700);border:2px solid var(--plum-600);color:var(--cream);
+  }
+  .rulMarca{
+    position:absolute;top:0;bottom:0;left:50%;width:3px;margin-left:-1.5px;
+    background:var(--chancla);box-shadow:0 0 10px var(--chancla);
+  }
+  .rulPie{display:flex;gap:10px;align-items:center;margin-top:9px;flex-wrap:wrap}
+  .rulBtn{
+    flex:0 0 auto;padding:11px 16px;border-radius:12px;cursor:pointer;
+    background:linear-gradient(180deg,#FF7196,var(--chancla));color:#3A0413;
+    border:2px solid #A81340;font-family:var(--ui);font-weight:800;font-size:13px;
+  }
+  .rulBtn:disabled{opacity:.45;cursor:not-allowed}
+  .rulBtn:focus-visible{outline:3px solid var(--cosmo);outline-offset:2px}
+  .rulMsg{font-size:11px;color:var(--cream-dim);line-height:1.35;flex:1 1 140px}
+
   #throwBtn .wicon{font-size:44px;line-height:1}
   #throwBtn .wicon[hidden]{display:none}
 
@@ -386,6 +425,15 @@
     <div id="armeria" hidden>
       <h2>🧰 Armería <small id="armMoney">$0</small></h2>
       <div class="rack" id="rack"></div>
+    </div>
+
+    <div id="ruleta" hidden>
+      <h2>🎰 Ruleta de Florines <small id="rulMoney">$0</small></h2>
+      <div class="rulTira"><div class="rulStrip" id="rulStrip"></div><i class="rulMarca"></i></div>
+      <div class="rulPie">
+        <button class="rulBtn" id="rulGirar">Girar · $1 200</button>
+        <span class="rulMsg" id="rulMsg">Hay casillas <b>???</b>: de ahí salen las variantes ✨ y 🌈.</span>
+      </div>
     </div>
 
     <div class="wbar" id="wbar"></div>
@@ -542,6 +590,32 @@ const WEAPONS = [
     desc:"Las abuelas no te ven 8 s." },
 ];
 
+/* Pasarela: desfilar rinde más, pero el Florín queda fuera de tu patio */
+const PASARELA_MULT = 2.5;
+
+/* Ruleta: cada tirada cuesta RULETA_PRECIO. Los pesos suman 100.
+   "incognita" abre la tabla secreta de abajo, de donde salen las variantes. */
+const RULETA_PRECIO = 1200;
+const RULETA = [
+  { p:20, kind:"florin", tier:0 },
+  { p:16, kind:"florin", tier:1 },
+  { p:14, kind:"florin", tier:2 },
+  { p:12, kind:"incognita" },
+  { p:10, kind:"florin", tier:3 },
+  { p:8,  kind:"dinero", monto:500 },
+  { p:6,  kind:"florin", tier:4 },
+  { p:6,  kind:"arma" },
+  { p:4,  kind:"dinero", monto:2500 },
+  { p:3,  kind:"florin", tier:5 },
+  { p:1,  kind:"florin", tier:6 },
+];
+const RULETA_INCOGNITA = [
+  { p:45, tierMax:4, variant:"brillante" },
+  { p:25, tierMax:3, variant:"arcoiris" },
+  { p:20, tier:6,    variant:null },
+  { p:10, tier:6,    variant:"arcoiris" },     // el premio gordo
+];
+
 /* Los vecinos que te roban: cada base manda su propio ladrón, con maña distinta */
 const LADRONES = {
   mayo:   { label:"Mayo",    shirt:"#FFD84D", skin:"#F0C08A", hair:"#3A2416",
@@ -676,6 +750,11 @@ const el = {
   j2rate:  document.getElementById("uiJ2Rate"),
   j2bar:   document.getElementById("uiJ2Bar"),
   wSvg:   document.getElementById("wSvg"),
+  rul:     document.getElementById("ruleta"),
+  rulStrip:document.getElementById("rulStrip"),
+  rulMon:  document.getElementById("rulMoney"),
+  rulBtn:  document.getElementById("rulGirar"),
+  rulMsg:  document.getElementById("rulMsg"),
 };
 
 let VW=0, VH=0, DPR=1, ZOOM=1;
@@ -716,7 +795,7 @@ function mkJugador(idx, base, teclas, shirt){
     x: base.rect.x + base.rect.w/2, y: base.rect.y + base.rect.h/2,
     vx:0, vy:0, face:1, walk:0, dirx:1, diry:0,
     carry:null, stun:0, boost:0, invis:0,
-    money:260, ammo, wsel:0, cd:0, inShop:false, fullWarn:0,
+    money:260, ammo, wsel:0, cd:0, inShop:false, inRuleta:false, fullWarn:0,
     chancla:{ state:"held", x:0, y:0, vx:0, vy:0, spin:0, travel:0 },
     grab:{ ped:null, t:0 },
     aim:{ on:false, wx:0, wy:0 },
@@ -768,13 +847,25 @@ function newGame(modo){
   vivero.slots.forEach((s,i) => { s.x = vivero.x+62+i*103; s.y = vivero.y+100; s.tier = i===2?1:0; });
 
   const armeria = { x: 960, y: 1350, w:300, h:130 };
+  const ruleta  = { x: 1450, y: 1350, w:300, h:130 };
+
+  /* La pasarela: tres carriles de alfombra donde tus Florines desfilan.
+     Rinden PASARELA_MULT pero quedan fuera del patio, así que son robables. */
+  const pasarela = { x: 520, y: 900, w: 380, h: 230, slots: [] };
+  for (let i=0;i<3;i++)
+    pasarela.slots.push({
+      florin:null, dueno:null, pop:0,
+      pos: i*0.22, dir: 1, lane: i,
+      x: pasarela.x + 60, y: pasarela.y + 92 + i*46,
+    });
 
   const jugadores = [ mkJugador(0, bases[0], mode === 2 ? TECLAS_J1 : TECLAS_1P, "#3DDC97") ];
   if (mode === 2) jugadores.push( mkJugador(1, bases[5], TECLAS_J2, "#FFB020") );
   for (const p of jugadores) for (const b of p.patios) b.owner = p;
 
   const g = {
-    t: 0, mode, bases, vivero, armeria,
+    t: 0, mode, bases, vivero, armeria, ruleta, pasarela,
+    girando: null,
     players: jugadores,
     player: jugadores[0],
     bolts: [], blasts: [],
@@ -981,6 +1072,7 @@ el.throwB.addEventListener("keydown", e => {
 el.pause.addEventListener("click", togglePause);
 el.sound.addEventListener("click", toggleSound);
 el.hand.addEventListener("click", toggleZurdo);
+el.rulBtn.addEventListener("click", girarRuleta);
 document.getElementById("btnAlbum").addEventListener("click", abrirAlbum);
 document.getElementById("albumCerrar").addEventListener("click", cerrarAlbum);
 aplicarZurdo();
@@ -1239,9 +1331,150 @@ function occupiedDe(p){
 }
 function esMiPatio(p, b){ return p.patios.indexOf(b) >= 0; }
 
+/* Los puestos de la pasarela con un Florín de este jugador */
+function pasarelaDe(p){
+  return G.pasarela.slots.filter(s => s.florin && s.dueno === p);
+}
+
 function playerIncome(p){
   p = p || G.player;
-  return occupiedDe(p).reduce((s,q) => s + florinIncome(q.florin), 0);
+  const vitrina = occupiedDe(p).reduce((s,q) => s + florinIncome(q.florin), 0);
+  const desfile = pasarelaDe(p).reduce((s,q) => s + florinIncome(q.florin)*PASARELA_MULT, 0);
+  return Math.floor(vitrina + desfile);
+}
+
+/* ============================================================
+   Ruleta de Florines
+   ============================================================ */
+function tiraDeTabla(tabla){
+  const total = tabla.reduce((s,e) => s + e.p, 0);
+  let r = Math.random()*total;
+  for (const e of tabla){ r -= e.p; if (r <= 0) return e; }
+  return tabla[tabla.length-1];
+}
+
+/* Traduce una casilla en el premio concreto que te vas a llevar */
+function premioDeRuleta(){
+  const e = tiraDeTabla(RULETA);
+  if (e.kind === "florin") return { kind:"florin", tier:e.tier, variant:null };
+  if (e.kind === "dinero") return { kind:"dinero", monto:e.monto };
+  if (e.kind === "arma"){
+    const i = 1 + ((Math.random()*(WEAPONS.length-1))|0);   // nunca la chancla
+    return { kind:"arma", arma:i };
+  }
+  // incógnita: la tabla secreta
+  const s = tiraDeTabla(RULETA_INCOGNITA);
+  const tier = s.tier != null ? s.tier : ((Math.random()*(s.tierMax+1))|0);
+  return { kind:"florin", tier, variant:s.variant, sorpresa:true };
+}
+
+function textoDePremio(pr){
+  if (pr.kind === "dinero") return money(pr.monto);
+  if (pr.kind === "arma")   return WEAPONS[pr.arma].icon + " " + WEAPONS[pr.arma].name + " ×2";
+  const T = TIERS[pr.tier];
+  return (pr.variant ? VARIANTES[pr.variant].icon + " " : "") + T.name +
+         " · " + T.rar + (pr.variant ? " " + VARIANTES[pr.variant].label : "");
+}
+
+/* Entrega el premio: el Florín te lo llevas en brazos, o al suelo si vas cargado */
+function entregarPremio(p, pr){
+  if (pr.kind === "dinero"){
+    p.money += pr.monto;
+    pop(p.x, p.y-70, "+" + money(pr.monto), "#FFC53D");
+    Snd.buy();
+    return;
+  }
+  if (pr.kind === "arma"){
+    const w = WEAPONS[pr.arma];
+    p.ammo[w.id] += 2;
+    pop(p.x, p.y-70, w.icon + " +2 usos", w.color);
+    renderWbar();
+    Snd.buy();
+    return;
+  }
+  const f = { tier: pr.tier, variant: pr.variant || null, nombre: null };
+  if (!p.carry) p.carry = f;
+  else G.ground.push(mismoFlorin(f, { x: p.x + rnd(-24,24), y: p.y + 34, bob:0, t:0 }));
+  const col = pr.variant ? VARIANTES[pr.variant].color : (RAR_COLOR[TIERS[pr.tier].rar] || "#FFC53D");
+  pop(p.x, p.y-70, (pr.sorpresa ? "??? → " : "") + textoDePremio(pr), col);
+  puff(p.x, p.y-20, col, 16);
+  Snd.place();
+}
+
+/* ---- la tira que rueda: puro adorno, el premio ya está decidido ---- */
+const RUL_CEL_W = 114;                        // 108 de celda + 6 de hueco
+const RUL_IDX = 18;                           // dónde se planta el premio
+function celdaDeCasilla(e){
+  if (e.kind === "dinero")    return { txt: money(e.monto), col:"#FFC53D" };
+  if (e.kind === "arma")      return { txt: "🎁 Arma", col:"#BFE9FF" };
+  if (e.kind === "incognita") return { txt: "???", col:"#8B6BEE" };
+  const T = TIERS[e.tier];
+  return { txt: T.rar, col: RAR_COLOR[T.rar] || "#FFEFE2" };
+}
+function celdaDePremio(pr){
+  if (pr.kind === "dinero") return { txt: money(pr.monto), col:"#FFC53D" };
+  if (pr.kind === "arma")   return { txt: WEAPONS[pr.arma].icon + " Arma", col:"#BFE9FF" };
+  const T = TIERS[pr.tier];
+  return { txt: (pr.variant ? VARIANTES[pr.variant].icon + " " : "") + T.rar,
+           col: pr.variant ? VARIANTES[pr.variant].color : (RAR_COLOR[T.rar] || "#FFEFE2") };
+}
+function pintarCelda(c){
+  const d = document.createElement("div");
+  d.className = "rulCel";
+  d.textContent = c.txt;
+  d.style.borderColor = c.col;
+  d.style.color = c.col;
+  return d;
+}
+/* Con premio, lo planta en RUL_IDX; sin premio, es solo adorno al abrir el puesto */
+function construirTira(premio){
+  el.rulStrip.style.transform = "translateX(0px)";
+  el.rulStrip.innerHTML = "";
+  for (let i=0;i<RUL_IDX+8;i++){
+    el.rulStrip.appendChild(pintarCelda(
+      premio && i === RUL_IDX ? celdaDePremio(premio) : celdaDeCasilla(tiraDeTabla(RULETA))));
+  }
+}
+
+function girarRuleta(){
+  const p = G.players.find(q => q.inRuleta);
+  if (!p || G.girando) return;
+  if (p.money < RULETA_PRECIO){
+    pop(p.x, p.y-70, "Falta " + money(RULETA_PRECIO - p.money), "#FF6B90");
+    Snd.ouch();
+    return;
+  }
+  p.money -= RULETA_PRECIO;
+  const premio = premioDeRuleta();
+  construirTira(premio);
+  const ancho = el.rul.querySelector(".rulTira").clientWidth || 520;
+  G.girando = {
+    t:0, dur: REDUCED ? .35 : 2.2, premio, jugador: p,
+    destino: RUL_IDX*RUL_CEL_W + RUL_CEL_W/2 - ancho/2,
+  };
+  G.ultimoPremio = null;
+  Snd.unlock();
+  renderRuleta();
+}
+
+function renderRuleta(){
+  if (el.rul.hidden) return;
+  el.rulMon.textContent = money(G.money);
+  const g = G.girando;
+  if (g){
+    const k = clamp(g.t/g.dur, 0, 1);
+    const e = 1 - Math.pow(1-k, 3);                 // frena suave
+    el.rulStrip.style.transform = "translateX(" + (-g.destino*e) + "px)";
+    el.rulBtn.disabled = true;
+    el.rulMsg.textContent = "Girando…";
+    return;
+  }
+  el.rulBtn.disabled = G.money < RULETA_PRECIO;
+  el.rulBtn.textContent = "Girar · " + money(RULETA_PRECIO);
+  if (G.ultimoPremio) el.rulMsg.innerHTML = "¡Te llevas <b>" + G.ultimoPremio + "</b>!";
+  else el.rulMsg.innerHTML = G.money < RULETA_PRECIO
+    ? "Te falta plata para girar: junta " + money(RULETA_PRECIO) + "."
+    : "Hay casillas <b>???</b>: de ahí salen las variantes ✨ y 🌈.";
 }
 
 /* Comprar un patio extra: por proximidad, igual que el Vivero */
@@ -1281,12 +1514,13 @@ function applyKnock(e, dt){
 
 function spawnThief(){
   // elige víctima entre los jugadores que tengan algo que robar
-  const victimas = G.players.filter(p => occupiedDe(p).length);
+  const victimas = G.players.filter(p => occupiedDe(p).length || pasarelaDe(p).length);
   if (!victimas.length) return;
   const victim = pick(victimas);
-  // ...y de esa víctima, uno de sus patios que tenga Florines
-  const patios = victim.patios.filter(b => occupied(b).length);
-  if (!patios.length) return;
+  // ...y de esa víctima, uno de sus patios que tenga Florines. Si lo tiene todo
+  // desfilando, su patio principal sirve de referencia y el ladrón va a la pasarela.
+  const conFlorines = victim.patios.filter(b => occupied(b).length);
+  const patios = conFlorines.length ? conFlorines : [victim.base];
   const ladronas = G.bases.filter(b => !b.isPlayer && b.who);
   if (!ladronas.length) return;
   const from = pick(ladronas);
@@ -1386,7 +1620,9 @@ function update(dt){
     if (t.state === "go"){
       if (!t.target || !t.target.florin){
         const K0 = LADRONES[t.who];
+        // los de la pasarela también cuentan: desfilar rinde más pero expone
         let occ = occupied(t.victim);
+        if (t.victim.owner) occ = occ.concat(pasarelaDe(t.victim.owner));
         // La Prima Yuli es conformista: no carga nada por encima de su tope
         if (K0.maxTier != null) occ = occ.filter(q => q.florin.tier <= K0.maxTier);
         if (!occ.length){ t.state = "flee"; }
@@ -1502,6 +1738,32 @@ function update(dt){
     }
   }
 
+  /* ---- la pasarela: los Florines caminan de ida y vuelta ---- */
+  const pa = G.pasarela;
+  const x0 = pa.x + 52, x1 = pa.x + pa.w - 52;
+  for (const s of pa.slots){
+    if (s.pop > 0) s.pop -= dt*2.2;
+    if (!s.florin){ s.dueno = null; continue; }
+    s.pos += s.dir * dt * 0.19;
+    if (s.pos >= 1){ s.pos = 1; s.dir = -1; }
+    if (s.pos <= 0){ s.pos = 0; s.dir = 1; }
+    s.x = lerp(x0, x1, s.pos);
+    s.florin.bob = (s.florin.bob || 0) + dt*4.2;
+  }
+
+  /* ---- ruleta girando ---- */
+  if (G.girando){
+    G.girando.t += dt;
+    if (G.girando.t >= G.girando.dur){
+      const gg = G.girando;
+      G.girando = null;
+      entregarPremio(gg.jugador, gg.premio);
+      if (gg.premio.kind === "florin") vistoEnAlbum(gg.premio.tier, gg.premio.variant);
+      G.ultimoPremio = textoDePremio(gg.premio);
+      renderRuleta();
+    } else renderRuleta();
+  }
+
   /* ---- animación de vitrinas ---- */
   for (const b of G.bases) for (const ped of b.peds){
     if (ped.pop > 0) ped.pop -= dt*2.2;
@@ -1578,6 +1840,42 @@ function updateJugador(p, dt){
     }
   }
 
+  /* ---- pasarela: dejar a desfilar, o recoger lo tuyo ----
+     Una acción por visita: si no, estando encima del carril lo dejarías y lo
+     recogerías en bucle. Para volver a tocarla hay que salir y entrar. */
+  if (!inRect(p.x, p.y, G.pasarela, 12)) p.pasarelaUsada = false;
+  else if (!p.pasarelaUsada && p.stun<=0){
+    if (p.carry){
+      // el carril libre más cercano
+      let libre = null, ld = Infinity;
+      for (const s of G.pasarela.slots){
+        if (s.florin) continue;
+        const d = dist2(p.x, p.y, s.x, s.y);
+        if (d < ld){ ld = d; libre = s; }
+      }
+      if (libre && ld < 120*120){
+        libre.florin = mismoFlorin(p.carry, { bob:0 });
+        libre.dueno = p; libre.pop = 1;
+        p.carry = null;
+        p.pasarelaUsada = true;
+        pop(libre.x, libre.y-56, "¡A desfilar! ×" + PASARELA_MULT, "#FF9EC4");
+        puff(libre.x, libre.y, "#FF5C86", 12);
+        Snd.place();
+      }
+    } else {
+      for (const s of G.pasarela.slots){
+        if (!s.florin || s.dueno !== p) continue;         // lo tuyo se recoge sin más
+        if (dist2(p.x, p.y, s.x, s.y) > 46*46) continue;
+        p.carry = mismoFlorin(s.florin);
+        s.florin = null; s.dueno = null;
+        p.pasarelaUsada = true;
+        pop(s.x, s.y-50, "Fin del desfile", "#3DDC97");
+        Snd.grab();
+        break;
+      }
+    }
+  }
+
   /* ---- comprar patios extra: te metes dentro de la reja ---- */
   for (const b of G.bases){
     if (!b.locked) continue;
@@ -1594,6 +1892,12 @@ function updateJugador(p, dt){
         const d = dist2(p.x, p.y, ped.x, ped.y);
         if (d < bd){ bd = d; best = ped; }
       }
+    }
+    // y de la pasarela del rival (en dos jugadores): desfilar tiene su precio
+    for (const s of G.pasarela.slots){
+      if (!s.florin || s.dueno === p) continue;
+      const d = dist2(p.x, p.y, s.x, s.y);
+      if (d < bd){ bd = d; best = s; }
     }
     if (best){
       if (p.grab.ped !== best){ p.grab.ped = best; p.grab.t = 0; }
@@ -1683,7 +1987,7 @@ function updateJugador(p, dt){
       }
   } else { c.spin = 0; }
 
-  /* ---- armería (solo en un jugador) ---- */
+  /* ---- armería y ruleta (solo en un jugador) ---- */
   if (G.mode === 1){
     const nearShop = inRect(p.x, p.y, G.armeria, 30);
     if (nearShop !== p.inShop){
@@ -1691,6 +1995,15 @@ function updateJugador(p, dt){
       el.arm.hidden = !nearShop;
     }
     if (nearShop) renderRack();
+
+    const nearRul = inRect(p.x, p.y, G.ruleta, 30);
+    if (nearRul !== p.inRuleta){
+      p.inRuleta = nearRul;
+      el.rul.hidden = !nearRul;
+      if (nearRul){ G.ultimoPremio = null; construirTira(null); }
+      renderRuleta();
+    }
+    if (nearRul) renderRuleta();
   }
 }
 
@@ -2089,6 +2402,76 @@ function drawArmeria(){
   ctx.restore();
 }
 
+function drawPasarela(){
+  const pa = G.pasarela;
+  ctx.save();
+  ctx.fillStyle = "rgba(84,41,74,.55)";
+  roundRect(pa.x, pa.y, pa.w, pa.h, 20); ctx.fill();
+  ctx.strokeStyle = "#FF5C86"; ctx.lineWidth = 5; ctx.setLineDash([13,9]);
+  roundRect(pa.x, pa.y, pa.w, pa.h, 20); ctx.stroke(); ctx.setLineDash([]);
+
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillStyle = "#FF9EC4";
+  ctx.font = "700 16px system-ui, sans-serif";
+  ctx.fillText("PASARELA · ×" + PASARELA_MULT + " INGRESOS", pa.x+pa.w/2, pa.y+20);
+  ctx.fillStyle = "rgba(255,239,226,.55)";
+  ctx.font = "600 11px system-ui, sans-serif";
+  ctx.fillText("trae un Florín · aquí no lo protege el láser", pa.x+pa.w/2, pa.y+38);
+
+  // los tres carriles de alfombra
+  for (const s of pa.slots){
+    const y = pa.y + 92 + s.lane*46;
+    ctx.fillStyle = s.florin ? "rgba(255,92,134,.26)" : "rgba(255,239,226,.07)";
+    roundRect(pa.x+34, y+14, pa.w-68, 18, 9); ctx.fill();
+    if (s.florin){
+      const bob = Math.sin(s.florin.bob)*3;
+      const sc = 1 + Math.max(0, s.pop)*.3;
+      drawFlorin(s.x, y - 4 + bob, .85*sc, s.florin.tier, s.florin.bob, s.florin.variant);
+      // flechita del sentido de la marcha
+      ctx.fillStyle = "rgba(255,158,196,.75)";
+      ctx.font = "700 13px system-ui, sans-serif";
+      ctx.fillText(s.dir > 0 ? "▸" : "◂", s.x + s.dir*26, y + 22);
+    }
+  }
+  ctx.restore();
+}
+
+function drawRuleta(){
+  const r = G.ruleta;
+  ctx.save();
+  ctx.fillStyle = "rgba(42,18,38,.62)";
+  roundRect(r.x, r.y, r.w, r.h, 20); ctx.fill();
+  ctx.strokeStyle = G.player.inRuleta ? "#FFEFE2" : "#FF3D6E";
+  ctx.lineWidth = 5; ctx.setLineDash([12,9]);
+  roundRect(r.x, r.y, r.w, r.h, 20); ctx.stroke(); ctx.setLineDash([]);
+
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillStyle = "#FF3D6E";
+  ctx.font = "700 17px system-ui, sans-serif";
+  ctx.fillText("RULETA DE FLORINES", r.x+r.w/2, r.y+26);
+  ctx.fillStyle = "rgba(255,239,226,.6)";
+  ctx.font = "600 12px system-ui, sans-serif";
+  ctx.fillText(G.mode === 2 ? "cerrada en modo dos jugadores"
+               : (G.player.inRuleta ? "gira abajo ↓" : "entra para girar · " + money(RULETA_PRECIO)),
+               r.x+r.w/2, r.y+46);
+
+  // la rueda, girando mientras hay tirada en curso
+  const cx = r.x+r.w/2, cy = r.y+94, R = 26;
+  const ang = G.girando ? G.t*9 : G.t*.8;
+  for (let i=0;i<8;i++){
+    const a0 = ang + i*(6.283/8);
+    ctx.fillStyle = i%2 ? "#FF3D6E" : "#FFC53D";
+    ctx.beginPath(); ctx.moveTo(cx,cy);
+    ctx.arc(cx, cy, R, a0, a0 + 6.283/8); ctx.closePath(); ctx.fill();
+  }
+  ctx.strokeStyle = "#2A1226"; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.arc(cx, cy, R, 0, 6.283); ctx.stroke();
+  ctx.fillStyle = "#FFEFE2";
+  ctx.beginPath(); ctx.moveTo(cx, cy-R-9); ctx.lineTo(cx-6, cy-R-1); ctx.lineTo(cx+6, cy-R-1);
+  ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+
 function drawShadow(x,y,r){
   ctx.fillStyle = "rgba(0,0,0,.26)";
   ctx.beginPath(); ctx.ellipse(x, y, r, r*.4, 0, 0, 6.283); ctx.fill();
@@ -2268,6 +2651,8 @@ function draw(){
   for (const b of G.bases) drawBase(b);
   drawVivero();
   drawArmeria();
+  drawPasarela();
+  if (G.mode === 1) drawRuleta();
   drawGrabRing();
   drawAim();
 
@@ -2431,6 +2816,19 @@ function drawMinimap(){
   const a = G.armeria;
   mctx.strokeStyle = "#FF3D6E"; mctx.lineWidth = 3;
   mctx.strokeRect(a.x*sx, a.y*sy, a.w*sx, a.h*sy);
+  const pa = G.pasarela;
+  mctx.strokeStyle = "#FF5C86"; mctx.lineWidth = 3;
+  mctx.strokeRect(pa.x*sx, pa.y*sy, pa.w*sx, pa.h*sy);
+  if (G.mode === 1){
+    const ru = G.ruleta;
+    mctx.strokeStyle = "#FFC53D"; mctx.lineWidth = 3;
+    mctx.strokeRect(ru.x*sx, ru.y*sy, ru.w*sx, ru.h*sy);
+  }
+  // los Florines que están desfilando: visibles y en peligro
+  for (const s of G.pasarela.slots) if (s.florin){
+    mctx.fillStyle = "#FF5C86";
+    mctx.beginPath(); mctx.arc(s.x*sx, s.y*sy, 4, 0, 6.283); mctx.fill();
+  }
 
   for (const t of G.thieves){
     mctx.fillStyle = t.carry ? "#FF3D6E" : "#FFEFE2";
@@ -2551,7 +2949,9 @@ function hud(){
     tip = "Puedes <b>bautizar</b> este Florín: " + (isTouch ? "toca el botón verde ✏️" : "tecla <span class='k'>N</span>") + ".";
   else if (alLado)
     tip = "Se llama <b>" + alLado.florin.nombre + "</b> · " + (isTouch ? "toca ✏️" : "<span class='k'>N</span>") + " para cambiarle el nombre.";
-  else if (G.inShop) tip = "Estás en la <b>Armería</b>: compra gadgets y cámbialos con " + (isTouch ? "los chips de abajo" : "<span class='k'>1</span>–<span class='k'>6</span>") + ".";
+  else if (G.inShop) tip = "Estás en la <b>Armería</b>: compra gadgets y cámbialos con " + (isTouch ? "los chips de abajo" : "<span class='k'>1</span>–<span class='k'>9</span> o <span class='k'>Q</span>/<span class='k'>E</span>") + ".";
+  else if (G.player.inRuleta) tip = "<b>Ruleta</b>: " + money(RULETA_PRECIO) + " por tirada. Las casillas <b>???</b> dan las variantes ✨ y 🌈.";
+  else if (pasarelaDe(p).length) tip = "Tienes Florines <b>desfilando</b> (×" + PASARELA_MULT + "), pero ahí se los pueden robar. Acércate para recogerlos.";
   else if (p.invis > 0) tip = "Eres <b>invisible</b>: las abuelas no te ven. Aprovecha.";
   else if (p.boost > 0) tip = "<b>Turbo activo</b>: agarra los florines más caros.";
   else if (inc === 0) tip = "Tu vitrina está vacía: compra en el <b>Vivero</b> del centro o roba en una casa vecina.";
@@ -2579,6 +2979,8 @@ function startGame(modo){
   el.title.hidden = true;
   el.end.hidden = true;
   el.arm.hidden = true;
+  el.rul.hidden = true;
+  document.getElementById("album").hidden = true;
   el.pause.textContent = "⏸";
   lastTip = "";
   renderWbar(); renderRack();
@@ -2655,6 +3057,10 @@ window.__dbg = {
     return TIERS[tier].name + " " + (variant||"normal") + " → " + florinIncome({tier,variant}) + "/s";
   },
   album: () => album,
+  avanza: (secs, paso=1/60) => { let n=0; for (let s=0; s<secs; s+=paso){ update(paso); n++; } return n + " frames"; },
+  desfile: () => G.pasarela.slots.map(s => s.florin
+    ? { rar: TIERS[s.florin.tier].rar, variant: s.florin.variant, pos: +s.pos.toFixed(2), x: +s.x.toFixed(0) }
+    : null),
   ladrones: () => G.thieves.map(t => ({ who:t.who, state:t.state,
     objetivo: t.target && t.target.florin ? TIERS[t.target.florin.tier].rar : null })),
 };
