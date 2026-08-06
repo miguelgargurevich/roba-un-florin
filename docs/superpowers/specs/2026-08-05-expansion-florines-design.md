@@ -130,7 +130,11 @@ con rareza, precio e ingresos. Persiste en `localStorage` bajo `florin_album`.
 
 ## Sección 3 — Pasarela y ruleta
 
-### Pasarela (desfile)
+> **Rediseñada el 2026-08-06.** Lo de abajo es el primer diseño (dejar tu Florín
+> a desfilar por ×2.5); se implementó y luego se reemplazó por completo. Ver
+> "Apéndice: la pasarela como desfile del portal" al final.
+
+### Pasarela (desfile) — diseño original, ya reemplazado
 
 Zona de 380×230 en (520, 900), con alfombra y tres puestos de salida. Llegas
 cargando un Florín y lo sueltas ahí: empieza a desfilar en bucle, caminando de
@@ -245,3 +249,51 @@ por fase:
   cobran los $800 y que la recarga de 30 s se respeta.
 - Probar las cinco armas nuevas, en teclado y en táctil.
 - Revisar el layout en móvil, iPad y escritorio, y en modo zurdo.
+
+---
+
+## Apéndice (2026-08-06): la pasarela como desfile del portal
+
+La pasarela dejó de ser "deja tu Florín a rendir ×2.5" y pasó a ser la fuente
+principal de Florines del juego. Cambios respecto al diseño original:
+
+### El portal y el recorrido
+
+- Un **portal** en el centro exacto del mundo (`x = WORLD_W/2`, `y = 240`).
+- Cada **6 s** (`PORTAL_CADA`) sale un Florín, con tope de 6 a la vez.
+- Recorrido en tres tramos: bajada vertical hasta la Armería, **una vuelta
+  completa** en órbita elíptica (rx 300, ry 200) alrededor de ella, y subida de
+  vuelta al portal. Dura **26 s** (`PORTAL_VUELTA`), así que suelen haber cuatro
+  o cinco desfilando a la vez.
+- Si nadie lo atrapa, el portal se lo traga y sale otro.
+
+### Cómo se consigue
+
+- Se **atrapa como se roba**: acercarse y aguantar hasta llenar el aro (0.55 s),
+  solo que el objetivo se mueve. Reutiliza el mismo bloque de `updateJugador`.
+- Los Florines del desfile **no son de nadie**: los vecinos los ignoran, y en dos
+  jugadores ambos compiten por el mismo.
+- Qué sale es un sorteo por rareza (`PORTAL_RAREZAS`, pesos que suman 100):
+  Común 34, Fiestero 24, Raro 18, Épico 12, Legendario 7, Mítico 4, Cósmico 1.
+
+### Consecuencias en el resto del mapa
+
+- **Se quitó el Vivero.** Ya no se compran Florines: el dinero se usa para
+  patios, armas, láseres y la Ruleta.
+- **Se quitó la Torre de Vicnix** y el ladrón `vicnix` con ella, porque ocupaba
+  el centro exacto donde va el portal. Quedan cuatro vecinos.
+- **La Armería se mudó al sitio del Vivero** y la **Ruleta se alineó** con ella:
+  portal, Armería y Ruleta comparten la columna `x = WORLD_W/2`.
+- Los láseres vuelven a ser un muro sin matices: ya no hay nada del jugador
+  fuera del patio que necesite excepción.
+
+### Dos armas más (la Armería pasa a 12 gadgets)
+
+| Arma | Precio | Efecto |
+|---|---|---|
+| 🕸️ Red | $1 600 · 3 usos | Caza al instante un Florín del desfile desde 380 px |
+| ☂️ Paraguas | $1 100 · 2 usos | Aguanta el próximo golpe y da 0.9 s de invulnerabilidad |
+
+El margen de 0.9 s del paraguas no es decorativo: las abuelas golpean en **cada
+frame** mientras las tengas encima, así que sin él el escudo se gastaba y te
+mareaban 16 ms después.

@@ -13,13 +13,12 @@ Inspirado en el género "roba un brainrot" y en Florín, la mascota del youtuber
 | Paso | Qué hacer |
 |---|---|
 | 💰 Ganar dinero | Cada Florín en **tu** vitrina paga por segundo. Solo cuenta si está en uno de tus patios. |
-| 🌷 Comprar | En el **Vivero** del centro del mapa, tocando una maceta. |
+| 💃 Cazar | Del **portal** del centro sale un Florín cada 6 s que rodea la Armería: atrápalo al pasar. |
 | 🏃 Robar | Métete a una base vecina y quédate junto a un Florín hasta llenar el aro rosa. |
 | 🏡 Crecer | Compra el **Patio 2** ($4 000) y el **Patio 3** ($12 000) metiéndote en su reja. |
 | 👵 Esquivar | Cada base tiene su abuela. Si te alcanza, sueltas el Florín y quedas mareado. |
 | 🩴 Defender | Lanza la chancla a ladrones y abuelas: los noquea y les hace soltar lo que cargan. Vuelve como bumerán. |
 | 🛡️ Blindar | Párate en la **placa de láseres** de tu patio: $800 y nadie entra por un minuto. |
-| 💃 Lucirte | Deja Florines en la **Pasarela**: rinden ×2.5, pero ahí te los pueden robar. |
 | 🎰 Apostar | La **Ruleta** ($1 200) es la única forma de sacar las variantes ✨ y 🌈. |
 | 🎯 Meta | Llegar a **$60 000**. |
 
@@ -54,7 +53,7 @@ Desde la portada, botón **2 jugadores**. Cada uno tiene su patio: J1 abajo a la
 
 Los dos compran en el Vivero con su propio dinero, roban en las casas vecinas **y también se roban entre ellos**. Un chancletazo al rival lo deja mareado y le hace soltar el Florín que llevaba. Gana el primero que llegue a $60 000.
 
-La cámara se abre sola para que los dos quepan en pantalla. En este modo solo se usa la chancla: la armería, la ruleta y los patios extra quedan cerrados para que la pelea sea pareja. La pasarela y los láseres sí funcionan, y de la pasarela pueden robarse entre ellos.
+La cámara se abre sola para que los dos quepan en pantalla. En este modo solo se usa la chancla: la armería, la ruleta y los patios extra quedan cerrados para que la pelea sea pareja. El desfile del portal y los láseres sí funcionan, así que los dos pueden salir corriendo a por el mismo Florín.
 
 ### Modo zurdo
 
@@ -114,17 +113,33 @@ partidas. Un Florín entra al álbum cuando lo dejas en tu vitrina.
 
 ## La pasarela
 
-Zona de tres carriles al norte de tus patios. Llegas cargando un Florín, lo
-sueltas y **desfila en bucle** de ida y vuelta rindiendo **×2.5**.
+Arriba, en el centro exacto del mapa, hay un **portal**. Cada **6 segundos** sale
+de ahí un Florín que baja en línea recta, le da **una vuelta completa a la
+Armería** y se vuelve a meter por donde salió.
 
-El truco: está **fuera del patio**, así que los láseres no lo cubren y los
-vecinos van por él — incluso si tienes los patios vacíos y todo desfilando.
-Cada visita a la pasarela permite una sola acción: para recoger lo que dejaste,
-sal y vuelve a entrar.
+El portal, la Armería y la Ruleta comparten la columna del centro
+(`x = WORLD_W/2`), así que el eje del mapa es esa vertical.
+
+Esos Florines **no son de nadie**: si quieres uno, tienes que **atraparlo al pasar**
+igual que robas de una vitrina — te pegas a él y aguantas hasta llenar el aro,
+solo que este se te está moviendo. Si nadie lo atrapa, el portal se lo traga y
+sale otro.
+
+Cuál sale es un sorteo por rareza, así que la mayoría son Comunes y el Cósmico
+aparece muy de vez en cuando. Cada Florín lleva su píldora de rareza y se ve en
+el minimapa con el color de su rareza: de un vistazo sabes si vale la pena
+cruzar el barrio corriendo.
+
+El recorrido tarda unos 26 s, así que con uno saliendo cada 6 s suele haber
+cuatro o cinco desfilando a la vez. Los vecinos los ignoran (no son suyos), y en
+dos jugadores ambos pueden competir por el mismo.
+
+Como el Vivero ya no existe, el desfile es tu fuente principal de Florines: el
+dinero se guarda para patios, armas, láseres y la Ruleta.
 
 ## La ruleta
 
-Puesto al sureste, $1 200 por tirada. Once casillas: Florines de todas las
+Abajo en la columna del centro, $1 200 por tirada. Once casillas: Florines de todas las
 rarezas, dinero ($500 o $2 500), un arma al azar con 2 usos, y la casilla **???**.
 
 La **???** es la interesante: de ahí salen las variantes ✨ y 🌈, con el
@@ -133,7 +148,8 @@ las manos, o al suelo si ya vas cargado.
 
 ## Las armas
 
-Se compran en la **Armería de la cuadra**, el puesto con toldo de rayas:
+Se compran en la **Armería de la cuadra**, el puesto con toldo de rayas que ahora
+está en el centro del mapa, rodeado por el desfile:
 
 | Arma | Precio | Efecto |
 |---|---|---|
@@ -141,20 +157,25 @@ Se compran en la **Armería de la cuadra**, el puesto con toldo de rayas:
 | 🍌 Cáscaras | $500 · 3 usos | La sueltas al piso: quien la pise resbala 4 s y suelta |
 | 🥤 Refresco Turbo | $700 · 2 usos | +75 % de velocidad por 9 s |
 | 🧊 Congeladora | $900 · 3 usos | Congela 7 s |
+| ☂️ Paraguas | $1 100 · 2 usos | Aguanta el próximo golpe sin que sueltes nada, y te da 0.9 s de margen |
 | 🐕 Chihuahua | $1 400 · 2 usos | 20 s persiguiendo ladrones dentro de tus patios |
 | 💨 Secadora Turbo | $1 500 · 4 usos | Ráfaga en cono, los manda a volar |
+| 🕸️ Red | $1 600 · 3 usos | Caza al instante un Florín del desfile desde 380 px, sin esperar el aro |
 | ⏱️ Reloj de abuela | $1 800 · 2 usos | Ladrones y abuelas al 40 % durante 6 s |
 | 👻 Capa Invisible | $1 900 · 2 usos | Las abuelas no te ven por 8 s |
 | 🧲 Imán ladrón | $2 000 · 3 usos | Jala un Florín vecino desde 320 px, sin acercarte |
 | ⚡ Chicharra | $2 600 · 3 usos | Descarga alrededor, noquea 5 s |
 | 🛸 Rayo alien | $3 400 · 2 usos | El platillo se lo lleva 10 s y lo devuelve en su casa |
 
+La **red** es la que cambia cómo se juega el desfile: sin ella tienes que
+alcanzar al Florín y aguantar el aro mientras se mueve, y con ella cazas de lejos
+al que pase — muy útil para el Cósmico que sale una vez cada mucho.
+
 ## Los vecinos que te roban
 
 Cada base manda su propio ladrón, con su maña:
 
 - **Mayo** (base amarilla) — el más lento, pero siempre va por tu Florín más caro
-- **Vicnix** (base cian) — corre 43 % más rápido que Mayo, agarra lo que sea
 - **El Sobri** (base rosa) — velocidad normal, agarra al azar
 - **La Prima Yuli** (base fucsia) — la más rápida del barrio, pero conformista: solo carga Común, Fiestero o Raro
 - **Los Marcianos** (base morada) — van por el más caro y cada 5 s dan un salto de teletransporte, así que cuesta acertarles
@@ -177,6 +198,6 @@ te desvalijan, aflojan y te dan tregua para recuperarte.
 
 ## Nota sobre los personajes
 
-Proyecto de fan, sin relación oficial con Invictor ni con nadie más. **Florín** es un personaje creado por él; los sprites de este juego son dibujos originales hechos para este proyecto, no reproducciones de su arte. Mayo y Vicnix aparecen como vecinos con diseños propios inventados aquí, y El Sobri, la Prima Yuli y los Marcianos son personajes inventados para este juego.
+Proyecto de fan, sin relación oficial con Invictor ni con nadie más. **Florín** es un personaje creado por él; los sprites de este juego son dibujos originales hechos para este proyecto, no reproducciones de su arte. Mayo aparece como vecino con un diseño propio inventado aquí, y El Sobri, la Prima Yuli y los Marcianos son personajes inventados para este juego.
 
 Si eres el autor de los personajes y prefieres que no se usen así, se quitan sin problema.
