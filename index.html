@@ -588,10 +588,24 @@ const WEAPONS = [
     desc:"+75 % de velocidad por 9 s." },
   { id:"capa",     name:"Capa",         icon:"👻", price:1900, uses:2, cd:.4, color:"#D8CFD4",
     desc:"Las abuelas no te ven 8 s." },
+  { id:"cascara",  name:"Cáscaras",     icon:"🍌", price:500,  uses:3, cd:.4, color:"#FFD84D",
+    desc:"La sueltas al piso: quien la pise resbala 4 s." },
+  { id:"perro",    name:"Chihuahua",    icon:"🐕", price:1400, uses:2, cd:.6, color:"#E8B08A",
+    desc:"20 s morder ladrones dentro de tus patios." },
+  { id:"reloj",    name:"Reloj",        icon:"⏱️", price:1800, uses:2, cd:.6, color:"#9BD97F",
+    desc:"Ladrones y abuelas al 40 % por 6 s." },
+  { id:"iman",     name:"Imán",         icon:"🧲", price:2000, uses:3, cd:.8, color:"#FF7A2F",
+    desc:"Jala un Florín vecino desde 320 px." },
+  { id:"abductor", name:"Rayo alien",   icon:"🛸", price:3400, uses:2, cd:1,  color:"#8B6BEE",
+    desc:"Se lo lleva el platillo 10 s y lo suelta todo." },
 ];
 
 /* Pasarela: desfilar rinde más, pero el Florín queda fuera de tu patio */
 const PASARELA_MULT = 2.5;
+
+/* Seguridad láser: te paras en la placa LASER_CARGA segundos, pagas y tu patio
+   queda cerrado LASER_DUR. Después la placa necesita LASER_RECARGA para volver. */
+const LASER_DUR = 60, LASER_RECARGA = 30, LASER_PRECIO = 800, LASER_CARGA = 1;
 
 /* Ruleta: cada tirada cuesta RULETA_PRECIO. Los pesos suman 100.
    "incognita" abre la tabla secreta de abajo, de donde salen las variantes. */
@@ -779,7 +793,9 @@ function makeBase(id, name, x, y, isPlayer, color, who){
     peds.push({ x: rect.x+68+c*122, y: rect.y+108+r*138, florin:null, pop:0 });
   return { id, name, rect, peds, isPlayer, color, who:who||null, refill: rnd(3,7), guard:null,
            /* Los patios extra nacen cerrados con reja y su cartel de precio */
-           locked:false, price:0, warn:0 };
+           locked:false, price:0, warn:0,
+           /* Los patios propios llevan su torreta de láseres con placa de activación */
+           laser:null };
 }
 
 /* Teclas de cada jugador. Con un jugador, WASD y flechas hacen lo mismo. */
@@ -861,7 +877,7 @@ function newGame(modo){
 
   const jugadores = [ mkJugador(0, bases[0], mode === 2 ? TECLAS_J1 : TECLAS_1P, "#3DDC97") ];
   if (mode === 2) jugadores.push( mkJugador(1, bases[5], TECLAS_J2, "#FFB020") );
-  for (const p of jugadores) for (const b of p.patios) b.owner = p;
+  for (const p of jugadores) for (const b of p.patios){ b.owner = p; ponerLaser(b); }
 
   const g = {
     t: 0, mode, bases, vivero, armeria, ruleta, pasarela,
@@ -869,6 +885,7 @@ function newGame(modo){
     players: jugadores,
     player: jugadores[0],
     bolts: [], blasts: [],
+    cascaras: [], perros: [], slowmo: 0,
     thieves: [], ground: [], pops: [], puffs: [],
     thiefTimer: 14,
     over: false, winner: null, paused: false, started: false
@@ -901,7 +918,8 @@ window.addEventListener("keydown", e => {
   if (k === "n") abrirBautizo();
   if (k === "b") { if (document.getElementById("album").hidden) abrirAlbum(); else cerrarAlbum(); }
   if (k === "escape" && !document.getElementById("album").hidden) cerrarAlbum();
-  if (k >= "1" && k <= "6") selectWeapon(+k - 1);
+  if (k >= "1" && k <= "9") selectWeapon(+k - 1);
+  if (k === "0") selectWeapon(9);
   if (k === "q") selectWeapon((G.wsel + WEAPONS.length - 1) % WEAPONS.length);
   if (k === "e") selectWeapon((G.wsel + 1) % WEAPONS.length);
   if (k === "enter" && G.mode !== 2){
@@ -1284,6 +1302,87 @@ function useWeapon(p){
     Snd.buy();
   }
 
+  if (w.id === "cascara"){
+    G.cascaras.push({ x:p.x + dx*26, y:p.y + 10 + dy*18, dueno:p, t:0 });
+    pop(p.x, p.y-62, "🍌 Puesta", "#FFD84D");
+    Snd.place();
+  }
+
+  if (w.id === "perro"){
+    G.perros.push({
+      x:p.x, y:p.y+8, vx:0, vy:0, life:20, dueno:p,
+      face:1, walk:0, presa:null, muerde:0
+    });
+    pop(p.x, p.y-62, "¡Suelta al chihuahua!", "#E8B08A");
+    puff(p.x, p.y, "#E8B08A", 12);
+    Snd.buy();
+  }
+
+  if (w.id === "reloj"){
+    G.slowmo = 6;
+    pop(p.x, p.y-62, "⏱️ ¡Todos en cámara lenta!", "#9BD97F");
+    puff(p.x, p.y-10, "#9BD97F", 18);
+    Snd.buy();
+  }
+
+  if (w.id === "iman"){
+    // el pedestal vecino más alineado con tu puntería, dentro del alcance
+    let best = null, bd = Infinity;
+    for (const b of G.bases){
+      if (esMiPatio(p, b)) continue;
+      for (const ped of b.peds){
+        if (!ped.florin) continue;
+        const ex = ped.x-p.x, ey = ped.y-(p.y-10);
+        const d = Math.hypot(ex,ey);
+        if (d > 320) continue;
+        const a = Math.abs(Math.atan2(ey,ex) - Math.atan2(dy,dx));
+        if (Math.min(a, 6.283-a) > .8) continue;
+        if (d < bd){ bd = d; best = ped; }
+      }
+    }
+    if (!best){
+      pop(p.x, p.y-62, "Nada que jalar por ahí", "#FF6B90");
+      p.ammo[w.id]++; p.cd = 0;              // no se gasta si no había blanco
+    } else if (p.carry){
+      pop(p.x, p.y-62, "Tienes las manos ocupadas", "#FF6B90");
+      p.ammo[w.id]++; p.cd = 0;
+    } else {
+      G.blasts.push({ x:p.x, y:p.y-10, ang:Math.atan2(best.y-p.y, best.x-p.x), life:.4, kind:"cone" });
+      p.carry = mismoFlorin(best.florin);
+      best.florin = null;
+      p.stats.steals++;
+      pop(best.x, best.y-56, "🧲 ¡Jalado!", "#FF7A2F");
+      puff(best.x, best.y, "#FF7A2F", 14);
+      Snd.grab();
+    }
+  }
+
+  if (w.id === "abductor"){
+    // el blanco más alineado: se lo lleva el platillo y reaparece en su casa
+    let best = null, bd = Infinity;
+    for (const e of blancosDe(p)){
+      if (e.abducido > 0) continue;
+      const ex = e.x-p.x, ey = (e.y-14)-(p.y-10);
+      const d = Math.hypot(ex,ey);
+      if (d > 420) continue;
+      const a = Math.abs(Math.atan2(ey,ex) - Math.atan2(dy,dx));
+      if (Math.min(a, 6.283-a) > .7) continue;
+      if (d < bd){ bd = d; best = e; }
+    }
+    if (!best){
+      pop(p.x, p.y-62, "El rayo no agarró a nadie", "#FF6B90");
+      p.ammo[w.id]++; p.cd = 0;
+    } else {
+      best.abducido = 10;
+      best.stun = Math.max(best.stun, 10);
+      if (best.carry) dropCarried(best, best.x, best.y+14);
+      p.stats.hits++;
+      pop(best.x, best.y-64, "🛸 ¡Abducido!", "#8B6BEE");
+      puff(best.x, best.y-14, "#8B6BEE", 20);
+      Snd.whack();
+    }
+  }
+
   renderWbar();
 }
 
@@ -1330,6 +1429,26 @@ function occupiedDe(p){
   return out;
 }
 function esMiPatio(p, b){ return p.patios.indexOf(b) >= 0; }
+
+/* ============================================================
+   Seguridad láser de los patios propios
+   ============================================================ */
+function ponerLaser(b){
+  b.laser = {
+    activo: 0, recarga: 0, carga: 0,
+    x: b.rect.x + 46, y: b.rect.y + b.rect.h - 42, r: 34,
+  };
+}
+const laserActivo = b => !!(b.laser && b.laser.activo > 0);
+/* ¿Este punto está dentro de un patio cerrado a cal y canto? */
+function bloqueadoPorLaser(x, y, quien){
+  for (const b of G.bases){
+    if (!laserActivo(b)) continue;
+    if (quien && b.owner === quien) continue;     // el dueño entra a su propio patio
+    if (inRect(x, y, b.rect, 6)) return b;
+  }
+  return null;
+}
 
 /* Los puestos de la pasarela con un Florín de este jugador */
 function pasarelaDe(p){
@@ -1489,6 +1608,7 @@ function comprarPatio(p, b){
   p.money -= b.price;
   b.locked = false;
   b.owner = p;
+  ponerLaser(b);
   b.name = p.idx === 0 && G.mode === 2 ? "Patio del J1" : b.name;
   p.patios.push(b);
   pop(b.rect.x + b.rect.w/2, b.rect.y + b.rect.h/2 - 40, "¡" + b.name + " es tuyo!", "#3DDC97");
@@ -1541,6 +1661,25 @@ function spawnThief(){
    ============================================================ */
 function update(dt){
   G.t += dt;
+  if (G.slowmo > 0) G.slowmo -= dt;
+
+  /* ---- láseres: cuenta atrás y recarga de la placa ---- */
+  for (const b of G.bases){
+    const L = b.laser; if (!L) continue;
+    if (L.activo > 0){
+      L.activo -= dt;
+      if (L.activo <= 0){
+        L.activo = 0; L.recarga = LASER_RECARGA;
+        pop(b.rect.x + b.rect.w/2, b.rect.y + 20, "Láseres apagados", "#FF6B90");
+      }
+    } else if (L.recarga > 0){
+      L.recarga -= dt;
+      if (L.recarga <= 0){
+        L.recarga = 0;
+        pop(L.x, L.y - 30, "Placa lista", "#3DDC97");
+      }
+    }
+  }
 
   for (const p of G.players) updateJugador(p, dt);
 
@@ -1591,12 +1730,43 @@ function update(dt){
   for (let i=G.thieves.length-1;i>=0;i--){
     const t = G.thieves[i];
     applyKnock(t, dt);
+    /* abducido: el platillo se lo lleva y lo devuelve en su casa */
+    if (t.abducido > 0){
+      t.abducido -= dt;
+      if (t.abducido <= 0){
+        t.x = t.home.rect.x + t.home.rect.w/2 + rnd(-60,60);
+        t.y = t.home.rect.y + t.home.rect.h/2 + rnd(-50,50);
+        t.state = "go"; t.target = null;
+        puff(t.x, t.y-14, "#8B6BEE", 14);
+      }
+      continue;
+    }
     if (t.stun > 0){
       t.stun -= dt;
       if (t.frozen > 0) t.frozen -= dt;
       continue;
     }
-    let tx, ty, spd = t.spd;
+    const lento = G.slowmo > 0 ? .4 : 1;      // el Reloj de abuela frena a todos
+    let tx, ty, spd = t.spd * lento;
+
+    /* muro de láseres: si el patio está cerrado, no entra — y si ya estaba
+       dentro cuando se encendió, sale despedido y suelta lo que cargaba */
+    if (laserActivo(t.victim)){
+      if (inRect(t.x, t.y, t.victim.rect, 6)){
+        const cx = t.victim.rect.x + t.victim.rect.w/2, cy = t.victim.rect.y + t.victim.rect.h/2;
+        knock(t, t.x-cx, t.y-cy, 700);
+        zap(t, 2.5, false);
+        pop(t.x, t.y-56, "¡Láser!", "#FF3D6E");
+        puff(t.x, t.y-14, "#FF3D6E", 14);
+        Snd.whack();
+        t.state = "flee"; t.target = null;
+        continue;
+      }
+      // suelta el objetivo si estaba dentro: los láseres no cubren la pasarela,
+      // así que puede reorientarse hacia lo que esté desfilando
+      if (t.target && inRect(t.target.x, t.target.y, t.victim.rect, 6)) t.target = null;
+      if (t.state === "grab") t.state = "go";
+    }
 
     /* Los Marcianos dan un saltito de teletransporte hacia donde van */
     if (t.salto){
@@ -1620,8 +1790,9 @@ function update(dt){
     if (t.state === "go"){
       if (!t.target || !t.target.florin){
         const K0 = LADRONES[t.who];
-        // los de la pasarela también cuentan: desfilar rinde más pero expone
-        let occ = occupied(t.victim);
+        // con los láseres encendidos la vitrina es intocable, pero la pasarela no:
+        // desfilar rinde más y por eso mismo expone
+        let occ = laserActivo(t.victim) ? [] : occupied(t.victim);
         if (t.victim.owner) occ = occ.concat(pasarelaDe(t.victim.owner));
         // La Prima Yuli es conformista: no carga nada por encima de su tope
         if (K0.maxTier != null) occ = occ.filter(q => q.florin.tier <= K0.maxTier);
@@ -1637,7 +1808,7 @@ function update(dt){
     if (t.state === "grab"){ tx = t.target.x; ty = t.target.y; }
     if (t.state === "back" || t.state === "flee"){
       tx = t.home.rect.x + t.home.rect.w/2; ty = t.home.rect.y + t.home.rect.h/2;
-      spd = t.spd*1.14;
+      spd = t.spd*1.14*lento;
     }
 
     if (tx != null){
@@ -1685,6 +1856,14 @@ function update(dt){
   for (const b of G.bases){
     const g = b.guard; if (!g) continue;
     applyKnock(g, dt);
+    if (g.abducido > 0){                       // a las abuelas también se las lleva el platillo
+      g.abducido -= dt;
+      if (g.abducido <= 0){
+        g.x = b.rect.x + b.rect.w/2; g.y = b.rect.y + b.rect.h/2;
+        puff(g.x, g.y-14, "#8B6BEE", 14);
+      }
+      continue;
+    }
     if (g.stun > 0){
       g.stun -= dt; g.alert = 0;
       if (g.frozen > 0) g.frozen -= dt;
@@ -1702,8 +1881,9 @@ function update(dt){
       const p = presa;
       g.alert = Math.min(1, g.alert + dt*4);
       const dx = p.x-g.x, dy = p.y-g.y, m = Math.hypot(dx,dy)||1;
-      g.x += dx/m*212*dt; g.y += dy/m*212*dt;
-      g.face = dx>0?1:-1; g.walk += dt*11;
+      const gs = G.slowmo > 0 ? .4 : 1;
+      g.x += dx/m*212*dt*gs; g.y += dy/m*212*dt*gs;
+      g.face = dx>0?1:-1; g.walk += dt*11*gs;
       if (m < 30){
         p.stun = 1.0;
         p.vx = -dx/m*260; p.vy = -dy/m*260;
@@ -1722,8 +1902,9 @@ function update(dt){
       ];
       const w = wps[g.wp % 4];
       const dx = w.x-g.x, dy = w.y-g.y, m = Math.hypot(dx,dy)||1;
+      const gs = G.slowmo > 0 ? .4 : 1;
       if (m < 12) g.wp++;
-      else { g.x += dx/m*92*dt; g.y += dy/m*92*dt; g.face = dx>0?1:-1; g.walk += dt*4.4; }
+      else { g.x += dx/m*92*dt*gs; g.y += dy/m*92*dt*gs; g.face = dx>0?1:-1; g.walk += dt*4.4*gs; }
     }
   }
 
@@ -1735,6 +1916,65 @@ function update(dt){
       b.refill = rnd(7, 12);
       const ped = freePed(b);
       if (ped){ ped.florin = { tier: rollTier(), bob: rnd(0,6.28) }; ped.pop = 1; }
+    }
+  }
+
+  /* ---- cáscaras de plátano: la primera pisada resbala ---- */
+  for (let i=G.cascaras.length-1;i>=0;i--){
+    const c = G.cascaras[i];
+    c.t += dt;
+    let usada = false;
+    for (const e of G.thieves.concat(G.bases.filter(b=>b.guard).map(b=>b.guard),
+                                     G.players.filter(q => q !== c.dueno))){
+      if (e.stun > 0 || e.abducido > 0) continue;
+      if (dist2(e.x, e.y, c.x, c.y) > 26*26) continue;
+      zap(e, 4, false);
+      knock(e, rnd(-1,1), rnd(-1,1), 300);
+      pop(e.x, e.y-54, "¡Resbalón!", "#FFD84D");
+      puff(c.x, c.y, "#FFD84D", 12);
+      if (c.dueno) c.dueno.stats.hits++;
+      Snd.whack();
+      usada = true;
+      break;
+    }
+    if (usada || c.t > 90) G.cascaras.splice(i,1);
+  }
+
+  /* ---- chihuahuas: muerden ladrones dentro de los patios del dueño ---- */
+  for (let i=G.perros.length-1;i>=0;i--){
+    const d = G.perros[i];
+    d.life -= dt;
+    if (d.life <= 0){
+      puff(d.x, d.y, "#E8B08A", 10);
+      G.perros.splice(i,1);
+      continue;
+    }
+    if (d.muerde > 0) d.muerde -= dt;
+    // busca al ladrón más cercano que esté en un patio del dueño
+    let presa = null, pd = Infinity;
+    for (const t of G.thieves){
+      if (t.stun > 0 || t.abducido > 0) continue;
+      if (!d.dueno.patios.some(b => inRect(t.x, t.y, b.rect, 70))) continue;
+      const q = dist2(t.x, t.y, d.x, d.y);
+      if (q < pd){ pd = q; presa = t; }
+    }
+    d.presa = presa;
+    if (presa){
+      const dx = presa.x-d.x, dy = presa.y-d.y, m = Math.hypot(dx,dy)||1;
+      d.x += dx/m*236*dt; d.y += dy/m*236*dt;
+      d.face = dx>0?1:-1; d.walk += dt*13;
+      if (m < 26 && d.muerde <= 0){
+        zap(presa, 3, false);
+        knock(presa, dx, dy, 240);
+        d.muerde = 1.2;
+        d.dueno.stats.hits++;
+        pop(presa.x, presa.y-56, "¡Mordida!", "#E8B08A");
+        Snd.whack();
+      }
+    } else {
+      // sin presa, trota alrededor de su dueño
+      const dx = d.dueno.x - d.x, dy = (d.dueno.y+16) - d.y, m = Math.hypot(dx,dy)||1;
+      if (m > 54){ d.x += dx/m*180*dt; d.y += dy/m*180*dt; d.face = dx>0?1:-1; d.walk += dt*9; }
     }
   }
 
@@ -1838,6 +2078,42 @@ function updateJugador(p, dt){
         pop(s.x, s.y-52, "Falta " + money(TT.price - p.money), "#FF6B90");
       }
     }
+  }
+
+  /* ---- placa de los láseres: quédate encima un segundo ---- */
+  for (const b of p.patios){
+    const L = b.laser; if (!L) continue;
+    if (dist2(p.x, p.y, L.x, L.y) > L.r*L.r){ L.carga = 0; continue; }
+    if (L.activo > 0 || L.recarga > 0){ L.carga = 0; continue; }
+    if (p.money < LASER_PRECIO){
+      L.carga = 0;
+      if (!L.warn || G.t - L.warn > 2){
+        L.warn = G.t;
+        pop(L.x, L.y-34, "Los láseres cuestan " + money(LASER_PRECIO), "#FF6B90");
+      }
+      continue;
+    }
+    L.carga += dt;
+    if (L.carga >= LASER_CARGA){
+      L.carga = 0;
+      L.activo = LASER_DUR;
+      p.money -= LASER_PRECIO;
+      pop(L.x, L.y-34, "¡Láseres encendidos! " + LASER_DUR + " s", "#FF3D6E");
+      puff(L.x, L.y, "#FF3D6E", 18);
+      Snd.buy();
+    }
+  }
+
+  /* ---- patio ajeno con láseres: no se entra ---- */
+  const veta = bloqueadoPorLaser(p.x, p.y, p);
+  if (veta && p.stun <= 0){
+    const cx = veta.rect.x + veta.rect.w/2, cy = veta.rect.y + veta.rect.h/2;
+    knock(p, p.x-cx, p.y-cy, 640);
+    p.stun = Math.max(p.stun, 1.2);
+    if (p.carry) dropCarried(p, p.x, p.y+18);
+    pop(p.x, p.y-58, "¡Láseres del vecino!", "#FF3D6E");
+    puff(p.x, p.y-10, "#FF3D6E", 12);
+    Snd.ouch();
   }
 
   /* ---- pasarela: dejar a desfilar, o recoger lo tuyo ----
@@ -2391,15 +2667,157 @@ function drawArmeria(){
                : (G.inShop ? "elige tu arma abajo ↓" : "entra para comprar armas"),
                a.x+a.w/2, a.y+46);
 
-  // mostrador con los gadgets
-  ctx.font = "26px system-ui, sans-serif";
-  WEAPONS.slice(1).forEach((w,k) => {
-    const x = a.x+42+k*((a.w-84)/4), y = a.y+88 + Math.sin(G.t*2+k)*3;
+  // mostrador con los gadgets, en dos filas para que quepan los diez
+  const gadgets = WEAPONS.slice(1);
+  const porFila = Math.ceil(gadgets.length/2);
+  ctx.font = "22px system-ui, sans-serif";
+  gadgets.forEach((w,k) => {
+    const fila = Math.floor(k/porFila), col = k % porFila;
+    const x = a.x + 34 + col*((a.w-68)/(porFila-1));
+    const y = a.y + 76 + fila*30 + Math.sin(G.t*2+k)*3;
     ctx.globalAlpha = G.ammo[w.id] > 0 ? 1 : .72;
     ctx.fillText(w.icon, x, y);
     ctx.globalAlpha = 1;
   });
   ctx.restore();
+}
+
+/* Los láseres del perímetro y la placa de activación */
+function drawLaser(b){
+  const L = b.laser; if (!L) return;
+  const r = b.rect;
+  ctx.save();
+
+  if (L.activo > 0){
+    const pulso = REDUCED ? .8 : .55 + Math.abs(Math.sin(G.t*4))*.45;
+    // postes en las esquinas
+    for (const [px,py] of [[r.x,r.y],[r.x+r.w,r.y],[r.x+r.w,r.y+r.h],[r.x,r.y+r.h]]){
+      ctx.fillStyle = "#5C2A18";
+      roundRect(px-6, py-16, 12, 26, 4); ctx.fill();
+      ctx.fillStyle = "#FF3D6E";
+      ctx.beginPath(); ctx.arc(px, py-18, 4.5, 0, 6.283); ctx.fill();
+    }
+    // el rayo del perímetro
+    ctx.globalAlpha = pulso;
+    ctx.strokeStyle = "#FF3D6E"; ctx.lineWidth = 3.5;
+    ctx.strokeRect(r.x, r.y, r.w, r.h);
+    ctx.globalAlpha = pulso*.35;
+    ctx.lineWidth = 11;
+    ctx.strokeRect(r.x, r.y, r.w, r.h);
+    ctx.globalAlpha = 1;
+    // cuenta atrás
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.font = "800 14px ui-monospace, monospace";
+    const txt = "🔒 " + Math.ceil(L.activo) + " s";
+    const w = ctx.measureText(txt).width + 18;
+    ctx.fillStyle = "rgba(27,12,26,.88)";
+    roundRect(r.x+r.w/2-w/2, r.y+r.h+8, w, 22, 9); ctx.fill();
+    ctx.strokeStyle = "#FF3D6E"; ctx.lineWidth = 2;
+    roundRect(r.x+r.w/2-w/2, r.y+r.h+8, w, 22, 9); ctx.stroke();
+    ctx.fillStyle = "#FF9EC4";
+    ctx.fillText(txt, r.x+r.w/2, r.y+r.h+19);
+  }
+
+  // la placa: verde lista, gris recargando, y el aro de carga mientras la pisas
+  const listo = L.activo <= 0 && L.recarga <= 0;
+  ctx.fillStyle = listo ? "rgba(61,220,151,.22)" : "rgba(122,106,116,.2)";
+  ctx.beginPath(); ctx.arc(L.x, L.y, L.r, 0, 6.283); ctx.fill();
+  ctx.strokeStyle = listo ? "#3DDC97" : "#7A6A74";
+  ctx.lineWidth = 3; ctx.setLineDash([7,5]);
+  ctx.beginPath(); ctx.arc(L.x, L.y, L.r, 0, 6.283); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.font = "16px system-ui, sans-serif";
+  ctx.fillText(L.activo > 0 ? "🔒" : listo ? "🛡️" : "⏳", L.x, L.y-3);
+  ctx.font = "800 9px system-ui, sans-serif";
+  ctx.fillStyle = listo ? "#3DDC97" : "#9C8090";
+  ctx.fillText(L.activo > 0 ? "ACTIVO" : listo ? money(LASER_PRECIO) : Math.ceil(L.recarga)+" s", L.x, L.y+15);
+  if (L.carga > 0){
+    ctx.strokeStyle = "#FFC53D"; ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.arc(L.x, L.y, L.r+5, -1.57, -1.57 + (L.carga/LASER_CARGA)*6.283);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+/* El platillo que se lleva al abducido: baja, lo sube y se lo lleva */
+function drawPlatillo(x, y, resto){
+  const alto = 96 * clamp((10 - resto)/2.2, 0, 1);   // sube en los 2 primeros segundos
+  const py = y - 30 - alto;
+  ctx.save();
+  // rayo tractor
+  ctx.globalAlpha = .28;
+  ctx.fillStyle = "#8B6BEE";
+  ctx.beginPath();
+  ctx.moveTo(x-13, py+6); ctx.lineTo(x+13, py+6);
+  ctx.lineTo(x+24, y+10); ctx.lineTo(x-24, y+10);
+  ctx.closePath(); ctx.fill();
+  ctx.globalAlpha = 1;
+  // el platillo
+  ctx.fillStyle = "#37D6E0";
+  ctx.beginPath(); ctx.ellipse(x, py-4, 12, 9, 0, 3.14, 6.283); ctx.fill();
+  ctx.fillStyle = "#8B6BEE";
+  ctx.beginPath(); ctx.ellipse(x, py+2, 27, 8, 0, 0, 6.283); ctx.fill();
+  ctx.fillStyle = "#241548";
+  ctx.beginPath(); ctx.ellipse(x, py+5, 27, 5, 0, 0, 3.14); ctx.fill();
+  // lucecitas
+  for (let i=0;i<5;i++){
+    const a = G.t*4 + i*1.26;
+    ctx.fillStyle = i%2 ? "#FFE066" : "#5CE1EA";
+    ctx.beginPath(); ctx.arc(x + Math.cos(a)*20, py+3, 2.2, 0, 6.283); ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawCascaras(){
+  for (const c of G.cascaras){
+    ctx.save();
+    ctx.translate(c.x, c.y);
+    ctx.fillStyle = "rgba(0,0,0,.22)";
+    ctx.beginPath(); ctx.ellipse(0, 4, 11, 4, 0, 0, 6.283); ctx.fill();
+    ctx.rotate(Math.sin(c.t*.6)*.15);
+    ctx.fillStyle = "#FFD84D";
+    ctx.beginPath(); ctx.ellipse(0, 0, 10, 4.5, .35, 0, 6.283); ctx.fill();
+    ctx.fillStyle = "#E8B71E";
+    ctx.beginPath(); ctx.ellipse(2, 1, 6, 2.6, .35, 0, 6.283); ctx.fill();
+    ctx.restore();
+  }
+}
+
+function drawPerros(){
+  for (const d of G.perros){
+    ctx.save();
+    ctx.fillStyle = "rgba(0,0,0,.24)";
+    ctx.beginPath(); ctx.ellipse(d.x, d.y+8, 14, 5, 0, 0, 6.283); ctx.fill();
+    ctx.translate(d.x, d.y);
+    ctx.scale(d.face, 1);
+    const paso = Math.sin(d.walk)*2;
+    ctx.fillStyle = "#C98B62";                       // patas
+    ctx.fillRect(-8, 0, 3.4, 8+paso); ctx.fillRect(4, 0, 3.4, 8-paso);
+    ctx.fillStyle = "#E8B08A";                       // cuerpo
+    roundRect(-10, -8, 20, 11, 5); ctx.fill();
+    roundRect(4, -16, 12, 12, 5); ctx.fill();        // cabeza
+    ctx.fillStyle = "#C98B62";                       // orejas de chihuahua
+    ctx.beginPath(); ctx.moveTo(6,-15); ctx.lineTo(4,-24); ctx.lineTo(11,-16); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(13,-15); ctx.lineTo(17,-23); ctx.lineTo(16,-14); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "#241209";                       // ojo y hocico
+    ctx.fillRect(11, -12, 2.2, 2.2);
+    ctx.beginPath(); ctx.arc(16, -8, 1.8, 0, 6.283); ctx.fill();
+    if (d.muerde > 0){                               // dientes al morder
+      ctx.fillStyle = "#FFEFE2";
+      ctx.beginPath(); ctx.moveTo(14,-7); ctx.lineTo(18,-4); ctx.lineTo(13,-4); ctx.closePath(); ctx.fill();
+    }
+    ctx.restore();
+    if (d.life < 4 && !REDUCED){                     // avisa que se va a ir
+      ctx.globalAlpha = .5 + Math.sin(G.t*9)*.4;
+      ctx.fillStyle = "#E8B08A";
+      ctx.font = "800 11px system-ui, sans-serif";
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText(Math.ceil(d.life)+" s", d.x, d.y-32);
+      ctx.globalAlpha = 1;
+    }
+  }
 }
 
 function drawPasarela(){
@@ -2653,6 +3071,8 @@ function draw(){
   drawArmeria();
   drawPasarela();
   if (G.mode === 1) drawRuleta();
+  drawCascaras();
+  for (const b of G.bases) drawLaser(b);
   drawGrabRing();
   drawAim();
 
@@ -2699,12 +3119,16 @@ function draw(){
     ctx.fillStyle = K.shirt;
     ctx.fillText(K.label, t.x, t.y+36);
 
+    if (t.abducido > 0) drawPlatillo(t.x, t.y, t.abducido);
+
     if (t.state === "grab" && t.stun<=0){
       const frac = clamp(t.grabT/.85,0,1);
       ctx.strokeStyle = "#FF3D6E"; ctx.lineWidth = 4;
       ctx.beginPath(); ctx.arc(t.x, t.y-40, 16, -1.57, -1.57+frac*6.283); ctx.stroke();
     }
   }
+
+  drawPerros();
 
   // jugadores
   for (const p of G.players) drawJugador(p);
@@ -2838,6 +3262,15 @@ function drawMinimap(){
     mctx.fillStyle = "#C58BD6";
     mctx.beginPath(); mctx.arc(b.guard.x*sx, b.guard.y*sy, 4, 0, 6.283); mctx.fill();
   }
+  // patios con los láseres encendidos: borde rojo grueso
+  for (const b of G.bases) if (laserActivo(b)){
+    mctx.strokeStyle = "#FF3D6E"; mctx.lineWidth = 4;
+    mctx.strokeRect(b.rect.x*sx, b.rect.y*sy, b.rect.w*sx, b.rect.h*sy);
+  }
+  for (const d of G.perros){
+    mctx.fillStyle = "#E8B08A";
+    mctx.beginPath(); mctx.arc(d.x*sx, d.y*sy, 3.5, 0, 6.283); mctx.fill();
+  }
   for (const jug of G.players){
     mctx.fillStyle = jug.shirt;
     mctx.beginPath(); mctx.arc(jug.x*sx, jug.y*sy, 6, 0, 6.283); mctx.fill();
@@ -2855,7 +3288,9 @@ const chips = WEAPONS.map((w,i) => {
   b.innerHTML = '<span class="ic">'+w.icon+'</span><span class="meta">'+
                 '<span class="nm">'+w.name+'</span>'+
                 '<span class="n"><span class="q"></span><i class="u"> usos</i></span></span>';
-  b.setAttribute("aria-label", w.name + " — tecla " + (i+1));
+  // teclas 1-9 para las nueve primeras, 0 para la décima, y Q/E para rotar por todas
+  const tecla = i < 9 ? String(i+1) : i === 9 ? "0" : null;
+  b.setAttribute("aria-label", w.name + (tecla ? " — tecla " + tecla : " — usa Q o E"));
   b.addEventListener("click", () => { Snd.unlock(); selectWeapon(i); });
   el.wbar.appendChild(b);
   return b;
@@ -2952,6 +3387,12 @@ function hud(){
   else if (G.inShop) tip = "Estás en la <b>Armería</b>: compra gadgets y cámbialos con " + (isTouch ? "los chips de abajo" : "<span class='k'>1</span>–<span class='k'>9</span> o <span class='k'>Q</span>/<span class='k'>E</span>") + ".";
   else if (G.player.inRuleta) tip = "<b>Ruleta</b>: " + money(RULETA_PRECIO) + " por tirada. Las casillas <b>???</b> dan las variantes ✨ y 🌈.";
   else if (pasarelaDe(p).length) tip = "Tienes Florines <b>desfilando</b> (×" + PASARELA_MULT + "), pero ahí se los pueden robar. Acércate para recogerlos.";
+  else if (p.patios.some(b => laserActivo(b))){
+    const b = p.patios.find(q => laserActivo(q));
+    tip = "<b>Láseres encendidos</b> en " + b.name + ": nadie entra por " + Math.ceil(b.laser.activo) + " s. Ojo: la <b>pasarela</b> queda fuera.";
+  }
+  else if (G.slowmo > 0) tip = "<b>⏱️ Cámara lenta</b>: ladrones y abuelas al 40 %. Corre.";
+  else if (G.perros.length) tip = "Tu <b>chihuahua</b> anda suelto: muerde a los ladrones que entren a tus patios.";
   else if (p.invis > 0) tip = "Eres <b>invisible</b>: las abuelas no te ven. Aprovecha.";
   else if (p.boost > 0) tip = "<b>Turbo activo</b>: agarra los florines más caros.";
   else if (inc === 0) tip = "Tu vitrina está vacía: compra en el <b>Vivero</b> del centro o roba en una casa vecina.";
@@ -3057,6 +3498,11 @@ window.__dbg = {
     return TIERS[tier].name + " " + (variant||"normal") + " → " + florinIncome({tier,variant}) + "/s";
   },
   album: () => album,
+  arma: id => { const i = WEAPONS.findIndex(w => w.id === id);
+                G.player.ammo[id] = 9; G.player.wsel = i; renderWbar(); return "arma " + i; },
+  usa: () => { useWeapon(G.player); return WEAPONS[G.player.wsel].id; },
+  laseres: () => G.player.patios.map(b => ({ patio:b.name,
+    activo:+(b.laser.activo).toFixed(1), recarga:+(b.laser.recarga).toFixed(1), carga:+(b.laser.carga).toFixed(2) })),
   avanza: (secs, paso=1/60) => { let n=0; for (let s=0; s<secs; s+=paso){ update(paso); n++; } return n + " frames"; },
   desfile: () => G.pasarela.slots.map(s => s.florin
     ? { rar: TIERS[s.florin.tier].rar, variant: s.florin.variant, pos: +s.pos.toFixed(2), x: +s.x.toFixed(0) }
