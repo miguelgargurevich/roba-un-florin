@@ -450,8 +450,13 @@
 /* ============================================================
    Constantes del mundo
    ============================================================ */
-const WORLD_W = 1800, WORLD_H = 1200;
-const GOAL = 20000;
+const WORLD_W = 2600, WORLD_H = 1700;
+const GOAL = 60000;
+/* Patios propios que se pueden comprar, además del que traes de casa */
+const PATIOS_EXTRA = [
+  { x:520, y:1290, price:4000,  name:"Patio 2" },
+  { x:70,  y:900,  price:12000, name:"Patio 3" },
+];
 const REDUCED = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 /* Cada Florín es un bloquecito cúbico (tierra, oro, obsidiana…) con su flor arriba.
@@ -506,6 +511,14 @@ const LADRONES = {
   sobri:  { label:"El Sobri",shirt:"#FF9EC4", skin:"#C98B62", hair:"#2A1226",
             cap:null,      ears:null,      spd:1.02, greedy:false,
             frase:"El Sobri se llevó" },
+  /* La Prima Yuli corre muchísimo, pero es conformista: solo carga lo barato */
+  yuli:   { label:"La Prima Yuli", shirt:"#FF5C86", skin:"#E8B08A", hair:"#5A2A3E",
+            cap:null,      ears:null,      spd:1.40, greedy:false, maxTier:2,
+            frase:"La Prima Yuli se llevó" },
+  /* Los Marcianos van por lo más caro y se teletransportan: cuesta acertarles */
+  marcia: { label:"Marciano", shirt:"#8B6BEE", skin:"#9FE6A0", hair:"#2A1226",
+            cap:null,      ears:"#8B6BEE", spd:1.05, greedy:true, salta:5,
+            frase:"El Marciano se llevó" },
 };
 
 const RAR_COLOR = {
@@ -629,7 +642,9 @@ function makeBase(id, name, x, y, isPlayer, color, who){
   const peds = [];
   for (let r=0;r<2;r++) for (let c=0;c<3;c++)
     peds.push({ x: rect.x+68+c*122, y: rect.y+108+r*138, florin:null, pop:0 });
-  return { id, name, rect, peds, isPlayer, color, who:who||null, refill: rnd(3,7), guard:null };
+  return { id, name, rect, peds, isPlayer, color, who:who||null, refill: rnd(3,7), guard:null,
+           /* Los patios extra nacen cerrados con reja y su cartel de precio */
+           locked:false, price:0, warn:0 };
 }
 
 /* Teclas de cada jugador. Con un jugador, WASD y flechas hacen lo mismo. */
@@ -641,7 +656,7 @@ function mkJugador(idx, base, teclas, shirt){
   const ammo = {};
   for (const w of WEAPONS) ammo[w.id] = 0;
   return {
-    idx, base, teclas, shirt,
+    idx, base, patios:[base], teclas, shirt,
     x: base.rect.x + base.rect.w/2, y: base.rect.y + base.rect.h/2,
     vx:0, vy:0, face:1, walk:0, dirx:1, diry:0,
     carry:null, stun:0, boost:0, invis:0,
@@ -656,13 +671,24 @@ function mkJugador(idx, base, teclas, shirt){
 function newGame(modo){
   const mode = modo === 2 ? 2 : 1;
   const bases = [
-    makeBase(0, mode === 2 ? "Patio del J1" : "Tu patio", 70, 780, true,  "#3DDC97"),
-    makeBase(1,"Casa de Mayo",     70,  90, false, "#FFD84D", "mayo"),
-    makeBase(2,"Torre de Vicnix",1350,  90, false, "#37D6E0", "vicnix"),
+    makeBase(0, mode === 2 ? "Patio del J1" : "Tu patio", 70, 1290, true,  "#3DDC97"),
+    makeBase(1,"Casa de Mayo",       70,  90, false, "#FFD84D", "mayo"),
+    makeBase(2,"Torre de Vicnix",  1110,  90, false, "#37D6E0", "vicnix"),
+    makeBase(3,"Doña Chancla",     2150,  90, false, "#FF9EC4", "sobri"),
+    makeBase(4,"Casa de la Prima Yuli", 2150, 700, false, "#FF5C86", "yuli"),
     mode === 2
-      ? makeBase(3,"Patio del J2",1350, 780, true,  "#FFB020")
-      : makeBase(3,"Doña Chancla",1350, 780, false, "#FF9EC4", "sobri"),
+      ? makeBase(5,"Patio del J2", 2150, 1290, true,  "#FFB020")
+      : makeBase(5,"Nave de los Marcianos", 2150, 1290, false, "#8B6BEE", "marcia"),
   ];
+
+  /* Patios propios comprables: solo en un jugador, para que el duelo sea parejo */
+  if (mode === 1){
+    PATIOS_EXTRA.forEach((cfg, k) => {
+      const b = makeBase(6+k, cfg.name, cfg.x, cfg.y, true, "#3DDC97");
+      b.locked = true; b.price = cfg.price;
+      bases.push(b);
+    });
+  }
 
   // Florines iniciales de los vecinos
   for (const b of bases){
@@ -685,11 +711,11 @@ function newGame(modo){
   ]};
   vivero.slots.forEach((s,i) => { s.x = vivero.x+62+i*103; s.y = vivero.y+100; s.tier = i===2?1:0; });
 
-  const armeria = { x: WORLD_W/2-150, y: 920, w:300, h:130 };
+  const armeria = { x: 960, y: 1350, w:300, h:130 };
 
   const jugadores = [ mkJugador(0, bases[0], mode === 2 ? TECLAS_J1 : TECLAS_1P, "#3DDC97") ];
-  if (mode === 2) jugadores.push( mkJugador(1, bases[3], TECLAS_J2, "#FFB020") );
-  for (const p of jugadores) p.base.owner = p;
+  if (mode === 2) jugadores.push( mkJugador(1, bases[5], TECLAS_J2, "#FFB020") );
+  for (const p of jugadores) for (const b of p.patios) b.owner = p;
 
   const g = {
     t: 0, mode, bases, vivero, armeria,
@@ -697,7 +723,7 @@ function newGame(modo){
     player: jugadores[0],
     bolts: [], blasts: [],
     thieves: [], ground: [], pops: [], puffs: [],
-    thiefTimer: 8,
+    thiefTimer: 14,
     over: false, winner: null, paused: false, started: false
   };
 
@@ -873,7 +899,7 @@ function florinAlLado(){
   if (!G || !G.started || G.over) return null;
   let cerca = null, d2 = 66*66;
   for (const p of G.players)
-    for (const ped of p.base.peds){
+    for (const b of p.patios) for (const ped of b.peds){
       if (!ped.florin) continue;
       const d = dist2(p.x, p.y, ped.x, ped.y);
       if (d < d2){ d2 = d; cerca = ped; }
@@ -1087,9 +1113,40 @@ function rollShopTier(){                   // el vivero vende barato
 function freePed(base){ return base.peds.find(p => !p.florin) || null; }
 function occupied(base){ return base.peds.filter(p => p.florin); }
 
+/* Versiones para jugadores: con patios comprables, "tu vitrina" son varios patios */
+function freePedDe(p){
+  for (const b of p.patios){ const ped = freePed(b); if (ped) return ped; }
+  return null;
+}
+function occupiedDe(p){
+  const out = [];
+  for (const b of p.patios) for (const ped of b.peds) if (ped.florin) out.push(ped);
+  return out;
+}
+function esMiPatio(p, b){ return p.patios.indexOf(b) >= 0; }
+
 function playerIncome(p){
   p = p || G.player;
-  return occupied(p.base).reduce((s,q) => s + TIERS[q.florin.tier].income, 0);
+  return occupiedDe(p).reduce((s,q) => s + TIERS[q.florin.tier].income, 0);
+}
+
+/* Comprar un patio extra: por proximidad, igual que el Vivero */
+function comprarPatio(p, b){
+  if (p.money < b.price){
+    if (!b.warn || G.t - b.warn > 1.6){
+      b.warn = G.t;
+      pop(b.rect.x + b.rect.w/2, b.rect.y + b.rect.h/2, "Falta " + money(b.price - p.money), "#FF6B90");
+    }
+    return;
+  }
+  p.money -= b.price;
+  b.locked = false;
+  b.owner = p;
+  b.name = p.idx === 0 && G.mode === 2 ? "Patio del J1" : b.name;
+  p.patios.push(b);
+  pop(b.rect.x + b.rect.w/2, b.rect.y + b.rect.h/2 - 40, "¡" + b.name + " es tuyo!", "#3DDC97");
+  puff(b.rect.x + b.rect.w/2, b.rect.y + b.rect.h/2, "#3DDC97", 18);
+  Snd.buy();
 }
 
 function dropCarried(who, x, y){
@@ -1111,9 +1168,12 @@ function applyKnock(e, dt){
 
 function spawnThief(){
   // elige víctima entre los jugadores que tengan algo que robar
-  const victimas = G.players.filter(p => occupied(p.base).length);
+  const victimas = G.players.filter(p => occupiedDe(p).length);
   if (!victimas.length) return;
   const victim = pick(victimas);
+  // ...y de esa víctima, uno de sus patios que tenga Florines
+  const patios = victim.patios.filter(b => occupied(b).length);
+  if (!patios.length) return;
   const ladronas = G.bases.filter(b => !b.isPlayer && b.who);
   if (!ladronas.length) return;
   const from = pick(ladronas);
@@ -1122,8 +1182,9 @@ function spawnThief(){
   G.thieves.push({
     x: from.rect.x + from.rect.w/2 + rnd(-90,90),
     y: from.rect.y + from.rect.h/2 + rnd(-70,70),
-    home: from, victim: victim.base, state:"go", target:null, carry:null,
+    home: from, victim: pick(patios), state:"go", target:null, carry:null,
     stun:0, frozen:0, kx:0, ky:0, grabT:0, spd, walk:0, face:1,
+    salto: K.salta ? K.salta : 0,
     who: from.who, hue: K.shirt
   });
 }
@@ -1170,13 +1231,15 @@ function update(dt){
     // El ritmo lo marca la vitrina más rica, no el reloj: mientras te armas hay
     // tregua, y cuanto más vale lo que guardas, más vecinos vienen. Con dos
     // jugadores, quien va ganando atrae más presión.
-    let peor = 16;
+    // El conteo se topa en 8: con tres patios (18 pedestales) el intervalo
+    // quedaría clavado en el mínimo para siempre.
+    let peor = 26;
     for (const p of G.players){
-      const mios = occupied(p.base);
+      const mios = occupiedDe(p);
       const masCaro = mios.reduce((m,q) => Math.max(m, q.florin.tier), 0);
-      peor = Math.min(peor, 16 - mios.length*1.7 - masCaro*0.4);
+      peor = Math.min(peor, 26 - Math.min(mios.length, 8)*2.0 - masCaro*0.7);
     }
-    G.thiefTimer = clamp(peor, 5.5, 16);
+    G.thiefTimer = clamp(peor, 10, 26);
   }
   for (let i=G.thieves.length-1;i>=0;i--){
     const t = G.thieves[i];
@@ -1188,11 +1251,33 @@ function update(dt){
     }
     let tx, ty, spd = t.spd;
 
+    /* Los Marcianos dan un saltito de teletransporte hacia donde van */
+    if (t.salto){
+      t.saltoT = (t.saltoT || 0) + dt;
+      if (t.saltoT >= t.salto){
+        t.saltoT = 0;
+        const meta = t.state === "back" || t.state === "flee"
+          ? { x: t.home.rect.x + t.home.rect.w/2, y: t.home.rect.y + t.home.rect.h/2 }
+          : (t.target || null);
+        if (meta){
+          const dx = meta.x - t.x, dy = meta.y - t.y, m = Math.hypot(dx,dy)||1;
+          const salto = Math.min(90, m);
+          puff(t.x, t.y-14, "#8B6BEE", 10);
+          t.x = clamp(t.x + dx/m*salto, 20, WORLD_W-20);
+          t.y = clamp(t.y + dy/m*salto, 20, WORLD_H-20);
+          puff(t.x, t.y-14, "#B57BE0", 10);
+        }
+      }
+    }
+
     if (t.state === "go"){
       if (!t.target || !t.target.florin){
-        const occ = occupied(t.victim);
+        const K0 = LADRONES[t.who];
+        let occ = occupied(t.victim);
+        // La Prima Yuli es conformista: no carga nada por encima de su tope
+        if (K0.maxTier != null) occ = occ.filter(q => q.florin.tier <= K0.maxTier);
         if (!occ.length){ t.state = "flee"; }
-        else if (LADRONES[t.who].greedy){          // Mayo va por el más caro
+        else if (K0.greedy){                       // Mayo y los Marcianos van por el más caro
           t.target = occ.reduce((a,b) =>
             TIERS[b.florin.tier].income > TIERS[a.florin.tier].income ? b : a);
         }
@@ -1379,11 +1464,17 @@ function updateJugador(p, dt){
     }
   }
 
-  /* ---- robar: de cualquier vitrina que no sea la tuya (incluida la del rival) ---- */
+  /* ---- comprar patios extra: te metes dentro de la reja ---- */
+  for (const b of G.bases){
+    if (!b.locked) continue;
+    if (inRect(p.x, p.y, b.rect, -10)) comprarPatio(p, b);
+  }
+
+  /* ---- robar: de cualquier vitrina que no sea tuya (incluida la del rival) ---- */
   if (!p.carry && p.stun<=0){
     let best = null, bd = 52*52;
     for (const b of G.bases){
-      if (b === p.base) continue;
+      if (esMiPatio(p, b)) continue;
       for (const ped of b.peds){
         if (!ped.florin) continue;
         const d = dist2(p.x, p.y, ped.x, ped.y);
@@ -1416,9 +1507,11 @@ function updateJugador(p, dt){
     }
   }
 
-  /* ---- entregar en tu patio ---- */
-  if (p.carry && inRect(p.x, p.y, p.base.rect, 8)){
-    const ped = freePed(p.base);
+  /* ---- entregar en cualquiera de tus patios ---- */
+  const patioAqui = p.carry ? p.patios.find(b => inRect(p.x, p.y, b.rect, 8)) : null;
+  if (patioAqui){
+    // primero el patio donde estás parado; si está lleno, cualquier otro tuyo
+    const ped = freePed(patioAqui) || freePedDe(p);
     if (ped){
       ped.florin = { tier: p.carry.tier, nombre: p.carry.nombre || null, bob: 0 };
       ped.pop = 1;
@@ -1523,25 +1616,44 @@ function roundRect(x,y,w,h,r){
 
 function drawBase(b){
   const r = b.rect;
+  const col = b.locked ? "#7A6A74" : b.color;
   ctx.save();
   // piso de la base
-  ctx.fillStyle = b.isPlayer ? "rgba(61,220,151,.13)" : "rgba(0,0,0,.17)";
+  ctx.fillStyle = b.locked ? "rgba(0,0,0,.24)"
+                : b.isPlayer ? "rgba(61,220,151,.13)" : "rgba(0,0,0,.17)";
   roundRect(r.x,r.y,r.w,r.h,26); ctx.fill();
   ctx.lineWidth = 6; ctx.setLineDash([16,12]);
-  ctx.strokeStyle = b.color + (b.isPlayer ? "" : "88");
+  ctx.strokeStyle = col + (b.isPlayer && !b.locked ? "" : "88");
   roundRect(r.x,r.y,r.w,r.h,26); ctx.stroke();
   ctx.setLineDash([]);
 
   // letrero
-  const lw = Math.max(150, b.name.length*11 + 34);
+  const rotulo = b.locked ? b.name.toUpperCase() + " · " + money(b.price) : b.name.toUpperCase();
+  const lw = Math.max(150, rotulo.length*11 + 34);
   ctx.fillStyle = "#2A1226";
   roundRect(r.x+r.w/2-lw/2, r.y-38, lw, 34, 12); ctx.fill();
-  ctx.strokeStyle = b.color; ctx.lineWidth = 3;
+  ctx.strokeStyle = col; ctx.lineWidth = 3;
   roundRect(r.x+r.w/2-lw/2, r.y-38, lw, 34, 12); ctx.stroke();
-  ctx.fillStyle = b.color;
+  ctx.fillStyle = b.locked ? "#FFC53D" : col;
   ctx.font = "700 16px " + "system-ui, sans-serif";
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
-  ctx.fillText(b.name.toUpperCase(), r.x+r.w/2, r.y-20);
+  ctx.fillText(rotulo, r.x+r.w/2, r.y-20);
+
+  /* Patio en venta: reja de barrotes y el cartel de "métete para comprarlo" */
+  if (b.locked){
+    ctx.strokeStyle = "rgba(255,239,226,.22)"; ctx.lineWidth = 5;
+    ctx.beginPath();
+    for (let x = r.x+26; x < r.x+r.w-20; x += 34){ ctx.moveTo(x, r.y+18); ctx.lineTo(x, r.y+r.h-18); }
+    ctx.moveTo(r.x+20, r.y+34);      ctx.lineTo(r.x+r.w-20, r.y+34);
+    ctx.moveTo(r.x+20, r.y+r.h-34);  ctx.lineTo(r.x+r.w-20, r.y+r.h-34);
+    ctx.stroke();
+    ctx.fillStyle = "#FFEFE2";
+    ctx.font = "800 15px system-ui, sans-serif";
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText("EN VENTA · métete para comprarlo", r.x+r.w/2, r.y+r.h/2);
+    ctx.restore();
+    return;
+  }
 
   // pedestales
   for (const ped of b.peds){
@@ -2129,10 +2241,14 @@ function drawMinimap(){
   mctx.fillStyle = "rgba(27,12,26,.6)";
   mctx.fillRect(0,0,w,h);
   for (const b of G.bases){
-    mctx.fillStyle = b.isPlayer ? "rgba(61,220,151,.3)" : "rgba(255,255,255,.08)";
+    mctx.fillStyle = b.locked ? "rgba(255,255,255,.04)"
+                   : b.isPlayer ? "rgba(61,220,151,.3)" : "rgba(255,255,255,.08)";
     mctx.fillRect(b.rect.x*sx, b.rect.y*sy, b.rect.w*sx, b.rect.h*sy);
-    mctx.strokeStyle = b.color; mctx.lineWidth = 3;
+    mctx.strokeStyle = b.locked ? "#7A6A74" : b.color;
+    mctx.lineWidth = 3;
+    if (b.locked) mctx.setLineDash([5,5]);
     mctx.strokeRect(b.rect.x*sx, b.rect.y*sy, b.rect.w*sx, b.rect.h*sy);
+    mctx.setLineDash([]);
     const n = occupied(b).length;
     if (n){
       mctx.fillStyle = b.color;
@@ -2348,6 +2464,25 @@ resize();
 G = newGame();
 renderWbar(); renderRack();
 requestAnimationFrame(frame);
+
+/* ANDAMIO DE PRUEBAS — QUITAR ANTES DE PUBLICAR */
+window.__dbg = {
+  G: () => G,
+  tp: (x,y) => { G.player.x = x; G.player.y = y; },
+  dar: n => { G.player.money += n; },
+  patios: () => G.player.patios.map(b => b.name),
+  ingresos: () => playerIncome(),
+  dame: tier => { G.player.carry = { tier }; },
+  ladron: () => { spawnThief(); return G.thieves.length; },
+  poner: (tier, base=0, ped=0) => {
+    G.bases[base].peds[ped].florin = { tier, bob:0 };
+    return G.bases[base].name + "[" + ped + "]=" + TIERS[tier].name;
+  },
+  vaciar: () => { for (const b of G.bases) for (const p of b.peds) p.florin = null; },
+  compra: k => { comprarPatio(G.player, G.bases[6+k]); return G.player.patios.map(b=>b.name); },
+  ladrones: () => G.thieves.map(t => ({ who:t.who, state:t.state,
+    objetivo: t.target && t.target.florin ? TIERS[t.target.florin.tier].rar : null })),
+};
 
 })();
 </script>

@@ -92,6 +92,8 @@ cara → 10 s (hoy 5.5 s).
 
 Patios extra y ruleta deshabilitados; la Nave de los Marcianos vuelve a ser el
 Patio del J2. Mismo criterio que hoy usa la Armería para que la pelea sea pareja.
+La pasarela sí queda disponible: es neutral y los dos pueden usarla (y robarse
+de ahí). Los láseres también, uno por patio.
 
 ## Sección 2 — Rarezas visibles y variantes especiales
 
@@ -222,6 +224,10 @@ y variantes de hasta ×3, la meta vieja se alcanzaría en un par de minutos.
    nuevas.
 
 Cada fase se prueba en el navegador antes de pasar a la siguiente.
+
+5. **Documentación**: actualizar `README.md` — la meta pasa a $60 000, la tabla
+   de armas crece a once, y se documentan patios comprables, variantes, álbum,
+   pasarela, ruleta, láseres y los dos vecinos nuevos.
 
 ## Verificación
 
