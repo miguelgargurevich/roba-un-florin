@@ -398,7 +398,7 @@
       <div class="card goal">
         <div class="goalrow">
           <span class="label" style="margin:0">Meta del patio</span>
-          <span class="val" id="uiGoal">$0 / $20 000</span>
+          <span class="val" id="uiGoal">$0 / $60 000</span>
         </div>
         <div class="bar"><i id="uiBar"></i></div>
       </div>
@@ -498,21 +498,26 @@
       <h1>Roba un<br><em>Florín</em></h1>
       <p class="sub">Un <b>Florín</b> es un bloquecito de tierra con su flor y su carita, y cada uno suelta dinero por segundo. Los vecinos tienen los suyos en la vitrina: róbatelos, llévalos a tu patio y defiéndelos a puro <b style="color:var(--chancla)">chancletazo</b>.</p>
       <ul class="rules">
-        <li><span class="pip">🌷</span><span>Compra Florines en el <b>Vivero</b> del centro y llévalos a tu vitrina: cada uno paga solo si está en tu patio. Hay 7 rarezas, del bloque de tierra común al <b>Florín Cósmico</b>.</span></li>
+        <li><span class="pip">🌷</span><span>Compra Florines en el <b>Vivero</b> del centro y llévalos a tu vitrina: cada uno paga solo si está en tu patio. Hay 7 rarezas, del bloque de tierra <b>Común</b> al <b>Cósmico</b>, y las variantes ✨ <b>Brillante</b> (×2) y 🌈 <b>Arcoíris</b> (×3).</span></li>
         <li><span class="pip">🏃</span><span>Métete a las bases vecinas y <b>quédate junto a un Florín</b> hasta llenar el aro para llevártelo.</span></li>
-        <li><span class="pip">😼</span><span>Tus vecinos vienen por los tuyos: <b style="color:#FFD84D">Mayo</b> es lento pero siempre agarra el más caro, <b style="color:#37D6E0">Vicnix</b> corre muchísimo, y <b style="color:#FF9EC4">El Sobri</b> agarra lo que pilla.</span></li>
+        <li><span class="pip">😼</span><span>Cinco vecinos vienen por los tuyos: <b style="color:#FFD84D">Mayo</b> agarra el más caro, <b style="color:#37D6E0">Vicnix</b> corre muchísimo, <b style="color:#FF9EC4">El Sobri</b> agarra lo que pilla, <b style="color:#FF5C86">la Prima Yuli</b> vuela pero solo carga lo barato, y <b style="color:#8B6BEE">los Marcianos</b> se teletransportan.</span></li>
         <li><span class="pip">👵</span><span>Cada base tiene su <b>abuela</b>. Si te alcanza, sueltas el Florín y quedas mareado.</span></li>
         <li><span class="pip">🩴</span><span>Lanza la chancla para <b>noquear abuelas y ladrones</b>. Regresa como bumerán: espérala para volver a lanzar.</span></li>
         <li><span class="pip">🎯</span><span><b>Apunta antes de tirar:</b> con ratón, hacia donde pongas el cursor (la línea punteada te lo muestra). En celular o iPad, <b>arrastra desde el botón rosa</b> y suelta.</span></li>
-        <li><span class="pip">🧰</span><span>En la <b>Armería</b> (abajo al centro) compras gadgets: 🧊 congeladora, 💨 secadora, ⚡ chicharra, 🥤 refresco turbo y 👻 capa invisible.</span></li>
-        <li><span class="pip">💰</span><span>Llega a <b>$20 000</b> antes de que los vecinos te dejen el patio pelado.</span></li>
+        <li><span class="pip">🏡</span><span>Puedes <b>comprar dos patios más</b> ($4 000 y $12 000) para guardar más Florines: métete en la reja para comprarlos.</span></li>
+        <li><span class="pip">🛡️</span><span>Cada patio tuyo tiene su <b>placa de láseres</b>: párate encima un segundo, paga $800 y nadie entra por 60 s. Luego tarda 30 s en recargar.</span></li>
+        <li><span class="pip">💃</span><span>En la <b>Pasarela</b> tus Florines desfilan y rinden <b>×2.5</b>… pero ahí los láseres no los cubren y los vecinos van por ellos.</span></li>
+        <li><span class="pip">🎰</span><span>La <b>Ruleta</b> cuesta $1 200 por tirada. Las casillas <b>???</b> son las que dan las variantes ✨ y 🌈.</span></li>
+        <li><span class="pip">🧰</span><span>En la <b>Armería</b> compras diez gadgets: 🧊 congeladora, 💨 secadora, ⚡ chicharra, 🥤 refresco, 👻 capa, 🍌 cáscaras, 🐕 chihuahua, ⏱️ reloj, 🧲 imán y 🛸 rayo alien.</span></li>
+        <li><span class="pip">📖</span><span>El <b>álbum</b> (botón 📖 o tecla <span class="k">B</span>) lleva la cuenta de las 21 combinaciones que has llegado a tener.</span></li>
+        <li><span class="pip">💰</span><span>Llega a <b>$60 000</b> antes de que los vecinos te dejen el patio pelado.</span></li>
       </ul>
       <div class="modos">
         <button class="play" id="btnStart">1 jugador ▸</button>
         <button class="play dos" id="btnStart2">2 jugadores ▸</button>
       </div>
-      <p class="foot dosNota"><b>Dos jugadores en la misma pantalla:</b> J1 con <span class="k">WASD</span> y <span class="k">espacio</span>, J2 con las <span class="k">flechas</span> y <span class="k">.</span> (punto). Cada uno tiene su patio — J1 abajo a la izquierda, J2 abajo a la derecha — y pueden robarse entre ellos y darse chancletazos. Gana el primero que llegue a $20 000. En este modo solo se usa la chancla.</p>
-      <p class="foot">Teclado: <span class="k">WASD</span> / <span class="k">flechas</span> para moverte · <span class="k">espacio</span> o <b>clic</b> para usar el arma · <span class="k">1</span>–<span class="k">6</span> cambiar de arma · <span class="k">P</span> pausa · <span class="k">M</span> sonido. En celular: arrastra en una mitad de la pantalla para moverte y usa el botón rosa para el arma. Si eres <b>zurdo</b>, toca <b>✋</b> arriba y todos los controles se voltean.</p>
+      <p class="foot dosNota"><b>Dos jugadores en la misma pantalla:</b> J1 con <span class="k">WASD</span> y <span class="k">espacio</span>, J2 con las <span class="k">flechas</span> y <span class="k">.</span> (punto). Cada uno tiene su patio — J1 abajo a la izquierda, J2 abajo a la derecha — y pueden robarse entre ellos y darse chancletazos. Gana el primero que llegue a $60 000. En este modo solo se usa la chancla, y quedan cerrados los patios extra y la ruleta; la pasarela y los láseres sí funcionan.</p>
+      <p class="foot">Teclado: <span class="k">WASD</span> / <span class="k">flechas</span> para moverte · <span class="k">espacio</span> o <b>clic</b> para usar el arma · <span class="k">1</span>–<span class="k">0</span> o <span class="k">Q</span>/<span class="k">E</span> cambiar de arma · <span class="k">N</span> bautizar · <span class="k">B</span> álbum · <span class="k">P</span> pausa · <span class="k">M</span> sonido. En celular: arrastra en una mitad de la pantalla para moverte y usa el botón rosa para el arma. Si eres <b>zurdo</b>, toca <b>✋</b> arriba y todos los controles se voltean.</p>
     </div>
   </div>
 
@@ -1434,9 +1439,11 @@ function esMiPatio(p, b){ return p.patios.indexOf(b) >= 0; }
    Seguridad láser de los patios propios
    ============================================================ */
 function ponerLaser(b){
+  // arriba y al centro: es por donde entras al patio, está libre de pedestales
+  // y es la zona que el HUD tapa menos (abajo van minimapa, chips y el tip)
   b.laser = {
     activo: 0, recarga: 0, carga: 0,
-    x: b.rect.x + 46, y: b.rect.y + b.rect.h - 42, r: 34,
+    x: b.rect.x + b.rect.w/2, y: b.rect.y + 40, r: 32,
   };
 }
 const laserActivo = b => !!(b.laser && b.laser.activo > 0);
@@ -3477,39 +3484,6 @@ resize();
 G = newGame();
 renderWbar(); renderRack();
 requestAnimationFrame(frame);
-
-/* ANDAMIO DE PRUEBAS — QUITAR ANTES DE PUBLICAR */
-window.__dbg = {
-  G: () => G,
-  tp: (x,y) => { G.player.x = x; G.player.y = y; },
-  dar: n => { G.player.money += n; },
-  patios: () => G.player.patios.map(b => b.name),
-  ingresos: () => playerIncome(),
-  dame: tier => { G.player.carry = { tier }; },
-  ladron: () => { spawnThief(); return G.thieves.length; },
-  poner: (tier, base=0, ped=0) => {
-    G.bases[base].peds[ped].florin = { tier, bob:0 };
-    return G.bases[base].name + "[" + ped + "]=" + TIERS[tier].name;
-  },
-  vaciar: () => { for (const b of G.bases) for (const p of b.peds) p.florin = null; },
-  compra: k => { comprarPatio(G.player, G.bases[6+k]); return G.player.patios.map(b=>b.name); },
-  ponerVar: (tier, variant, base=0, ped=0) => {
-    G.bases[base].peds[ped].florin = { tier, variant, bob:0 };
-    return TIERS[tier].name + " " + (variant||"normal") + " → " + florinIncome({tier,variant}) + "/s";
-  },
-  album: () => album,
-  arma: id => { const i = WEAPONS.findIndex(w => w.id === id);
-                G.player.ammo[id] = 9; G.player.wsel = i; renderWbar(); return "arma " + i; },
-  usa: () => { useWeapon(G.player); return WEAPONS[G.player.wsel].id; },
-  laseres: () => G.player.patios.map(b => ({ patio:b.name,
-    activo:+(b.laser.activo).toFixed(1), recarga:+(b.laser.recarga).toFixed(1), carga:+(b.laser.carga).toFixed(2) })),
-  avanza: (secs, paso=1/60) => { let n=0; for (let s=0; s<secs; s+=paso){ update(paso); n++; } return n + " frames"; },
-  desfile: () => G.pasarela.slots.map(s => s.florin
-    ? { rar: TIERS[s.florin.tier].rar, variant: s.florin.variant, pos: +s.pos.toFixed(2), x: +s.x.toFixed(0) }
-    : null),
-  ladrones: () => G.thieves.map(t => ({ who:t.who, state:t.state,
-    objetivo: t.target && t.target.florin ? TIERS[t.target.florin.tier].rar : null })),
-};
 
 })();
 </script>
