@@ -2,3 +2,9 @@ node_modules/
 dist/
 .vite/
 *.tsbuildinfo
+
+# .NET
+bin/
+obj/
+*.user
+
