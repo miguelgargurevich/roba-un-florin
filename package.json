@@ -1,0 +1,12 @@
+{
+  "name": "roba-un-florin",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Roba un Florín — monorepo: motor de juego y cliente web",
+  "workspaces": ["packages/*", "apps/*"],
+  "scripts": {
+    "test": "npm run test --workspace @florin/engine",
+    "build": "npm run build --workspaces --if-present",
+    "dev": "npm run dev --workspace @florin/web"
+  }
+}
