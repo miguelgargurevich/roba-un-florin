@@ -26,16 +26,27 @@ Inspirado en el género "roba un brainrot" y en Florín, la mascota del youtuber
 
 Antes de jugar eliges dónde, y la elección se recuerda:
 
-| Escenario | Suelo | Reparto |
-|---|---|---|
-| 🏘️ El Barrio | tierra rojiza con manchas | tus patios juntos al suroeste |
-| 🏢 La Azotea | cemento, losas y respiraderos | los vecinos te rodean por la izquierda |
-| 🏖️ La Playa | arena, olas de espuma y conchas | tus patios en fila junto al agua |
-| 🌵 El Desierto | tierra rajada | casas muy separadas, mucho vacío |
+| Escenario | Qué hay |
+|---|---|
+| 🏘️ **El Barrio** | tierra rojiza, aceras, postes de luz, tendederos con ropa, bolsas de basura y **rayuelas** con tiza de colores |
+| 🏫 **Sta. Teresita** | el patio del colegio: cancha pintada, canteros con césped y bordillo de ladrillo, palmeras, arbustos recortados, bancas, la **bandera del Perú**, el emblema **ST** en el suelo y las **rayuelas del recreo** |
+| 🏖️ **La Playa** | **mar con orilla y espuma**, **castillos de arena** con banderitas y palita, sombrillas, toallas, pelotas, conchas y estrellas de mar |
+| 🌵 **El Desierto** | tierra rajada, saguaros (algunos con flor), rocas, calaveras de vaca, matas rodadoras y letreros de "NI AGUA" |
 
 Las **reglas son las mismas** en los cuatro, y la columna del centro (portal,
 Armería y Ruleta) no se mueve nunca: lo que cambia es el sitio y por dónde te
 vienen.
+
+El suelo y todo su decorado se pintan **una sola vez** por partida en un canvas
+del tamaño del mundo y luego solo se estampa, así que el decorado puede ser todo
+lo rico que quiera sin costar nada por frame.
+
+### La rayuela
+
+Está dibujada como se juega de verdad, cada casilla con su tiza de color: **1**,
+**2** y **3** sueltos, **4 y 5** en la misma línea, **6** suelto, **7 y 8** en la
+misma línea, **9** suelto y el **10** grande arriba, con el techo redondeado. Hay
+rayuelas en el Barrio y en el colegio.
 
 ## Cuando te roban
 

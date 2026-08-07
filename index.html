@@ -637,7 +637,7 @@
         <li><span class="pip">🧰</span><span>La <b>Armería</b> está en el centro, rodeada por el desfile, y vende doce gadgets: 🧊 congeladora, 💨 secadora, ⚡ chicharra, 🥤 refresco, 👻 capa, 🍌 cáscaras, 🐕 chihuahua, ⏱️ reloj, 🧲 imán, 🛸 rayo alien, 🕸️ red y ☂️ paraguas.</span></li>
         <li><span class="pip">📖</span><span>El <b>álbum</b> (botón 📖 o tecla <span class="k">B</span>) lleva la cuenta de las 21 combinaciones que has llegado a tener.</span></li>
         <li><span class="pip">🚨</span><span>Si un vecino te está robando salta una <b>alarma</b>: te dice quién y de qué patio, y una <b>flecha</b> en el borde te marca por dónde correr.</span></li>
-        <li><span class="pip">🗺️</span><span>Hay cuatro <b>escenarios</b> con su propio suelo y su reparto de casas: el Barrio, la Azotea, la Playa y el Desierto. Elígelo abajo.</span></li>
+        <li><span class="pip">🗺️</span><span>Hay cuatro <b>escenarios</b> con su propio suelo y su reparto de casas: el <b>Barrio</b>, el colegio <b>Santa Teresita</b>, la <b>Playa</b> y el <b>Desierto</b>. Elígelo abajo.</span></li>
         <li><span class="pip">💰</span><span>La partida <b>no se acaba</b>: cada <b>$60 000</b> celebras un hito y sigues. Lo divertido es coleccionar, así que juega hasta que te aburras.</span></li>
       </ul>
       <p class="escTitulo">Escenario</p>
@@ -701,19 +701,20 @@ const ESCENARIOS = [
     patios:[[70,1290],[520,1290],[70,900]],
   },
   {
-    id:"azotea", nombre:"La Azotea", icono:"🏢",
-    desc:"Cemento y respiraderos. Aquí los vecinos te rodean por la izquierda.",
-    suelo:"#6E6A78", loseta:"rgba(255,255,255,.09)", mancha:"rgba(40,38,48,.26)",
-    borde:"#3A3844", deco:"baldosas",
+    id:"colegio", nombre:"Sta. Teresita", icono:"🏫",
+    desc:"El patio del Colegio Mixto Santa Teresita: cancha, jardines, palmeras, la bandera y las rayuelas del recreo.",
+    suelo:"#C9BFA8", loseta:"rgba(255,255,255,.13)", mancha:"rgba(150,140,120,.22)",
+    borde:"#8A7A62", deco:"colegio",
     casas:[[70,90],[560,90],[70,660],[70,1290]],
     patios:[[2150,1290],[1700,1290],[2150,860]],
   },
   {
     id:"playa", nombre:"La Playa", icono:"🏖️",
-    desc:"Arena y olas. Tus patios en fila junto al agua, los vecinos enfrente.",
+    desc:"Mar, orilla y castillos de arena. Nadie construye sobre la playa.",
     suelo:"#E0BE84", loseta:"rgba(255,255,255,.11)", mancha:"rgba(198,158,98,.3)",
     borde:"#A9834A", deco:"olas",
-    casas:[[2150,90],[2150,700],[2150,1290],[560,1290]],
+    /* la franja de abajo (y > 1430) queda libre: ahí van el mar y los castillos */
+    casas:[[2150,90],[2150,620],[2150,1100],[560,1100]],
     patios:[[70,90],[70,450],[70,810]],
   },
   {
@@ -2654,86 +2655,584 @@ function updateJugador(p, dt){
    ============================================================ */
 const cam = { x:0, y:0 };
 
-/* El suelo lo pinta el escenario. La decoración es determinista (i*primos) para
-   que no baile entre frames y no haga falta guardarla. */
-function drawFloor(){
-  const E = G.esc;
-  ctx.fillStyle = E.suelo;
-  ctx.fillRect(0,0,WORLD_W,WORLD_H);
+/* ============================================================
+   El suelo y su decorado
+   ============================================================
+   Se pinta UNA vez por partida en un canvas del tamaño del mundo y luego solo se
+   estampa: así el decorado puede ser todo lo rico que quiera sin costar nada por
+   frame. Se invalida al empezar partida (cambio de escenario). */
+let sueloCv = null;
+function invalidarSuelo(){ sueloCv = null; }
 
-  const S = E.deco === "baldosas" ? 60 : 90;
-  ctx.lineWidth = 2;
-  ctx.strokeStyle = E.loseta;
-  ctx.beginPath();
-  for (let x=0;x<=WORLD_W;x+=S){ ctx.moveTo(x,0); ctx.lineTo(x,WORLD_H); }
-  for (let y=0;y<=WORLD_H;y+=S){ ctx.moveTo(0,y); ctx.lineTo(WORLD_W,y); }
-  ctx.stroke();
+/* aleatorio estable: el mismo adorno cae siempre en el mismo sitio */
+const az = i => { const v = Math.sin(i*12.9898)*43758.5453; return v - Math.floor(v); };
+const azEntre = (i,a,b) => a + az(i)*(b-a);
 
-  ctx.fillStyle = E.mancha;
-  if (E.deco === "manchas"){
-    for (let i=0;i<26;i++){
-      const x = ((i*367)%WORLD_W), y = ((i*613)%WORLD_H), r = 26+((i*53)%48);
-      ctx.beginPath(); ctx.ellipse(x,y,r,r*.6,i,0,6.283); ctx.fill();
+function rr(c,x,y,w,h,r){
+  c.beginPath();
+  c.moveTo(x+r,y);
+  c.arcTo(x+w,y,x+w,y+h,r);
+  c.arcTo(x+w,y+h,x,y+h,r);
+  c.arcTo(x,y+h,x,y,r);
+  c.arcTo(x,y,x+w,y,r);
+  c.closePath();
+}
+
+/* Zonas que el escenario reserva para sus elementos fijos (canteros, cancha,
+   la bandera, el emblema…) y donde no se debe sembrar nada encima. */
+let vetoDeco = [];
+
+/* ¿cabe un adorno aquí sin pisar una base ni la columna del centro? */
+function libreDeco(x, y, m){
+  const caja = { x:x-m, y:y-m, w:m*2, h:m*2 };
+  const choca = r => caja.x < r.x+r.w && caja.x+caja.w > r.x &&
+                     caja.y < r.y+r.h && caja.y+caja.h > r.y;
+  for (const r of vetoDeco) if (choca(r)) return false;
+  for (const b of G.bases) if (choca({ x:b.rect.x-24, y:b.rect.y-46, w:b.rect.w+48, h:b.rect.h+70 })) return false;
+  if (choca({ x:G.armeria.x-30, y:G.armeria.y-30, w:G.armeria.w+60, h:G.armeria.h+60 })) return false;
+  if (choca({ x:G.ruleta.x-30,  y:G.ruleta.y-30,  w:G.ruleta.w+60,  h:G.ruleta.h+60  })) return false;
+  if (choca({ x:G.portal.x-90,  y:G.portal.y-90,  w:180, h:180 })) return false;
+  // la alfombra del desfile: bajada y órbita
+  const o = orbitaDelCentro();
+  if (choca({ x:o.cx-o.rx-26, y:o.cy-o.ry-26, w:(o.rx+26)*2, h:(o.ry+26)*2 })) return false;
+  if (choca({ x:G.portal.x-24, y:G.portal.y, w:48, h:o.cy-o.ry-G.portal.y })) return false;
+  return true;
+}
+
+/* Coloca n adornos buscando sitio libre, y llama a pintar(c,x,y,i).
+   Reparte por bandas horizontales para que no se apelotonen, y `maxY` permite
+   dejar zonas fuera (en la playa, el agua). */
+function sembrar(c, n, semilla, margen, pintar, maxY){
+  const limY = maxY == null ? WORLD_H-60 : maxY;
+  let puestos = 0;
+  for (let banda=0; banda<n; banda++){
+    const x0 = 60 + (WORLD_W-120) * (banda/n);
+    const x1 = 60 + (WORLD_W-120) * ((banda+1)/n);
+    for (let k=0;k<26;k++){
+      const i = semilla + banda*37 + k;
+      const x = azEntre(i, x0, x1), y = azEntre(i+7777, 60, limY);
+      if (!libreDeco(x, y, margen)) continue;
+      pintar(c, x, y, puestos);
+      puestos++;
+      break;
     }
   }
-  else if (E.deco === "baldosas"){
-    // losas grandes desiguales y algún respiradero de azotea
-    for (let i=0;i<22;i++){
-      const x = ((i*421)%WORLD_W), y = ((i*577)%WORLD_H), w = 90+((i*37)%120);
-      ctx.fillRect(x, y, w, 60);
-    }
-    for (let i=0;i<9;i++){
-      const x = 120+((i*613)%(WORLD_W-320)), y = 120+((i*457)%(WORLD_H-320));
-      ctx.fillStyle = "rgba(30,28,38,.5)";
-      roundRect(x, y, 54, 40, 7); ctx.fill();
-      ctx.strokeStyle = "rgba(255,255,255,.16)"; ctx.lineWidth = 3;
-      ctx.beginPath();
-      for (let k=0;k<3;k++){ ctx.moveTo(x+8, y+11+k*9); ctx.lineTo(x+46, y+11+k*9); }
-      ctx.stroke();
-      ctx.fillStyle = E.mancha;
-    }
-  }
-  else if (E.deco === "olas"){
-    // orillas de espuma arriba y abajo, y conchitas repartidas
-    ctx.strokeStyle = "rgba(255,255,255,.22)"; ctx.lineWidth = 7;
-    for (let f=0;f<3;f++){
-      ctx.beginPath();
-      for (let x=0;x<=WORLD_W;x+=40){
-        const y = 46 + f*34 + Math.sin(x*.008 + f)*13;
-        x === 0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+}
+
+/* La rayuela (el "mundo") pintada con tiza de colores, como se juega de verdad:
+   1, 2 y 3 sueltos, 4 y 5 en la misma línea, 6 suelto, 7 y 8 en la misma línea,
+   9 suelto y el 10 grande arriba. (x,y) es el centro de la casilla del 1. */
+const TIZAS = ["#FFEFE2","#FF9EC4","#5CE1EA","#FFD84D","#9BD97F","#FFB020","#D8A0FF","#FF7196"];
+function rayuela(c, x, y, s){
+  const W = 34, H = 30;
+  /* cada fila: los números que la ocupan. De abajo hacia arriba. */
+  const filas = [[1],[2],[3],[4,5],[6],[7,8],[9],[10]];
+  c.save();
+  c.translate(x, y); c.scale(s, s);
+  c.lineWidth = 3.2; c.lineJoin = "round";
+  c.textAlign = "center"; c.textBaseline = "middle";
+
+  let base = 0;                                  // borde inferior de la fila
+  filas.forEach((nums, f) => {
+    const grande = nums[0] === 10;
+    const h = grande ? 46 : H;
+    const top = base - h;
+    nums.forEach((n, k) => {
+      const tiza = TIZAS[(n-1) % TIZAS.length];
+      let x0, w;
+      if (grande){ x0 = -W; w = W*2; }
+      else if (nums.length === 2){ x0 = k === 0 ? -W : 0; w = W; }
+      else { x0 = -W/2; w = W; }
+
+      c.fillStyle = "rgba(255,255,255,.07)";
+      if (grande){
+        // el 10 lleva el techo redondeado: es el "cielo"
+        c.beginPath();
+        c.moveTo(x0, base);
+        c.lineTo(x0, top+14);
+        c.quadraticCurveTo(x0, top, x0+18, top);
+        c.lineTo(x0+w-18, top);
+        c.quadraticCurveTo(x0+w, top, x0+w, top+14);
+        c.lineTo(x0+w, base);
+        c.closePath();
+      } else {
+        c.beginPath(); c.rect(x0, top, w, h);
       }
-      ctx.stroke();
-      ctx.beginPath();
-      for (let x=0;x<=WORLD_W;x+=40){
-        const y = WORLD_H - 46 - f*34 + Math.sin(x*.008 + f + 2)*13;
-        x === 0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
-      }
-      ctx.stroke();
-    }
-    ctx.fillStyle = E.mancha;
-    for (let i=0;i<30;i++){
-      const x = ((i*389)%WORLD_W), y = ((i*641)%WORLD_H);
-      ctx.beginPath(); ctx.arc(x, y, 5+((i*29)%7), 0, 6.283); ctx.fill();
-    }
+      c.fill();
+      c.strokeStyle = tiza; c.stroke();
+      c.fillStyle = tiza;
+      c.font = (grande ? "800 26px " : "800 17px ") + "system-ui, sans-serif";
+      c.fillText(String(n), x0 + w/2, top + h/2 + (grande ? 3 : 1));
+    });
+    base = top;
+  });
+
+  // la piedrita, tirada en una casilla cualquiera
+  c.fillStyle = "rgba(90,80,70,.75)";
+  c.beginPath(); c.ellipse(-8, -H*2.4, 6, 4.5, .4, 0, 6.283); c.fill();
+  c.restore();
+}
+
+/* ---------- El Barrio: postes, tendederos, basura y rayuela ---------- */
+function decoBarrio(c, E){
+  c.fillStyle = E.mancha;
+  for (let i=0;i<22;i++){
+    const x = azEntre(i,0,WORLD_W), y = azEntre(i+31,0,WORLD_H), r = 26+az(i+3)*48;
+    c.beginPath(); c.ellipse(x,y,r,r*.6,i,0,6.283); c.fill();
   }
-  else if (E.deco === "grietas"){
-    // tierra rajada: líneas quebradas largas
-    ctx.strokeStyle = E.mancha; ctx.lineWidth = 5; ctx.lineCap = "round";
-    for (let i=0;i<16;i++){
-      let x = ((i*431)%WORLD_W), y = ((i*307)%WORLD_H);
-      ctx.beginPath(); ctx.moveTo(x,y);
+  // aceras: dos franjas de bordillo cruzando el barrio
+  c.fillStyle = "rgba(255,239,226,.10)";
+  c.fillRect(0, 620, WORLD_W, 26);
+  c.fillRect(0, 1180, WORLD_W, 26);
+  c.strokeStyle = "rgba(92,42,24,.5)"; c.lineWidth = 3;
+  c.strokeRect(0, 620, WORLD_W, 26); c.strokeRect(0, 1180, WORLD_W, 26);
+
+  sembrar(c, 7, 11, 46, (c,x,y) => {          // poste de luz con su charco de luz
+    c.fillStyle = "rgba(255,197,61,.10)";
+    c.beginPath(); c.ellipse(x, y+26, 62, 30, 0, 0, 6.283); c.fill();
+    c.fillStyle = "#4A3526"; c.fillRect(x-4, y-54, 8, 80);
+    c.fillStyle = "#3A2416"; c.fillRect(x-16, y-62, 32, 10);
+    c.fillStyle = "#FFE066";
+    c.beginPath(); c.ellipse(x, y-52, 13, 7, 0, 0, 6.283); c.fill();
+  });
+
+  sembrar(c, 6, 401, 70, (c,x,y,i) => {       // tendedero con ropa colgada
+    const w = 150;
+    c.strokeStyle = "#4A3526"; c.lineWidth = 5;
+    c.beginPath(); c.moveTo(x-w/2, y-40); c.lineTo(x-w/2, y+16); c.stroke();
+    c.beginPath(); c.moveTo(x+w/2, y-40); c.lineTo(x+w/2, y+16); c.stroke();
+    c.strokeStyle = "rgba(255,239,226,.5)"; c.lineWidth = 2;
+    c.beginPath();
+    c.moveTo(x-w/2, y-36); c.quadraticCurveTo(x, y-24, x+w/2, y-36); c.stroke();
+    const ropa = ["#FF5C86","#5CE1EA","#FFD84D","#9BD97F","#D8CFD4"];
+    for (let k=0;k<4;k++){
+      const rx = x-w/2+22+k*34, ry = y-30+Math.sin(k)*3;
+      c.fillStyle = ropa[(i+k)%ropa.length];
+      rr(c, rx-9, ry, 18, 24, 4); c.fill();
+    }
+  });
+
+  sembrar(c, 9, 901, 26, (c,x,y,i) => {       // bolsas de basura y un tacho
+    if (i%3 === 0){
+      c.fillStyle = "#3DDC97"; rr(c, x-13, y-20, 26, 30, 5); c.fill();
+      c.fillStyle = "#2F9E6E"; rr(c, x-16, y-24, 32, 8, 3); c.fill();
+    } else {
+      c.fillStyle = "#2A1226";
+      c.beginPath(); c.ellipse(x, y, 15, 12, az(i), 0, 6.283); c.fill();
+      c.fillStyle = "rgba(255,255,255,.08)";
+      c.beginPath(); c.ellipse(x-4, y-4, 5, 4, 0, 0, 6.283); c.fill();
+    }
+  });
+
+  // la rayuela completa, del 1 al 10, en tiza de colores
+  sembrar(c, 3, 1301, 130, (c,x,y,i) => rayuela(c, x, y+120, .95 + az(i)*.2));
+}
+
+/* ---------- El Colegio Santa Teresita: patio, jardines, palmeras y bandera ---------- */
+function decoColegio(c, E){
+  /* jardines: los canteros redondeados del patio central */
+  const cantero = (x, y, w, h) => {
+    vetoDeco.push({ x:x-16, y:y-16, w:w+32, h:h+32 });
+    c.fillStyle = "#C4693F";                       // bordillo de ladrillo
+    rr(c, x-6, y-6, w+12, h+12, 26); c.fill();
+    c.fillStyle = "#4FB265";                       // césped
+    rr(c, x, y, w, h, 22); c.fill();
+    c.fillStyle = "rgba(47,122,70,.35)";           // vetas del pasto
+    for (let k=0;k*46<w;k++) c.fillRect(x+k*46, y, 22, h);
+    c.fillStyle = "#3E9C56";
+    rr(c, x, y, w, 10, 8); c.fill();
+  };
+  cantero(300, 380, 420, 190);
+  cantero(1780, 300, 360, 170);
+  cantero(1640, 1160, 460, 200);
+  cantero(430, 1420, 380, 160);
+
+  /* la cancha del patio, con sus líneas pintadas */
+  const cx = 780, cy = 780, cw = 520, ch = 330;
+  vetoDeco.push({ x:cx-16, y:cy-16, w:cw+32, h:ch+32 });
+  c.strokeStyle = "rgba(255,255,255,.5)"; c.lineWidth = 5;
+  c.strokeRect(cx, cy, cw, ch);
+  c.beginPath(); c.moveTo(cx+cw/2, cy); c.lineTo(cx+cw/2, cy+ch); c.stroke();
+  c.beginPath(); c.arc(cx+cw/2, cy+ch/2, 56, 0, 6.283); c.stroke();
+  c.strokeRect(cx, cy+ch/2-70, 62, 140);
+  c.strokeRect(cx+cw-62, cy+ch/2-70, 62, 140);
+
+  /* asta con la bandera del Perú */
+  const ax = 1300, ay = 470;
+  vetoDeco.push({ x:ax-70, y:ay-150, w:150, h:180 });
+  c.fillStyle = "rgba(0,0,0,.2)";
+  c.beginPath(); c.ellipse(ax, ay+8, 26, 9, 0, 0, 6.283); c.fill();
+  c.fillStyle = "#D8CFD4"; rr(c, ax-16, ay-6, 32, 14, 5); c.fill();
+  c.fillStyle = "#EBE3D2"; c.fillRect(ax-3, ay-118, 6, 116);
+  c.fillStyle = "#FFD84D"; c.beginPath(); c.arc(ax, ay-122, 5, 0, 6.283); c.fill();
+  const bw = 58, bh = 38, by = ay-116;
+  c.fillStyle = "#E0224F"; c.fillRect(ax+3, by, bw/3, bh);
+  c.fillStyle = "#FFEFE2"; c.fillRect(ax+3+bw/3, by, bw/3, bh);
+  c.fillStyle = "#E0224F"; c.fillRect(ax+3+bw*2/3, by, bw/3, bh);
+  c.strokeStyle = "rgba(0,0,0,.22)"; c.lineWidth = 1.6;
+  c.strokeRect(ax+3, by, bw, bh);
+
+  /* el emblema ST pintado en el patio */
+  const ex = 1300, ey = 1200, er = 105;
+  vetoDeco.push({ x:ex-er-20, y:ey-er-20, w:(er+20)*2, h:(er+20)*2 });
+  c.fillStyle = "rgba(47,122,70,.62)";
+  c.beginPath(); c.ellipse(ex, ey, er, er*1.1, 0, 0, 6.283); c.fill();
+  c.fillStyle = "rgba(235,227,210,.7)";
+  c.beginPath(); c.ellipse(ex, ey, er-13, (er-13)*1.1, 0, 0, 6.283); c.fill();
+  c.fillStyle = "rgba(47,122,70,.9)";
+  c.font = "800 96px Georgia, serif";
+  c.textAlign = "center"; c.textBaseline = "middle";
+  c.fillText("ST", ex, ey+6);
+
+  /* palmeras: tronco anillado y sus hojas */
+  const palmera = (c, x, y, s) => {
+    c.save(); c.translate(x, y); c.scale(s, s);
+    c.fillStyle = "rgba(0,0,0,.2)";
+    c.beginPath(); c.ellipse(0, 6, 24, 8, 0, 0, 6.283); c.fill();
+    c.fillStyle = "#8A5A2A";
+    c.beginPath();
+    c.moveTo(-7, 6); c.quadraticCurveTo(-3, -34, -11, -68);
+    c.lineTo(-1, -68); c.quadraticCurveTo(5, -34, 7, 6);
+    c.closePath(); c.fill();
+    c.strokeStyle = "rgba(90,55,20,.6)"; c.lineWidth = 2;
+    for (let k=0;k<6;k++){
+      c.beginPath(); c.moveTo(-7+k*.7, -6-k*10); c.lineTo(6-k*.7, -8-k*10); c.stroke();
+    }
+    for (let k=0;k<7;k++){                        // hojas
+      const a = -2.6 + k*.62;
+      c.fillStyle = k%2 ? "#3E9C56" : "#4FB265";
+      c.save(); c.translate(-6, -70); c.rotate(a);
+      c.beginPath();
+      c.moveTo(0,0); c.quadraticCurveTo(30, -12, 58, 6);
+      c.quadraticCurveTo(30, 2, 0, 6);
+      c.closePath(); c.fill();
+      c.restore();
+    }
+    c.fillStyle = "#8A5A2A";
+    c.beginPath(); c.arc(-6, -70, 5, 0, 6.283); c.fill();
+    c.restore();
+  };
+  sembrar(c, 8, 71, 60, (c,x,y,i) => palmera(c, x, y, .9 + az(i)*.5));
+
+  /* arbustos recortados en bolita */
+  sembrar(c, 12, 421, 26, (c,x,y,i) => {
+    c.fillStyle = "rgba(0,0,0,.16)";
+    c.beginPath(); c.ellipse(x, y+13, 17, 6, 0, 0, 6.283); c.fill();
+    const r = 14 + az(i)*7;
+    c.fillStyle = "#3E9C56";
+    c.beginPath(); c.arc(x, y, r, 0, 6.283); c.fill();
+    c.fillStyle = "#5FBF6E";
+    c.beginPath(); c.arc(x-r*.3, y-r*.3, r*.55, 0, 6.283); c.fill();
+  });
+
+  /* bancas del patio */
+  sembrar(c, 7, 821, 34, (c,x,y,i) => {
+    c.save(); c.translate(x,y); if (i%2) c.rotate(1.5708);
+    c.fillStyle = "rgba(0,0,0,.18)";
+    rr(c, -32, 8, 64, 8, 3); c.fill();
+    c.fillStyle = "#C4693F"; rr(c, -32, -6, 64, 13, 4); c.fill();
+    c.fillStyle = "#A2532F"; rr(c, -32, -20, 64, 10, 4); c.fill();
+    c.fillStyle = "#6E6A78";
+    c.fillRect(-27, 6, 6, 12); c.fillRect(21, 6, 6, 12);
+    c.restore();
+  });
+
+  /* tachos de basura del colegio */
+  sembrar(c, 6, 1521, 22, (c,x,y) => {
+    c.fillStyle = "rgba(0,0,0,.16)";
+    c.beginPath(); c.ellipse(x, y+14, 14, 5, 0, 0, 6.283); c.fill();
+    c.fillStyle = "#3DDC97"; rr(c, x-12, y-14, 24, 28, 4); c.fill();
+    c.fillStyle = "#2F9E6E"; rr(c, x-15, y-18, 30, 7, 3); c.fill();
+  });
+
+  /* y las rayuelas del recreo, en tiza de colores */
+  sembrar(c, 4, 1901, 130, (c,x,y,i) => rayuela(c, x, y+120, .95 + az(i)*.25));
+}
+
+/* ---------- La Playa: mar con orilla y castillos de arena ---------- */
+function decoPlaya(c, E){
+  /* el mar ocupa la franja de abajo; el reparto de casas deja ese borde libre */
+  const MAR = WORLD_H - 210;
+
+  // arena mojada justo antes del agua
+  const moj = c.createLinearGradient(0, MAR-90, 0, MAR+10);
+  moj.addColorStop(0, "rgba(169,131,74,0)");
+  moj.addColorStop(1, "rgba(150,112,60,.55)");
+  c.fillStyle = moj;
+  c.fillRect(0, MAR-90, WORLD_W, 100);
+
+  // el agua, en dos tonos
+  const agua = c.createLinearGradient(0, MAR, 0, WORLD_H);
+  agua.addColorStop(0, "#37D6E0");
+  agua.addColorStop(.45, "#1FA8C4");
+  agua.addColorStop(1, "#166F9E");
+  c.fillStyle = agua;
+  c.beginPath();
+  c.moveTo(0, MAR);
+  for (let x=0;x<=WORLD_W;x+=30) c.lineTo(x, MAR + Math.sin(x*.011)*16 + Math.sin(x*.004)*9);
+  c.lineTo(WORLD_W, WORLD_H); c.lineTo(0, WORLD_H);
+  c.closePath(); c.fill();
+
+  // espuma de la orilla y crestas mar adentro
+  c.strokeStyle = "rgba(255,255,255,.85)"; c.lineWidth = 7; c.lineCap = "round";
+  c.beginPath();
+  for (let x=0;x<=WORLD_W;x+=30){
+    const y = MAR + Math.sin(x*.011)*16 + Math.sin(x*.004)*9;
+    x === 0 ? c.moveTo(x,y) : c.lineTo(x,y);
+  }
+  c.stroke();
+  c.strokeStyle = "rgba(255,255,255,.4)"; c.lineWidth = 4;
+  for (let f=1;f<=3;f++){
+    c.beginPath();
+    for (let x=0;x<=WORLD_W;x+=30){
+      const y = MAR + 44*f + Math.sin(x*.013 + f*1.7)*11;
+      x === 0 ? c.moveTo(x,y) : c.lineTo(x,y);
+    }
+    c.stroke();
+  }
+
+  // toallas tendidas en la arena
+  sembrar(c, 6, 3301, 46, (c,x,y,i) => {
+    const pares = [["#FF3D6E","#FFEFE2"],["#5CE1EA","#FFEFE2"],["#FFD84D","#E0224F"],
+                   ["#9BD97F","#FFEFE2"]];
+    const [a1,a2] = pares[i%pares.length];
+    c.save(); c.translate(x,y); c.rotate(-.5 + az(i+9)*1);
+    c.fillStyle = "rgba(0,0,0,.12)";
+    rr(c, -37, -23, 74, 50, 5); c.fill();
+    c.fillStyle = a1; rr(c, -34, -25, 68, 48, 5); c.fill();
+    c.fillStyle = a2;
+    for (let k=0;k<3;k++) c.fillRect(-34, -18+k*15, 68, 7);
+    c.strokeStyle = "rgba(0,0,0,.18)"; c.lineWidth = 2;
+    rr(c, -34, -25, 68, 48, 5); c.stroke();
+    c.restore();
+  }, MAR - 130);
+
+  // pelotas de playa
+  sembrar(c, 3, 4001, 24, (c,x,y) => {
+    c.fillStyle = "rgba(0,0,0,.16)";
+    c.beginPath(); c.ellipse(x, y+13, 15, 5, 0, 0, 6.283); c.fill();
+    const gajos = ["#FFEFE2","#FF3D6E","#FFEFE2","#5CE1EA","#FFEFE2","#FFD84D"];
+    for (let k=0;k<6;k++){
+      c.fillStyle = gajos[k];
+      c.beginPath(); c.moveTo(x, y);
+      c.arc(x, y, 15, k*1.047, (k+1)*1.047); c.closePath(); c.fill();
+    }
+    c.strokeStyle = "rgba(0,0,0,.2)"; c.lineWidth = 1.6;
+    c.beginPath(); c.arc(x, y, 15, 0, 6.283); c.stroke();
+  }, MAR - 130);
+
+  // conchas y estrellas de mar en la arena seca, nunca dentro del agua
+  for (let i=0;i<44;i++){
+    const x = azEntre(i,60,WORLD_W-60), y = azEntre(i+55,60,MAR-110);
+    if (!libreDeco(x,y,18)) continue;
+    if (i%4 === 0){
+      c.fillStyle = "#FF9EC4";                 // estrella de mar
+      c.save(); c.translate(x,y); c.rotate(az(i)*6.283);
+      c.beginPath();
       for (let k=0;k<5;k++){
-        x += 60 + ((i*13+k*29)%70) * (k%2 ? -1 : 1);
-        y += 44 + ((i*17+k*23)%50);
-        ctx.lineTo(x,y);
+        const a = k*1.2566;
+        c.lineTo(Math.cos(a)*16, Math.sin(a)*16);
+        c.lineTo(Math.cos(a+.628)*6.5, Math.sin(a+.628)*6.5);
       }
-      ctx.stroke();
+      c.closePath(); c.fill();
+      c.restore();
+    } else {
+      c.fillStyle = "rgba(255,239,226,.75)";   // conchita
+      c.beginPath(); c.arc(x, y, 8+az(i)*4, Math.PI, 0); c.closePath(); c.fill();
+      c.strokeStyle = "rgba(169,131,74,.6)"; c.lineWidth = 1.4;
+      c.beginPath();
+      for (let k=0;k<3;k++){ c.moveTo(x, y); c.lineTo(x-5+k*5, y-7); }
+      c.stroke();
     }
   }
 
-  // borde del mundo
-  ctx.strokeStyle = E.borde; ctx.lineWidth = 16;
-  ctx.strokeRect(8,8,WORLD_W-16,WORLD_H-16);
+  // CASTILLOS DE ARENA, más grandes y cerca de la orilla
+  const castillo = (c, x, y, s) => {
+    c.save(); c.translate(x, y); c.scale(s, s);
+    c.fillStyle = "rgba(0,0,0,.16)";
+    c.beginPath(); c.ellipse(0, 6, 54, 14, 0, 0, 6.283); c.fill();
+    // foso
+    c.strokeStyle = "rgba(150,112,60,.5)"; c.lineWidth = 6;
+    c.beginPath(); c.ellipse(0, 4, 62, 20, 0, 0, 6.283); c.stroke();
+    const arena = "#D8B276", arenaOsc = "#B08A50", arenaClara = "#EBD3A2";
+    // cuerpo central
+    c.fillStyle = arena;  c.fillRect(-26, -40, 52, 46);
+    c.fillStyle = arenaOsc; c.fillRect(-26, -40, 52, 6);
+    // torres laterales
+    for (const tx of [-42, 30]){
+      c.fillStyle = arena;     c.fillRect(tx, -54, 22, 60);
+      c.fillStyle = arenaClara; c.fillRect(tx, -54, 22, 5);
+      for (let k=0;k<3;k++){    // almenas
+        c.fillStyle = arena;
+        c.fillRect(tx + k*8, -62, 6, 9);
+      }
+    }
+    // almenas del cuerpo
+    for (let k=0;k<5;k++) c.fillStyle = arena, c.fillRect(-26 + k*11, -48, 7, 10);
+    // puerta
+    c.fillStyle = "#7A5A32";
+    c.beginPath(); c.moveTo(-9, 6); c.lineTo(-9, -14); c.arc(0, -14, 9, Math.PI, 0); c.lineTo(9, 6);
+    c.closePath(); c.fill();
+    // banderitas
+    for (const [bx, by] of [[-31,-62],[41,-62]]){
+      c.strokeStyle = "#4A3526"; c.lineWidth = 2;
+      c.beginPath(); c.moveTo(bx, by); c.lineTo(bx, by-18); c.stroke();
+      c.fillStyle = "#FF3D6E";
+      c.beginPath(); c.moveTo(bx, by-18); c.lineTo(bx+15, by-13); c.lineTo(bx, by-8);
+      c.closePath(); c.fill();
+    }
+    // palita apoyada
+    c.strokeStyle = "#FFD84D"; c.lineWidth = 4;
+    c.beginPath(); c.moveTo(46, 6); c.lineTo(58, -22); c.stroke();
+    c.fillStyle = "#FFD84D";
+    c.beginPath(); c.ellipse(59, -26, 6, 8, .4, 0, 6.283); c.fill();
+    c.restore();
+  };
+  // uno por banda, junto a la orilla, para que queden repartidos a lo ancho
+  for (let banda=0; banda<5; banda++){
+    const x0 = 180 + (WORLD_W-360)*(banda/5), x1 = 180 + (WORLD_W-360)*((banda+1)/5);
+    for (let k=0;k<24;k++){
+      const i = banda*53 + k;
+      const x = azEntre(i, x0, x1), y = azEntre(i+313, MAR-250, MAR-120);
+      if (!libreDeco(x, y, 95)) continue;
+      castillo(c, x, y, .85 + az(i)*.5);
+      break;
+    }
+  }
+
+  // sombrillas, siempre en la arena
+  sembrar(c, 5, 2201, 54, (c,x,y,i) => {
+    c.fillStyle = "rgba(0,0,0,.16)";
+    c.beginPath(); c.ellipse(x, y+6, 34, 10, 0, 0, 6.283); c.fill();
+    c.strokeStyle = "#8A5A2A"; c.lineWidth = 4;
+    c.beginPath(); c.moveTo(x, y+6); c.lineTo(x, y-44); c.stroke();
+    for (let k=0;k<6;k++){
+      c.fillStyle = k%2 ? "#FF3D6E" : "#FFEFE2";
+      c.beginPath();
+      c.moveTo(x, y-44);
+      c.arc(x, y-44, 40, Math.PI + k*(Math.PI/6), Math.PI + (k+1)*(Math.PI/6));
+      c.closePath(); c.fill();
+    }
+  }, MAR - 130);
+}
+
+/* ---------- El Desierto: cactus, rocas, huesos y rodadoras ---------- */
+function decoDesierto(c, E){
+  c.strokeStyle = E.mancha; c.lineWidth = 5; c.lineCap = "round";
+  for (let i=0;i<16;i++){
+    let x = azEntre(i,0,WORLD_W), y = azEntre(i+61,0,WORLD_H);
+    c.beginPath(); c.moveTo(x,y);
+    for (let k=0;k<5;k++){
+      x += 60 + az(i*5+k)*70 * (k%2 ? -1 : 1);
+      y += 44 + az(i*7+k)*50;
+      c.lineTo(x,y);
+    }
+    c.stroke();
+  }
+
+  sembrar(c, 9, 41, 52, (c,x,y,i) => {        // saguaro
+    c.fillStyle = "rgba(0,0,0,.18)";
+    c.beginPath(); c.ellipse(x, y+30, 30, 10, 0, 0, 6.283); c.fill();
+    const verde = "#4A8C4E", verdeOsc = "#376B3A";
+    c.fillStyle = verde; rr(c, x-13, y-70, 26, 100, 13); c.fill();
+    if (i%3 !== 2){ rr(c, x-38, y-40, 25, 16, 8); c.fill(); rr(c, x-38, y-62, 15, 30, 7); c.fill(); }
+    if (i%2 === 0){ rr(c, x+13, y-52, 25, 15, 7); c.fill(); rr(c, x+24, y-76, 14, 30, 7); c.fill(); }
+    c.strokeStyle = verdeOsc; c.lineWidth = 2;
+    for (let k=0;k<5;k++){
+      c.beginPath(); c.moveTo(x-6, y-62+k*20); c.lineTo(x-6, y-50+k*20); c.stroke();
+      c.beginPath(); c.moveTo(x+6, y-62+k*20); c.lineTo(x+6, y-50+k*20); c.stroke();
+    }
+    if (i%4 === 0){                            // con su flor
+      c.fillStyle = "#FF5C86";
+      c.beginPath(); c.arc(x, y-74, 7, 0, 6.283); c.fill();
+      c.fillStyle = "#FFE066";
+      c.beginPath(); c.arc(x, y-74, 3, 0, 6.283); c.fill();
+    }
+  });
+
+  sembrar(c, 10, 501, 30, (c,x,y,i) => {      // rocas
+    const s = .8 + az(i)*.8;
+    c.save(); c.translate(x,y); c.scale(s,s);
+    c.fillStyle = "rgba(0,0,0,.16)";
+    c.beginPath(); c.ellipse(0, 10, 26, 8, 0, 0, 6.283); c.fill();
+    c.fillStyle = "#8A7A6A";
+    c.beginPath();
+    c.moveTo(-24,10); c.lineTo(-14,-12); c.lineTo(6,-18); c.lineTo(22,-4); c.lineTo(18,10);
+    c.closePath(); c.fill();
+    c.fillStyle = "#A2937F";
+    c.beginPath();
+    c.moveTo(-14,-12); c.lineTo(6,-18); c.lineTo(10,-8); c.lineTo(-8,-4);
+    c.closePath(); c.fill();
+    c.restore();
+  });
+
+  sembrar(c, 5, 1101, 34, (c,x,y) => {        // calavera de vaca
+    c.fillStyle = "#EBE3D2";
+    rr(c, x-17, y-14, 34, 30, 12); c.fill();
+    c.beginPath(); c.moveTo(x-8, y+14); c.lineTo(x+8, y+14); c.lineTo(x+4, y+26);
+    c.lineTo(x-4, y+26); c.closePath(); c.fill();
+    c.strokeStyle = "#EBE3D2"; c.lineWidth = 7; c.lineCap = "round";
+    c.beginPath(); c.moveTo(x-15, y-9); c.quadraticCurveTo(x-40, y-20, x-33, y-38); c.stroke();
+    c.beginPath(); c.moveTo(x+15, y-9); c.quadraticCurveTo(x+40, y-20, x+33, y-38); c.stroke();
+    c.fillStyle = "#3A2416";
+    c.beginPath(); c.ellipse(x-7, y-4, 4.5, 5.5, 0, 0, 6.283); c.fill();
+    c.beginPath(); c.ellipse(x+7, y-4, 4.5, 5.5, 0, 0, 6.283); c.fill();
+  });
+
+  sembrar(c, 7, 1701, 26, (c,x,y,i) => {      // mata rodadora
+    c.strokeStyle = "#A2832F"; c.lineWidth = 2.5;
+    c.beginPath();
+    for (let k=0;k<9;k++){
+      const a = k*.7 + az(i)*3, r = 12 + az(i*4+k)*11;
+      c.moveTo(x, y);
+      c.lineTo(x + Math.cos(a)*r, y + Math.sin(a)*r*.8);
+    }
+    c.stroke();
+    c.strokeStyle = "rgba(162,131,47,.6)"; c.lineWidth = 2;
+    c.beginPath(); c.ellipse(x, y, 16, 13, 0, 0, 6.283); c.stroke();
+  });
+
+  sembrar(c, 3, 2101, 46, (c,x,y) => {        // letrero viejo torcido
+    c.save(); c.translate(x,y); c.rotate(-.12);
+    c.fillStyle = "#8A5A2A"; c.fillRect(-4, -20, 8, 46);
+    c.fillStyle = "#A2743C"; rr(c, -42, -46, 84, 28, 4); c.fill();
+    c.strokeStyle = "#6B4420"; c.lineWidth = 3; rr(c, -42, -46, 84, 28, 4); c.stroke();
+    c.fillStyle = "#EBD3A2"; c.font = "800 13px system-ui, sans-serif";
+    c.textAlign = "center"; c.textBaseline = "middle";
+    c.fillText("NI AGUA", 0, -32);
+    c.restore();
+  });
+}
+
+function pintarSuelo(){
+  const E = G.esc;
+  sueloCv = document.createElement("canvas");
+  sueloCv.width = WORLD_W; sueloCv.height = WORLD_H;
+  const c = sueloCv.getContext("2d");
+
+  vetoDeco = [];
+  c.fillStyle = E.suelo;
+  c.fillRect(0,0,WORLD_W,WORLD_H);
+
+  const S = E.deco === "colegio" ? 70 : 90;
+  c.lineWidth = 2; c.strokeStyle = E.loseta;
+  c.beginPath();
+  for (let x=0;x<=WORLD_W;x+=S){ c.moveTo(x,0); c.lineTo(x,WORLD_H); }
+  for (let y=0;y<=WORLD_H;y+=S){ c.moveTo(0,y); c.lineTo(WORLD_W,y); }
+  c.stroke();
+
+  if (E.deco === "manchas")       decoBarrio(c, E);
+  else if (E.deco === "colegio")  decoColegio(c, E);
+  else if (E.deco === "olas")     decoPlaya(c, E);
+  else if (E.deco === "grietas")  decoDesierto(c, E);
+
+  c.strokeStyle = E.borde; c.lineWidth = 16;
+  c.strokeRect(8,8,WORLD_W-16,WORLD_H-16);
+}
+
+function drawFloor(){
+  if (!sueloCv) pintarSuelo();
+  ctx.drawImage(sueloCv, 0, 0);
 }
 
 function roundRect(x,y,w,h,r){
@@ -4029,6 +4528,7 @@ function startGame(modo){
   el.arm.hidden = true;
   el.rul.hidden = true;
   el.alarma.hidden = true;
+  invalidarSuelo();                 // el decorado se repinta para el escenario nuevo
   document.getElementById("album").hidden = true;
   el.pause.textContent = "⏸";
   lastTip = "";
