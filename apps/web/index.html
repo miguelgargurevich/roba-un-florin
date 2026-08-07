@@ -1,0 +1,678 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Roba un Florín — Chancla Edition</title>
+
+<style>
+  :root{
+    --plum-900:#1B0C1A;
+    --plum-800:#2A1226;
+    --plum-700:#3A1B33;
+    --plum-600:#54294A;
+    --terra:#C4693F;
+    --terra-dark:#A2532F;
+    --chancla:#FF3D6E;
+    --gold:#FFC53D;
+    --leaf:#3DDC97;
+    --cosmo:#37D6E0;
+    --cream:#FFEFE2;
+    --cream-dim:#D8BCB0;
+
+    --display:"Arial Black","Haettenschweiler",Impact,"Franklin Gothic Bold",sans-serif;
+    --ui:"Avenir Next","Trebuchet MS","Segoe UI",system-ui,sans-serif;
+    --num:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  }
+
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;
+    background:var(--plum-900);
+    color:var(--cream);
+    font-family:var(--ui);
+    overflow:hidden;
+    -webkit-user-select:none;user-select:none;
+    -webkit-tap-highlight-color:transparent;
+  }
+
+  #app{position:fixed;inset:0;overflow:hidden}
+  #game{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+
+  /* ---------- HUD ---------- */
+  .hud{position:absolute;inset:0;pointer-events:none;padding:10px;display:flex;flex-direction:column;gap:8px}
+
+  .topbar{
+    display:flex;gap:8px;align-items:stretch;flex-wrap:wrap;
+  }
+  .card{
+    background:color-mix(in srgb, var(--plum-800) 88%, transparent);
+    border:2px solid var(--plum-600);
+    border-radius:14px;
+    padding:7px 12px;
+    box-shadow:0 6px 0 rgba(0,0,0,.35);
+    backdrop-filter:blur(3px);
+  }
+  .label{
+    font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--cream-dim);font-weight:700;line-height:1;margin-bottom:3px;
+  }
+  .val{font-family:var(--num);font-variant-numeric:tabular-nums;font-weight:700;line-height:1;font-size:19px}
+  .money .val{color:var(--gold);font-size:23px}
+  .rate .val{color:var(--leaf)}
+  .stolen .val{color:var(--chancla)}
+
+  .goal{flex:1 1 190px;min-width:170px;display:flex;flex-direction:column;justify-content:center}
+  /* al pasar un hito la tarjeta se ilumina un momento y luego vuelve a la normalidad */
+  .goal.fiesta{border-color:var(--gold);box-shadow:0 0 0 3px color-mix(in srgb,var(--gold) 34%, transparent)}
+  @media (prefers-reduced-motion:no-preference){
+    .goal.fiesta{animation:hito .5s ease-out 3}
+  }
+  @keyframes hito{0%,100%{transform:none}50%{transform:translateY(-3px) scale(1.015)}}
+  .goalrow{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+  .goalrow .val{font-size:14px}
+  .bar{height:9px;border-radius:99px;background:var(--plum-700);margin-top:6px;overflow:hidden;border:1px solid rgba(255,255,255,.09)}
+  .bar>i{display:block;height:100%;width:0%;border-radius:99px;background:linear-gradient(90deg,var(--leaf),var(--gold));transition:width .25s linear}
+
+  .spacer{flex:1}
+  .card.j2{border-color:#B37F0D;min-width:150px}
+  .card.j2 .val{color:#FFB020}
+  .card.j2 .val.small{font-size:13px;color:var(--cream-dim)}
+  .j2row{display:flex;gap:8px;align-items:baseline;justify-content:space-between}
+  .card.j2 .bar>i{background:linear-gradient(90deg,#FFB020,var(--gold))}
+  /* en dos jugadores no hay gadgets: solo la chancla, igual para ambos */
+  #app.dos .wbar{display:none}
+  #app.dos #armeria{display:none}
+
+  /* margin-left:auto para que, si la barra se parte en dos líneas, los botones
+     queden a la derecha en vez de colgando bajo el dinero */
+  .btns{display:flex;gap:6px;pointer-events:auto;flex-wrap:nowrap;margin-left:auto}
+  .iconbtn{
+    width:40px;height:40px;border-radius:12px;
+    background:var(--plum-800);border:2px solid var(--plum-600);color:var(--cream);
+    font-size:17px;cursor:pointer;box-shadow:0 5px 0 rgba(0,0,0,.35);
+    display:grid;place-items:center;font-family:var(--ui);
+  }
+  .iconbtn:active{transform:translateY(3px);box-shadow:0 2px 0 rgba(0,0,0,.35)}
+  .iconbtn:focus-visible{outline:3px solid var(--cosmo);outline-offset:2px}
+  /* atenuado cuando no estás en el puesto, encendido cuando su panel está abierto */
+  .iconbtn.lejos{opacity:.34}
+  .iconbtn.on{border-color:var(--gold);background:color-mix(in srgb,var(--gold) 26%, var(--plum-800))}
+
+  .vgap{flex:1 1 auto;min-height:0}
+  .bottom{display:flex;align-items:flex-end;gap:10px}
+
+  #minimap{
+    width:150px;height:100px;border-radius:12px;display:block;
+    background:color-mix(in srgb, var(--plum-800) 90%, transparent);
+    border:2px solid var(--plum-600);box-shadow:0 6px 0 rgba(0,0,0,.35);
+  }
+
+  .tip{
+    font-size:12px;color:var(--cream-dim);line-height:1.35;max-width:34ch;
+    background:color-mix(in srgb, var(--plum-800) 82%, transparent);
+    border-radius:12px;padding:7px 11px;border:2px solid var(--plum-600);
+  }
+  .tip b{color:var(--cream)}
+  .k{font-family:var(--num);font-size:11px;background:var(--plum-700);border-radius:5px;padding:1px 5px;border:1px solid var(--plum-600)}
+
+  /* ---------- controles táctiles ---------- */
+  #touch{position:absolute;inset:0;pointer-events:none;display:none}
+  #touch.on{display:block}
+  #joyring{
+    position:absolute;width:132px;height:132px;border-radius:50%;
+    border:3px dashed rgba(255,239,226,.28);background:rgba(42,18,38,.42);
+    transform:translate(-50%,-50%);opacity:0;transition:opacity .12s
+  }
+  #joynub{
+    position:absolute;width:56px;height:56px;border-radius:50%;
+    background:var(--cream);border:3px solid var(--plum-800);
+    transform:translate(-50%,-50%);opacity:0;transition:opacity .12s
+  }
+  #joyring.on,#joynub.on{opacity:1}
+  #throwBtn{
+    position:absolute;right:20px;bottom:24px;width:104px;height:104px;border-radius:50%;
+    background:radial-gradient(circle at 35% 30%,#FF6B90,var(--chancla) 60%,#C4194A);
+    border:4px solid #7A0F2E;box-shadow:0 8px 0 #5A0A21;
+    pointer-events:auto;display:grid;place-items:center;cursor:pointer;
+  }
+  #throwBtn:active{transform:translateY(4px);box-shadow:0 4px 0 #5A0A21}
+  #throwBtn.cool{filter:grayscale(.7) brightness(.7)}
+  #throwBtn svg{width:58px;height:58px;transform:rotate(-18deg)}
+
+  /* ---------- bautizo de Florines ---------- */
+  #nameBtn{
+    position:absolute;right:24px;bottom:140px;width:62px;height:62px;border-radius:50%;
+    background:radial-gradient(circle at 35% 30%,#7FE3B0,var(--leaf) 60%,#1E9A66);
+    border:4px solid #10603E;box-shadow:0 6px 0 #0B4630;
+    pointer-events:auto;cursor:pointer;font-size:26px;display:grid;place-items:center;
+  }
+  #nameBtn[hidden]{display:none}
+  #nameBtn:active{transform:translateY(3px);box-shadow:0 3px 0 #0B4630}
+  #app.zurdo #nameBtn{left:24px;right:auto}
+
+  #bautizo{
+    position:absolute;inset:0;z-index:30;display:grid;place-items:center;padding:18px;
+    background:rgba(15,7,14,.82);
+  }
+  #bautizo[hidden]{display:none}
+  .bautizoCaja{
+    width:min(400px,100%);background:linear-gradient(180deg,var(--plum-800),var(--plum-900));
+    border:3px solid var(--leaf);border-radius:18px;padding:18px;
+    box-shadow:0 14px 0 rgba(0,0,0,.4);
+  }
+  .bautizoCaja h3{
+    font-family:var(--display);font-size:22px;text-transform:uppercase;letter-spacing:.02em;
+    margin:0 0 4px;color:var(--cream);
+  }
+  .bautizoSub{margin:0 0 14px;font-size:12.5px;color:var(--leaf);font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+  #bautizoInput{
+    width:100%;padding:13px 14px;border-radius:12px;font-size:17px;font-family:var(--ui);
+    background:var(--plum-700);border:2px solid var(--plum-600);color:var(--cream);
+  }
+  #bautizoInput:focus{outline:none;border-color:var(--leaf)}
+  #bautizoInput::placeholder{color:#8C7080}
+  .bautizoBtns{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+  .bautizoBtn{
+    flex:1 1 auto;padding:12px 10px;border-radius:12px;cursor:pointer;border:2px solid var(--plum-600);
+    background:var(--plum-700);color:var(--cream);font-family:var(--ui);font-weight:800;font-size:13px;
+  }
+  .bautizoBtn.ok{background:linear-gradient(180deg,#7FE3B0,var(--leaf));color:#0B3A26;border-color:#10603E;flex:2 1 auto}
+  .bautizoBtn:focus-visible{outline:3px solid var(--cosmo);outline-offset:2px}
+
+  /* ---------- alarma de robo ---------- */
+  /* va en el flujo del HUD, justo debajo de la barra: así nunca tapa la meta */
+  #alarma{
+    align-self:center;flex:0 0 auto;
+    display:flex;align-items:center;gap:9px;
+    padding:8px 18px;border-radius:14px;
+    background:linear-gradient(180deg,#E0224F,#A81340);
+    border:3px solid #FF7196;
+    box-shadow:0 6px 0 rgba(0,0,0,.35), 0 0 22px rgba(224,34,79,.45);
+    color:#FFEFE2;font-family:var(--ui);font-weight:800;
+    font-size:14px;letter-spacing:.02em;max-width:92%;text-align:center;
+  }
+  #alarma[hidden]{display:none}
+  .alarmaIco{font-size:17px;line-height:1}
+  @media (prefers-reduced-motion:no-preference){
+    #alarma{animation:sirena .7s ease-in-out infinite}
+  }
+  @keyframes sirena{
+    0%,100%{background:linear-gradient(180deg,#E0224F,#A81340)}
+    50%{background:linear-gradient(180deg,#FF3D6E,#C4173F)}
+  }
+  @media (max-height:460px){ #alarma{font-size:11.5px;padding:6px 12px;gap:6px} }
+
+  /* ---------- álbum de Florines ---------- */
+  #album{
+    position:absolute;inset:0;z-index:31;display:grid;place-items:center;padding:18px;
+    background:rgba(15,7,14,.9);overflow:auto;
+  }
+  #album[hidden]{display:none}
+  .albumCaja{
+    width:min(660px,100%);background:linear-gradient(180deg,var(--plum-800),var(--plum-900));
+    border:3px solid var(--gold);border-radius:18px;padding:18px;
+    box-shadow:0 14px 0 rgba(0,0,0,.4);
+  }
+  .albumCaja h3{
+    font-family:var(--display);font-size:22px;text-transform:uppercase;letter-spacing:.02em;
+    margin:0 0 4px;color:var(--cream);display:flex;justify-content:space-between;align-items:baseline;gap:10px;
+  }
+  .albumCaja h3 small{font-family:var(--num);font-size:14px;color:var(--gold)}
+  .albumSub{margin:0 0 14px;font-size:12.5px;color:var(--cream-dim);line-height:1.45}
+  .albumGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  @media (max-width:520px){ .albumGrid{grid-template-columns:repeat(2,1fr)} }
+  .albumCel{
+    border:2px solid var(--plum-600);border-radius:12px;padding:8px 9px;
+    background:var(--plum-700);display:flex;flex-direction:column;gap:3px;min-height:74px;
+  }
+  .albumCel.tenido{border-color:var(--leaf);background:color-mix(in srgb,var(--leaf) 12%, var(--plum-700))}
+  .albumCel.nunca{opacity:.4}
+  .albumCel .rar{font-size:10px;font-weight:800;letter-spacing:.07em;text-transform:uppercase}
+  .albumCel .nm{font-size:12.5px;font-weight:800;color:var(--cream);line-height:1.2}
+  .albumCel .dt{font-family:var(--num);font-size:11px;color:var(--gold)}
+  .albumCel .q{font-size:11px;color:var(--cream-dim)}
+
+  /* ---------- pantallas ---------- */
+  .screen{
+    position:absolute;inset:0;display:grid;place-items:center;padding:18px;
+    background:radial-gradient(ellipse at 50% 30%, rgba(84,41,74,.75), rgba(15,7,14,.94));
+    z-index:20;overflow:auto;
+  }
+  .screen[hidden]{display:none}
+  .panel{
+    width:min(560px,100%);
+    background:linear-gradient(180deg,var(--plum-800),var(--plum-900));
+    border:3px solid var(--plum-600);border-radius:22px;
+    padding:22px 22px 20px;box-shadow:0 18px 0 rgba(0,0,0,.4);
+    position:relative;
+  }
+  .sticker{
+    position:absolute;right:-14px;top:-30px;width:104px;height:104px;
+    transform:rotate(18deg);filter:drop-shadow(0 8px 0 rgba(0,0,0,.35));
+  }
+  .eyebrow{
+    font-size:10.5px;letter-spacing:.24em;text-transform:uppercase;color:var(--chancla);
+    font-weight:800;margin:0 0 8px
+  }
+  h1{
+    font-family:var(--display);font-size:clamp(34px,8.4vw,58px);line-height:.88;
+    margin:0 0 2px;text-transform:uppercase;letter-spacing:-.02em;text-wrap:balance;
+    color:var(--cream);
+    text-shadow:3px 3px 0 var(--chancla), 6px 6px 0 rgba(0,0,0,.4);
+  }
+  h1 em{font-style:normal;color:var(--gold);text-shadow:3px 3px 0 #8A5A00,6px 6px 0 rgba(0,0,0,.4)}
+  .sub{color:var(--cream-dim);font-size:14px;line-height:1.5;margin:14px 0 16px;max-width:52ch}
+  .rules{list-style:none;padding:0;margin:0 0 18px;display:grid;gap:8px}
+  .rules li{display:flex;gap:10px;align-items:flex-start;font-size:13.5px;line-height:1.4}
+  .rules .pip{
+    flex:0 0 auto;width:22px;height:22px;border-radius:7px;display:grid;place-items:center;
+    background:var(--plum-700);border:1px solid var(--plum-600);font-size:12px
+  }
+  .rules b{color:var(--cream)}
+  .play{
+    width:100%;padding:16px;border:none;border-radius:16px;cursor:pointer;
+    font-family:var(--display);font-size:22px;text-transform:uppercase;letter-spacing:.03em;
+    background:linear-gradient(180deg,#FF6B90,var(--chancla));color:#2A0512;
+    box-shadow:0 8px 0 #8E1338;
+  }
+  /* ---------- selector de escenario (portada) ---------- */
+  .escTitulo{
+    margin:14px 0 7px;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--cream-dim);font-weight:800;
+  }
+  .escFila{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}
+  @media (max-width:460px){ .escFila{grid-template-columns:repeat(2,minmax(0,1fr))} }
+  .escBtn{
+    display:flex;flex-direction:column;align-items:center;gap:3px;
+    padding:9px 5px;border-radius:13px;cursor:pointer;
+    background:var(--plum-700);border:2px solid var(--plum-600);color:var(--cream);
+    font-family:var(--ui);font-weight:800;font-size:11px;line-height:1.15;text-align:center;
+  }
+  .escBtn .ic{font-size:21px;line-height:1}
+  .escBtn:hover{border-color:var(--cream-dim)}
+  .escBtn.sel{
+    border-color:var(--leaf);
+    background:color-mix(in srgb,var(--leaf) 18%, var(--plum-700));
+    box-shadow:0 0 0 3px color-mix(in srgb,var(--leaf) 24%, transparent);
+  }
+  .escBtn:focus-visible{outline:3px solid var(--cosmo);outline-offset:2px}
+  .escDesc{margin:8px 0 0;font-size:12px;color:var(--cream-dim);line-height:1.4;min-height:2.6em}
+
+  .modos{display:flex;gap:9px;flex-wrap:wrap}
+  .modos .play{flex:1 1 190px}
+  .play.dos{
+    background:linear-gradient(180deg,#FFD066,var(--gold));color:#3A2400;box-shadow:0 8px 0 #A97800;
+  }
+  .play.dos:active{box-shadow:0 4px 0 #A97800}
+  .dosNota{border-top:1px solid var(--plum-700);padding-top:10px}
+  .play:active{transform:translateY(4px);box-shadow:0 4px 0 #8E1338}
+  .play:focus-visible{outline:3px solid var(--cosmo);outline-offset:3px}
+  .foot{margin:12px 2px 0;font-size:11.5px;color:#9C8090;line-height:1.5}
+
+  .stats{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:4px 0 18px}
+  .stat{background:var(--plum-700);border:2px solid var(--plum-600);border-radius:12px;padding:9px 12px}
+  .stat .val{font-size:21px}
+
+  /* ---------- barra de armas ---------- */
+  .wbar{
+    display:flex;gap:6px;pointer-events:auto;
+    overflow-x:auto;padding:3px 1px;scrollbar-width:none;
+  }
+  .wbar::-webkit-scrollbar{display:none}
+  .chip{
+    flex:0 0 auto;display:flex;align-items:center;gap:7px;cursor:pointer;
+    background:color-mix(in srgb, var(--plum-800) 90%, transparent);
+    border:2px solid var(--plum-600);border-radius:13px;padding:6px 10px;
+    color:var(--cream);font-family:var(--ui);
+    box-shadow:0 5px 0 rgba(0,0,0,.32);
+  }
+  .chip:active{transform:translateY(3px);box-shadow:0 2px 0 rgba(0,0,0,.32)}
+  .chip:focus-visible{outline:3px solid var(--cosmo);outline-offset:2px}
+  .chip .ic{font-size:19px;line-height:1}
+  .chip .meta{display:flex;flex-direction:column;gap:2px;align-items:flex-start}
+  .chip .nm{font-size:10px;letter-spacing:.06em;text-transform:uppercase;font-weight:800;line-height:1}
+  .chip .n{font-family:var(--num);font-variant-numeric:tabular-nums;font-size:11px;color:var(--gold);line-height:1}
+  .chip .u{font-style:normal}
+  .chip.sel{border-color:var(--chancla);background:color-mix(in srgb,var(--chancla) 22%, var(--plum-800))}
+  .chip.locked{opacity:.42}
+  .chip.locked .n{color:var(--cream-dim)}
+
+  /* en táctil (celular o iPad): chips compactos.
+     La reserva para el botón de chancla solo aplica en pantallas anchas (tablet):
+     en celular el botón queda debajo de la barra, no a su lado. */
+  @media (min-width:561px){ #app.touch .wbar{width:calc(100% - 122px)} }
+  #app.touch .chip{padding:6px;gap:4px}
+
+  /* modo zurdo: espeja los controles — botón de chancla a la izquierda,
+     armas y minimapa a la derecha, y el joystick pasa al lado contrario */
+  #app.zurdo #throwBtn{left:20px;right:auto}
+  #app.zurdo .wbar{justify-content:flex-end}
+  #app.zurdo .bottom{flex-direction:row-reverse}
+  @media (min-width:561px){ #app.touch.zurdo .wbar{margin-left:auto} }
+  #app.touch .chip .nm,#app.touch .chip .u{display:none}
+  #app.touch .chip .ic{font-size:21px}
+  #app.touch .chip .n{font-size:12px}
+
+  /* ---------- armería ---------- */
+  /* va dentro del flujo del HUD, justo encima de la barra de armas: así nunca la tapa */
+  #armeria{
+    align-self:center;flex:0 0 auto;
+    width:min(560px,100%);margin-bottom:8px;pointer-events:auto;
+    background:linear-gradient(180deg,color-mix(in srgb,var(--plum-800) 96%,transparent),var(--plum-900));
+    border:3px solid var(--gold);border-radius:18px;padding:12px;
+    box-shadow:0 12px 0 rgba(0,0,0,.4);
+  }
+  #armeria[hidden]{display:none}
+  #armeria h2{
+    font-family:var(--display);font-size:16px;letter-spacing:.06em;text-transform:uppercase;
+    margin:0 0 9px;color:var(--gold);display:flex;justify-content:space-between;align-items:center;gap:8px
+  }
+  #armeria h2 small{font-family:var(--ui);font-size:10.5px;letter-spacing:.1em;color:var(--cream-dim);font-weight:700}
+  .rack{display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:7px}
+  .buy{
+    display:flex;gap:9px;align-items:center;text-align:left;cursor:pointer;
+    background:var(--plum-700);border:2px solid var(--plum-600);border-radius:12px;padding:8px 9px;
+    color:var(--cream);font-family:var(--ui);
+  }
+  .buy:hover:not(:disabled){border-color:var(--gold)}
+  .buy:disabled{opacity:.4;cursor:not-allowed}
+  .buy:focus-visible{outline:3px solid var(--cosmo);outline-offset:2px}
+  .buy .ic{font-size:22px;line-height:1}
+  .buy .nm{font-size:11.5px;font-weight:800;line-height:1.15}
+  .buy .pr{font-family:var(--num);font-size:11px;color:var(--gold);line-height:1.3}
+  .buy .ds{font-size:10px;color:var(--cream-dim);line-height:1.25}
+
+  /* ---------- ruleta de Florines ---------- */
+  #ruleta{
+    align-self:center;flex:0 0 auto;
+    width:min(560px,100%);margin-bottom:8px;pointer-events:auto;
+    background:linear-gradient(180deg,color-mix(in srgb,var(--plum-800) 96%,transparent),var(--plum-900));
+    border:3px solid var(--chancla);border-radius:18px;padding:12px;
+    box-shadow:0 12px 0 rgba(0,0,0,.4);
+  }
+  #ruleta[hidden]{display:none}
+  #app.dos #ruleta{display:none}
+  #app.dos #btnArm,#app.dos #btnRul{display:none}   /* cerrados en el duelo */
+  #ruleta h2{
+    font-family:var(--display);font-size:16px;letter-spacing:.06em;text-transform:uppercase;
+    margin:0 0 9px;color:var(--chancla);display:flex;justify-content:space-between;align-items:center;gap:8px
+  }
+  #ruleta h2 small{font-family:var(--num);font-size:12px;color:var(--gold);font-weight:700}
+  .rulTira{
+    position:relative;overflow:hidden;border-radius:12px;
+    border:2px solid var(--plum-600);background:var(--plum-900);height:56px;
+  }
+  .rulStrip{display:flex;gap:6px;padding:6px;will-change:transform}
+  .rulCel{
+    flex:0 0 108px;height:44px;border-radius:9px;display:grid;place-items:center;
+    font-size:11px;font-weight:800;text-align:center;line-height:1.2;padding:0 6px;
+    background:var(--plum-700);border:2px solid var(--plum-600);color:var(--cream);
+  }
+  .rulMarca{
+    position:absolute;top:0;bottom:0;left:50%;width:3px;margin-left:-1.5px;
+    background:var(--chancla);box-shadow:0 0 10px var(--chancla);
+  }
+  .rulPie{display:flex;gap:10px;align-items:center;margin-top:9px;flex-wrap:wrap}
+  .rulBtn{
+    flex:0 0 auto;padding:11px 16px;border-radius:12px;cursor:pointer;
+    background:linear-gradient(180deg,#FF7196,var(--chancla));color:#3A0413;
+    border:2px solid #A81340;font-family:var(--ui);font-weight:800;font-size:13px;
+  }
+  .rulBtn:disabled{opacity:.45;cursor:not-allowed}
+  .rulBtn:focus-visible{outline:3px solid var(--cosmo);outline-offset:2px}
+  .rulMsg{font-size:11px;color:var(--cream-dim);line-height:1.35;flex:1 1 140px}
+
+  #throwBtn .wicon{font-size:44px;line-height:1}
+  #throwBtn .wicon[hidden]{display:none}
+
+  @media (max-width:560px){
+    #minimap{width:112px;height:76px}
+    .rack{grid-template-columns:repeat(2,1fr)}
+    #app.zurdo #throwBtn{left:14px;right:auto}
+    #app.touch.zurdo .bottom{padding-left:104px}
+    /* en pantalla angosta: solo icono y número, para que quepan las 6 armas.
+       El margen inferior levanta la barra sobre el botón redondo de chancla,
+       cuyo área táctil llegaba a la esquina del último chip. */
+    .wbar{gap:5px;margin-bottom:16px}
+    .chip{padding:6px;gap:4px}
+    .chip .nm,.chip .u{display:none!important}
+    .chip .ic{font-size:21px}
+    .chip .n{font-size:12px}
+    .tip{font-size:11px;max-width:24ch}
+    #throwBtn{width:88px;height:88px;right:14px;bottom:18px}
+    #throwBtn svg{width:48px;height:48px}
+  }
+  /* ---------- celular en horizontal ----------
+     En landscape lo que aprieta no es el ancho sino la ALTURA (~390 px en un
+     móvil típico), así que las media queries por ancho no servían de nada. Todo
+     lo de aquí compacta en vertical para que el HUD, los chips y el minimapa
+     quepan sin comerse el mapa. */
+  @media (max-height:460px){
+    .hud{padding:6px;gap:5px}
+    .card{padding:4px 9px;border-radius:11px;box-shadow:0 4px 0 rgba(0,0,0,.35)}
+    .label{font-size:8px;letter-spacing:.1em;margin-bottom:2px}
+    .val{font-size:14px}
+    .money .val{font-size:17px}
+    .goalrow .val{font-size:11px}
+    .bar{height:6px;margin-top:4px}
+    .goal{flex:1 1 130px;min-width:120px}
+    .card.j2{min-width:118px}
+    .iconbtn{width:32px;height:32px;font-size:14px;border-radius:10px;box-shadow:0 3px 0 rgba(0,0,0,.35)}
+    #minimap{width:96px;height:64px;border-radius:9px}
+    .tip{font-size:10px;max-width:32ch;padding:4px 9px;line-height:1.3}
+    .wbar{gap:4px;margin-bottom:8px}
+    .chip{padding:4px;gap:3px}
+    .chip .nm,.chip .u{display:none!important}
+    .chip .ic{font-size:17px}
+    .chip .n{font-size:11px}
+    /* los paneles no pueden empujar el layout: se quedan cortos y hacen scroll */
+    #armeria,#ruleta{padding:8px;margin-bottom:5px;max-height:54vh;overflow-y:auto}
+    #armeria h2,#ruleta h2{font-size:13px;margin-bottom:6px}
+    .rack{grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}
+    .buy{padding:5px 6px;gap:6px}
+    .buy .ic{font-size:17px}
+    .buy .ds{display:none}
+    .rulTira{height:44px}
+    .rulCel{flex-basis:88px;height:34px;font-size:10px}
+    .rulBtn{padding:8px 12px;font-size:12px}
+    .albumCaja{padding:12px}
+    .albumGrid{grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}
+    .albumCel{min-height:60px;padding:6px 7px}
+    #throwBtn{width:72px;height:72px;right:12px;bottom:12px}
+    #throwBtn svg{width:40px;height:40px}
+    #throwBtn .wicon{font-size:34px}
+    #joyring{width:78px;height:78px}
+    #joynub{width:34px;height:34px}
+    #nameBtn{width:44px;height:44px;font-size:20px}
+  }
+  /* Con el móvil tumbado el notch queda a un lado, así que el HUD tiene que
+     respetar los insets o se come el dinero y el botón de pausa. */
+  @supports (padding:env(safe-area-inset-left)){
+    .hud{
+      padding-left:max(10px, env(safe-area-inset-left));
+      padding-right:max(10px, env(safe-area-inset-right));
+      padding-bottom:max(10px, env(safe-area-inset-bottom));
+    }
+    @media (max-height:460px){
+      .hud{
+        padding-left:max(6px, env(safe-area-inset-left));
+        padding-right:max(6px, env(safe-area-inset-right));
+        padding-bottom:max(6px, env(safe-area-inset-bottom));
+      }
+    }
+    #throwBtn{right:max(14px, calc(env(safe-area-inset-right) + 6px))}
+    #app.zurdo #throwBtn{left:max(14px, calc(env(safe-area-inset-left) + 6px));right:auto}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *{animation:none!important;transition:none!important}
+  }
+</style>
+<script type="module" src="/src/main.js"></script>
+</head>
+<body>
+<div id="app">
+  <canvas id="game"></canvas>
+
+  <div class="hud">
+    <div class="topbar">
+      <div class="card money"><div class="label">Dinero</div><div class="val" id="uiMoney">$0</div></div>
+      <div class="card rate"><div class="label">Ingresos</div><div class="val" id="uiRate">$0/s</div></div>
+      <div class="card goal" id="uiGoalCard">
+        <div class="goalrow">
+          <span class="label" style="margin:0" id="uiGoalLabel">Meta del patio</span>
+          <span class="val" id="uiGoal">$0 / $60 000</span>
+        </div>
+        <div class="bar"><i id="uiBar"></i></div>
+      </div>
+      <div class="card stolen"><div class="label">Te robaron</div><div class="val" id="uiLost">0</div></div>
+      <div class="card j2" id="hudJ2" hidden>
+        <div class="label">Jugador 2</div>
+        <div class="j2row">
+          <span class="val" id="uiJ2Money">$0</span>
+          <span class="val small" id="uiJ2Rate">$0/s</span>
+        </div>
+        <div class="bar"><i id="uiJ2Bar"></i></div>
+      </div>
+      <div class="spacer"></div>
+      <div class="btns">
+        <button class="iconbtn" id="btnArm" title="Armería (tecla T)" aria-label="Abrir la Armería">🧰</button>
+        <button class="iconbtn" id="btnRul" title="Ruleta (tecla R)" aria-label="Abrir la Ruleta">🎰</button>
+        <button class="iconbtn" id="btnAlbum" title="Álbum de Florines" aria-label="Abrir el álbum de Florines">📖</button>
+        <button class="iconbtn" id="btnHand" title="Diestro / zurdo" aria-label="Cambiar a modo zurdo">✋</button>
+        <button class="iconbtn" id="btnSound" title="Silenciar" aria-label="Silenciar sonido">🔊</button>
+        <button class="iconbtn" id="btnPause" title="Pausa" aria-label="Pausa">⏸</button>
+      </div>
+    </div>
+
+    <div id="alarma" hidden>
+      <span class="alarmaIco">🚨</span>
+      <span id="alarmaTxt">¡Te están robando!</span>
+    </div>
+
+    <div class="vgap"></div>
+
+    <div id="armeria" hidden>
+      <h2>🧰 Armería <small id="armMoney">$0</small></h2>
+      <div class="rack" id="rack"></div>
+    </div>
+
+    <div id="ruleta" hidden>
+      <h2>🎰 Ruleta de Florines <small id="rulMoney">$0</small></h2>
+      <div class="rulTira"><div class="rulStrip" id="rulStrip"></div><i class="rulMarca"></i></div>
+      <div class="rulPie">
+        <button class="rulBtn" id="rulGirar">Girar · $1 200</button>
+        <span class="rulMsg" id="rulMsg">Hay casillas <b>???</b>: de ahí salen las variantes ✨ y 🌈.</span>
+      </div>
+    </div>
+
+    <div class="wbar" id="wbar"></div>
+
+    <div class="bottom">
+      <canvas id="minimap" width="300" height="200" aria-label="Minimapa"></canvas>
+      <div class="tip" id="uiTip"></div>
+    </div>
+  </div>
+
+  <!-- Bautizar un Florín de tu vitrina -->
+  <div id="bautizo" hidden>
+    <div class="bautizoCaja">
+      <h3 id="bautizoTitulo">Bautiza tu Florín</h3>
+      <p class="bautizoSub" id="bautizoQue">Florín Común</p>
+      <input id="bautizoInput" type="text" maxlength="14" placeholder="Pepito, El Jefe, Chanclitas…"
+             autocomplete="off" spellcheck="false" aria-label="Nombre del Florín">
+      <div class="bautizoBtns">
+        <button class="bautizoBtn ok" id="bautizoOk">Ponerle nombre</button>
+        <button class="bautizoBtn" id="bautizoQuitar">Quitar</button>
+        <button class="bautizoBtn" id="bautizoCancelar">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="album" hidden>
+    <div class="albumCaja">
+      <h3>📖 Álbum de Florines <small id="albumCuenta">0 / 21</small></h3>
+      <p class="albumSub">Las variantes ✨ Brillante (×2) y 🌈 Arcoíris (×3) solo salen de la <b>Ruleta</b>.</p>
+      <div class="albumGrid" id="albumGrid"></div>
+      <div class="bautizoBtns">
+        <button class="bautizoBtn ok" id="albumCerrar">Volver al patio</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="touch">
+    <div id="joyring"></div>
+    <div id="joynub"></div>
+    <button id="nameBtn" hidden aria-label="Ponerle nombre a este Florín">✏️</button>
+    <button id="throwBtn" aria-label="Usar arma">
+      <span class="wicon" id="wIcon" hidden></span>
+      <svg viewBox="0 0 100 100" aria-hidden="true" id="wSvg">
+        <ellipse cx="50" cy="52" rx="24" ry="41" fill="#2A1226"/>
+        <ellipse cx="50" cy="49" rx="19" ry="36" fill="#FFEFE2"/>
+        <path d="M50 44 L36 26 M50 44 L64 26" stroke="#2A1226" stroke-width="7" stroke-linecap="round" fill="none"/>
+        <circle cx="50" cy="46" r="5" fill="#2A1226"/>
+      </svg>
+    </button>
+  </div>
+
+  <!-- Portada -->
+  <div class="screen" id="scrTitle">
+    <div class="panel">
+      <svg class="sticker" viewBox="0 0 100 100" aria-hidden="true">
+        <ellipse cx="50" cy="54" rx="26" ry="44" fill="#7A0F2E"/>
+        <ellipse cx="50" cy="50" rx="21" ry="39" fill="#FF3D6E"/>
+        <path d="M50 45 L34 25 M50 45 L66 25" stroke="#7A0F2E" stroke-width="8" stroke-linecap="round" fill="none"/>
+        <circle cx="50" cy="47" r="6" fill="#7A0F2E"/>
+      </svg>
+      <p class="eyebrow">Patio · Portal · Chancletazo</p>
+      <h1>Roba un<br><em>Florín</em></h1>
+      <p class="sub">Un <b>Florín</b> es un bloquecito de tierra con su flor y su carita, y cada uno suelta dinero por segundo. Los vecinos tienen los suyos en la vitrina: róbatelos, llévalos a tu patio y defiéndelos a puro <b style="color:var(--chancla)">chancletazo</b>.</p>
+      <ul class="rules">
+        <li><span class="pip">🌷</span><span>Cada Florín en tu vitrina paga por segundo, y solo si está en tu patio. Hay 7 rarezas, del bloque de tierra <b>Común</b> al <b>Cósmico</b>, y las variantes ✨ <b>Brillante</b> (×2) y 🌈 <b>Arcoíris</b> (×3).</span></li>
+        <li><span class="pip">🏃</span><span>Métete a las bases vecinas y <b>quédate junto a un Florín</b> hasta llenar el aro para llevártelo.</span></li>
+        <li><span class="pip">😼</span><span>Cuatro vecinos vienen por los tuyos: <b style="color:#FFD84D">Mayo</b> agarra el más caro, <b style="color:#FF9EC4">El Sobri</b> agarra lo que pilla, <b style="color:#FF5C86">la Prima Yuli</b> vuela pero solo carga lo barato, y <b style="color:#8B6BEE">los Marcianos</b> se teletransportan.</span></li>
+        <li><span class="pip">👵</span><span>Cada base tiene su <b>abuela</b>. Si te alcanza, sueltas el Florín y quedas mareado.</span></li>
+        <li><span class="pip">🩴</span><span>Lanza la chancla para <b>noquear abuelas y ladrones</b>. Regresa como bumerán: espérala para volver a lanzar.</span></li>
+        <li><span class="pip">🎯</span><span><b>Apunta antes de tirar:</b> con ratón, hacia donde pongas el cursor (la línea punteada te lo muestra). En celular o iPad, <b>arrastra desde el botón rosa</b> y suelta.</span></li>
+        <li><span class="pip">🏡</span><span>Puedes <b>comprar dos patios más</b> ($4 000 y $12 000) para guardar más Florines: métete en la reja para comprarlos.</span></li>
+        <li><span class="pip">🛡️</span><span>Cada patio tuyo tiene su <b>placa de láseres</b>: párate encima un segundo, paga $800 y nadie entra por 60 s. Luego tarda 30 s en recargar.</span></li>
+        <li><span class="pip">💃</span><span>Del <b>portal</b> del centro sale un Florín cada 6 s: le da una vuelta a la Armería y se vuelve a meter. No es de nadie — <b>atrápalo al pasar</b> como si lo robaras. Así consigues tus Florines, y los raros salen poco: corre por ellos.</span></li>
+        <li><span class="pip">🎰</span><span>La <b>Ruleta</b> cuesta $1 200 por tirada. Las casillas <b>???</b> son las que dan las variantes ✨ y 🌈.</span></li>
+        <li><span class="pip">🧰</span><span>La <b>Armería</b> está en el centro, rodeada por el desfile, y vende doce gadgets: 🧊 congeladora, 💨 secadora, ⚡ chicharra, 🥤 refresco, 👻 capa, 🍌 cáscaras, 🐕 chihuahua, ⏱️ reloj, 🧲 imán, 🛸 rayo alien, 🕸️ red y ☂️ paraguas.</span></li>
+        <li><span class="pip">📖</span><span>El <b>álbum</b> (botón 📖 o tecla <span class="k">B</span>) lleva la cuenta de las 21 combinaciones que has llegado a tener.</span></li>
+        <li><span class="pip">🚨</span><span>Si un vecino te está robando salta una <b>alarma</b>: te dice quién y de qué patio, y una <b>flecha</b> en el borde te marca por dónde correr.</span></li>
+        <li><span class="pip">🗺️</span><span>Hay cuatro <b>escenarios</b> con su propio suelo y su reparto de casas: el <b>Barrio</b>, el colegio <b>Santa Teresita</b>, la <b>Playa</b> y el <b>Desierto</b>. Elígelo abajo.</span></li>
+        <li><span class="pip">💰</span><span>La partida <b>no se acaba</b>: cada <b>$60 000</b> celebras un hito y sigues. Lo divertido es coleccionar, así que juega hasta que te aburras.</span></li>
+      </ul>
+      <p class="escTitulo">Escenario</p>
+      <div class="escFila" id="escFila"></div>
+      <p class="escDesc" id="escDesc"></p>
+
+      <div class="modos">
+        <button class="play" id="btnStart">1 jugador ▸</button>
+        <button class="play dos" id="btnStart2">2 jugadores ▸</button>
+      </div>
+      <p class="foot dosNota"><b>Dos jugadores en la misma pantalla:</b> J1 con <span class="k">WASD</span> y <span class="k">espacio</span>, J2 con las <span class="k">flechas</span> y <span class="k">.</span> (punto). Cada uno tiene su patio — J1 abajo a la izquierda, J2 abajo a la derecha — y pueden robarse entre ellos y darse chancletazos. Gana el primero que llegue a $60 000. En este modo solo se usa la chancla, y quedan cerrados los patios extra y la ruleta; el desfile del portal y los láseres sí funcionan, así que los dos pueden competir por atrapar el Florín que pasa.</p>
+      <p class="foot">Teclado: <span class="k">WASD</span> / <span class="k">flechas</span> para moverte · <span class="k">espacio</span> o <b>clic</b> para usar el arma · <span class="k">1</span>–<span class="k">0</span> o <span class="k">Q</span>/<span class="k">E</span> cambiar de arma · <span class="k">N</span> bautizar · <span class="k">B</span> álbum · <span class="k">P</span> pausa · <span class="k">M</span> sonido. En celular: arrastra en una mitad de la pantalla para moverte y usa el botón rosa para el arma. Si eres <b>zurdo</b>, toca <b>✋</b> arriba y todos los controles se voltean.</p>
+    </div>
+  </div>
+
+  <!-- Fin -->
+  <div class="screen" id="scrEnd" hidden>
+    <div class="panel">
+      <p class="eyebrow" id="endEyebrow">Fin del patio</p>
+      <h1 id="endTitle">¡Ganaste!</h1>
+      <p class="sub" id="endSub"></p>
+      <div class="stats">
+        <div class="stat"><div class="label">Los que robaste tú</div><div class="val" id="stSteals">0</div></div>
+        <div class="stat"><div class="label">Vecinos noqueados</div><div class="val" id="stHits">0</div></div>
+        <div class="stat"><div class="label">Tiempo</div><div class="val" id="stTime">0:00</div></div>
+        <div class="stat"><div class="label">Ingresos finales</div><div class="val" id="stRate">$0/s</div></div>
+      </div>
+      <button class="play" id="btnAgain">Otra ronda ▸</button>
+    </div>
+  </div>
+</div>
+</body>
+</html>
