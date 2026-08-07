@@ -95,3 +95,18 @@ export function nuevaPartidaMotor(modo, escenarioId) {
 
 /** Envuelve girarRuleta del motor para que el cliente sepa si arrancó. */
 export const girarRuleta = (G, p, dur) => girarEnMotor(G, p, dur);
+
+/* ---- revivir una partida guardada ----
+   Esto es lo que el paso a ids hizo posible: el estado es JSON y nada más, así
+   que volver a montarlo es parsearlo y devolverle los atajos del cliente. Si
+   viene roto (de una versión vieja del juego, por ejemplo), devuelve null y el
+   jugador empieza de nuevo — vale más eso que arrancar en un estado imposible. */
+export function revivirPartida(texto){
+  try {
+    const G = JSON.parse(texto);
+    if (!G || !Array.isArray(G.players) || !G.players.length || !Array.isArray(G.bases)) return null;
+    if (!G.esc || !VISUALES[G.esc.id]) return null;
+    G.eventos = [];
+    return conAtajos(G);
+  } catch (_){ return null; }
+}

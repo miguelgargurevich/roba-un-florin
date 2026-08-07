@@ -300,12 +300,52 @@
   .escBtn:focus-visible{outline:3px solid var(--cosmo);outline-offset:2px}
   .escDesc{margin:8px 0 0;font-size:12px;color:var(--cream-dim);line-height:1.4;min-height:2.6em}
 
+  /* ---------- cuenta en la nube (portada) ---------- */
+  .cuenta{
+    margin:14px 0 0;padding:12px;border-radius:14px;
+    background:var(--plum-800);border:2px solid var(--plum-700);
+  }
+  .cuenta .fila{display:flex;gap:7px;flex-wrap:wrap;align-items:center}
+  .cuenta input{
+    flex:1 1 150px;min-width:0;padding:9px 11px;border-radius:11px;
+    background:var(--plum-900);border:2px solid var(--plum-600);color:var(--cream);
+    font-family:var(--ui);font-size:13px;
+  }
+  .cuenta input:focus{outline:none;border-color:var(--cosmo)}
+  .cuentaBtn{
+    padding:9px 14px;border-radius:11px;cursor:pointer;white-space:nowrap;
+    background:var(--plum-700);border:2px solid var(--plum-600);color:var(--cream);
+    font-family:var(--ui);font-weight:800;font-size:13px;
+  }
+  .cuentaBtn:hover:not(:disabled){border-color:var(--cream-dim)}
+  .cuentaBtn:disabled{opacity:.5;cursor:default}
+  .cuentaBtn.ok{background:linear-gradient(180deg,#5FE8AE,var(--leaf));border-color:transparent;color:#062B1C}
+  .cuentaMsg{margin:8px 0 0;font-size:11.5px;line-height:1.45;color:var(--cream-dim);min-height:1.4em}
+  .cuentaMsg.mal{color:#FF8FA8}
+  .cuentaMsg.bien{color:var(--leaf)}
+  .cuentaQuien{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .cuentaQuien .nom{font-family:var(--display);font-size:17px;color:var(--leaf)}
+  .rankLista{margin:9px 0 0;padding:0;list-style:none;font-size:12px}
+  .rankLista li{
+    display:flex;gap:8px;padding:4px 0;border-top:1px solid var(--plum-700);color:var(--cream-dim);
+  }
+  .rankLista li:first-child{border-top:none}
+  .rankLista .pos{width:1.6em;color:#9C8090;font-family:var(--num)}
+  .rankLista .quien{flex:1 1 auto;color:var(--cream);font-weight:700}
+  .rankLista .plata{font-family:var(--num);color:var(--gold)}
+  .rankLista .yo{background:color-mix(in srgb,var(--leaf) 10%, transparent)}
+
   .modos{display:flex;gap:9px;flex-wrap:wrap}
   .modos .play{flex:1 1 190px}
   .play.dos{
     background:linear-gradient(180deg,#FFD066,var(--gold));color:#3A2400;box-shadow:0 8px 0 #A97800;
   }
   .play.dos:active{box-shadow:0 4px 0 #A97800}
+  .modos .play.seguir{
+    flex:1 1 100%;background:linear-gradient(180deg,#5FE8AE,var(--leaf));
+    color:#062B1C;box-shadow:0 8px 0 #1E8F62;font-size:19px;
+  }
+  .play.seguir:active{box-shadow:0 4px 0 #1E8F62}
   .dosNota{border-top:1px solid var(--plum-700);padding-top:10px}
   .play:active{transform:translateY(4px);box-shadow:0 4px 0 #8E1338}
   .play:focus-visible{outline:3px solid var(--cosmo);outline-offset:3px}
@@ -649,7 +689,34 @@
       <div class="escFila" id="escFila"></div>
       <p class="escDesc" id="escDesc"></p>
 
+      <p class="escTitulo">Tu cuenta <span style="text-transform:none;letter-spacing:0;font-weight:600">— opcional: sirve para no perder el álbum</span></p>
+      <div class="cuenta" id="cuenta" hidden>
+        <!-- sin sesión -->
+        <div id="cuentaEntrar">
+          <div class="fila">
+            <input id="cuentaEmail" type="email" autocomplete="email" placeholder="tu@correo.com" aria-label="Correo">
+            <input id="cuentaClave" type="password" autocomplete="current-password" placeholder="contraseña" aria-label="Contraseña">
+          </div>
+          <div class="fila" style="margin-top:7px">
+            <input id="cuentaApodo" type="text" maxlength="24" placeholder="apodo (solo para registrarte)" aria-label="Apodo" hidden>
+            <button class="cuentaBtn ok" id="cuentaBtnEntrar">Entrar</button>
+            <button class="cuentaBtn" id="cuentaBtnRegistro">Hacerme una cuenta</button>
+          </div>
+        </div>
+        <!-- con sesión -->
+        <div id="cuentaHola" hidden>
+          <div class="cuentaQuien">
+            <span>Estás jugando como</span>
+            <span class="nom" id="cuentaNombre">—</span>
+            <button class="cuentaBtn" id="cuentaBtnSalir" style="margin-left:auto">Salir</button>
+          </div>
+        </div>
+        <p class="cuentaMsg" id="cuentaMsg"></p>
+        <ol class="rankLista" id="rankLista" hidden></ol>
+      </div>
+
       <div class="modos">
+        <button class="play seguir" id="btnSeguir" hidden>Seguir donde quedaste ▸</button>
         <button class="play" id="btnStart">1 jugador ▸</button>
         <button class="play dos" id="btnStart2">2 jugadores ▸</button>
       </div>

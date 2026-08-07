@@ -248,6 +248,28 @@ El ritmo de los robos depende de **tu vitrina, no del reloj**: con un solo Flor�
 pasan ~23 s entre visitas; con la vitrina llena de Florines caros, cada 10 s. Si
 te desvalijan, aflojan y te dan tregua para recuperarte.
 
+## Cuenta en la nube (opcional)
+
+En la portada hay un bloque de **cuenta**. No hace falta para jugar: sirve para
+que tu **álbum** y tu **partida** te sigan a otro navegador o a otro aparato, y
+para salir en el ranking.
+
+Con cuenta aparece un botón verde **Seguir donde quedaste**, con el dinero y el
+tiempo de la partida guardada. La partida se guarda sola cada 15 s de juego y en
+cada hito. Solo se guarda una por jugador, así que empezar otra pisa la vieja —
+por eso el botón de al lado dice *Empezar de cero* cuando tienes una guardada.
+
+El álbum **se une, no se pisa**: al entrar, lo que tenías en este navegador y lo
+que tenías en la nube se juntan en los dos sentidos.
+
+Si el servidor no está, el bloque de la cuenta **ni aparece** y todo funciona
+como siempre, guardado en el navegador. Si se cae a mitad de partida, el juego te
+lo dice y sigue andando; deja de insistir por un minuto para no llenar la consola
+de errores.
+
+La API vive en [`apps/api`](apps/api) (.NET 9 + PostgreSQL) y tiene su propio
+README. El cliente la busca en `VITE_API` (ver `apps/web/.env.example`).
+
 ## Detalles técnicos
 
 - Un solo archivo, sin dependencias: `<canvas>` 2D, CSS y JavaScript puro

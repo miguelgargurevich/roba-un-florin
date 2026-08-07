@@ -16,8 +16,10 @@ import {
   florNombre, florinIncome, freePed, freePedDe, girarRuleta as girarEnMotor,
   inRect, laserActivo, lerp, money, nuevaPartidaMotor, nuevoFlorin, occupied,
   occupiedDe, orbitaDelCentro, playerIncome, puntoDelDesfile, rumboDeTiro,
-  patiosDe, seleccionarArma, textoDePremio, usarArma, varLabel, varMult, visualDe,
+  patiosDe, revivirPartida, seleccionarArma, textoDePremio, usarArma, varLabel,
+  varMult, visualDe,
 } from "./puente.js";
+import { nube } from "./nube.js";
 
 /* ---- lo que antes vivía dentro del estado del juego y ahora es del cliente ----
    Las partículas y los avisos flotantes son adorno: el motor no sabe de ellos,
@@ -46,7 +48,7 @@ function consumirEventos(){
                        if (Snd[f]) Snd[f](); break; }
       case "album":  vistoEnAlbum(ev.tier, ev.variant); break;
       case "fin":    endGame(ev.ganador == null ? null : G.players[ev.ganador]); break;
-      case "hito":   break;               // el HUD ya lo celebra leyendo G.fiesta
+      case "hito":   guardarPartidaAhora(); break;   // el HUD ya lo celebra leyendo G.fiesta
     }
   }
 }
@@ -326,11 +328,16 @@ let album = {};
 try { album = JSON.parse(localStorage.getItem("florin_album") || "{}") || {}; } catch (_){ album = {}; }
 const albumKey = (tier, variant) => tier + ":" + (variant || "base");
 
+const guardarAlbumLocal = () => {
+  try { localStorage.setItem("florin_album", JSON.stringify(album)); } catch (_){}
+};
+
 function vistoEnAlbum(tier, variant){
   const k = albumKey(tier, variant);
   if (album[k]) return;
   album[k] = 1;
-  try { localStorage.setItem("florin_album", JSON.stringify(album)); } catch (_){}
+  guardarAlbumLocal();
+  nube.registrarEnAlbum(tier, variant);     // si no hay cuenta, no hace nada
   const T = TIERS[tier];
   pop(G.player.x, G.player.y - 82,
       "📖 ¡Nuevo en el álbum!" , RAR_COLOR[T.rar] || "#FFC53D");
@@ -467,7 +474,7 @@ el.throwB.addEventListener("keydown", e => {
 });
 el.pause.addEventListener("click", togglePause);
 el.sound.addEventListener("click", toggleSound);
-el.hand.addEventListener("click", toggleZurdo);
+el.hand.addEventListener("click", () => { toggleZurdo(); empujarPreferencias(); });
 /* ---- paneles de Armería y Ruleta: se abren con su botón, no al pasar ---- */
 function panelDisponible(cual){
   if (!G || !G.started || G.over || G.mode === 2) return false;
@@ -521,7 +528,7 @@ const escBtns = ESCENARIOS.map((e, i) => {
   b.type = "button"; b.className = "escBtn";
   b.innerHTML = '<span class="ic">' + e.icono + '</span><span>' + e.nombre + '</span>';
   b.setAttribute("aria-label", "Escenario " + e.nombre + ": " + e.desc);
-  b.addEventListener("click", () => elegirEscenario(i));
+  b.addEventListener("click", () => { elegirEscenario(i); empujarPreferencias(); });
   escFila.appendChild(b);
   return b;
 });
@@ -536,6 +543,206 @@ function elegirEscenario(i){
   Snd.unlock();
 }
 elegirEscenario(escSel);
+
+/* ============================================================
+   Cuenta en la nube (opcional)
+   ============================================================
+   El juego entero funciona sin esto: si no hay servidor, el bloque de la cuenta
+   ni siquiera aparece y todo sigue en localStorage. Tener cuenta solo agrega
+   que el álbum y la partida te sigan a otro navegador, y que salgas en el
+   ranking. */
+const elCuenta = {
+  caja:     document.getElementById("cuenta"),
+  entrar:   document.getElementById("cuentaEntrar"),
+  hola:     document.getElementById("cuentaHola"),
+  email:    document.getElementById("cuentaEmail"),
+  clave:    document.getElementById("cuentaClave"),
+  apodo:    document.getElementById("cuentaApodo"),
+  btnEntrar:document.getElementById("cuentaBtnEntrar"),
+  btnReg:   document.getElementById("cuentaBtnRegistro"),
+  btnSalir: document.getElementById("cuentaBtnSalir"),
+  nombre:   document.getElementById("cuentaNombre"),
+  msg:      document.getElementById("cuentaMsg"),
+  rank:     document.getElementById("rankLista"),
+};
+let modoRegistro = false;      // el mismo formulario sirve para entrar y para registrarse
+
+function decir(texto, clase){
+  elCuenta.msg.textContent = texto || "";
+  elCuenta.msg.className = "cuentaMsg" + (clase ? " " + clase : "");
+}
+
+function pintarRanking(items){
+  if (!items || !items.length){ elCuenta.rank.hidden = true; return; }
+  const yo = nube.jugador?.apodo;
+  elCuenta.rank.innerHTML = items.map((r, i) =>
+    '<li' + (r.apodo === yo ? ' class="yo"' : '') + '>' +
+      '<span class="pos">' + (i + 1) + '</span>' +
+      '<span class="quien">' + r.apodo.replace(/[<>&]/g, "") + '</span>' +
+      '<span class="plata">' + money(r.mejorDinero) + '</span>' +
+    '</li>').join("");
+  elCuenta.rank.hidden = false;
+}
+
+/** Trae el ranking y, de paso, nos dice si hay servidor: si no, no molestamos. */
+async function despertarCuenta(){
+  const items = await nube.ranking();
+  if (items === null && !nube.hayCuenta) return;     // sin API y sin sesión: ni se muestra
+  elCuenta.caja.hidden = false;
+  pintarRanking(items);
+}
+
+/** El álbum se une, no se pisa: lo que tengas aquí y lo que tengas allá. */
+async function sincronizarAlbum(){
+  const remoto = await nube.traerAlbum();
+  if (!remoto) return;
+  let nuevasAqui = 0;
+  for (const k of remoto) if (!album[k]){ album[k] = 1; nuevasAqui++; }
+  if (nuevasAqui) guardarAlbumLocal();
+
+  const enRemoto = new Set(remoto);
+  for (const k of Object.keys(album)){
+    if (enRemoto.has(k)) continue;
+    const [tier, variante] = k.split(":");
+    nube.registrarEnAlbum(+tier, variante === "base" ? null : variante);
+  }
+  if (nuevasAqui && !document.getElementById("album").hidden) renderAlbum();
+  return nuevasAqui;
+}
+
+/** Al entrar, la cuenta manda: tus preferencias son las que guardaste. */
+async function traerPreferencias(){
+  const p = await nube.perfil();
+  if (!p) return;
+  const i = ESCENARIOS.findIndex(e => e.id === p.escenarioPreferido);
+  if (i >= 0 && i !== escSel) elegirEscenario(i);
+  if (p.zurdo !== zurdo) toggleZurdo();
+}
+
+const empujarPreferencias = () => {
+  if (nube.hayCuenta) nube.guardarPreferencias(
+    nube.jugador.apodo, ESCENARIOS[escSel].id, zurdo);
+};
+
+/** Todo lo que cambia cuando alguien entra o sale de su cuenta. */
+async function alEntrarOSalir(jugador){
+  elCuenta.entrar.hidden = !!jugador;
+  elCuenta.hola.hidden = !jugador;
+  if (!jugador){ btnSeguir.hidden = true; btnUno.textContent = "1 jugador ▸"; return; }
+  elCuenta.nombre.textContent = jugador.apodo;
+  if (nube.desconectado){
+    decir("El servidor no responde. Puedes jugar igual: tu progreso queda en este navegador.", "mal");
+    btnSeguir.hidden = true;
+    btnUno.textContent = "1 jugador ▸";
+    return;
+  }
+  await traerPreferencias();
+  const nuevas = await sincronizarAlbum();
+  if (nuevas) decir("Recuperamos " + nuevas + " lámina(s) de tu álbum.", "bien");
+  await buscarPartidaGuardada();
+  pintarRanking(await nube.ranking());
+}
+
+async function intentar(accion, fn){
+  elCuenta.btnEntrar.disabled = elCuenta.btnReg.disabled = true;
+  decir(accion + "…");
+  try { await fn(); decir(""); }
+  catch (e){ decir(e.message || "No se pudo.", "mal"); }
+  finally { elCuenta.btnEntrar.disabled = elCuenta.btnReg.disabled = false; }
+}
+
+elCuenta.btnEntrar.addEventListener("click", () => {
+  const email = elCuenta.email.value.trim(), clave = elCuenta.clave.value;
+  if (!email || !clave) return decir("Falta el correo o la contraseña.", "mal");
+  intentar("Entrando", () => nube.entrar(email, clave));
+});
+
+elCuenta.btnReg.addEventListener("click", () => {
+  if (!modoRegistro){                       // primer clic: pide el apodo y se queda esperando
+    modoRegistro = true;
+    elCuenta.apodo.hidden = false;
+    elCuenta.apodo.focus();
+    elCuenta.btnReg.textContent = "Crear cuenta ▸";
+    return decir("Elige un apodo: es el que sale en el ranking.");
+  }
+  const email = elCuenta.email.value.trim(), clave = elCuenta.clave.value;
+  const apodo = elCuenta.apodo.value.trim();
+  if (!email || !clave || !apodo) return decir("Faltan datos: correo, contraseña y apodo.", "mal");
+  intentar("Creando la cuenta", () => nube.registro(email, clave, apodo));
+});
+
+elCuenta.btnSalir.addEventListener("click", () => {
+  nube.salir();
+  decir("Listo. Tu álbum sigue guardado en este navegador.");
+});
+
+for (const campo of [elCuenta.email, elCuenta.clave, elCuenta.apodo])
+  campo.addEventListener("keydown", e => {
+    if (e.key === "Enter") (modoRegistro ? elCuenta.btnReg : elCuenta.btnEntrar).click();
+  });
+
+/* ---- guardado automático ----
+   Cada GUARDA_CADA segundos de partida, no de reloj: si pausas, no se guarda.
+   Solo en un jugador; el duelo local es de una sentada. */
+const GUARDA_CADA = 15;
+let guardaEn = GUARDA_CADA;
+
+function guardarSiTocaEn(dt){
+  if (!nube.hayCuenta || G.mode !== 1) return;
+  guardaEn -= dt;
+  if (guardaEn > 0) return;
+  guardaEn = GUARDA_CADA;
+  guardarPartidaAhora();
+}
+
+function guardarPartidaAhora(){
+  if (!nube.hayCuenta || G.mode !== 1 || !G.started) return;
+  nube.guardarPartida({
+    escenario: G.esc.id,
+    dinero: Math.round(G.player.money),
+    hito: G.hitoN,
+    segundos: G.t,
+    estado: JSON.stringify(G),
+  });
+}
+
+
+/* ---- seguir la partida guardada ---- */
+const btnSeguir = document.getElementById("btnSeguir");
+let guardadaEnLaNube = null;
+
+const btnUno = document.getElementById("btnStart");
+
+async function buscarPartidaGuardada(){
+  guardadaEnLaNube = nube.hayCuenta ? await nube.cargarPartida() : null;
+  const hay = !!guardadaEnLaNube;
+  btnSeguir.hidden = !hay;
+  // Solo se guarda una partida por jugador, así que empezar otra pisa la vieja.
+  // Que el botón lo diga es más honesto que un cartel de confirmación.
+  btnUno.textContent = hay ? "Empezar de cero ▸" : "1 jugador ▸";
+  if (!hay) return;
+  const g = guardadaEnLaNube;
+  btnSeguir.textContent =
+    "Seguir donde quedaste ▸ " + money(g.dinero) + " · " + mmss(g.segundos);
+}
+
+btnSeguir.addEventListener("click", () => {
+  const G2 = guardadaEnLaNube && revivirPartida(guardadaEnLaNube.estado);
+  if (!G2){
+    decir("Esa partida guardada ya no se puede abrir. Empieza una nueva.", "mal");
+    btnSeguir.hidden = true;
+    return;
+  }
+  G = G2;
+  G.started = true;
+  aLaCancha();
+  invalidarSuelo();
+  Snd.unlock();
+});
+
+/* Recién acá, con todo el formulario montado, se enchufa la cuenta. */
+nube.alCambiar(alEntrarOSalir);
+despertarCuenta();
 
 document.getElementById("btnStart").addEventListener("click", () => startGame(1));
 document.getElementById("btnStart2").addEventListener("click", () => startGame(2));
@@ -2623,6 +2830,16 @@ function startGame(modo){
   const m = modo === 2 ? 2 : (modo === 1 ? 1 : (G && G.mode) || 1);
   G = nuevaPartida(m);
   G.started = true;
+  aLaCancha();
+}
+
+/** Deja la pantalla lista para jugar con el G que sea: nuevo o revivido. */
+function aLaCancha(){
+  const m = G.mode;
+  G.paused = false;
+  G.over = false;
+  guardaEn = GUARDA_CADA;
+  pops = []; puffs = [];
   document.getElementById("app").classList.toggle("dos", m === 2);
   el.title.hidden = true;
   el.end.hidden = true;
@@ -2679,6 +2896,7 @@ function frame(now){
   if (G.started && !G.paused && !G.over){
     avanzar(G, entradas(), dt);
     consumirEventos();
+    guardarSiTocaEn(dt);
   }
   animarParticulas(dt);
   draw();
