@@ -61,6 +61,12 @@
   .stolen .val{color:var(--chancla)}
 
   .goal{flex:1 1 190px;min-width:170px;display:flex;flex-direction:column;justify-content:center}
+  /* al pasar un hito la tarjeta se ilumina un momento y luego vuelve a la normalidad */
+  .goal.fiesta{border-color:var(--gold);box-shadow:0 0 0 3px color-mix(in srgb,var(--gold) 34%, transparent)}
+  @media (prefers-reduced-motion:no-preference){
+    .goal.fiesta{animation:hito .5s ease-out 3}
+  }
+  @keyframes hito{0%,100%{transform:none}50%{transform:translateY(-3px) scale(1.015)}}
   .goalrow{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
   .goalrow .val{font-size:14px}
   .bar{height:9px;border-radius:99px;background:var(--plum-700);margin-top:6px;overflow:hidden;border:1px solid rgba(255,255,255,.09)}
@@ -76,7 +82,9 @@
   #app.dos .wbar{display:none}
   #app.dos #armeria{display:none}
 
-  .btns{display:flex;gap:6px;pointer-events:auto}
+  /* margin-left:auto para que, si la barra se parte en dos líneas, los botones
+     queden a la derecha en vez de colgando bajo el dinero */
+  .btns{display:flex;gap:6px;pointer-events:auto;flex-wrap:nowrap;margin-left:auto}
   .iconbtn{
     width:40px;height:40px;border-radius:12px;
     background:var(--plum-800);border:2px solid var(--plum-600);color:var(--cream);
@@ -85,6 +93,9 @@
   }
   .iconbtn:active{transform:translateY(3px);box-shadow:0 2px 0 rgba(0,0,0,.35)}
   .iconbtn:focus-visible{outline:3px solid var(--cosmo);outline-offset:2px}
+  /* atenuado cuando no estás en el puesto, encendido cuando su panel está abierto */
+  .iconbtn.lejos{opacity:.34}
+  .iconbtn.on{border-color:var(--gold);background:color-mix(in srgb,var(--gold) 26%, var(--plum-800))}
 
   .vgap{flex:1 1 auto;min-height:0}
   .bottom{display:flex;align-items:flex-end;gap:10px}
@@ -167,6 +178,29 @@
   .bautizoBtn.ok{background:linear-gradient(180deg,#7FE3B0,var(--leaf));color:#0B3A26;border-color:#10603E;flex:2 1 auto}
   .bautizoBtn:focus-visible{outline:3px solid var(--cosmo);outline-offset:2px}
 
+  /* ---------- alarma de robo ---------- */
+  /* va en el flujo del HUD, justo debajo de la barra: así nunca tapa la meta */
+  #alarma{
+    align-self:center;flex:0 0 auto;
+    display:flex;align-items:center;gap:9px;
+    padding:8px 18px;border-radius:14px;
+    background:linear-gradient(180deg,#E0224F,#A81340);
+    border:3px solid #FF7196;
+    box-shadow:0 6px 0 rgba(0,0,0,.35), 0 0 22px rgba(224,34,79,.45);
+    color:#FFEFE2;font-family:var(--ui);font-weight:800;
+    font-size:14px;letter-spacing:.02em;max-width:92%;text-align:center;
+  }
+  #alarma[hidden]{display:none}
+  .alarmaIco{font-size:17px;line-height:1}
+  @media (prefers-reduced-motion:no-preference){
+    #alarma{animation:sirena .7s ease-in-out infinite}
+  }
+  @keyframes sirena{
+    0%,100%{background:linear-gradient(180deg,#E0224F,#A81340)}
+    50%{background:linear-gradient(180deg,#FF3D6E,#C4173F)}
+  }
+  @media (max-height:460px){ #alarma{font-size:11.5px;padding:6px 12px;gap:6px} }
+
   /* ---------- álbum de Florines ---------- */
   #album{
     position:absolute;inset:0;z-index:31;display:grid;place-items:center;padding:18px;
@@ -240,6 +274,29 @@
     background:linear-gradient(180deg,#FF6B90,var(--chancla));color:#2A0512;
     box-shadow:0 8px 0 #8E1338;
   }
+  /* ---------- selector de escenario (portada) ---------- */
+  .escTitulo{
+    margin:14px 0 7px;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--cream-dim);font-weight:800;
+  }
+  .escFila{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}
+  @media (max-width:460px){ .escFila{grid-template-columns:repeat(2,minmax(0,1fr))} }
+  .escBtn{
+    display:flex;flex-direction:column;align-items:center;gap:3px;
+    padding:9px 5px;border-radius:13px;cursor:pointer;
+    background:var(--plum-700);border:2px solid var(--plum-600);color:var(--cream);
+    font-family:var(--ui);font-weight:800;font-size:11px;line-height:1.15;text-align:center;
+  }
+  .escBtn .ic{font-size:21px;line-height:1}
+  .escBtn:hover{border-color:var(--cream-dim)}
+  .escBtn.sel{
+    border-color:var(--leaf);
+    background:color-mix(in srgb,var(--leaf) 18%, var(--plum-700));
+    box-shadow:0 0 0 3px color-mix(in srgb,var(--leaf) 24%, transparent);
+  }
+  .escBtn:focus-visible{outline:3px solid var(--cosmo);outline-offset:2px}
+  .escDesc{margin:8px 0 0;font-size:12px;color:var(--cream-dim);line-height:1.4;min-height:2.6em}
+
   .modos{display:flex;gap:9px;flex-wrap:wrap}
   .modos .play{flex:1 1 190px}
   .play.dos{
@@ -334,6 +391,7 @@
   }
   #ruleta[hidden]{display:none}
   #app.dos #ruleta{display:none}
+  #app.dos #btnArm,#app.dos #btnRul{display:none}   /* cerrados en el duelo */
   #ruleta h2{
     font-family:var(--display);font-size:16px;letter-spacing:.06em;text-transform:uppercase;
     margin:0 0 9px;color:var(--chancla);display:flex;justify-content:space-between;align-items:center;gap:8px
@@ -383,6 +441,67 @@
     #throwBtn{width:88px;height:88px;right:14px;bottom:18px}
     #throwBtn svg{width:48px;height:48px}
   }
+  /* ---------- celular en horizontal ----------
+     En landscape lo que aprieta no es el ancho sino la ALTURA (~390 px en un
+     móvil típico), así que las media queries por ancho no servían de nada. Todo
+     lo de aquí compacta en vertical para que el HUD, los chips y el minimapa
+     quepan sin comerse el mapa. */
+  @media (max-height:460px){
+    .hud{padding:6px;gap:5px}
+    .card{padding:4px 9px;border-radius:11px;box-shadow:0 4px 0 rgba(0,0,0,.35)}
+    .label{font-size:8px;letter-spacing:.1em;margin-bottom:2px}
+    .val{font-size:14px}
+    .money .val{font-size:17px}
+    .goalrow .val{font-size:11px}
+    .bar{height:6px;margin-top:4px}
+    .goal{flex:1 1 130px;min-width:120px}
+    .card.j2{min-width:118px}
+    .iconbtn{width:32px;height:32px;font-size:14px;border-radius:10px;box-shadow:0 3px 0 rgba(0,0,0,.35)}
+    #minimap{width:96px;height:64px;border-radius:9px}
+    .tip{font-size:10px;max-width:32ch;padding:4px 9px;line-height:1.3}
+    .wbar{gap:4px;margin-bottom:8px}
+    .chip{padding:4px;gap:3px}
+    .chip .nm,.chip .u{display:none!important}
+    .chip .ic{font-size:17px}
+    .chip .n{font-size:11px}
+    /* los paneles no pueden empujar el layout: se quedan cortos y hacen scroll */
+    #armeria,#ruleta{padding:8px;margin-bottom:5px;max-height:54vh;overflow-y:auto}
+    #armeria h2,#ruleta h2{font-size:13px;margin-bottom:6px}
+    .rack{grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}
+    .buy{padding:5px 6px;gap:6px}
+    .buy .ic{font-size:17px}
+    .buy .ds{display:none}
+    .rulTira{height:44px}
+    .rulCel{flex-basis:88px;height:34px;font-size:10px}
+    .rulBtn{padding:8px 12px;font-size:12px}
+    .albumCaja{padding:12px}
+    .albumGrid{grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}
+    .albumCel{min-height:60px;padding:6px 7px}
+    #throwBtn{width:72px;height:72px;right:12px;bottom:12px}
+    #throwBtn svg{width:40px;height:40px}
+    #throwBtn .wicon{font-size:34px}
+    #joyring{width:78px;height:78px}
+    #joynub{width:34px;height:34px}
+    #nameBtn{width:44px;height:44px;font-size:20px}
+  }
+  /* Con el móvil tumbado el notch queda a un lado, así que el HUD tiene que
+     respetar los insets o se come el dinero y el botón de pausa. */
+  @supports (padding:env(safe-area-inset-left)){
+    .hud{
+      padding-left:max(10px, env(safe-area-inset-left));
+      padding-right:max(10px, env(safe-area-inset-right));
+      padding-bottom:max(10px, env(safe-area-inset-bottom));
+    }
+    @media (max-height:460px){
+      .hud{
+        padding-left:max(6px, env(safe-area-inset-left));
+        padding-right:max(6px, env(safe-area-inset-right));
+        padding-bottom:max(6px, env(safe-area-inset-bottom));
+      }
+    }
+    #throwBtn{right:max(14px, calc(env(safe-area-inset-right) + 6px))}
+    #app.zurdo #throwBtn{left:max(14px, calc(env(safe-area-inset-left) + 6px));right:auto}
+  }
   @media (prefers-reduced-motion:reduce){
     *{animation:none!important;transition:none!important}
   }
@@ -395,9 +514,9 @@
     <div class="topbar">
       <div class="card money"><div class="label">Dinero</div><div class="val" id="uiMoney">$0</div></div>
       <div class="card rate"><div class="label">Ingresos</div><div class="val" id="uiRate">$0/s</div></div>
-      <div class="card goal">
+      <div class="card goal" id="uiGoalCard">
         <div class="goalrow">
-          <span class="label" style="margin:0">Meta del patio</span>
+          <span class="label" style="margin:0" id="uiGoalLabel">Meta del patio</span>
           <span class="val" id="uiGoal">$0 / $60 000</span>
         </div>
         <div class="bar"><i id="uiBar"></i></div>
@@ -413,11 +532,18 @@
       </div>
       <div class="spacer"></div>
       <div class="btns">
+        <button class="iconbtn" id="btnArm" title="Armería (tecla T)" aria-label="Abrir la Armería">🧰</button>
+        <button class="iconbtn" id="btnRul" title="Ruleta (tecla R)" aria-label="Abrir la Ruleta">🎰</button>
         <button class="iconbtn" id="btnAlbum" title="Álbum de Florines" aria-label="Abrir el álbum de Florines">📖</button>
         <button class="iconbtn" id="btnHand" title="Diestro / zurdo" aria-label="Cambiar a modo zurdo">✋</button>
         <button class="iconbtn" id="btnSound" title="Silenciar" aria-label="Silenciar sonido">🔊</button>
         <button class="iconbtn" id="btnPause" title="Pausa" aria-label="Pausa">⏸</button>
       </div>
+    </div>
+
+    <div id="alarma" hidden>
+      <span class="alarmaIco">🚨</span>
+      <span id="alarmaTxt">¡Te están robando!</span>
     </div>
 
     <div class="vgap"></div>
@@ -510,8 +636,14 @@
         <li><span class="pip">🎰</span><span>La <b>Ruleta</b> cuesta $1 200 por tirada. Las casillas <b>???</b> son las que dan las variantes ✨ y 🌈.</span></li>
         <li><span class="pip">🧰</span><span>La <b>Armería</b> está en el centro, rodeada por el desfile, y vende doce gadgets: 🧊 congeladora, 💨 secadora, ⚡ chicharra, 🥤 refresco, 👻 capa, 🍌 cáscaras, 🐕 chihuahua, ⏱️ reloj, 🧲 imán, 🛸 rayo alien, 🕸️ red y ☂️ paraguas.</span></li>
         <li><span class="pip">📖</span><span>El <b>álbum</b> (botón 📖 o tecla <span class="k">B</span>) lleva la cuenta de las 21 combinaciones que has llegado a tener.</span></li>
-        <li><span class="pip">💰</span><span>Llega a <b>$60 000</b> antes de que los vecinos te dejen el patio pelado.</span></li>
+        <li><span class="pip">🚨</span><span>Si un vecino te está robando salta una <b>alarma</b>: te dice quién y de qué patio, y una <b>flecha</b> en el borde te marca por dónde correr.</span></li>
+        <li><span class="pip">🗺️</span><span>Hay cuatro <b>escenarios</b> con su propio suelo y su reparto de casas: el Barrio, la Azotea, la Playa y el Desierto. Elígelo abajo.</span></li>
+        <li><span class="pip">💰</span><span>La partida <b>no se acaba</b>: cada <b>$60 000</b> celebras un hito y sigues. Lo divertido es coleccionar, así que juega hasta que te aburras.</span></li>
       </ul>
+      <p class="escTitulo">Escenario</p>
+      <div class="escFila" id="escFila"></div>
+      <p class="escDesc" id="escDesc"></p>
+
       <div class="modos">
         <button class="play" id="btnStart">1 jugador ▸</button>
         <button class="play dos" id="btnStart2">2 jugadores ▸</button>
@@ -547,11 +679,58 @@
    ============================================================ */
 const WORLD_W = 2600, WORLD_H = 1700;
 const GOAL = 60000;
-/* Patios propios que se pueden comprar, además del que traes de casa */
-const PATIOS_EXTRA = [
-  { x:520, y:1290, price:4000,  name:"Patio 2" },
-  { x:70,  y:900,  price:12000, name:"Patio 3" },
+/* Precios de los patios extra. Dónde caen los pone el escenario. */
+const PATIOS_PRECIO = [4000, 12000];
+
+/* ============================================================
+   Escenarios
+   ============================================================
+   Mismas reglas en todos: cambia el sitio (suelo, colores, decorado) y el
+   reparto de casas y patios. La columna del centro (portal, Armería, Ruleta) NO
+   se mueve nunca, porque es el bucle principal del juego.
+   `casas` son las 4 vecinas en orden Mayo · El Sobri · Prima Yuli · Marcianos,
+   y la 4ª es la que en dos jugadores pasa a ser el patio del J2.
+   `patios` son los tuyos: el primero es el de salida, los otros dos se compran. */
+const ESCENARIOS = [
+  {
+    id:"barrio", nombre:"El Barrio", icono:"🏘️",
+    desc:"La cuadra de tierra de siempre. Tus patios juntos al suroeste.",
+    suelo:"#B45E38", loseta:"rgba(255,239,226,.07)", mancha:"rgba(120,58,32,.22)",
+    borde:"#5C2A18", deco:"manchas",
+    casas:[[70,90],[2150,90],[2150,700],[2150,1290]],
+    patios:[[70,1290],[520,1290],[70,900]],
+  },
+  {
+    id:"azotea", nombre:"La Azotea", icono:"🏢",
+    desc:"Cemento y respiraderos. Aquí los vecinos te rodean por la izquierda.",
+    suelo:"#6E6A78", loseta:"rgba(255,255,255,.09)", mancha:"rgba(40,38,48,.26)",
+    borde:"#3A3844", deco:"baldosas",
+    casas:[[70,90],[560,90],[70,660],[70,1290]],
+    patios:[[2150,1290],[1700,1290],[2150,860]],
+  },
+  {
+    id:"playa", nombre:"La Playa", icono:"🏖️",
+    desc:"Arena y olas. Tus patios en fila junto al agua, los vecinos enfrente.",
+    suelo:"#E0BE84", loseta:"rgba(255,255,255,.11)", mancha:"rgba(198,158,98,.3)",
+    borde:"#A9834A", deco:"olas",
+    casas:[[2150,90],[2150,700],[2150,1290],[560,1290]],
+    patios:[[70,90],[70,450],[70,810]],
+  },
+  {
+    id:"desierto", nombre:"El Desierto", icono:"🌵",
+    desc:"Tierra rajada y mucho espacio vacío entre casa y casa.",
+    suelo:"#C98B52", loseta:"rgba(255,239,226,.06)", mancha:"rgba(150,100,50,.24)",
+    borde:"#8A5A2A", deco:"grietas",
+    casas:[[70,90],[2150,90],[2150,1290],[1750,700]],
+    patios:[[70,1290],[70,900],[70,510]],
+  },
 ];
+let escSel = 0;
+try {
+  const g0 = localStorage.getItem("florin_escenario");
+  const i0 = ESCENARIOS.findIndex(e => e.id === g0);
+  if (i0 >= 0) escSel = i0;
+} catch (_){}
 const REDUCED = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 /* Cada Florín es un bloquecito cúbico (tierra, oro, obsidiana…) con su flor arriba.
@@ -671,6 +850,29 @@ const RAR_COLOR = {
   "Legendario":"#FF5C86","Mítico":"#FFD84D","Cósmico":"#5CE1EA"
 };
 
+/* Especies de flor. Los COLORES siguen viniendo de la rareza (para que se siga
+   leyendo de un vistazo qué vale cada Florín), pero la FORMA la pone la especie:
+   así dos Comunes ya no son idénticos. Cada Florín nace con una al azar y la
+   conserva toda su vida, igual que el nombre.
+   n:null = usa los pétalos de la rareza · centro:0 = flor sin disco central */
+const FLORES = [
+  { id:"amapola",    nombre:"Amapola",    n:null, forma:"ovalo",    R:6.5, centro:4.2, hojas:1 },
+  { id:"margarita",  nombre:"Margarita",  n:13,   forma:"tira",     R:7.4, centro:3.6, hojas:1 },
+  { id:"tulipan",    nombre:"Tulipán",    n:3,    forma:"copa",     R:3.4, centro:0,   hojas:2 },
+  { id:"campanilla", nombre:"Campanilla", n:1,    forma:"campana",  R:0,   centro:0,   hojas:2 },
+  { id:"girasol",    nombre:"Girasol",    n:15,   forma:"punta",    R:7.8, centro:5.6, hojas:1, semillas:true },
+  { id:"orquidea",   nombre:"Orquídea",   n:5,    forma:"orquidea", R:6,   centro:2.8, hojas:0, labio:true },
+  { id:"cactus",     nombre:"Cactus",     n:6,    forma:"ovalo",    R:4.4, centro:2.6, hojas:0, cactus:true },
+  { id:"estrella",   nombre:"Estrella",   n:5,    forma:"estrella", R:6.8, centro:3.4, hojas:1 },
+  { id:"pompon",     nombre:"Pompón",     n:11,   forma:"bolita",   R:6.2, centro:3,   hojas:1 },
+  { id:"trebol",     nombre:"Trébol",     n:4,    forma:"corazon",  R:5.2, centro:2.4, hojas:2 },
+];
+const florAlAzar = () => (Math.random()*FLORES.length)|0;
+/* Único sitio donde nace un Florín: así nadie olvida darle su especie */
+const nuevoFlorin = (tier, extra) =>
+  Object.assign({ tier, variant:null, nombre:null, flor:florAlAzar(), bob:0 }, extra||{});
+const florNombre = f => FLORES[(f.flor|0) % FLORES.length].nombre;
+
 /* Variantes especiales: solo salen de la ruleta y multiplican los ingresos.
    Viajan con el Florín, igual que el nombre: si te lo roban, se lo llevan así. */
 const VARIANTES = {
@@ -683,7 +885,8 @@ const varLabel = v => (v && VARIANTES[v] ? VARIANTES[v].icon + " " + VARIANTES[v
 const florinIncome = f => TIERS[f.tier].income * varMult(f.variant);
 /* Copia un Florín conservando lo que lo hace suyo: nombre y variante */
 const mismoFlorin = (f, extra) =>
-  Object.assign({ tier:f.tier, nombre:f.nombre||null, variant:f.variant||null }, extra||{});
+  Object.assign({ tier:f.tier, nombre:f.nombre||null, variant:f.variant||null,
+                  flor: f.flor|0 }, extra||{});
 
 /* ============================================================
    Utilidades
@@ -742,7 +945,9 @@ const Snd = (() => {
     buy(){ [523,659,784].forEach((f,i)=>setTimeout(()=>tone(f,.1,"square",.09),i*55)); },
     ouch(){ tone(300,.22,"sawtooth",.12,-190); },
     lost(){ tone(400,.2,"sawtooth",.1,-250); setTimeout(()=>tone(240,.3,"sawtooth",.1,-140),140); },
-    win(){ [523,659,784,1047,1319].forEach((f,i)=>setTimeout(()=>tone(f,.22,"square",.1),i*130)); }
+    win(){ [523,659,784,1047,1319].forEach((f,i)=>setTimeout(()=>tone(f,.22,"square",.1),i*130)); },
+    /* dos notas alternas, como una alarma de coche: se distingue del resto */
+    alarma(){ tone(880,.13,"square",.13); setTimeout(()=>tone(660,.16,"square",.13),140); }
   };
 })();
 
@@ -757,6 +962,10 @@ const el = {
   money:  document.getElementById("uiMoney"),
   rate:   document.getElementById("uiRate"),
   goal:   document.getElementById("uiGoal"),
+  goalCard:  document.getElementById("uiGoalCard"),
+  goalLabel: document.getElementById("uiGoalLabel"),
+  alarma:    document.getElementById("alarma"),
+  alarmaTxt: document.getElementById("alarmaTxt"),
   bar:    document.getElementById("uiBar"),
   lost:   document.getElementById("uiLost"),
   tip:    document.getElementById("uiTip"),
@@ -779,6 +988,8 @@ const el = {
   j2rate:  document.getElementById("uiJ2Rate"),
   j2bar:   document.getElementById("uiJ2Bar"),
   wSvg:   document.getElementById("wSvg"),
+  btnArm:  document.getElementById("btnArm"),
+  btnRul:  document.getElementById("btnRul"),
   rul:     document.getElementById("ruleta"),
   rulStrip:document.getElementById("rulStrip"),
   rulMon:  document.getElementById("rulMoney"),
@@ -836,23 +1047,26 @@ function mkJugador(idx, base, teclas, shirt){
 
 function newGame(modo){
   const mode = modo === 2 ? 2 : 1;
-  /* El centro exacto del mundo (x = WORLD_W/2) queda libre para el portal */
+  const esc = ESCENARIOS[escSel] || ESCENARIOS[0];
+  const C = esc.casas, P = esc.patios;
+  /* El centro exacto del mundo (x = WORLD_W/2) queda libre para el portal en
+     todos los escenarios: lo que cambia es dónde caen las casas y los patios. */
   const bases = [
-    makeBase(0, mode === 2 ? "Patio del J1" : "Tu patio", 70, 1290, true,  "#3DDC97"),
-    makeBase(1,"Casa de Mayo",       70,  90, false, "#FFD84D", "mayo"),
-    makeBase(2,"Doña Chancla",     2150,  90, false, "#FF9EC4", "sobri"),
-    makeBase(3,"Casa de la Prima Yuli", 2150, 700, false, "#FF5C86", "yuli"),
+    makeBase(0, mode === 2 ? "Patio del J1" : "Tu patio", P[0][0], P[0][1], true, "#3DDC97"),
+    makeBase(1,"Casa de Mayo",          C[0][0], C[0][1], false, "#FFD84D", "mayo"),
+    makeBase(2,"Doña Chancla",          C[1][0], C[1][1], false, "#FF9EC4", "sobri"),
+    makeBase(3,"Casa de la Prima Yuli", C[2][0], C[2][1], false, "#FF5C86", "yuli"),
     mode === 2
-      ? makeBase(4,"Patio del J2", 2150, 1290, true,  "#FFB020")
-      : makeBase(4,"Nave de los Marcianos", 2150, 1290, false, "#8B6BEE", "marcia"),
+      ? makeBase(4,"Patio del J2", C[3][0], C[3][1], true,  "#FFB020")
+      : makeBase(4,"Nave de los Marcianos", C[3][0], C[3][1], false, "#8B6BEE", "marcia"),
   ];
   const patioJ2 = bases[4];
 
   /* Patios propios comprables: solo en un jugador, para que el duelo sea parejo */
   if (mode === 1){
-    PATIOS_EXTRA.forEach((cfg, k) => {
-      const b = makeBase(5+k, cfg.name, cfg.x, cfg.y, true, "#3DDC97");
-      b.locked = true; b.price = cfg.price;
+    PATIOS_PRECIO.forEach((precio, k) => {
+      const b = makeBase(5+k, "Patio " + (k+2), P[k+1][0], P[k+1][1], true, "#3DDC97");
+      b.locked = true; b.price = precio;
       bases.push(b);
     });
   }
@@ -861,7 +1075,7 @@ function newGame(modo){
   for (const b of bases){
     if (b.isPlayer) continue;
     const n = 2 + ((Math.random()*2)|0);
-    for (let i=0;i<n;i++) b.peds[i].florin = { tier: (Math.random()*2)|0, bob: rnd(0,6.28) };
+    for (let i=0;i<n;i++) b.peds[i].florin = nuevoFlorin((Math.random()*2)|0, { bob: rnd(0,6.28) });
   }
   // Abuelas guardianas (solo en las bases de los vecinos)
   for (const b of bases){
@@ -887,7 +1101,7 @@ function newGame(modo){
   for (const p of jugadores) for (const b of p.patios){ b.owner = p; ponerLaser(b); }
 
   const g = {
-    t: 0, mode, bases, armeria, ruleta, portal,
+    t: 0, mode, esc, bases, armeria, ruleta, portal,
     girando: null,
     players: jugadores,
     player: jugadores[0],
@@ -895,6 +1109,7 @@ function newGame(modo){
     cascaras: [], perros: [], slowmo: 0,
     thieves: [], ground: [], pops: [], puffs: [],
     thiefTimer: 14,
+    hito: GOAL, hitoN: 0, fiesta: 0, alarma: null,
     over: false, winner: null, paused: false, started: false
   };
 
@@ -924,6 +1139,8 @@ window.addEventListener("keydown", e => {
   if (k === "m") toggleSound();
   if (k === "n") abrirBautizo();
   if (k === "b") { if (document.getElementById("album").hidden) abrirAlbum(); else cerrarAlbum(); }
+  if (k === "t") togglePanel("arm");
+  if (k === "r") togglePanel("rul");
   if (k === "escape" && !document.getElementById("album").hidden) cerrarAlbum();
   if (k >= "1" && k <= "9") selectWeapon(+k - 1);
   if (k === "0") selectWeapon(9);
@@ -1097,10 +1314,75 @@ el.throwB.addEventListener("keydown", e => {
 el.pause.addEventListener("click", togglePause);
 el.sound.addEventListener("click", toggleSound);
 el.hand.addEventListener("click", toggleZurdo);
+/* ---- paneles de Armería y Ruleta: se abren con su botón, no al pasar ---- */
+function panelDisponible(cual){
+  if (!G || !G.started || G.over || G.mode === 2) return false;
+  return cual === "arm" ? !!G.players[0].inShop : !!G.players[0].inRuleta;
+}
+function cerrarPanel(cual){
+  (cual === "arm" ? el.arm : el.rul).hidden = true;
+  renderBotonesPanel();
+}
+function togglePanel(cual){
+  if (!panelDisponible(cual)){
+    if (G && G.started && !G.over && G.mode === 1){
+      const p = G.players[0];
+      const donde = cual === "arm" ? "la Armería" : "la Ruleta";
+      pop(p.x, p.y-62, "Tienes que estar en " + donde, "#FF6B90");
+    }
+    return;
+  }
+  const caja = cual === "arm" ? el.arm : el.rul;
+  const abrir = caja.hidden;
+  // solo un panel a la vez: si están pegados, uno taparía al otro
+  el.arm.hidden = true; el.rul.hidden = true;
+  caja.hidden = !abrir;
+  if (abrir){
+    if (cual === "arm") renderRack();
+    else { G.ultimoPremio = null; construirTira(null); renderRuleta(); }
+    Snd.unlock();
+  }
+  renderBotonesPanel();
+}
+function renderBotonesPanel(){
+  for (const [cual, boton, caja] of [["arm", el.btnArm, el.arm], ["rul", el.btnRul, el.rul]]){
+    const listo = panelDisponible(cual);
+    boton.classList.toggle("lejos", !listo);
+    boton.classList.toggle("on", !caja.hidden);
+    boton.setAttribute("aria-pressed", String(!caja.hidden));
+  }
+}
+
+el.btnArm.addEventListener("click", () => togglePanel("arm"));
+el.btnRul.addEventListener("click", () => togglePanel("rul"));
 el.rulBtn.addEventListener("click", girarRuleta);
 document.getElementById("btnAlbum").addEventListener("click", abrirAlbum);
 document.getElementById("albumCerrar").addEventListener("click", cerrarAlbum);
 aplicarZurdo();
+/* ---- selector de escenario en la portada ---- */
+const escFila = document.getElementById("escFila");
+const escDesc = document.getElementById("escDesc");
+const escBtns = ESCENARIOS.map((e, i) => {
+  const b = document.createElement("button");
+  b.type = "button"; b.className = "escBtn";
+  b.innerHTML = '<span class="ic">' + e.icono + '</span><span>' + e.nombre + '</span>';
+  b.setAttribute("aria-label", "Escenario " + e.nombre + ": " + e.desc);
+  b.addEventListener("click", () => elegirEscenario(i));
+  escFila.appendChild(b);
+  return b;
+});
+function elegirEscenario(i){
+  escSel = i;
+  try { localStorage.setItem("florin_escenario", ESCENARIOS[i].id); } catch (_){}
+  escBtns.forEach((b, k) => {
+    b.classList.toggle("sel", k === i);
+    b.setAttribute("aria-pressed", String(k === i));
+  });
+  escDesc.textContent = ESCENARIOS[i].desc;
+  Snd.unlock();
+}
+elegirEscenario(escSel);
+
 document.getElementById("btnStart").addEventListener("click", () => startGame(1));
 document.getElementById("btnStart2").addEventListener("click", () => startGame(2));
 document.getElementById("btnAgain").addEventListener("click", () => startGame());   // repite el modo
@@ -1142,7 +1424,7 @@ function abrirBautizo(){
   bau.ped = ped;
   const T = TIERS[ped.florin.tier];
   bau.titulo.textContent = ped.florin.nombre ? "Cámbiale el nombre" : "Bautiza tu Florín";
-  bau.que.textContent = T.name + " · " + T.rar +
+  bau.que.textContent = T.name + " · " + T.rar + " · " + florNombre(ped.florin) +
     (ped.florin.variant ? " " + varLabel(ped.florin.variant) : "") +
     " · " + florinIncome(ped.florin) + "/s";
   bau.input.value = ped.florin.nombre || "";
@@ -1538,7 +1820,7 @@ function sacarDelPortal(){
   const e = tiraDeTabla(PORTAL_RAREZAS);
   const p0 = puntoDelDesfile(0);
   P.desfile.push({
-    florin: { tier: e.tier, variant: null, nombre: null, bob: rnd(0,6.28) },
+    florin: nuevoFlorin(e.tier, { bob: rnd(0,6.28) }),
     k: 0, x: p0.x, y: p0.y, face: 1, pop: 1,
     esDesfile: true,
   });
@@ -1599,7 +1881,7 @@ function entregarPremio(p, pr){
     Snd.buy();
     return;
   }
-  const f = { tier: pr.tier, variant: pr.variant || null, nombre: null };
+  const f = nuevoFlorin(pr.tier, { variant: pr.variant || null });
   if (!p.carry) p.carry = f;
   else G.ground.push(mismoFlorin(f, { x: p.x + rnd(-24,24), y: p.y + 34, bob:0, t:0 }));
   const col = pr.variant ? VARIANTES[pr.variant].color : (RAR_COLOR[TIERS[pr.tier].rar] || "#FFC53D");
@@ -1737,7 +2019,7 @@ function spawnThief(){
     x: from.rect.x + from.rect.w/2 + rnd(-90,90),
     y: from.rect.y + from.rect.h/2 + rnd(-70,70),
     home: from, victim: pick(patios), state:"go", target:null, carry:null,
-    stun:0, frozen:0, kx:0, ky:0, grabT:0, spd, walk:0, face:1,
+    stun:0, frozen:0, abducido:0, kx:0, ky:0, grabT:0, spd, walk:0, face:1,
     salto: K.salta ? K.salta : 0,
     who: from.who, hue: K.shirt
   });
@@ -1998,7 +2280,7 @@ function update(dt){
     if (b.refill <= 0){
       b.refill = rnd(7, 12);
       const ped = freePed(b);
-      if (ped){ ped.florin = { tier: rollTier(), bob: rnd(0,6.28) }; ped.pop = 1; }
+      if (ped){ ped.florin = nuevoFlorin(rollTier(), { bob: rnd(0,6.28) }); ped.pop = 1; }
     }
   }
 
@@ -2113,9 +2395,48 @@ function update(dt){
     if (q.life <= 0) G.puffs.splice(i,1);
   }
 
-  /* ---- victoria: el primero que llegue a la meta ---- */
-  if (!G.over) for (const p of G.players)
-    if (p.money >= GOAL){ endGame(p); break; }
+  /* ---- alarma de robo ----
+     Con el mapa grande te pueden estar vaciando la vitrina al otro lado de la
+     pantalla, así que hace falta avisar de verdad: quién, dónde, y por dónde. */
+  // ojo: abducido puede venir sin definir, y `undefined <= 0` es false
+  const enPleno = G.thieves.find(t =>
+    t.state === "grab" && t.stun <= 0 && !(t.abducido > 0) &&
+    t.target && t.target.florin && t.victim.owner === G.players[0]);
+  if (enPleno){
+    if (!G.alarma) Snd.alarma();                 // solo al empezar, no cada frame
+    else if (G.alarma.pip <= 0){ Snd.alarma(); G.alarma.pip = .9; }
+    G.alarma = {
+      quien: LADRONES[enPleno.who].label,
+      color: LADRONES[enPleno.who].shirt,
+      patio: enPleno.victim.name,
+      x: enPleno.x, y: enPleno.y,
+      pip: G.alarma ? G.alarma.pip - dt : .9,
+    };
+  } else if (G.alarma){
+    // se mantiene un instante para que el aviso no desaparezca de golpe
+    G.alarma.resto = (G.alarma.resto == null ? .8 : G.alarma.resto) - dt;
+    if (G.alarma.resto <= 0) G.alarma = null;
+  }
+
+  /* ---- la meta ----
+     Con dos jugadores es un duelo: gana el primero que llega. Con uno la partida
+     no se corta, porque lo divertido es coleccionar: se celebra el hito y la
+     barra se vuelve a llenar hacia el siguiente. */
+  if (G.over) return;
+  if (G.mode === 2){
+    for (const p of G.players) if (p.money >= GOAL){ endGame(p); break; }
+    return;
+  }
+  const p1 = G.players[0];
+  if (p1.money >= G.hito){
+    G.hitoN++;
+    G.hito = GOAL * (G.hitoN + 1);
+    pop(p1.x, p1.y - 92, "¡Hito " + G.hitoN + "! " + money(GOAL*G.hitoN), "#FFC53D");
+    puff(p1.x, p1.y - 20, "#FFC53D", 26);
+    G.fiesta = 2.2;                     // el HUD lo celebra un momento
+    Snd.win();
+  }
+  if (G.fiesta > 0) G.fiesta -= dt;
 }
 
 /* Todo lo que le pasa a UN jugador. Con dos, esto corre dos veces. */
@@ -2305,23 +2626,26 @@ function updateJugador(p, dt){
       }
   } else { c.spin = 0; }
 
-  /* ---- armería y ruleta (solo en un jugador) ---- */
+  /* ---- armería y ruleta (solo en un jugador) ----
+     Estar en el puesto solo HABILITA su botón; el panel lo abres tú. Antes se
+     abría solo al pasar por encima y te tapaba media pantalla sin pedirlo.
+     Al salir del puesto sí se cierra, para no dejarlo colgado. */
   if (G.mode === 1){
     const nearShop = inRect(p.x, p.y, G.armeria, 30);
     if (nearShop !== p.inShop){
       p.inShop = nearShop;
-      el.arm.hidden = !nearShop;
+      if (!nearShop) cerrarPanel("arm");
+      renderBotonesPanel();
     }
-    if (nearShop) renderRack();
+    if (nearShop && !el.arm.hidden) renderRack();
 
     const nearRul = inRect(p.x, p.y, G.ruleta, 30);
     if (nearRul !== p.inRuleta){
       p.inRuleta = nearRul;
-      el.rul.hidden = !nearRul;
-      if (nearRul){ G.ultimoPremio = null; construirTira(null); }
-      renderRuleta();
+      if (!nearRul) cerrarPanel("rul");
+      renderBotonesPanel();
     }
-    if (nearRul) renderRuleta();
+    if (nearRul && !el.rul.hidden) renderRuleta();
   }
 }
 
@@ -2330,25 +2654,85 @@ function updateJugador(p, dt){
    ============================================================ */
 const cam = { x:0, y:0 };
 
+/* El suelo lo pinta el escenario. La decoración es determinista (i*primos) para
+   que no baile entre frames y no haga falta guardarla. */
 function drawFloor(){
-  ctx.fillStyle = "#B45E38";
+  const E = G.esc;
+  ctx.fillStyle = E.suelo;
   ctx.fillRect(0,0,WORLD_W,WORLD_H);
-  // losetas
-  const S = 90;
+
+  const S = E.deco === "baldosas" ? 60 : 90;
   ctx.lineWidth = 2;
-  ctx.strokeStyle = "rgba(255,239,226,.07)";
+  ctx.strokeStyle = E.loseta;
   ctx.beginPath();
   for (let x=0;x<=WORLD_W;x+=S){ ctx.moveTo(x,0); ctx.lineTo(x,WORLD_H); }
   for (let y=0;y<=WORLD_H;y+=S){ ctx.moveTo(0,y); ctx.lineTo(WORLD_W,y); }
   ctx.stroke();
-  // manchas del patio
-  ctx.fillStyle = "rgba(120,58,32,.22)";
-  for (let i=0;i<26;i++){
-    const x = ((i*367)%WORLD_W), y = ((i*613)%WORLD_H), r = 26+((i*53)%48);
-    ctx.beginPath(); ctx.ellipse(x,y,r,r*.6,i,0,6.283); ctx.fill();
+
+  ctx.fillStyle = E.mancha;
+  if (E.deco === "manchas"){
+    for (let i=0;i<26;i++){
+      const x = ((i*367)%WORLD_W), y = ((i*613)%WORLD_H), r = 26+((i*53)%48);
+      ctx.beginPath(); ctx.ellipse(x,y,r,r*.6,i,0,6.283); ctx.fill();
+    }
   }
+  else if (E.deco === "baldosas"){
+    // losas grandes desiguales y algún respiradero de azotea
+    for (let i=0;i<22;i++){
+      const x = ((i*421)%WORLD_W), y = ((i*577)%WORLD_H), w = 90+((i*37)%120);
+      ctx.fillRect(x, y, w, 60);
+    }
+    for (let i=0;i<9;i++){
+      const x = 120+((i*613)%(WORLD_W-320)), y = 120+((i*457)%(WORLD_H-320));
+      ctx.fillStyle = "rgba(30,28,38,.5)";
+      roundRect(x, y, 54, 40, 7); ctx.fill();
+      ctx.strokeStyle = "rgba(255,255,255,.16)"; ctx.lineWidth = 3;
+      ctx.beginPath();
+      for (let k=0;k<3;k++){ ctx.moveTo(x+8, y+11+k*9); ctx.lineTo(x+46, y+11+k*9); }
+      ctx.stroke();
+      ctx.fillStyle = E.mancha;
+    }
+  }
+  else if (E.deco === "olas"){
+    // orillas de espuma arriba y abajo, y conchitas repartidas
+    ctx.strokeStyle = "rgba(255,255,255,.22)"; ctx.lineWidth = 7;
+    for (let f=0;f<3;f++){
+      ctx.beginPath();
+      for (let x=0;x<=WORLD_W;x+=40){
+        const y = 46 + f*34 + Math.sin(x*.008 + f)*13;
+        x === 0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+      }
+      ctx.stroke();
+      ctx.beginPath();
+      for (let x=0;x<=WORLD_W;x+=40){
+        const y = WORLD_H - 46 - f*34 + Math.sin(x*.008 + f + 2)*13;
+        x === 0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+      }
+      ctx.stroke();
+    }
+    ctx.fillStyle = E.mancha;
+    for (let i=0;i<30;i++){
+      const x = ((i*389)%WORLD_W), y = ((i*641)%WORLD_H);
+      ctx.beginPath(); ctx.arc(x, y, 5+((i*29)%7), 0, 6.283); ctx.fill();
+    }
+  }
+  else if (E.deco === "grietas"){
+    // tierra rajada: líneas quebradas largas
+    ctx.strokeStyle = E.mancha; ctx.lineWidth = 5; ctx.lineCap = "round";
+    for (let i=0;i<16;i++){
+      let x = ((i*431)%WORLD_W), y = ((i*307)%WORLD_H);
+      ctx.beginPath(); ctx.moveTo(x,y);
+      for (let k=0;k<5;k++){
+        x += 60 + ((i*13+k*29)%70) * (k%2 ? -1 : 1);
+        y += 44 + ((i*17+k*23)%50);
+        ctx.lineTo(x,y);
+      }
+      ctx.stroke();
+    }
+  }
+
   // borde del mundo
-  ctx.strokeStyle = "#5C2A18"; ctx.lineWidth = 16;
+  ctx.strokeStyle = E.borde; ctx.lineWidth = 16;
   ctx.strokeRect(8,8,WORLD_W-16,WORLD_H-16);
 }
 
@@ -2416,7 +2800,7 @@ function drawBase(b){
     if (ped.florin){
       const bob = Math.sin(ped.florin.bob)*4;
       const s = 1 + Math.max(0, ped.pop)*.35;
-      drawFlorin(ped.x, ped.y-16+bob, s, ped.florin.tier, ped.florin.bob, ped.florin.variant);
+      drawFlorin(ped.x, ped.y-16+bob, s, ped.florin, ped.florin.bob);
       const T = TIERS[ped.florin.tier];
       let ny = ped.y - 76 + bob;
       if (ped.florin.nombre){                        // el nombre que le pusiste
@@ -2448,7 +2832,11 @@ function drawBase(b){
   ctx.restore();
 }
 
-function drawFlorin(x, y, s, tier, t, variant){
+/* Recibe el Florín entero (tier + variante + especie de flor) en vez de sueltos:
+   así ningún sitio se olvida de pasar uno y salen todos iguales sin querer. */
+function drawFlorin(x, y, s, f, t){
+  const tier = f.tier, variant = f.variant || null;
+  const FL = FLORES[(f.flor|0) % FLORES.length];
   const T = TIERS[tier];
   ctx.save();
   ctx.translate(x, y); ctx.scale(s, s);
@@ -2534,26 +2922,125 @@ function drawFlorin(x, y, s, tier, t, variant){
   /* ---- la flor plantada arriba ---- */
   const sway = Math.sin(t*2)*2;
   const fx = 2, fy = top - D + 4;
-  ctx.strokeStyle = "#3E9C56"; ctx.lineWidth = 3; ctx.lineCap = "round";
-  ctx.beginPath(); ctx.moveTo(fx, fy);
-  ctx.quadraticCurveTo(fx+sway*.5, fy-8, fx+sway, fy-14); ctx.stroke();
-  ctx.fillStyle = "#4FB265";
-  ctx.beginPath(); ctx.ellipse(fx-4.5, fy-7, 4.2, 2.2, -0.5, 0, 6.283); ctx.fill();
 
-  const cx = fx+sway, cy = fy-15, n = T.n, R = 6.5;
-  for (let i=0;i<n;i++){
-    const a = (i/n)*6.283 + (T.style === "turbo" ? t*2 : 0);
-    ctx.save(); ctx.translate(cx,cy); ctx.rotate(a); ctx.translate(0,-R);
-    const grd = ctx.createLinearGradient(0,-5,0,5);
-    grd.addColorStop(0, T.petal); grd.addColorStop(1, T.petal2);
-    ctx.fillStyle = grd;
-    ctx.beginPath(); ctx.ellipse(0,0,3.4,5.3,0,0,6.283); ctx.fill();
-    ctx.strokeStyle = "rgba(0,0,0,.22)"; ctx.lineWidth = 1; ctx.stroke();
-    ctx.restore();
+  if (FL.cactus){                                 // el cactus no tiene tallo: es una pala
+    ctx.fillStyle = "#4FB265";
+    roundRect(fx-5.5, fy-17, 11, 19, 5); ctx.fill();
+    ctx.strokeStyle = "#2F7A46"; ctx.lineWidth = 1.4;
+    roundRect(fx-5.5, fy-17, 11, 19, 5); ctx.stroke();
+    roundRect(fx+4, fy-12, 6.5, 10, 3); ctx.fillStyle = "#4FB265"; ctx.fill();
+    ctx.strokeStyle = "#BFE9FF"; ctx.lineWidth = .9;   // espinas
+    ctx.beginPath();
+    for (let i=0;i<4;i++){
+      const sy = fy-14+i*4;
+      ctx.moveTo(fx-6.5, sy); ctx.lineTo(fx-3.5, sy);
+      ctx.moveTo(fx+6.5, sy); ctx.lineTo(fx+3.5, sy);
+    }
+    ctx.stroke();
+  } else {
+    ctx.strokeStyle = "#3E9C56"; ctx.lineWidth = 3; ctx.lineCap = "round";
+    ctx.beginPath(); ctx.moveTo(fx, fy);
+    ctx.quadraticCurveTo(fx+sway*.5, fy-8, fx+sway, fy-14); ctx.stroke();
+    ctx.fillStyle = "#4FB265";
+    if (FL.hojas >= 1){
+      ctx.beginPath(); ctx.ellipse(fx-4.5, fy-7, 4.2, 2.2, -0.5, 0, 6.283); ctx.fill();
+    }
+    if (FL.hojas >= 2){
+      ctx.beginPath(); ctx.ellipse(fx+4.6, fy-11, 3.6, 2, 0.5, 0, 6.283); ctx.fill();
+    }
   }
-  ctx.fillStyle = T.center;
-  ctx.beginPath(); ctx.arc(cx,cy,4.2,0,6.283); ctx.fill();
-  ctx.strokeStyle = "rgba(0,0,0,.3)"; ctx.lineWidth = 1.2; ctx.stroke();
+
+  const cx = fx+sway, cy = fy-15;
+  const n = FL.n == null ? T.n : FL.n;
+  const R = FL.R;
+  // la cabeza va un poco más grande que antes: a tamaño de juego, si no, todas
+  // las especies se veían como la misma manchita de color
+  const FS = 1.24;
+  const petalo = (forma) => {                     // cada especie recorta distinto
+    ctx.beginPath();
+    if (forma === "ovalo")        ctx.ellipse(0,0,3.4,5.3,0,0,6.283);
+    else if (forma === "tira")    ctx.ellipse(0,-1.2,1.5,6.2,0,0,6.283);
+    else if (forma === "bolita")  ctx.arc(0,-1.5,3.1,0,6.283);
+    else if (forma === "copa"){
+      ctx.moveTo(-3.4,4.5);
+      ctx.quadraticCurveTo(-4.2,-5.5, 0,-8);
+      ctx.quadraticCurveTo(4.2,-5.5, 3.4,4.5);
+      ctx.closePath();
+    }
+    else if (forma === "punta"){
+      ctx.moveTo(0,-7.6); ctx.lineTo(2.5,1); ctx.lineTo(0,3.2); ctx.lineTo(-2.5,1);
+      ctx.closePath();
+    }
+    else if (forma === "estrella"){
+      ctx.moveTo(0,-8.6); ctx.lineTo(1.9,-.5); ctx.lineTo(0,2.4); ctx.lineTo(-1.9,-.5);
+      ctx.closePath();
+    }
+    else if (forma === "corazon"){
+      ctx.moveTo(0,3.4);
+      ctx.quadraticCurveTo(-5,-1.5, -2.4,-4.6);
+      ctx.quadraticCurveTo(0,-6.4, 0,-3);
+      ctx.quadraticCurveTo(0,-6.4, 2.4,-4.6);
+      ctx.quadraticCurveTo(5,-1.5, 0,3.4);
+      ctx.closePath();
+    }
+    else if (forma === "orquidea"){
+      ctx.moveTo(0,3);
+      ctx.quadraticCurveTo(-3.8,-1, -2,-6.2);
+      ctx.quadraticCurveTo(0,-7.6, 2,-6.2);
+      ctx.quadraticCurveTo(3.8,-1, 0,3);
+      ctx.closePath();
+    }
+    else ctx.ellipse(0,0,3.4,5.3,0,0,6.283);
+  };
+
+  if (FL.forma === "campana"){                    // una sola campana colgando
+    const grd = ctx.createLinearGradient(0, cy-6, 0, cy+7);
+    grd.addColorStop(0, T.petal2); grd.addColorStop(1, T.petal);
+    ctx.save(); ctx.translate(cx, cy); ctx.scale(FS, FS); ctx.rotate(sway*.05);
+    ctx.fillStyle = grd;
+    ctx.beginPath();
+    ctx.moveTo(-3, -6);
+    ctx.quadraticCurveTo(-7.5, 3, -6, 7);
+    ctx.quadraticCurveTo(0, 10, 6, 7);
+    ctx.quadraticCurveTo(7.5, 3, 3, -6);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = "rgba(0,0,0,.22)"; ctx.lineWidth = 1; ctx.stroke();
+    ctx.fillStyle = T.center;                     // el badajo
+    ctx.beginPath(); ctx.arc(0, 7.4, 1.7, 0, 6.283); ctx.fill();
+    ctx.restore();
+  } else {
+    for (let i=0;i<n;i++){
+      const a = (i/n)*6.283 + (T.style === "turbo" ? t*2 : 0);
+      ctx.save(); ctx.translate(cx,cy); ctx.scale(FS,FS); ctx.rotate(a); ctx.translate(0,-R);
+      const grd = ctx.createLinearGradient(0,-5,0,5);
+      grd.addColorStop(0, T.petal); grd.addColorStop(1, T.petal2);
+      ctx.fillStyle = grd;
+      petalo(FL.forma); ctx.fill();
+      ctx.strokeStyle = "rgba(0,0,0,.22)"; ctx.lineWidth = 1; ctx.stroke();
+      ctx.restore();
+    }
+    if (FL.labio){                                // la orquídea tiene labio abajo
+      ctx.save(); ctx.translate(cx, cy+4.5*FS); ctx.scale(FS, FS);
+      ctx.fillStyle = T.center;
+      ctx.beginPath(); ctx.ellipse(0, 0, 3.6, 2.6, 0, 0, 6.283); ctx.fill();
+      ctx.strokeStyle = "rgba(0,0,0,.25)"; ctx.lineWidth = 1; ctx.stroke();
+      ctx.restore();
+    }
+    if (FL.centro > 0){
+      ctx.fillStyle = T.center;
+      ctx.beginPath(); ctx.arc(cx,cy,FL.centro*FS,0,6.283); ctx.fill();
+      ctx.strokeStyle = "rgba(0,0,0,.3)"; ctx.lineWidth = 1.2; ctx.stroke();
+      if (FL.semillas){                           // pipas del girasol
+        ctx.fillStyle = "rgba(0,0,0,.32)";
+        for (let i=0;i<7;i++){
+          const a = i*2.4, rr = (1.1 + (i%3)*1.2)*FS;
+          ctx.beginPath();
+          ctx.arc(cx+Math.cos(a)*rr, cy+Math.sin(a)*rr, .8, 0, 6.283);
+          ctx.fill();
+        }
+      }
+    }
+  }
 
   /* ---- carita en la cara frontal ---- */
   const dark = (T.style === "ninja" || T.style === "cosmic");
@@ -2657,7 +3144,8 @@ function drawArmeria(){
   ctx.fillStyle = "rgba(255,239,226,.6)";
   ctx.font = "600 12px system-ui, sans-serif";
   ctx.fillText(G.mode === 2 ? "cerrada en modo dos jugadores"
-               : (G.inShop ? "elige tu arma abajo ↓" : "entra para comprar armas"),
+               : !G.inShop ? "entra y toca 🧰 arriba"
+               : el.arm.hidden ? "toca 🧰 arriba (tecla T)" : "elige tu arma abajo ↓",
                a.x+a.w/2, a.y+46);
 
   // mostrador con los gadgets, en dos filas para que quepan los diez
@@ -2886,7 +3374,7 @@ function drawDesfile(){
     const sc = 1 + Math.max(0, d.pop)*.35;
     ctx.fillStyle = "rgba(0,0,0,.22)";
     ctx.beginPath(); ctx.ellipse(d.x, d.y+16, 20, 7, 0, 0, 6.283); ctx.fill();
-    drawFlorin(d.x, d.y + bob, .92*sc, d.florin.tier, d.florin.bob, d.florin.variant);
+    drawFlorin(d.x, d.y + bob, .92*sc, d.florin, d.florin.bob);
     // píldora de rareza, para decidir a cuál vale la pena correrle
     const T = TIERS[d.florin.tier];
     const col = RAR_COLOR[T.rar] || "#FFEFE2";
@@ -2920,7 +3408,8 @@ function drawRuleta(){
   ctx.fillStyle = "rgba(255,239,226,.6)";
   ctx.font = "600 12px system-ui, sans-serif";
   ctx.fillText(G.mode === 2 ? "cerrada en modo dos jugadores"
-               : (G.player.inRuleta ? "gira abajo ↓" : "entra para girar · " + money(RULETA_PRECIO)),
+               : !G.player.inRuleta ? "entra y toca 🎰 arriba · " + money(RULETA_PRECIO)
+               : el.rul.hidden ? "toca 🎰 arriba (tecla R)" : "gira abajo ↓",
                r.x+r.w/2, r.y+46);
 
   // la rueda, girando mientras hay tirada en curso
@@ -3026,7 +3515,7 @@ function drawPerson(x, y, face, walk, opts){
   ctx.restore();
   ctx.globalAlpha = 1;
 
-  if (carry) drawFlorin(x + 2, y - 46, .8, carry.tier, G.t*2, carry.variant);
+  if (carry) drawFlorin(x + 2, y - 46, .8, carry, G.t*2);
 }
 
 function drawChanclaSprite(x, y, spin, scale){
@@ -3130,7 +3619,7 @@ function draw(){
   // florines en el suelo
   for (const g of G.ground){
     drawShadow(g.x, g.y+18, 15);
-    drawFlorin(g.x, g.y + Math.sin(g.bob)*4, .95, g.tier, g.bob, g.variant);
+    drawFlorin(g.x, g.y + Math.sin(g.bob)*4, .95, g, g.bob);
     if (g.t < 3){
       ctx.fillStyle = "rgba(255,239,226,.8)";
       ctx.font = "700 12px system-ui, sans-serif"; ctx.textAlign = "center";
@@ -3269,6 +3758,43 @@ function draw(){
   }
   ctx.globalAlpha = 1;
 
+  /* ---- flecha al borde: por dónde te están robando ----
+     draw() deja puesta la transformación del mundo, así que hay que volver a
+     coordenadas de pantalla antes de pegar la flecha en el borde. */
+  if (G.alarma && !G.over){
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+    const a = G.alarma;
+    const sx = (a.x - cam.x) * ZOOM, sy = (a.y - cam.y) * ZOOM;
+    const m = 46;                                  // margen desde el borde
+    const fuera = sx < m || sx > VW-m || sy < m || sy > VH-m;
+    if (fuera){
+      const cxp = VW/2, cyp = VH/2;
+      const dx = sx - cxp, dy = sy - cyp;
+      const ang = Math.atan2(dy, dx);
+      // el punto del rectángulo interior en esa dirección
+      const k = Math.min((VW/2 - m) / Math.max(1e-3, Math.abs(Math.cos(ang))),
+                         (VH/2 - m) / Math.max(1e-3, Math.abs(Math.sin(ang))));
+      const px = cxp + Math.cos(ang)*k, py = cyp + Math.sin(ang)*k;
+      const pulso = REDUCED ? 1 : 1 + Math.sin(G.t*9)*.12;
+      ctx.save();
+      ctx.translate(px, py); ctx.rotate(ang); ctx.scale(pulso, pulso);
+      ctx.fillStyle = "#FF3D6E";
+      ctx.beginPath();
+      ctx.moveTo(19,0); ctx.lineTo(-8,-13); ctx.lineTo(-2,0); ctx.lineTo(-8,13);
+      ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = "#2A1226"; ctx.lineWidth = 2.5; ctx.stroke();
+      ctx.restore();
+      // la distancia, para saber si vale la pena correr
+      const dist = Math.round(Math.hypot(a.x - G.player.x, a.y - G.player.y));
+      ctx.font = "800 12px ui-monospace, monospace";
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.lineWidth = 3.5; ctx.strokeStyle = "rgba(15,7,14,.85)";
+      ctx.strokeText(dist + " px", px, py + 26);
+      ctx.fillStyle = "#FF9EC4";
+      ctx.fillText(dist + " px", px, py + 26);
+    }
+  }
+
   drawMinimap();
 }
 
@@ -3324,6 +3850,16 @@ function drawMinimap(){
   for (const b of G.bases) if (laserActivo(b)){
     mctx.strokeStyle = "#FF3D6E"; mctx.lineWidth = 4;
     mctx.strokeRect(b.rect.x*sx, b.rect.y*sy, b.rect.w*sx, b.rect.h*sy);
+  }
+  // el patio que te están robando parpadea
+  if (G.alarma && (REDUCED || Math.sin(G.t*10) > -.2)){
+    const rb = G.bases.find(b => b.name === G.alarma.patio);
+    if (rb){
+      mctx.fillStyle = "rgba(255,61,110,.42)";
+      mctx.fillRect(rb.rect.x*sx, rb.rect.y*sy, rb.rect.w*sx, rb.rect.h*sy);
+      mctx.strokeStyle = "#FFEFE2"; mctx.lineWidth = 3;
+      mctx.strokeRect(rb.rect.x*sx, rb.rect.y*sy, rb.rect.w*sx, rb.rect.h*sy);
+    }
   }
   for (const d of G.perros){
     mctx.fillStyle = "#E8B08A";
@@ -3419,9 +3955,20 @@ function hud(){
   const inc = playerIncome();
   el.money.textContent = money(G.money);
   el.rate.textContent = money(inc) + "/s";
-  el.goal.textContent = money(G.money) + " / " + money(GOAL);
-  el.bar.style.width = clamp(G.money/GOAL*100, 0, 100).toFixed(1) + "%";
+  // la barra mide el tramo del hito actual, así que se vuelve a llenar cada vez
+  const base = G.hito - GOAL;
+  el.goal.textContent = money(G.money) + " / " + money(G.hito);
+  el.bar.style.width = clamp((G.money - base)/GOAL*100, 0, 100).toFixed(1) + "%";
+  el.goalLabel.textContent = G.hitoN ? "Hito " + (G.hitoN + 1) : "Meta del patio";
+  el.goalCard.classList.toggle("fiesta", G.fiesta > 0);
   el.lost.textContent = G.stats.lost;
+
+  // banda de alarma: quién te roba y de qué patio
+  if (G.alarma){
+    el.alarma.hidden = false;
+    el.alarmaTxt.innerHTML = "<b>" + G.alarma.quien + "</b> te está robando en <b>" +
+      G.alarma.patio + "</b>";
+  } else el.alarma.hidden = true;
 
   const alLado = florinAlLado();
   bau.boton.hidden = !(isTouch && alLado && bau.caja.hidden);
@@ -3436,13 +3983,15 @@ function hud(){
   const useKey = isTouch ? "el botón rosa" : "<span class='k'>espacio</span>";
   if (p.carry) tip = "Llevas un <b>" + TIERS[p.carry.tier].name + "</b> (" +
     (p.carry.variant ? varLabel(p.carry.variant) + " · " : "") + TIERS[p.carry.tier].rar +
-    ") · corre a <b>tu patio</b> para que empiece a pagar " + florinIncome(p.carry) + "/s.";
+    " · " + florNombre(p.carry) + ") · corre a <b>tu patio</b>: paga " + florinIncome(p.carry) + "/s.";
   else if (G.paused) tip = "<b>Pausa.</b> Toca ▶ para seguir.";
   else if (alLado && !alLado.florin.nombre)
     tip = "Puedes <b>bautizar</b> este Florín: " + (isTouch ? "toca el botón verde ✏️" : "tecla <span class='k'>N</span>") + ".";
   else if (alLado)
     tip = "Se llama <b>" + alLado.florin.nombre + "</b> · " + (isTouch ? "toca ✏️" : "<span class='k'>N</span>") + " para cambiarle el nombre.";
-  else if (G.inShop) tip = "Estás en la <b>Armería</b>: compra gadgets y cámbialos con " + (isTouch ? "los chips de abajo" : "<span class='k'>1</span>–<span class='k'>9</span> o <span class='k'>Q</span>/<span class='k'>E</span>") + ".";
+  else if (G.inShop && el.arm.hidden) tip = "Estás en la <b>Armería</b>: toca <b>🧰</b> arriba" + (isTouch ? "" : " o la tecla <span class='k'>T</span>") + " para abrirla.";
+  else if (G.inShop) tip = "Compra gadgets y cámbialos con " + (isTouch ? "los chips de abajo" : "<span class='k'>1</span>–<span class='k'>9</span> o <span class='k'>Q</span>/<span class='k'>E</span>") + ". Cierra con <b>🧰</b>.";
+  else if (G.player.inRuleta && el.rul.hidden) tip = "Estás en la <b>Ruleta</b>: toca <b>🎰</b> arriba" + (isTouch ? "" : " o la tecla <span class='k'>R</span>") + " para abrirla.";
   else if (G.player.inRuleta) tip = "<b>Ruleta</b>: " + money(RULETA_PRECIO) + " por tirada. Las casillas <b>???</b> dan las variantes ✨ y 🌈.";
   else if (G.grab.ped && G.grab.ped.esDesfile) tip = "No te muevas… <b>estás atrapando</b> uno del desfile.";
   else if (p.patios.some(b => laserActivo(b))){
@@ -3479,10 +4028,11 @@ function startGame(modo){
   el.end.hidden = true;
   el.arm.hidden = true;
   el.rul.hidden = true;
+  el.alarma.hidden = true;
   document.getElementById("album").hidden = true;
   el.pause.textContent = "⏸";
   lastTip = "";
-  renderWbar(); renderRack();
+  renderWbar(); renderRack(); renderBotonesPanel();
   Snd.unlock();
 }
 

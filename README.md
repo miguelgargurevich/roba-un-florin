@@ -20,15 +20,53 @@ Inspirado en el género "roba un brainrot" y en Florín, la mascota del youtuber
 | 🩴 Defender | Lanza la chancla a ladrones y abuelas: los noquea y les hace soltar lo que cargan. Vuelve como bumerán. |
 | 🛡️ Blindar | Párate en la **placa de láseres** de tu patio: $800 y nadie entra por un minuto. |
 | 🎰 Apostar | La **Ruleta** ($1 200) es la única forma de sacar las variantes ✨ y 🌈. |
-| 🎯 Meta | Llegar a **$60 000**. |
+| 🎯 Hitos | Cada **$60 000** celebras un hito y la partida **sigue**: no se acaba nunca. |
+
+## Escenarios
+
+Antes de jugar eliges dónde, y la elección se recuerda:
+
+| Escenario | Suelo | Reparto |
+|---|---|---|
+| 🏘️ El Barrio | tierra rojiza con manchas | tus patios juntos al suroeste |
+| 🏢 La Azotea | cemento, losas y respiraderos | los vecinos te rodean por la izquierda |
+| 🏖️ La Playa | arena, olas de espuma y conchas | tus patios en fila junto al agua |
+| 🌵 El Desierto | tierra rajada | casas muy separadas, mucho vacío |
+
+Las **reglas son las mismas** en los cuatro, y la columna del centro (portal,
+Armería y Ruleta) no se mueve nunca: lo que cambia es el sitio y por dónde te
+vienen.
+
+## Cuando te roban
+
+Si un vecino se pone a robarte salta una **alarma**: banda roja con quién es y de
+qué patio, sonido de sirena, el patio parpadeando en el minimapa y —lo más útil
+con un mapa tan grande— una **flecha en el borde de la pantalla** apuntando al
+robo, con la distancia en píxeles, cuando te pilla lejos.
 
 Un Florín tirado en el suelo lo puede recoger cualquiera: si le pegas a un ladrón que huye, se te cae ahí y puedes recuperarlo.
 
 ## Controles
 
-**Teclado y ratón** — `WASD` / flechas para moverte · `espacio` o **clic** para usar el arma · `1`–`0` o `Q`/`E` cambiar de arma · `N` bautizar · `B` álbum · `P` pausa · `M` sonido
+**Teclado y ratón** — `WASD` / flechas para moverte · `espacio` o **clic** para usar el arma · `1`–`0` o `Q`/`E` cambiar de arma · `N` bautizar · `B` álbum · `T` Armería · `R` Ruleta · `P` pausa · `M` sonido
 
 **Táctil (celular y iPad)** — arrastra en una mitad de la pantalla para el joystick · toca el botón rosa para usar el arma · toca los chips para cambiarla
+
+Funciona **en vertical y en horizontal**. Al tumbar el móvil el HUD se compacta
+para que quepa en los ~390 px de alto y se respetan los recortes del notch.
+
+### La partida no se acaba
+
+Llegar a $60 000 ya no corta el juego: se celebra el hito, la barra se vuelve a
+llenar hacia el siguiente ($120 000, $180 000…) y sigues jugando. La idea es
+coleccionar, así que juega hasta que te aburras. En **2 jugadores** sí es un
+duelo: gana el primero que llega a $60 000.
+
+### Los paneles se abren tú
+
+La **Armería** y la **Ruleta** ya no se abren solas al pasar por encima. Estar en
+el puesto **enciende** su botón de la barra superior (🧰 y 🎰, o teclas `T` y `R`)
+y tú decides cuándo abrirlo. Si te alejas, se cierra solo.
 
 ### Apuntar
 
@@ -94,6 +132,18 @@ píldora de color sobre cada bloque:
 | Chancletín Florido | Legendario | flor rosa y su chanclita de la suerte | $5 600 | 135/s |
 | Rey Sol | Mítico | bloque de oro con corona | $13 000 | 310/s |
 | Cósmico | Cósmico | obsidiana morada, anillo orbital y chispas | $31 000 | 720/s |
+
+### Diez especies de flor
+
+La rareza pone los **colores** (para que se siga leyendo de un vistazo lo que vale
+cada Florín), pero la **forma** la pone la especie, sorteada al nacer: amapola,
+margarita, tulipán, campanilla, girasol, orquídea, cactus, estrella, pompón y
+trébol. Cada una tiene sus pétalos y sus hojas — el cactus incluso cambia el tallo
+por una pala con espinas.
+
+Así dos Comunes ya no son el mismo dibujo. La especie **viaja con el Florín** igual
+que el nombre: si te lo roban, llega así a la vitrina del ladrón. Puedes ver de
+qué especie es acercándote y mirando el panel de bautizo.
 
 ### Variantes especiales
 
