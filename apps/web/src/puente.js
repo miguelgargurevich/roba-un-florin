@@ -11,7 +11,7 @@ import {
   avanzar, blancosDe, bloqueadoPorLaser, clamp, comprarArma, crearPartida, dist2,
   esMiPatio, florNombre, florinIncome, freePed, freePedDe, girarRuleta as girarEnMotor,
   idsDeArmas, inRect, laserActivo, lerp, mismoFlorin, money, nuevoFlorin,
-  occupied, occupiedDe, orbitaDelCentro, playerIncome, puntoDelDesfile,
+  occupied, occupiedDe, orbitaDelCentro, patiosDe, playerIncome, puntoDelDesfile,
   rumboDeTiro, seleccionarArma, textoDePremio, usarArma, varLabel, varMult,
 } from "@florin/engine";
 
@@ -22,8 +22,8 @@ export {
   avanzar, blancosDe, bloqueadoPorLaser, clamp, comprarArma, dist2, esMiPatio,
   florNombre, florinIncome, freePed, freePedDe, idsDeArmas, inRect, laserActivo,
   lerp, mismoFlorin, money, nuevoFlorin, occupied, occupiedDe, orbitaDelCentro,
-  playerIncome, puntoDelDesfile, rumboDeTiro, seleccionarArma, textoDePremio,
-  usarArma, varLabel, varMult,
+  patiosDe, playerIncome, puntoDelDesfile, rumboDeTiro, seleccionarArma,
+  textoDePremio, usarArma, varLabel, varMult,
 };
 
 /* ---- escenarios: el motor pone el reparto, el cliente el aspecto ---- */

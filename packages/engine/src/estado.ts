@@ -2,7 +2,8 @@
    Nada de esto dibuja ni suena: solo monta el mundo y responde preguntas. */
 
 import type {
-  Base, Estado, Evento, Florin, Jugador, Laser, Pedestal, Sonido, Variante,
+  Base, DesfileItem, Estado, Evento, Florin, Jugador, Laser, Pedestal, RefObjetivo,
+  RefPed, Sonido, Variante,
 } from "./tipos.js";
 import {
   ESCENARIOS, FLORES, GOAL, LASER_CARGA, PATIOS_PRECIO, TIERS, VARIANTES,
@@ -33,23 +34,41 @@ export function mismoFlorin<T extends object>(f: Florin, extra?: T): Florin & T 
 }
 export const florinIncome = (f: Florin) => TIERS[f.tier].income * varMult(f.variant);
 
+/* ---- resolver ids ----
+   El estado guarda ids y no objetos, para que se pueda serializar y mandar por
+   la red. Estas funciones son el único sitio donde se traduce id → objeto. */
+export const baseDe = (e: Estado, id: number): Base => e.bases[id];
+export const jugadorDe = (e: Estado, idx: number | null): Jugador | null =>
+  idx == null ? null : e.players[idx] || null;
+export const pedDe = (e: Estado, r: RefPed | null): Pedestal | null =>
+  r ? (e.bases[r.b]?.peds[r.i] || null) : null;
+export const desfileDe = (e: Estado, id: number): DesfileItem | null =>
+  e.portal.desfile.find(d => d.id === id) || null;
+export const patiosDe = (e: Estado, p: Jugador): Base[] => p.patios.map(id => e.bases[id]);
+/** El objetivo del aro: puede ser una vitrina o alguien del desfile. */
+export function objetivoDe(e: Estado, r: RefObjetivo | null): Pedestal | DesfileItem | null {
+  if (!r) return null;
+  return r.tipo === "ped" ? pedDe(e, r) : desfileDe(e, r.id);
+}
+export const nuevoId = (e: Estado) => ++e.proximoId;
+
 /* ---- consultas sobre bases y jugadores ---- */
 export const freePed = (b: Base): Pedestal | null => b.peds.find(p => !p.florin) || null;
 export const occupied = (b: Base): Pedestal[] => b.peds.filter(p => p.florin);
 
-export function freePedDe(p: Jugador): Pedestal | null {
-  for (const b of p.patios) { const ped = freePed(b); if (ped) return ped; }
+export function freePedDe(e: Estado, p: Jugador): Pedestal | null {
+  for (const b of patiosDe(e, p)) { const ped = freePed(b); if (ped) return ped; }
   return null;
 }
-export function occupiedDe(p: Jugador): Pedestal[] {
+export function occupiedDe(e: Estado, p: Jugador): Pedestal[] {
   const out: Pedestal[] = [];
-  for (const b of p.patios) for (const ped of b.peds) if (ped.florin) out.push(ped);
+  for (const b of patiosDe(e, p)) for (const ped of b.peds) if (ped.florin) out.push(ped);
   return out;
 }
-export const esMiPatio = (p: Jugador, b: Base) => p.patios.indexOf(b) >= 0;
+export const esMiPatio = (p: Jugador, b: Base) => p.patios.indexOf(b.id) >= 0;
 
-export function playerIncome(p: Jugador): number {
-  return occupiedDe(p).reduce((s, q) => s + florinIncome(q.florin!), 0);
+export function playerIncome(e: Estado, p: Jugador): number {
+  return occupiedDe(e, p).reduce((s, q) => s + florinIncome(q.florin!), 0);
 }
 
 /* ---- láseres ---- */
@@ -65,7 +84,7 @@ export const laserActivo = (b: Base) => !!(b.laser && b.laser.activo > 0);
 export function bloqueadoPorLaser(e: Estado, x: number, y: number, quien: Jugador | null): Base | null {
   for (const b of e.bases) {
     if (!laserActivo(b)) continue;
-    if (quien && b.owner === quien) continue;
+    if (quien && b.owner === quien.idx) continue;
     if (inRect(x, y, b.rect, 6)) return b;
   }
   return null;
@@ -112,7 +131,7 @@ function mkJugador(idx: number, base: Base, shirt: string, ammoIds: string[]): J
   const ammo: Record<string, number> = {};
   for (const id of ammoIds) ammo[id] = 0;
   return {
-    idx, base, patios: [base], shirt,
+    idx, baseId: base.id, patios: [base.id], shirt,
     x: base.rect.x + base.rect.w / 2, y: base.rect.y + base.rect.h / 2,
     vx: 0, vy: 0, face: 1, walk: 0, dirx: 1, diry: 0,
     carry: null, stun: 0, boost: 0, invis: 0, escudo: 0, inmune: 0,
@@ -162,7 +181,7 @@ export function crearPartida(op: OpcionesPartida): Estado {
 
   const jugadores = [mkJugador(0, bases[0], "#3DDC97", op.armas)];
   if (mode === 2) jugadores.push(mkJugador(1, patioJ2, "#FFB020", op.armas));
-  for (const p of jugadores) for (const b of p.patios) { b.owner = p; ponerLaser(b); }
+  for (const p of jugadores) for (const id of p.patios) { bases[id].owner = p.idx; ponerLaser(bases[id]); }
 
   const e: Estado = {
     t: 0, mode, esc, semilla, rngEstado: semilla | 0,
@@ -171,7 +190,7 @@ export function crearPartida(op: OpcionesPartida): Estado {
     thieves: [], ground: [], thiefTimer: 14,
     girando: null, ultimoPremio: null,
     hito: GOAL, hitoN: 0, fiesta: 0, alarma: null,
-    over: false, winner: null,
+    over: false, winnerIdx: null, proximoId: 0,
     eventos: [],
   };
 
@@ -184,10 +203,11 @@ export function crearPartida(op: OpcionesPartida): Estado {
     for (let i = 0; i < n; i++)
       b.peds[i].florin = nuevoFlorin(e, (azar(e) * 2) | 0, { bob: rnd(e, 0, 6.28) });
     b.guard = {
+      baseId: b.id,
       x: b.rect.x + b.rect.w / 2, y: b.rect.y + b.rect.h / 2,
       vx: 0, vy: 0, stun: 0, frozen: 0, abducido: 0,
       wp: 0, face: 1, walk: 0, alert: 0, kx: 0, ky: 0,
-      isGuard: true, carry: null, base: b,
+      isGuard: true, carry: null,
     };
   }
   return e;

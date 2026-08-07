@@ -38,13 +38,15 @@ Misma semilla + mismas entradas = misma partida, en cualquier máquina. El azar
 vive en `e.rngEstado` (mulberry32), no en `Math.random`. Es lo que permitirá
 comparar la simulación del cliente con la del servidor.
 
-## Qué falta para la red
+## El estado viaja por la red
 
-Ahora mismo el estado usa **referencias entre objetos** (`ladron.victim` apunta a
-una base, `p.patios` contiene bases). Va perfecto en memoria, pero no se
-serializa tal cual. Antes de mandar estado por la red hay que pasar esas
-referencias a **ids**. Es el siguiente paso natural, y está acotado a `tipos.ts`
-y a los pocos sitios que comparan con `===`.
+El estado guarda **ids, no referencias**: `ladron.victimId`, `jugador.patios` con
+ids de base, `base.owner` con el idx del jugador. Por eso `JSON.stringify(estado)`
+funciona y una partida reanudada desde JSON continúa exactamente igual — hay una
+prueba de cada cosa.
+
+Para traducir id → objeto están `baseDe`, `jugadorDe`, `pedDe`, `patiosDe` y
+`objetivoDe`. Son el único sitio donde se resuelve una referencia.
 
 ## Comandos
 

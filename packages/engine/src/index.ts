@@ -20,6 +20,7 @@ export {
   playerIncome, florinIncome, mismoFlorin, nuevoFlorin, laserActivo,
   bloqueadoPorLaser, orbitaDelCentro, puntoDelDesfile, ponerLaser,
   PORTAL_BAJADA, PORTAL_ORBITA,
+  baseDe, jugadorDe, pedDe, desfileDe, patiosDe, objetivoDe,
 } from "./estado.js";
 export type { OpcionesPartida } from "./estado.js";
 export {

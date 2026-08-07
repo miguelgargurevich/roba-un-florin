@@ -16,7 +16,7 @@ import {
   florNombre, florinIncome, freePed, freePedDe, girarRuleta as girarEnMotor,
   inRect, laserActivo, lerp, money, nuevaPartidaMotor, nuevoFlorin, occupied,
   occupiedDe, orbitaDelCentro, playerIncome, puntoDelDesfile, rumboDeTiro,
-  seleccionarArma, textoDePremio, usarArma, varLabel, varMult, visualDe,
+  patiosDe, seleccionarArma, textoDePremio, usarArma, varLabel, varMult, visualDe,
 } from "./puente.js";
 
 /* ---- lo que antes vivía dentro del estado del juego y ahora es del cliente ----
@@ -564,7 +564,7 @@ function florinAlLado(){
   if (!G || !G.started || G.over) return null;
   let cerca = null, d2 = 66*66;
   for (const p of G.players)
-    for (const b of p.patios) for (const ped of b.peds){
+    for (const b of patiosDe(G, p)) for (const ped of b.peds){
       if (!ped.florin) continue;
       const d = dist2(p.x, p.y, ped.x, ped.y);
       if (d < d2){ d2 = d; cerca = ped; }
@@ -2536,9 +2536,9 @@ function hud(){
     const a = G.players[0], b = G.players[1];
     el.j2.hidden = false;
     el.money.textContent = money(a.money);
-    el.rate.textContent  = money(playerIncome(a)) + "/s";
+    el.rate.textContent  = money(playerIncome(G, a)) + "/s";
     el.j2money.textContent = money(b.money);
-    el.j2rate.textContent  = money(playerIncome(b)) + "/s";
+    el.j2rate.textContent  = money(playerIncome(G, b)) + "/s";
     el.bar.style.width   = clamp(a.money/GOAL*100, 0, 100).toFixed(1) + "%";
     el.j2bar.style.width = clamp(b.money/GOAL*100, 0, 100).toFixed(1) + "%";
     el.goal.textContent  = "meta " + money(GOAL);
@@ -2552,7 +2552,7 @@ function hud(){
     return;
   }
   el.j2.hidden = true;
-  const inc = playerIncome(G.player);
+  const inc = playerIncome(G, G.player);
   el.money.textContent = money(G.money);
   el.rate.textContent = money(inc) + "/s";
   // la barra mide el tramo del hito actual, así que se vuelve a llenar cada vez
@@ -2593,9 +2593,9 @@ function hud(){
   else if (G.inShop) tip = "Compra gadgets y cámbialos con " + (isTouch ? "los chips de abajo" : "<span class='k'>1</span>–<span class='k'>9</span> o <span class='k'>Q</span>/<span class='k'>E</span>") + ". Cierra con <b>🧰</b>.";
   else if (G.player.inRuleta && el.rul.hidden) tip = "Estás en la <b>Ruleta</b>: toca <b>🎰</b> arriba" + (isTouch ? "" : " o la tecla <span class='k'>R</span>") + " para abrirla.";
   else if (G.player.inRuleta) tip = "<b>Ruleta</b>: " + money(RULETA_PRECIO) + " por tirada. Las casillas <b>???</b> dan las variantes ✨ y 🌈.";
-  else if (G.grab.ped && G.grab.ped.esDesfile) tip = "No te muevas… <b>estás atrapando</b> uno del desfile.";
-  else if (p.patios.some(b => laserActivo(b))){
-    const b = p.patios.find(q => laserActivo(q));
+  else if (G.grab.ped && G.grab.ped.tipo === "desfile") tip = "No te muevas… <b>estás atrapando</b> uno del desfile.";
+  else if (patiosDe(G, p).some(b => laserActivo(b))){
+    const b = patiosDe(G, p).find(q => laserActivo(q));
     tip = "<b>Láseres encendidos</b> en " + b.name + ": nadie entra por " + Math.ceil(b.laser.activo) + " s.";
   }
   else if (G.slowmo > 0) tip = "<b>⏱️ Cámara lenta</b>: ladrones y abuelas al 40 %. Corre.";
@@ -2638,7 +2638,7 @@ function startGame(modo){
 }
 
 function endGame(ganador){
-  G.over = true; G.winner = ganador || null;
+  G.over = true;
   const won = !!ganador;
   if (G.mode === 2 && ganador){
     const perdedor = G.players.find(p => p !== ganador);
@@ -2651,7 +2651,7 @@ function endGame(ganador){
     document.getElementById("stSteals").textContent = ganador.stats.steals + " / " + perdedor.stats.steals;
     document.getElementById("stHits").textContent   = ganador.stats.hits + " / " + perdedor.stats.hits;
     document.getElementById("stTime").textContent   = mmss(G.t);
-    document.getElementById("stRate").textContent   = money(playerIncome(ganador)) + "/s";
+    document.getElementById("stRate").textContent   = money(playerIncome(G, ganador)) + "/s";
     el.end.hidden = false;
     Snd.win();
     return;
@@ -2664,7 +2664,7 @@ function endGame(ganador){
   document.getElementById("stSteals").textContent = G.stats.steals;
   document.getElementById("stHits").textContent = G.stats.hits;
   document.getElementById("stTime").textContent = mmss(G.t);
-  document.getElementById("stRate").textContent = money(playerIncome(G.player)) + "/s";
+  document.getElementById("stRate").textContent = money(playerIncome(G, G.player)) + "/s";
   el.end.hidden = false;
   if (won) Snd.win();
 }

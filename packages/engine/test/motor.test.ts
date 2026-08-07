@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import {
   ESCENARIOS, GOAL, LASER_DUR, LASER_PRECIO, RULETA_PRECIO, TIERS, WEAPONS,
   avanzar, crearPartida, girarRuleta, idsDeArmas, occupiedDe, playerIncome,
-  spawnThief, usarArma, comprarArma, seleccionarArma, nuevoFlorin,
+  spawnThief, usarArma, comprarArma, seleccionarArma, nuevoFlorin, baseDe, patiosDe,
   type EntradaJugador, type Estado,
 } from "../src/index.js";
 
@@ -66,7 +66,7 @@ describe("el mundo se monta bien", () => {
     const e = partida({ modo: 2 });
     expect(e.bases.filter(b => b.locked).length).toBe(0);
     expect(e.players.length).toBe(2);
-    expect(e.players[1].base.name).toBe("Patio del J2");
+    expect(baseDe(e, e.players[1].baseId).name).toBe("Patio del J2");
   });
 
   it("los cuatro escenarios se pueden montar", () => {
@@ -94,14 +94,14 @@ describe("ingresos", () => {
     e.bases[0].peds[0].florin = nuevoFlorin(e, 0);                          // Común: 3/s
     e.bases[0].peds[1].florin = nuevoFlorin(e, 0, { variant: "brillante" }); // ×2 → 6/s
     e.bases[0].peds[2].florin = nuevoFlorin(e, 4, { variant: "arcoiris" });  // 135×3 → 405/s
-    expect(playerIncome(p)).toBe(3 + 6 + 405);
+    expect(playerIncome(e, p)).toBe(3 + 6 + 405);
 
     // al comprar el segundo patio, lo suyo también suma
     p.money = 99999;
     const patio2 = e.bases.find(b => b.locked)!;
-    patio2.locked = false; patio2.owner = p; p.patios.push(patio2);
+    patio2.locked = false; patio2.owner = p.idx; p.patios.push(patio2.id);
     patio2.peds[0].florin = nuevoFlorin(e, 6);                              // Cósmico: 720/s
-    expect(playerIncome(p)).toBe(3 + 6 + 405 + 720);
+    expect(playerIncome(e, p)).toBe(3 + 6 + 405 + 720);
   });
 
   it("el dinero sube con el tiempo según los ingresos", () => {
@@ -139,7 +139,7 @@ describe("la partida de un jugador no se corta", () => {
     e.players[1].money = GOAL + 1;
     avanzar(e, nada(2), 1 / 60);
     expect(e.over).toBe(true);
-    expect(e.winner).toBe(e.players[1]);
+    expect(e.winnerIdx).toBe(1);
     expect(e.eventos.some(ev => ev.t === "fin" && ev.ganador === 1)).toBe(true);
   });
 });
@@ -175,7 +175,7 @@ describe("láseres", () => {
   it("se encienden tras un segundo sobre la placa, cobran, y luego recargan", () => {
     const e = partida();
     const p = e.players[0];
-    const L = p.base.laser!;
+    const L = baseDe(e, p.baseId).laser!;
     p.money = 5000;
     p.x = L.x; p.y = L.y;
 
@@ -192,16 +192,17 @@ describe("láseres", () => {
   it("mientras están activos, el ladrón no entra al patio", () => {
     const e = partida();
     const p = e.players[0];
-    p.base.peds[0].florin = nuevoFlorin(e, 3);
-    p.base.laser!.activo = LASER_DUR;
+    const patio = baseDe(e, p.baseId);
+    patio.peds[0].florin = nuevoFlorin(e, 3);
+    patio.laser!.activo = LASER_DUR;
     p.x = 2000; p.y = 300;                     // lejos, que no interfiera
     for (let i = 0; i < 6; i++) spawnThief(e);
     correr(e, 25);
     const dentro = e.thieves.filter(t =>
-      t.x > p.base.rect.x && t.x < p.base.rect.x + p.base.rect.w &&
-      t.y > p.base.rect.y && t.y < p.base.rect.y + p.base.rect.h);
+      t.x > patio.rect.x && t.x < patio.rect.x + patio.rect.w &&
+      t.y > patio.rect.y && t.y < patio.rect.y + patio.rect.h);
     expect(dentro.length).toBe(0);
-    expect(p.base.peds[0].florin).not.toBeNull();
+    expect(patio.peds[0].florin).not.toBeNull();
     expect(p.stats.lost).toBe(0);
   });
 });
@@ -303,7 +304,7 @@ describe("los ladrones y la alarma", () => {
   it("la Prima Yuli no carga nada por encima de Raro", () => {
     const e = partida();
     const p = e.players[0];
-    p.base.peds[0].florin = nuevoFlorin(e, 6);     // solo un Cósmico
+    baseDe(e, p.baseId).peds[0].florin = nuevoFlorin(e, 6);     // solo un Cósmico
     p.x = 2400; p.y = 300;
     for (let i = 0; i < 30; i++) spawnThief(e);
     const yulis = e.thieves.filter(t => t.who === "yuli");
@@ -319,7 +320,7 @@ describe("los ladrones y la alarma", () => {
   it("salta la alarma mientras te roban y se apaga después", () => {
     const e = partida();
     const p = e.players[0];
-    for (let i = 0; i < 6; i++) p.base.peds[i].florin = nuevoFlorin(e, 4);
+    for (let i = 0; i < 6; i++) baseDe(e, p.baseId).peds[i].florin = nuevoFlorin(e, 4);
     p.x = 2400; p.y = 260;
     for (let i = 0; i < 4; i++) spawnThief(e);
 
@@ -350,5 +351,59 @@ describe("el motor no toca el navegador", () => {
         .replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*/g, "");   // sin comentarios
       expect(prohibidas.test(txt), `${f} usa algo del navegador`).toBe(false);
     }
+  });
+});
+
+describe("el estado viaja por la red", () => {
+  /* Esta es la prueba que justifica pasar las referencias a ids. Antes el estado
+     tenía ciclos (una base apuntaba a su dueño y el dueño a sus bases), así que
+     JSON.stringify reventaba y no había forma de mandarlo a un servidor. */
+
+  it("se serializa a JSON sin ciclos", () => {
+    const e = correr(partida({ semilla: 31 }), 40);
+    expect(() => JSON.stringify(e)).not.toThrow();
+  });
+
+  it("tras ir y volver de JSON, la partida sigue exactamente igual", () => {
+    const original = correr(partida({ semilla: 77 }), 25);
+    const copia = JSON.parse(JSON.stringify(original)) as Estado;
+
+    // las dos siguen 20 s más por su cuenta
+    correr(original, 20);
+    correr(copia, 20);
+
+    const foto = (e: Estado) => JSON.stringify({
+      t: e.t.toFixed(4),
+      dinero: e.players[0].money.toFixed(4),
+      pos: [e.players[0].x.toFixed(3), e.players[0].y.toFixed(3)],
+      ladrones: e.thieves.map(t => [t.who, t.state, t.x.toFixed(2), t.y.toFixed(2)]),
+      desfile: e.portal.desfile.map(d => [d.id, d.florin.tier, d.k.toFixed(4)]),
+      vitrinas: e.bases.map(b => b.peds.filter(p => p.florin).length),
+      rng: e.rngEstado,
+    });
+    expect(foto(copia)).toBe(foto(original));
+  });
+
+  it("no queda ninguna referencia a un objeto del propio estado", () => {
+    const e = correr(partida({ semilla: 12 }), 30);
+    for (let i = 0; i < 4; i++) spawnThief(e);
+    correr(e, 2);
+
+    // recorre el estado y comprueba que nada apunta a una base, jugador o ladrón
+    const sospechosos = new Set<unknown>([...e.bases, ...e.players, ...e.thieves]);
+    const vistos = new Set<unknown>();
+    const malos: string[] = [];
+    (function mirar(v: any, ruta: string) {
+      if (!v || typeof v !== "object" || vistos.has(v)) return;
+      vistos.add(v);
+      for (const [k, hijo] of Object.entries(v)) {
+        const r = ruta + "." + k;
+        // saltamos los contenedores legítimos: e.bases, e.players, e.thieves
+        const contenedor = /^e\.(bases|players|thieves)\.\d+$/.test(r);
+        if (!contenedor && sospechosos.has(hijo)) malos.push(r);
+        mirar(hijo, r);
+      }
+    })(e, "e");
+    expect(malos).toEqual([]);
   });
 });

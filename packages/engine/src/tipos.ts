@@ -42,6 +42,7 @@ export interface Laser {
 }
 
 export interface Abuela {
+  baseId: number;
   x: number; y: number;
   vx: number; vy: number;
   stun: number; frozen: number;
@@ -51,7 +52,6 @@ export interface Abuela {
   kx: number; ky: number;
   isGuard: boolean;
   carry: Florin | null;
-  base: Base;
 }
 
 /** Una casa del barrio: la tuya (patio) o la de un vecino. */
@@ -69,7 +69,8 @@ export interface Base {
   price: number;
   warn: number;
   laser: Laser | null;
-  owner: Jugador | null;
+  /** idx del jugador dueño, o null si es de un vecino o está en venta */
+  owner: number | null;
 }
 
 export interface Chancla {
@@ -81,10 +82,19 @@ export interface Chancla {
 
 export interface Stats { steals: number; hits: number; lost: number; froze: number }
 
+/** Cómo se apunta a un pedestal concreto sin guardar el objeto. */
+export interface RefPed { b: number; i: number }
+/** A lo que el jugador le está haciendo el aro: una vitrina o alguien del desfile. */
+export type RefObjetivo =
+  | { tipo: "ped"; b: number; i: number }
+  | { tipo: "desfile"; id: number };
+
 export interface Jugador {
   idx: number;
-  base: Base;
-  patios: Base[];
+  /** id de su patio de salida */
+  baseId: number;
+  /** ids de todos sus patios */
+  patios: number[];
   shirt: string;
   x: number; y: number;
   vx: number; vy: number;
@@ -101,17 +111,18 @@ export interface Jugador {
   inRuleta: boolean;
   fullWarn: number;
   chancla: Chancla;
-  grab: { ped: Pedestal | DesfileItem | null; t: number };
+  grab: { ped: RefObjetivo | null; t: number };
   apunta: { on: boolean; wx: number; wy: number };
   stats: Stats;
 }
 
 export interface Ladron {
+  id: number;
   x: number; y: number;
-  home: Base;
-  victim: Base;
+  homeId: number;
+  victimId: number;
   state: "go" | "grab" | "back" | "flee";
-  target: Pedestal | null;
+  target: RefPed | null;
   carry: Florin | null;
   stun: number; frozen: number; abducido: number;
   kx: number; ky: number;
@@ -124,6 +135,7 @@ export interface Ladron {
 
 /** Un Florín desfilando por el circuito del portal. */
 export interface DesfileItem {
+  id: number;
   florin: Florin;
   k: number;
   x: number; y: number;
@@ -138,19 +150,19 @@ export interface Portal {
   desfile: DesfileItem[];
 }
 
-export interface Cascara { x: number; y: number; dueno: Jugador | null; t: number }
+export interface Cascara { x: number; y: number; duenoIdx: number | null; t: number }
 
 export interface Perro {
   x: number; y: number;
   vx: number; vy: number;
   life: number;
-  dueno: Jugador;
+  duenoIdx: number;
   face: number; walk: number;
-  presa: Ladron | null;
+  presaId: number | null;
   muerde: number;
 }
 
-export interface Bala { x: number; y: number; vx: number; vy: number; life: number; owner: Jugador | null }
+export interface Bala { x: number; y: number; vx: number; vy: number; life: number; ownerIdx: number | null }
 export interface Rafaga { x: number; y: number; ang?: number; life: number; kind: "cone" | "ring"; r?: number }
 
 export type Premio =
@@ -158,7 +170,7 @@ export type Premio =
   | { kind: "dinero"; monto: number }
   | { kind: "arma"; arma: number };
 
-export interface Girando { t: number; dur: number; premio: Premio; jugador: Jugador }
+export interface Girando { t: number; dur: number; premio: Premio; jugadorIdx: number }
 
 export interface Alarma {
   quien: string; color: string; patio: string;
@@ -225,7 +237,9 @@ export interface Estado {
   alarma: Alarma | null;
 
   over: boolean;
-  winner: Jugador | null;
+  winnerIdx: number | null;
+  /** contador para los ids de ladrones y del desfile */
+  proximoId: number;
 
   /** Se vacía en cada tick: el anfitrión lo consume para pintar y sonar. */
   eventos: Evento[];
