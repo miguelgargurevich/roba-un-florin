@@ -1011,24 +1011,28 @@ function libreDeco(x, y, m){
   return true;
 }
 
-/* Coloca n adornos buscando sitio libre, y llama a pintar(c,x,y,i).
-   Reparte por bandas horizontales para que no se apelotonen, y `maxY` permite
-   dejar zonas fuera (en la playa, el agua). */
-function sembrar(c, n, semilla, margen, pintar, maxY){
-  const limY = maxY == null ? WORLD_H-60 : maxY;
+/* Coloca n adornos buscando sitio libre entre y0 e y1, y llama a pintar(c,x,y,i).
+   Reparte por bandas verticales para que no se apelotonen a lo ancho. */
+function sembrarEnFranja(c, n, semilla, margen, pintar, y0, y1){
   let puestos = 0;
   for (let banda=0; banda<n; banda++){
     const x0 = 60 + (WORLD_W-120) * (banda/n);
     const x1 = 60 + (WORLD_W-120) * ((banda+1)/n);
     for (let k=0;k<26;k++){
       const i = semilla + banda*37 + k;
-      const x = azEntre(i, x0, x1), y = azEntre(i+7777, 60, limY);
+      const x = azEntre(i, x0, x1), y = azEntre(i+7777, y0, y1);
       if (!libreDeco(x, y, margen)) continue;
       pintar(c, x, y, puestos);
       puestos++;
       break;
     }
   }
+  return puestos;
+}
+
+/* Lo mismo por todo el mapa. `maxY` permite dejar zonas fuera (en la playa, el agua). */
+function sembrar(c, n, semilla, margen, pintar, maxY){
+  return sembrarEnFranja(c, n, semilla, margen, pintar, 60, maxY == null ? WORLD_H-60 : maxY);
 }
 
 /* La rayuela (el "mundo") pintada con tiza de colores, como se juega de verdad:
@@ -1085,7 +1089,124 @@ function rayuela(c, x, y, s){
   c.restore();
 }
 
-/* ---------- El Barrio: postes, tendederos, basura y rayuela ---------- */
+/* ---- casa del barrio ----
+   Vista de tres cuartos, como el resto del decorado: el punto (x,y) es donde
+   pisa el suelo y la casa crece hacia arriba. Fachada de un color, techo de
+   calamina en otro, y siempre una puerta y una ventana para que se lea. */
+const CASA_PARED = ["#C4693F","#9E6A8C","#6E8AA8","#B8955A","#8A7BA8","#A85E5E"];
+const CASA_TECHO = ["#7A4A2A","#5C3A52","#3E5468","#7A6238","#4E4470","#6E3A3A"];
+function casaBarrio(c, x, y, i, esc){
+  const w = 104 * esc, h = 74 * esc, alero = 12 * esc;
+  const p = CASA_PARED[i % CASA_PARED.length], t = CASA_TECHO[i % CASA_TECHO.length];
+
+  /* La casa se reserva su sitio: es un bulto sólido, y una bolsa de basura o un
+     poste dibujados sobre el techo se ven rotos. */
+  vetoDeco.push({ x: x-w/2-alero-8, y: y-h-46*esc, w: w+alero*2+16, h: h+52*esc });
+
+  c.fillStyle = "rgba(0,0,0,.22)";
+  c.beginPath(); c.ellipse(x, y+4, w*.56, 13*esc, 0, 0, 6.283); c.fill();
+
+  // fachada
+  c.fillStyle = p;
+  rr(c, x-w/2, y-h, w, h, 5*esc); c.fill();
+  c.fillStyle = "rgba(0,0,0,.16)";                       // sombra del alero
+  c.fillRect(x-w/2, y-h, w, 9*esc);
+
+  // puerta y ventana
+  c.fillStyle = "#3A2416";
+  rr(c, x-16*esc, y-38*esc, 26*esc, 38*esc, 3*esc); c.fill();
+  c.fillStyle = "#FFC53D";
+  c.beginPath(); c.arc(x+6*esc, y-19*esc, 2.4*esc, 0, 6.283); c.fill();
+  c.fillStyle = az(i) > .5 ? "#FFE066" : "#5CE1EA";      // unas encendidas, otras no
+  rr(c, x+18*esc, y-46*esc, 26*esc, 22*esc, 3*esc); c.fill();
+  c.strokeStyle = "rgba(0,0,0,.35)"; c.lineWidth = 2*esc;
+  c.beginPath();
+  c.moveTo(x+31*esc, y-46*esc); c.lineTo(x+31*esc, y-24*esc);
+  c.moveTo(x+18*esc, y-35*esc); c.lineTo(x+44*esc, y-35*esc);
+  c.stroke();
+
+  // techo de calamina, con sus ondas y el alero sobresaliendo
+  c.fillStyle = t;
+  rr(c, x-w/2-alero, y-h-22*esc, w+alero*2, 26*esc, 4*esc); c.fill();
+  c.strokeStyle = "rgba(0,0,0,.22)"; c.lineWidth = 2*esc;
+  for (let k=1;k<7;k++){
+    const cx = x-w/2-alero + (w+alero*2)*(k/7);
+    c.beginPath(); c.moveTo(cx, y-h-20*esc); c.lineTo(cx, y-h+2*esc); c.stroke();
+  }
+  // tanque de agua: no hay casa en el barrio sin uno
+  c.fillStyle = "#3E5468";
+  rr(c, x+w/2-30*esc, y-h-40*esc, 20*esc, 20*esc, 4*esc); c.fill();
+  c.fillStyle = "#5C7A94";
+  rr(c, x+w/2-32*esc, y-h-43*esc, 24*esc, 7*esc, 3*esc); c.fill();
+}
+
+/* ---- bicicleta apoyada ---- */
+const BICI_COLOR = ["#FF5C86","#5CE1EA","#FFD84D","#9BD97F","#FF9EC4"];
+function biciBarrio(c, x, y, i){
+  const esc = .9 + az(i)*.25, giro = (az(i+5)-.5)*.7;
+  c.save(); c.translate(x, y); c.rotate(giro); c.scale(esc, esc);
+
+  c.fillStyle = "rgba(0,0,0,.2)";
+  c.beginPath(); c.ellipse(0, 6, 30, 8, 0, 0, 6.283); c.fill();
+
+  c.strokeStyle = "#2A1226"; c.lineWidth = 3.5;          // ruedas
+  for (const rx of [-20, 20]){
+    c.beginPath(); c.arc(rx, 0, 12, 0, 6.283); c.stroke();
+    c.strokeStyle = "rgba(255,239,226,.35)"; c.lineWidth = 1.2;
+    for (let k=0;k<4;k++){
+      const a = k*.785 + az(i)*1.5;
+      c.beginPath(); c.moveTo(rx, 0);
+      c.lineTo(rx+Math.cos(a)*11, Math.sin(a)*11); c.stroke();
+    }
+    c.strokeStyle = "#2A1226"; c.lineWidth = 3.5;
+  }
+  c.strokeStyle = BICI_COLOR[i % BICI_COLOR.length]; c.lineWidth = 4;
+  c.beginPath();                                          // cuadro
+  c.moveTo(-20, 0); c.lineTo(-4, -12); c.lineTo(12, -12); c.lineTo(20, 0);
+  c.moveTo(-4, -12); c.lineTo(4, 0); c.lineTo(20, 0);
+  c.stroke();
+  c.lineWidth = 3;
+  c.beginPath(); c.moveTo(12, -12); c.lineTo(16, -20); c.stroke();   // manubrio
+  c.strokeStyle = "#2A1226"; c.lineWidth = 3;
+  c.beginPath(); c.moveTo(11, -20); c.lineTo(21, -20); c.stroke();
+  c.fillStyle = "#2A1226";
+  rr(c, -10, -18, 14, 5, 2); c.fill();                    // asiento
+  c.restore();
+}
+
+/* ---- pelotas ---- */
+function pelotaBarrio(c, x, y, i){
+  const r = 10 + az(i)*4;
+  c.fillStyle = "rgba(0,0,0,.2)";
+  c.beginPath(); c.ellipse(x, y+r*.75, r*1.05, r*.4, 0, 0, 6.283); c.fill();
+
+  if (i % 3 === 0){                                       // la de fútbol
+    c.fillStyle = "#FFEFE2";
+    c.beginPath(); c.arc(x, y, r, 0, 6.283); c.fill();
+    c.fillStyle = "#2A1226";
+    c.beginPath(); c.arc(x, y-r*.15, r*.36, 0, 6.283); c.fill();
+    for (let k=0;k<3;k++){
+      const a = k*2.094 + 1.2;
+      c.beginPath();
+      c.arc(x+Math.cos(a)*r*.72, y+Math.sin(a)*r*.72, r*.22, 0, 6.283); c.fill();
+    }
+  } else {                                                // las de plástico, a rayas
+    const base = i % 3 === 1 ? "#FF5C86" : "#5CE1EA";
+    c.fillStyle = base;
+    c.beginPath(); c.arc(x, y, r, 0, 6.283); c.fill();
+    c.save();
+    c.beginPath(); c.arc(x, y, r, 0, 6.283); c.clip();
+    c.fillStyle = "rgba(255,239,226,.85)";
+    c.fillRect(x-r, y-r*.28, r*2, r*.34);
+    c.fillStyle = "rgba(0,0,0,.14)";
+    c.fillRect(x-r, y+r*.3, r*2, r);
+    c.restore();
+  }
+  c.fillStyle = "rgba(255,255,255,.4)";                   // brillo
+  c.beginPath(); c.ellipse(x-r*.32, y-r*.42, r*.26, r*.18, -.6, 0, 6.283); c.fill();
+}
+
+/* ---------- El Barrio: casas, postes, tendederos, bicis, pelotas y rayuela ---------- */
 function decoBarrio(c, E){
   c.fillStyle = E.mancha;
   for (let i=0;i<22;i++){
@@ -1098,6 +1219,12 @@ function decoBarrio(c, E){
   c.fillRect(0, 1180, WORLD_W, 26);
   c.strokeStyle = "rgba(92,42,24,.5)"; c.lineWidth = 3;
   c.strokeRect(0, 620, WORLD_W, 26); c.strokeRect(0, 1180, WORLD_W, 26);
+
+  /* Las casas van pegadas a las dos veredas, mirando a la calle: es lo que hace
+     que esto parezca una cuadra y no un descampado con cosas. Se pintan antes
+     que el resto para que las bicis y las pelotas queden delante. */
+  sembrarEnFranja(c, 6, 5501, 82, (c,x,y,i) => casaBarrio(c, x, y, i, .9 + az(i)*.3), 500, 606);
+  sembrarEnFranja(c, 6, 6101, 82, (c,x,y,i) => casaBarrio(c, x, y, i+3, .9 + az(i+9)*.3), 1060, 1166);
 
   sembrar(c, 7, 11, 46, (c,x,y) => {          // poste de luz con su charco de luz
     c.fillStyle = "rgba(255,197,61,.10)";
@@ -1135,6 +1262,9 @@ function decoBarrio(c, E){
       c.beginPath(); c.ellipse(x-4, y-4, 5, 4, 0, 0, 6.283); c.fill();
     }
   });
+
+  sembrar(c, 7, 2101, 34, (c,x,y,i) => biciBarrio(c, x, y, i));   // bicis tiradas
+  sembrar(c, 11, 2701, 20, (c,x,y,i) => pelotaBarrio(c, x, y, i)); // pelotas del recreo
 
   // la rayuela completa, del 1 al 10, en tiza de colores
   sembrar(c, 3, 1301, 130, (c,x,y,i) => rayuela(c, x, y+120, .95 + az(i)*.2));

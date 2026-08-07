@@ -28,7 +28,7 @@ Antes de jugar eliges dónde, y la elección se recuerda:
 
 | Escenario | Qué hay |
 |---|---|
-| 🏘️ **El Barrio** | tierra rojiza, aceras, postes de luz, tendederos con ropa, bolsas de basura y **rayuelas** con tiza de colores |
+| 🏘️ **El Barrio** | **casas** de fachada de colores, techo de calamina y su tanque de agua, alineadas a las dos veredas · **bicicletas** tiradas y **pelotas** (de fútbol y de plástico a rayas) · postes de luz, tendederos con ropa, bolsas de basura y **rayuelas** con tiza de colores |
 | 🏫 **Sta. Teresita** | el patio del colegio: cancha pintada, canteros con césped y bordillo de ladrillo, palmeras, arbustos recortados, bancas, la **bandera del Perú**, el emblema **ST** en el suelo y las **rayuelas del recreo** |
 | 🏖️ **La Playa** | **mar con orilla y espuma**, **castillos de arena** con banderitas y palita, sombrillas, toallas, pelotas, conchas y estrellas de mar |
 | 🌵 **El Desierto** | tierra rajada, saguaros (algunos con flor), rocas, calaveras de vaca, matas rodadoras y letreros de "NI AGUA" |
