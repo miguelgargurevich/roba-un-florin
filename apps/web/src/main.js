@@ -239,7 +239,6 @@ const el = {
   alarmaTxt: document.getElementById("alarmaTxt"),
   bar:    document.getElementById("uiBar"),
   lost:   document.getElementById("uiLost"),
-  tip:    document.getElementById("uiTip"),
   title:  document.getElementById("scrTitle"),
   end:    document.getElementById("scrEnd"),
   touch:  document.getElementById("touch"),
@@ -249,7 +248,12 @@ const el = {
   pause:  document.getElementById("btnPause"),
   sound:  document.getElementById("btnSound"),
   hand:   document.getElementById("btnHand"),
-  wbar:   document.getElementById("wbar"),
+  wsel:   document.getElementById("wsel"),
+  wselBtn: document.getElementById("wselBtn"),
+  wselIc: document.getElementById("wselIc"),
+  wselNm: document.getElementById("wselNm"),
+  wselN:  document.getElementById("wselN"),
+  wmenu:  document.getElementById("wmenu"),
   arm:    document.getElementById("armeria"),
   rack:   document.getElementById("rack"),
   armMon: document.getElementById("armMoney"),
@@ -2682,20 +2686,48 @@ function drawMinimap(){
 /* ============================================================
    HUD de armas (HTML)
    ============================================================ */
+/* ---- el desplegable de armas ----
+   Trece armas en una fila se comían la pantalla, así que ahora solo se ve la que
+   llevas y el resto vive en un menú. Las teclas 1-0 y Q/E siguen funcionando
+   igual: el menú es otra forma de elegir, no la única. */
 const chips = WEAPONS.map((w,i) => {
   const b = document.createElement("button");
   b.className = "chip";
   b.type = "button";
-  b.innerHTML = '<span class="ic">'+w.icon+'</span><span class="meta">'+
-                '<span class="nm">'+w.name+'</span>'+
-                '<span class="n"><span class="q"></span><i class="u"> usos</i></span></span>';
+  b.setAttribute("role", "option");
   // teclas 1-9 para las nueve primeras, 0 para la décima, y Q/E para rotar por todas
   const tecla = i < 9 ? String(i+1) : i === 9 ? "0" : null;
+  b.innerHTML = '<span class="ic">'+w.icon+'</span><span class="meta">'+
+                '<span class="nm">'+w.name+'</span>'+
+                '<span class="n"><span class="q"></span><i class="u"> usos</i></span></span>' +
+                (tecla ? '<span class="tec">'+tecla+'</span>' : '');
   b.setAttribute("aria-label", w.name + (tecla ? " — tecla " + tecla : " — usa Q o E"));
-  b.addEventListener("click", () => { Snd.unlock(); seleccionarArma(G, G.player, i); renderWbar(); });
-  el.wbar.appendChild(b);
+  b.addEventListener("click", () => {
+    Snd.unlock();
+    seleccionarArma(G, G.player, i);
+    renderWbar();
+    abrirArmas(false);
+  });
+  el.wmenu.appendChild(b);
   return b;
 });
+
+function abrirArmas(abrir){
+  const yaEsta = !el.wmenu.hidden;
+  const quiero = abrir === undefined ? !yaEsta : abrir;
+  if (quiero === yaEsta) return;
+  el.wmenu.hidden = !quiero;
+  el.wsel.classList.toggle("abierto", quiero);
+  el.wselBtn.setAttribute("aria-expanded", String(quiero));
+  if (quiero) chips[G.wsel]?.scrollIntoView({ block: "nearest" });
+}
+
+el.wselBtn.addEventListener("click", e => { e.stopPropagation(); Snd.unlock(); abrirArmas(); });
+// Clic fuera y Escape lo cierran: es un menú, no una ventana.
+document.addEventListener("pointerdown", e => {
+  if (!el.wsel.contains(e.target)) abrirArmas(false);
+});
+window.addEventListener("keydown", e => { if (e.key === "Escape") abrirArmas(false); });
 
 const rackBtns = WEAPONS.slice(1).map((w,k) => {
   const i = k+1;
@@ -2723,6 +2755,11 @@ function renderWbar(){
   });
   const w = WEAPONS[G.wsel];
   const isCh = w.id === "chancla";
+  el.wselIc.textContent = w.icon;
+  el.wselNm.textContent = w.name;
+  el.wselN.textContent  = isCh ? "∞" : G.ammo[w.id] + " usos";
+  el.wselBtn.classList.toggle("vacio", !isCh && G.ammo[w.id] <= 0);
+  el.wselBtn.setAttribute("aria-label", "Arma: " + w.name + ". Abrir la lista de armas.");
   el.wSvg.style.display = isCh ? "" : "none";
   el.wIcon.hidden = isCh;
   if (!isCh) el.wIcon.textContent = w.icon;
@@ -2737,7 +2774,6 @@ function renderRack(){
 /* ============================================================
    HUD
    ============================================================ */
-let lastTip = "";
 function hud(){
   if (G.mode === 2){
     const a = G.players[0], b = G.players[1];
@@ -2750,11 +2786,6 @@ function hud(){
     el.j2bar.style.width = clamp(b.money/GOAL*100, 0, 100).toFixed(1) + "%";
     el.goal.textContent  = "meta " + money(GOAL);
     el.lost.textContent  = a.stats.lost + " / " + b.stats.lost;
-    const va = a.money >= b.money ? a : b;
-    el.tip.innerHTML = va.money === b.money && a.money === b.money
-      ? "¡Empatados! El primero en llegar a " + money(GOAL) + " gana."
-      : "Va ganando <b style='color:" + va.shirt + "'>J" + (va.idx+1) + "</b> · " +
-        "róbate su vitrina o dale un <b>chancletazo</b> para que suelte lo que carga.";
     bau.boton.hidden = !(isTouch && florinAlLado() && bau.caja.hidden);
     return;
   }
@@ -2785,42 +2816,6 @@ function hud(){
     (w.id === "chancla" ? G.chancla.state !== "held" : G.ammo[w.id] <= 0);
   el.throwB.classList.toggle("cool", notReady);
 
-  let tip;
-  const p = G.player;
-  const useKey = isTouch ? "el botón rosa" : "<span class='k'>espacio</span>";
-  if (p.carry) tip = "Llevas un <b>" + TIERS[p.carry.tier].name + "</b> (" +
-    (p.carry.variant ? varLabel(p.carry.variant) + " · " : "") + TIERS[p.carry.tier].rar +
-    " · " + florNombre(p.carry) + ") · corre a <b>tu patio</b>: paga " + florinIncome(p.carry) + "/s.";
-  else if (G.paused) tip = "<b>Pausa.</b> Toca ▶ para seguir.";
-  else if (alLado && !alLado.florin.nombre)
-    tip = "Puedes <b>bautizar</b> este Florín: " + (isTouch ? "toca el botón verde ✏️" : "tecla <span class='k'>N</span>") + ".";
-  else if (alLado)
-    tip = "Se llama <b>" + alLado.florin.nombre + "</b> · " + (isTouch ? "toca ✏️" : "<span class='k'>N</span>") + " para cambiarle el nombre.";
-  else if (G.inShop && el.arm.hidden) tip = "Estás en la <b>Armería</b>: toca <b>🧰</b> arriba" + (isTouch ? "" : " o la tecla <span class='k'>T</span>") + " para abrirla.";
-  else if (G.inShop) tip = "Compra gadgets y cámbialos con " + (isTouch ? "los chips de abajo" : "<span class='k'>1</span>–<span class='k'>9</span> o <span class='k'>Q</span>/<span class='k'>E</span>") + ". Cierra con <b>🧰</b>.";
-  else if (G.player.inRuleta && el.rul.hidden) tip = "Estás en la <b>Ruleta</b>: toca <b>🎰</b> arriba" + (isTouch ? "" : " o la tecla <span class='k'>R</span>") + " para abrirla.";
-  else if (G.player.inRuleta) tip = "<b>Ruleta</b>: " + money(RULETA_PRECIO) + " por tirada. Las casillas <b>???</b> dan las variantes ✨ y 🌈.";
-  else if (G.grab.ped && G.grab.ped.tipo === "desfile") tip = "No te muevas… <b>estás atrapando</b> uno del desfile.";
-  else if (patiosDe(G, p).some(b => laserActivo(b))){
-    const b = patiosDe(G, p).find(q => laserActivo(q));
-    tip = "<b>Láseres encendidos</b> en " + b.name + ": nadie entra por " + Math.ceil(b.laser.activo) + " s.";
-  }
-  else if (G.slowmo > 0) tip = "<b>⏱️ Cámara lenta</b>: ladrones y abuelas al 40 %. Corre.";
-  else if (G.perros.length) tip = "Tu <b>chihuahua</b> anda suelto: muerde a los ladrones que entren a tus patios.";
-  else if (p.invis > 0) tip = "Eres <b>invisible</b>: las abuelas no te ven. Aprovecha.";
-  else if (p.boost > 0) tip = "<b>Turbo activo</b>: agarra los florines más caros.";
-  else if (inc === 0) tip = "Tu vitrina está vacía: <b>atrapa uno del desfile</b> en el centro, o roba en una casa vecina.";
-  else if (G.grab.ped) tip = "No te muevas… <b>estás robando</b>.";
-  else if (G.thieves.some(t => t.state === "grab")){
-    const l = G.thieves.find(t => t.state === "grab");
-    tip = "¡<b>" + LADRONES[l.who].label + "</b> está en tu vitrina! Dale con " + useKey + ".";
-  }
-  else if (w.id === "chancla" && G.chancla.state !== "held") tip = "Tu chancla viene de regreso… <b>espérala</b>.";
-  else if (notReady) tip = "Sin usos de <b>" + w.name + "</b>. Compra más en la <b>Armería</b> (abajo, al centro).";
-  else if (G.stats.lost > 0 && G.stats.lost % 3 === 0) tip = "Los vecinos vienen seguido. <b>Quédate cerca</b> de tu vitrina y chanclea.";
-  else tip = "Arma: <b>" + w.name + "</b> · " +
-    (isTouch ? "arrastra desde el botón rosa para <b>apuntar</b>" : "apunta con el cursor y " + useKey) + ".";
-  if (tip !== lastTip){ el.tip.innerHTML = tip; lastTip = tip; }
 }
 
 /* ============================================================
@@ -2846,10 +2841,10 @@ function aLaCancha(){
   el.arm.hidden = true;
   el.rul.hidden = true;
   el.alarma.hidden = true;
+  abrirArmas(false);
   invalidarSuelo();                 // el decorado se repinta para el escenario nuevo
   document.getElementById("album").hidden = true;
   el.pause.textContent = "⏸";
-  lastTip = "";
   renderWbar(); renderRack(); renderBotonesPanel();
   Snd.unlock();
 }

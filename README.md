@@ -61,7 +61,7 @@ Un Florín tirado en el suelo lo puede recoger cualquiera: si le pegas a un ladr
 
 **Teclado y ratón** — `WASD` / flechas para moverte · `espacio` o **clic** para usar el arma · `1`–`0` o `Q`/`E` cambiar de arma · `N` bautizar · `B` álbum · `T` Armería · `R` Ruleta · `P` pausa · `M` sonido
 
-**Táctil (celular y iPad)** — arrastra en una mitad de la pantalla para el joystick · toca el botón rosa para usar el arma · toca los chips para cambiarla
+**Táctil (celular y iPad)** — arrastra en una mitad de la pantalla para el joystick · toca el botón rosa para usar el arma · toca el **botón del arma** abajo para abrir la lista y cambiarla
 
 Funciona **en vertical y en horizontal**. Al tumbar el móvil el HUD se compacta
 para que quepa en los ~390 px de alto y se respetan los recortes del notch.
@@ -274,7 +274,7 @@ README. El cliente la busca en `VITE_API` (ver `apps/web/.env.example`).
 
 - Un solo archivo, sin dependencias: `<canvas>` 2D, CSS y JavaScript puro
 - Cámara que sigue al jugador en un mundo de 2600 × 1700
-- Se adapta a celular, iPad y escritorio (`meta viewport`, controles táctiles, chips compactos con scroll)
+- Se adapta a celular, iPad y escritorio (`meta viewport`, controles táctiles, armas en un desplegable)
 - Sonido generado con WebAudio (sin archivos de audio)
 - Respeta `prefers-reduced-motion`
 - Guarda en `localStorage` el modo zurdo (`florin_zurdo`) y el álbum (`florin_album`)

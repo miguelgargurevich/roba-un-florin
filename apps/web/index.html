@@ -82,7 +82,7 @@
   .j2row{display:flex;gap:8px;align-items:baseline;justify-content:space-between}
   .card.j2 .bar>i{background:linear-gradient(90deg,#FFB020,var(--gold))}
   /* en dos jugadores no hay gadgets: solo la chancla, igual para ambos */
-  #app.dos .wbar{display:none}
+  #app.dos .wsel{display:none}
   #app.dos #armeria{display:none}
 
   /* margin-left:auto para que, si la barra se parte en dos líneas, los botones
@@ -105,16 +105,13 @@
 
   #minimap{
     width:150px;height:100px;border-radius:12px;display:block;
-    background:color-mix(in srgb, var(--plum-800) 90%, transparent);
-    border:2px solid var(--plum-600);box-shadow:0 6px 0 rgba(0,0,0,.35);
+    /* traslúcido a propósito: tapa una esquina del patio, así que se ve a través */
+    background:color-mix(in srgb, var(--plum-900) 30%, transparent);
+    border:2px solid color-mix(in srgb, var(--plum-600) 65%, transparent);
+    box-shadow:0 6px 0 rgba(0,0,0,.22);
+    backdrop-filter:blur(2px);opacity:.8;
   }
 
-  .tip{
-    font-size:12px;color:var(--cream-dim);line-height:1.35;max-width:34ch;
-    background:color-mix(in srgb, var(--plum-800) 82%, transparent);
-    border-radius:12px;padding:7px 11px;border:2px solid var(--plum-600);
-  }
-  .tip b{color:var(--cream)}
   .k{font-family:var(--num);font-size:11px;background:var(--plum-700);border-radius:5px;padding:1px 5px;border:1px solid var(--plum-600)}
 
   /* ---------- controles táctiles ---------- */
@@ -355,14 +352,47 @@
   .stat{background:var(--plum-700);border:2px solid var(--plum-600);border-radius:12px;padding:9px 12px}
   .stat .val{font-size:21px}
 
-  /* ---------- barra de armas ---------- */
-  .wbar{
-    display:flex;gap:6px;pointer-events:auto;
-    overflow-x:auto;padding:3px 1px;scrollbar-width:none;
+  /* ---------- armas: un desplegable, no una barra ----------
+     Trece armas en fila comían media pantalla. Ahora solo se ve la que llevas y
+     el resto sale de un menú que se abre hacia arriba (la barra vive abajo). */
+  .wsel{position:relative;align-self:flex-start;pointer-events:auto}
+  .wselBtn{
+    display:flex;align-items:center;gap:9px;cursor:pointer;
+    background:color-mix(in srgb, var(--plum-800) 88%, transparent);
+    border:2px solid var(--plum-600);border-radius:14px;padding:7px 12px;
+    color:var(--cream);font-family:var(--ui);
+    box-shadow:0 5px 0 rgba(0,0,0,.32);backdrop-filter:blur(3px);
   }
-  .wbar::-webkit-scrollbar{display:none}
+  .wselBtn:active{transform:translateY(3px);box-shadow:0 2px 0 rgba(0,0,0,.32)}
+  .wselBtn:focus-visible{outline:3px solid var(--cosmo);outline-offset:2px}
+  .wselBtn .ic{font-size:21px;line-height:1}
+  .wselBtn .meta{display:flex;flex-direction:column;gap:2px;align-items:flex-start}
+  .wselBtn .nm{font-size:10px;letter-spacing:.06em;text-transform:uppercase;font-weight:800;line-height:1}
+  .wselBtn .n{font-family:var(--num);font-variant-numeric:tabular-nums;font-size:12px;color:var(--gold);line-height:1}
+  .wselBtn .caret{font-size:11px;color:var(--cream-dim);transition:transform .12s ease}
+  .wsel.abierto .wselBtn{border-color:var(--chancla)}
+  .wsel.abierto .caret{transform:rotate(180deg)}
+  /* sin munición: el botón lo dice, para no descubrirlo al intentar tirar */
+  .wselBtn.vacio .n{color:var(--cream-dim)}
+  .wselBtn.vacio .ic{opacity:.5}
+
+  .wmenu{
+    position:absolute;bottom:calc(100% + 8px);left:0;z-index:6;
+    display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;
+    width:min(420px,78vw);max-height:min(46vh,320px);overflow-y:auto;
+    padding:8px;border-radius:16px;
+    background:color-mix(in srgb, var(--plum-900) 94%, transparent);
+    border:2px solid var(--plum-600);box-shadow:0 10px 26px rgba(0,0,0,.5);
+  }
+  /* display:grid le gana a la regla [hidden] del navegador, así que hay que
+     decirlo a mano o el menú se queda abierto para siempre. */
+  .wmenu[hidden]{display:none}
+  @media (max-width:520px){ .wmenu{grid-template-columns:1fr;width:min(300px,86vw)} }
+  #app.zurdo .wsel{align-self:flex-end}
+  #app.zurdo .wmenu{left:auto;right:0}
+
   .chip{
-    flex:0 0 auto;display:flex;align-items:center;gap:7px;cursor:pointer;
+    width:100%;display:flex;align-items:center;gap:9px;cursor:pointer;text-align:left;
     background:color-mix(in srgb, var(--plum-800) 90%, transparent);
     border:2px solid var(--plum-600);border-radius:13px;padding:6px 10px;
     color:var(--cream);font-family:var(--ui);
@@ -378,25 +408,25 @@
   .chip.sel{border-color:var(--chancla);background:color-mix(in srgb,var(--chancla) 22%, var(--plum-800))}
   .chip.locked{opacity:.42}
   .chip.locked .n{color:var(--cream-dim)}
+  /* la tecla, a la derecha: el menú también enseña el atajo */
+  .chip .tec{
+    margin-left:auto;font-family:var(--num);font-size:10px;color:var(--cream-dim);
+    background:var(--plum-700);border:1px solid var(--plum-600);border-radius:5px;padding:1px 5px;
+  }
 
-  /* en táctil (celular o iPad): chips compactos.
-     La reserva para el botón de chancla solo aplica en pantallas anchas (tablet):
-     en celular el botón queda debajo de la barra, no a su lado. */
-  @media (min-width:561px){ #app.touch .wbar{width:calc(100% - 122px)} }
-  #app.touch .chip{padding:6px;gap:4px}
+  /* En táctil el botón del arma se aparta del botón rosa de lanzar. */
+  @media (min-width:561px){ #app.touch .wsel{max-width:calc(100% - 122px)} }
 
   /* modo zurdo: espeja los controles — botón de chancla a la izquierda,
      armas y minimapa a la derecha, y el joystick pasa al lado contrario */
   #app.zurdo #throwBtn{left:20px;right:auto}
-  #app.zurdo .wbar{justify-content:flex-end}
   #app.zurdo .bottom{flex-direction:row-reverse}
-  @media (min-width:561px){ #app.touch.zurdo .wbar{margin-left:auto} }
-  #app.touch .chip .nm,#app.touch .chip .u{display:none}
-  #app.touch .chip .ic{font-size:21px}
-  #app.touch .chip .n{font-size:12px}
+  /* En táctil se compacta el botón, pero el nombre del arma se queda: es la
+     única pista de qué llevas puesto sin abrir el menú. */
+  #app.touch .wselBtn{padding:7px 10px;gap:7px}
 
   /* ---------- armería ---------- */
-  /* va dentro del flujo del HUD, justo encima de la barra de armas: así nunca la tapa */
+  /* va dentro del flujo del HUD, justo encima del selector de armas: así nunca lo tapa */
   #armeria{
     align-self:center;flex:0 0 auto;
     width:min(560px,100%);margin-bottom:8px;pointer-events:auto;
@@ -472,22 +502,19 @@
     .rack{grid-template-columns:repeat(2,1fr)}
     #app.zurdo #throwBtn{left:14px;right:auto}
     #app.touch.zurdo .bottom{padding-left:104px}
-    /* en pantalla angosta: solo icono y número, para que quepan las 6 armas.
-       El margen inferior levanta la barra sobre el botón redondo de chancla,
-       cuyo área táctil llegaba a la esquina del último chip. */
-    .wbar{gap:5px;margin-bottom:16px}
-    .chip{padding:6px;gap:4px}
-    .chip .nm,.chip .u{display:none!important}
-    .chip .ic{font-size:21px}
-    .chip .n{font-size:12px}
-    .tip{font-size:11px;max-width:24ch}
+    /* El margen inferior levanta el selector sobre el botón redondo de chancla,
+       cuya área táctil llegaba hasta su esquina. Los nombres se quedan: dentro
+       del menú son justo lo que se viene a leer. */
+    .wsel{margin-bottom:16px}
+    .chip{padding:7px 8px;gap:7px}
+    .chip .ic{font-size:19px}
     #throwBtn{width:88px;height:88px;right:14px;bottom:18px}
     #throwBtn svg{width:48px;height:48px}
   }
   /* ---------- celular en horizontal ----------
      En landscape lo que aprieta no es el ancho sino la ALTURA (~390 px en un
      móvil típico), así que las media queries por ancho no servían de nada. Todo
-     lo de aquí compacta en vertical para que el HUD, los chips y el minimapa
+     lo de aquí compacta en vertical para que el HUD, las armas y el minimapa
      quepan sin comerse el mapa. */
   @media (max-height:460px){
     .hud{padding:6px;gap:5px}
@@ -501,12 +528,11 @@
     .card.j2{min-width:118px}
     .iconbtn{width:32px;height:32px;font-size:14px;border-radius:10px;box-shadow:0 3px 0 rgba(0,0,0,.35)}
     #minimap{width:96px;height:64px;border-radius:9px}
-    .tip{font-size:10px;max-width:32ch;padding:4px 9px;line-height:1.3}
-    .wbar{gap:4px;margin-bottom:8px}
-    .chip{padding:4px;gap:3px}
-    .chip .nm,.chip .u{display:none!important}
+    .wsel{margin-bottom:8px}
+    .chip{padding:5px 7px;gap:6px}
     .chip .ic{font-size:17px}
-    .chip .n{font-size:11px}
+    .chip .nm{font-size:9.5px}
+    .chip .n{font-size:10.5px}
     /* los paneles no pueden empujar el layout: se quedan cortos y hacen scroll */
     #armeria,#ruleta{padding:8px;margin-bottom:5px;max-height:54vh;overflow-y:auto}
     #armeria h2,#ruleta h2{font-size:13px;margin-bottom:6px}
@@ -607,11 +633,21 @@
       </div>
     </div>
 
-    <div class="wbar" id="wbar"></div>
+    <!-- Las armas viven en un desplegable: en pantalla solo está la que llevas. -->
+    <div class="wsel" id="wsel">
+      <div class="wmenu" id="wmenu" role="listbox" aria-label="Elegir arma" hidden></div>
+      <button class="wselBtn" id="wselBtn" type="button" aria-haspopup="listbox" aria-expanded="false">
+        <span class="ic" id="wselIc">🩴</span>
+        <span class="meta">
+          <span class="nm" id="wselNm">Chancla</span>
+          <span class="n" id="wselN">∞</span>
+        </span>
+        <span class="caret" aria-hidden="true">▴</span>
+      </button>
+    </div>
 
     <div class="bottom">
       <canvas id="minimap" width="300" height="200" aria-label="Minimapa"></canvas>
-      <div class="tip" id="uiTip"></div>
     </div>
   </div>
 
