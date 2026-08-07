@@ -19,7 +19,7 @@ Inspirado en el género "roba un brainrot" y en Florín, la mascota del youtuber
 | 👵 Esquivar | Cada base tiene su abuela. Si te alcanza, sueltas el Florín y quedas mareado. |
 | 🩴 Defender | Lanza la chancla a ladrones y abuelas: los noquea y les hace soltar lo que cargan. Vuelve como bumerán. |
 | 🛡️ Blindar | Párate en la **placa de láseres** de tu patio: $800 y nadie entra por un minuto. |
-| 🎰 Apostar | La **Ruleta** ($1 200) es la única forma de sacar las variantes ✨ y 🌈. |
+| 🎰 Apostar | La **Ruleta** ($1 200) es la única forma de sacar las cuatro variantes ✨ 🌈 👻 👑. |
 | 🎯 Hitos | Cada **$60 000** celebras un hito y la partida **sigue**: no se acaba nunca. |
 
 ## Escenarios
@@ -129,7 +129,7 @@ y te vuelve a cobrar.
 
 Los láseres protegen el patio, **no la pasarela**.
 
-## Los 7 Florines
+## Las 15 rarezas
 
 Cada rareza cambia el material del bloque y su flor. La rareza se ve en la
 píldora de color sobre cada bloque:
@@ -143,14 +143,30 @@ píldora de color sobre cada bloque:
 | Chancletín Florido | Legendario | flor rosa y su chanclita de la suerte | $5 600 | 135/s |
 | Rey Sol | Mítico | bloque de oro con corona | $13 000 | 310/s |
 | Cósmico | Cósmico | obsidiana morada, anillo orbital y chispas | $31 000 | 720/s |
+| Cebichero | Sabrosón | bloque de leche de tigre, con su limón y su ají bailando | $42 000 | 950/s |
+| Futbolero | Hincha | césped con las líneas de la cancha, banda blanquirroja y pelotita botando | $55 000 | 1 250/s |
+| Chasqui | Mensajero | piedra, vincha roja con oro y un quipu de hilos colgando | $72 000 | 1 600/s |
+| Robot | Cibernético | metal con tornillos, antena y su ojo rojo parpadeando | $94 000 | 2 100/s |
+| Momia | Milenario | arena con vendas cruzadas y los ojos brillando en la rendija | $122 000 | 2 700/s |
+| Astronauta | Orbital | traje blanco con visor y un satélite dándole vueltas | $158 000 | 3 500/s |
+| Inca de Oro | Imperial | oro macizo con rayos de sol y su tumi | $205 000 | 4 500/s |
+| Amaru | Ancestral | escamas verdes oscuras y la serpiente enroscándose detrás | $265 000 | 5 800/s |
 
-### Diez especies de flor
+Las ocho últimas suben suave a propósito (×1.3 por escalón, no ×2.4 como las de
+arriba): lo que las hace especiales es que salen poco y se ven distintas, no que
+paguen una fortuna. Y van **después** del Cósmico y nunca intercaladas, porque el
+número de rareza se guarda en tu partida y en cada lámina del álbum: meter una en
+medio convertiría tu Cósmico en otra cosa.
+
+### Dieciocho especies de flor
 
 La rareza pone los **colores** (para que se siga leyendo de un vistazo lo que vale
 cada Florín), pero la **forma** la pone la especie, sorteada al nacer: amapola,
-margarita, tulipán, campanilla, girasol, orquídea, cactus, estrella, pompón y
-trébol. Cada una tiene sus pétalos y sus hojas — el cactus incluso cambia el tallo
-por una pala con espinas.
+margarita, tulipán, campanilla, girasol, orquídea, cactus, estrella, pompón,
+trébol, **cantuta** (la flor nacional), rosa, loto, ave del paraíso, hongo, diente
+de león, hibisco y bambú. Cada una tiene sus pétalos y sus hojas — el cactus
+cambia el tallo por una pala con espinas, el hongo es un sombrerito con lunares y
+el diente de león lleva su pelusa en cada punta.
 
 Así dos Comunes ya no son el mismo dibujo. La especie **viaja con el Florín** igual
 que el nombre: si te lo roban, llega así a la vitrina del ladrón. Puedes ver de
@@ -165,11 +181,13 @@ lo roban, llega así a la vitrina del ladrón y lo conserva cuando lo recuperas.
 |---|---|---|
 | ✨ Brillante | ×2 | aura blanca con destellos girando |
 | 🌈 Arcoíris | ×3 | aura que cambia de color |
+| 👻 Fantasma | ×4 | el bloque se transparenta y se le ve el pedestal detrás |
+| 👑 Dorado | ×5 | aura dorada que late, con ocho destellos de oro |
 
 ### El álbum
 
-Botón **📖** de la barra superior (o tecla `B`): las 21 combinaciones de rareza y
-variante, con precio e ingresos, y cuáles has llegado a tener. Se guarda entre
+Botón **📖** de la barra superior (o tecla `B`): las 75 láminas (15 rarezas × 5
+variantes), con precio e ingresos, y cuáles has llegado a tener. Se guarda entre
 partidas. Un Florín entra al álbum cuando lo dejas en tu vitrina.
 
 ## La pasarela
@@ -203,7 +221,7 @@ dinero se guarda para patios, armas, láseres y la Ruleta.
 Abajo en la columna del centro, $1 200 por tirada. Once casillas: Florines de todas las
 rarezas, dinero ($500 o $2 500), un arma al azar con 2 usos, y la casilla **???**.
 
-La **???** es la interesante: de ahí salen las variantes ✨ y 🌈, con el
+La **???** es la interesante: de ahí salen las cuatro variantes, con el
 **Cósmico Arcoíris** (2 160/s) como premio gordo. El Florín premiado te llega a
 las manos, o al suelo si ya vas cargado.
 

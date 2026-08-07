@@ -120,6 +120,31 @@ public class CuentaYProgresoTests(ApiDePrueba api)
         (await http.GetFromJsonAsync<List<Dictionary<string, object>>>("/api/v1/album"))!.Should().HaveCount(1);
     }
 
+    [Theory]
+    [InlineData(0,  "base")]
+    [InlineData(6,  "arcoiris")]
+    [InlineData(7,  "base")]        // Cebichero: la primera de las nuevas
+    [InlineData(14, "dorado")]      // Amaru Dorado: la lámina más rara del álbum
+    public async Task El_album_acepta_todo_el_catalogo_del_motor(int tier, string variante)
+    {
+        // El validador tiene el tope escrito a mano. Cuando el motor gana
+        // rarezas y esto se olvida, el álbum deja de sincronizar justo en lo más
+        // raro y el jugador solo ve un 400 sin explicación.
+        var (http, _, _) = await NuevoJugadorAsync();
+
+        var r = await http.PostAsJsonAsync("/api/v1/album", new { tier, variante });
+
+        r.StatusCode.Should().Be(HttpStatusCode.OK, because: $"tier {tier} {variante} existe en el juego");
+    }
+
+    [Fact]
+    public async Task Una_rareza_que_no_existe_sigue_rebotando()
+    {
+        var (http, _, _) = await NuevoJugadorAsync();
+        var r = await http.PostAsJsonAsync("/api/v1/album", new { tier = 99, variante = "base" });
+        r.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
     [Fact]
     public async Task El_refresh_rota_y_el_viejo_deja_de_servir()
     {

@@ -33,6 +33,40 @@ export const TIERS = [
   { name:"Florín Cósmico",     rar:"Cósmico",   price:31000, income:720, n:7,  style:"cosmic",
     top:"#3A2470", strip:null,      side:"#241548", sideDark:"#150C2E",
     petal:"#5CE1EA", petal2:"#2AB6C7", center:"#FFFFFF" },
+
+  /* ---- de aquí para abajo, las rarezas de coleccionista ----
+     Van DESPUÉS del Cósmico y nunca intercaladas: el tier se guarda como número
+     en la partida y en cada lámina del álbum, así que meter una en medio
+     convertiría el Cósmico de alguien en otra cosa.
+
+     Suben suave (×1.3 por escalón, no ×2.4 como abajo) a propósito: lo que las
+     hace especiales es que salen poco y se ven distintas, no que paguen una
+     fortuna. Con la curva de abajo el último pagaría 19 000/s y los hitos de
+     $60 000 dejarían de significar nada. */
+  { name:"Florín Cebichero",   rar:"Sabrosón",  price:42000,  income:950,  n:5,  style:"cebiche",
+    top:"#F2F0E4", strip:"#DCD9C6", side:"#C9C4AE", sideDark:"#A8A292",
+    petal:"#9BD97F", petal2:"#6FBF4A", center:"#E2453C" },
+  { name:"Florín Futbolero",   rar:"Hincha",    price:55000,  income:1250, n:6,  style:"futbol",
+    top:"#4FB265", strip:"#3E9C56", side:"#7A4A22", sideDark:"#5C3517",
+    petal:"#FFEFE2", petal2:"#E2453C", center:"#E2453C" },
+  { name:"Florín Chasqui",     rar:"Mensajero", price:72000,  income:1600, n:5,  style:"chasqui",
+    top:"#9A9182", strip:"#857D70", side:"#6E675C", sideDark:"#514C43",
+    petal:"#E2453C", petal2:"#B82F28", center:"#FFD84D" },
+  { name:"Florín Robot",       rar:"Cibernético", price:94000, income:2100, n:6, style:"robot",
+    top:"#B8C2CC", strip:"#9AA5B1", side:"#7B8794", sideDark:"#5A6472",
+    petal:"#5CE1EA", petal2:"#2AB6C7", center:"#FF3D6E" },
+  { name:"Florín Momia",       rar:"Milenario", price:122000, income:2700, n:7,  style:"momia",
+    top:"#E0D3AE", strip:"#CBBE97", side:"#B3A47C", sideDark:"#8E8262",
+    petal:"#D8CFC0", petal2:"#B5AA97", center:"#37D6E0" },
+  { name:"Florín Astronauta",  rar:"Orbital",   price:158000, income:3500, n:8,  style:"astro",
+    top:"#F0F2F5", strip:"#D9DDE3", side:"#C2C7CF", sideDark:"#9AA0AA",
+    petal:"#37D6E0", petal2:"#1FA8C4", center:"#FFC53D" },
+  { name:"Florín Inca de Oro", rar:"Imperial",  price:205000, income:4500, n:9,  style:"inca",
+    top:"#FFD84D", strip:null,      side:"#E0A61B", sideDark:"#B37F0D",
+    petal:"#FF7A2F", petal2:"#E0224F", center:"#FFF0A5" },
+  { name:"Florín Amaru",       rar:"Ancestral", price:265000, income:5800, n:6,  style:"amaru",
+    top:"#1E5E4A", strip:"#17493A", side:"#123A2E", sideDark:"#0B2620",
+    petal:"#3DDC97", petal2:"#1E9A66", center:"#FFD84D" },
 ];
 
 export const WEAPONS = [
@@ -67,10 +101,16 @@ export const WEAPONS = [
 export const PORTAL_CADA = 6;                 // segundos entre Florines
 export const PORTAL_VUELTA = 26;              // lo que tarda uno en hacer el recorrido
 export const PORTAL_MAX = 6;                  // tope de Florines en el desfile a la vez
-/* Qué sale: los Comunes salen mucho, los Cósmicos casi nunca. Los pesos suman 100. */
+/* Qué sale del portal. Los pesos suman 100 y el desfile NO respeta maxTier: lo
+   raro puede salir desde el primer segundo, solo que casi nunca.
+   El Amaru va a 0.4 → sale un par de veces por hora de juego. Con menos, nadie
+   lo vería nunca; con más, deja de ser el que te hace cruzar el barrio
+   corriendo. */
 export const PORTAL_RAREZAS: { p: number; tier: number }[] = [
-  { p:34, tier:0 }, { p:24, tier:1 }, { p:18, tier:2 }, { p:12, tier:3 },
-  { p:7,  tier:4 }, { p:4,  tier:5 }, { p:1,  tier:6 },
+  { p:28.4, tier:0 }, { p:19,  tier:1 }, { p:13.5, tier:2 }, { p:9.5, tier:3 },
+  { p:6.5,  tier:4 }, { p:5,   tier:5 }, { p:4,    tier:6 }, { p:3.4, tier:7 },
+  { p:2.8,  tier:8 }, { p:2.3, tier:9 }, { p:1.9,  tier:10 },{ p:1.5, tier:11 },
+  { p:1.1,  tier:12 },{ p:.7,  tier:13 },{ p:.4,   tier:14 },
 ];
 
 export const LASER_DUR = 60, LASER_RECARGA = 30, LASER_PRECIO = 800, LASER_CARGA = 1;
@@ -81,25 +121,43 @@ export type CasillaRuleta =
   | { p: number; kind: "dinero"; monto: number }
   | { p: number; kind: "arma" }
   | { p: number; kind: "incognita" };
+/* La ruleta no lista las quince rarezas: la tira se volvería ilegible. Reparte
+   las de abajo y va salteando arriba (7, 9, 11, 13, 14); las que faltan salen
+   del desfile. */
 export const RULETA: CasillaRuleta[] = [
-  { p:20, kind:"florin", tier:0 },
-  { p:16, kind:"florin", tier:1 },
-  { p:14, kind:"florin", tier:2 },
-  { p:12, kind:"incognita" },
-  { p:10, kind:"florin", tier:3 },
-  { p:8,  kind:"dinero", monto:500 },
-  { p:6,  kind:"florin", tier:4 },
-  { p:6,  kind:"arma" },
-  { p:4,  kind:"dinero", monto:2500 },
-  { p:3,  kind:"florin", tier:5 },
-  { p:1,  kind:"florin", tier:6 },
+  { p:18,  kind:"florin", tier:0 },
+  { p:14,  kind:"florin", tier:1 },
+  { p:12,  kind:"florin", tier:2 },
+  { p:11,  kind:"incognita" },
+  { p:9,   kind:"florin", tier:3 },
+  { p:7,   kind:"dinero", monto:500 },
+  { p:6,   kind:"florin", tier:4 },
+  { p:6,   kind:"arma" },
+  { p:4,   kind:"dinero", monto:2500 },
+  { p:4,   kind:"florin", tier:5 },
+  { p:3,   kind:"florin", tier:6 },
+  { p:2.4, kind:"florin", tier:7 },
+  { p:1.6, kind:"florin", tier:9 },
+  { p:1,   kind:"florin", tier:11 },
+  { p:.7,  kind:"florin", tier:13 },
+  { p:.3,  kind:"florin", tier:14 },
 ];
-export interface FilaIncognita { p: number; tier?: number; tierMax?: number; variant: "brillante" | "arcoiris" | null }
+export interface FilaIncognita {
+  p: number; tier?: number; tierMax?: number;
+  variant: "brillante" | "arcoiris" | "fantasma" | "dorado" | null;
+}
+/* La casilla ??? es de donde salen TODAS las variantes. Cuanto mejor la
+   variante, más baja la rareza que la acompaña: un Dorado ×5 sobre un Cósmico
+   pagaría más que toda la vitrina junta. */
 export const RULETA_INCOGNITA: FilaIncognita[] = [
-  { p:45, tierMax:4, variant:"brillante" },
-  { p:25, tierMax:3, variant:"arcoiris" },
-  { p:20, tier:6,    variant:null },
-  { p:10, tier:6,    variant:"arcoiris" },     // el premio gordo
+  { p:34, tierMax:6,  variant:"brillante" },
+  { p:20, tierMax:5,  variant:"arcoiris" },
+  { p:14, tierMax:9,  variant:null },
+  { p:12, tierMax:4,  variant:"fantasma" },
+  { p:9,  tierMax:3,  variant:"dorado" },
+  { p:5,  tierMax:12, variant:null },
+  { p:4,  tier:14,    variant:null },
+  { p:2,  tier:14,    variant:"dorado" },      // el premio gordo
 ];
 
 export const LADRONES: Record<string, any> = {
@@ -121,7 +179,10 @@ export const LADRONES: Record<string, any> = {
 
 export const RAR_COLOR: Record<string, string> = {
   "Común":"#9BD97F","Fiestero":"#FF9EC4","Raro":"#FFB020","Épico":"#8B6BEE",
-  "Legendario":"#FF5C86","Mítico":"#FFD84D","Cósmico":"#5CE1EA"
+  "Legendario":"#FF5C86","Mítico":"#FFD84D","Cósmico":"#5CE1EA",
+  "Sabrosón":"#C6E86B","Hincha":"#FF6B4A","Mensajero":"#D9A066",
+  "Cibernético":"#8FA9C4","Milenario":"#E0D3AE","Orbital":"#7FA8FF",
+  "Imperial":"#FF8A00","Ancestral":"#3DDC97"
 };
 
 export const FLORES = [
@@ -135,11 +196,21 @@ export const FLORES = [
   { id:"estrella",   nombre:"Estrella",   n:5,    forma:"estrella", R:6.8, centro:3.4, hojas:1 },
   { id:"pompon",     nombre:"Pompón",     n:11,   forma:"bolita",   R:6.2, centro:3,   hojas:1 },
   { id:"trebol",     nombre:"Trébol",     n:4,    forma:"corazon",  R:5.2, centro:2.4, hojas:2 },
+  { id:"cantuta",    nombre:"Cantuta",    n:5,    forma:"copa",     R:5,   centro:2.2, hojas:2 },
+  { id:"rosa",       nombre:"Rosa",       n:9,    forma:"rizo",     R:4.4, centro:1.6, hojas:2 },
+  { id:"loto",       nombre:"Loto",       n:12,   forma:"punta",    R:6.6, centro:4,   hojas:0 },
+  { id:"ave",        nombre:"Ave del Paraíso", n:4, forma:"abanico", R:6.2, centro:2, hojas:1 },
+  { id:"hongo",      nombre:"Hongo",      n:1,    forma:"sombrero", R:0,   centro:0,   hojas:1 },
+  { id:"diente",     nombre:"Diente de León", n:22, forma:"tira",   R:6.8, centro:2.2, hojas:1, pelusa:true },
+  { id:"hibisco",    nombre:"Hibisco",    n:5,    forma:"corazon",  R:6.4, centro:3.2, hojas:1, labio:true },
+  { id:"bambu",      nombre:"Bambú",      n:6,    forma:"lanza",    R:5.6, centro:0,   hojas:2 },
 ];
 
 export const VARIANTES = {
   brillante: { label:"Brillante", icon:"✨", mult:2, color:"#FFFFFF" },
   arcoiris:  { label:"Arcoíris",  icon:"🌈", mult:3, color:"#5CE1EA" },
+  fantasma:  { label:"Fantasma",  icon:"👻", mult:4, color:"#B8C2FF" },
+  dorado:    { label:"Dorado",    icon:"👑", mult:5, color:"#FFD84D" },
 };
 /* Los escenarios: aquí solo va el REPARTO (lo que afecta al juego).
    El suelo, los colores y el decorado son cosa de quien dibuja. */

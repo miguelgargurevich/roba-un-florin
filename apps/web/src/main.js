@@ -326,7 +326,7 @@ window.addEventListener("blur", () => keys.clear());
 /* ============================================================
    Álbum de Florines: qué has llegado a tener, entre partidas
    ============================================================ */
-const ALBUM_VARIANTES = [null, "brillante", "arcoiris"];
+const ALBUM_VARIANTES = [null, "brillante", "arcoiris", "fantasma", "dorado"];
 const ALBUM_TOTAL = TIERS.length * ALBUM_VARIANTES.length;
 let album = {};
 try { album = JSON.parse(localStorage.getItem("florin_album") || "{}") || {}; } catch (_){ album = {}; }
@@ -1787,13 +1787,18 @@ function drawFlorin(x, y, s, f, t){
   const top = -H/2 + 3;            // borde superior de la cara frontal
   const bot = top + H;
 
-  /* ---- aura de la variante, detrás de todo ---- */
+  /* ---- aura de la variante, detrás de todo ----
+     El arcoíris cicla el tono; el dorado late más fuerte porque es el ×5; el
+     fantasma casi no tiene aura, lo suyo es que se transparenta el bloque. */
   if (variant){
     const arco = variant === "arcoiris";
-    const pulso = REDUCED ? 1 : 1 + Math.sin(t*4)*.12;
-    const col = arco ? "hsl(" + ((t*90)%360|0) + " 90% 65%)" : "#FFFFFF";
+    const pulso = REDUCED ? 1 : 1 + Math.sin(t*4)*(variant === "dorado" ? .2 : .12);
+    const col = arco ? "hsl(" + ((t*90)%360|0) + " 90% 65%)"
+              : variant === "dorado"   ? "#FFD84D"
+              : variant === "fantasma" ? "#B8C2FF"
+              : "#FFFFFF";
     ctx.save();
-    ctx.globalAlpha = arco ? .5 : .38;
+    ctx.globalAlpha = arco ? .5 : variant === "dorado" ? .55 : variant === "fantasma" ? .3 : .38;
     ctx.fillStyle = col;
     ctx.beginPath();
     ctx.ellipse(0, top + H*.45, (W+13)*pulso, (H*.72)*pulso, 0, 0, 6.283);
@@ -1817,8 +1822,36 @@ function drawFlorin(x, y, s, f, t){
     ctx.strokeStyle = "rgba(92,225,234,.8)"; ctx.lineWidth = 2.5;
     ctx.beginPath(); ctx.ellipse(0, top+H*.6, 27, 9, Math.sin(t*.9)*.45, 0, 6.283); ctx.stroke();
   }
+  if (T.style === "amaru"){                     // la serpiente enroscada detrás
+    ctx.strokeStyle = "rgba(61,220,151,.75)"; ctx.lineWidth = 4; ctx.lineCap = "round";
+    ctx.beginPath();
+    for (let i=0;i<=22;i++){
+      const a = -.4 + i*.28, rr2 = 24 - i*.5;
+      const px = Math.cos(a + t*.8)*rr2, py = top+H*.55 + Math.sin(a + t*.8)*rr2*.45;
+      i ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+    }
+    ctx.stroke(); ctx.lineCap = "butt";
+  }
+  if (T.style === "astro"){                     // órbita de un satelito
+    const a = t*1.6;
+    ctx.fillStyle = "#FFC53D";
+    ctx.beginPath(); ctx.arc(Math.cos(a)*26, top+H*.5 + Math.sin(a)*11, 2.6, 0, 6.283); ctx.fill();
+  }
+  if (T.style === "inca"){                      // rayos de sol
+    ctx.strokeStyle = "rgba(255,216,77,.55)"; ctx.lineWidth = 2;
+    for (let i=0;i<12;i++){
+      const a = i*.5236 + t*.35, r0 = 20, r1 = 20 + (i%2 ? 9 : 5);
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(a)*r0, top+H*.5 + Math.sin(a)*r0*.55);
+      ctx.lineTo(Math.cos(a)*r1, top+H*.5 + Math.sin(a)*r1*.55);
+      ctx.stroke();
+    }
+  }
 
-  /* ---- el bloque ---- */
+  /* ---- el bloque ----
+     El Fantasma se ve a través: se baja el alfa aquí y se repone después de los
+     accesorios, para que los destellos de la variante salgan sólidos. */
+  if (variant === "fantasma") ctx.globalAlpha = .5;
   ctx.fillStyle = T.sideDark;                   // cara derecha
   ctx.beginPath();
   ctx.moveTo(W,top); ctx.lineTo(W+D,top-D); ctx.lineTo(W+D,top-D+H); ctx.lineTo(W,bot);
@@ -1931,6 +1964,26 @@ function drawFlorin(x, y, s, f, t){
       ctx.quadraticCurveTo(3.8,-1, 0,3);
       ctx.closePath();
     }
+    else if (forma === "rizo"){                   // pétalo de rosa, enroscado
+      ctx.moveTo(0,3.2);
+      ctx.quadraticCurveTo(-4.4,1.4, -3.2,-3.4);
+      ctx.quadraticCurveTo(-1.4,-6.4, 1.4,-4.6);
+      ctx.quadraticCurveTo(3.6,-2.8, 2.2,0);
+      ctx.quadraticCurveTo(1.2,2, 0,3.2);
+      ctx.closePath();
+    }
+    else if (forma === "abanico"){                // ave del paraíso: pétalo ancho y quebrado
+      ctx.moveTo(0,3.4);
+      ctx.lineTo(-4.4,-4.2); ctx.lineTo(-1.4,-3.2); ctx.lineTo(0,-8.4);
+      ctx.lineTo(1.4,-3.2); ctx.lineTo(4.4,-4.2);
+      ctx.closePath();
+    }
+    else if (forma === "lanza"){                  // hoja larga de bambú
+      ctx.moveTo(0,4);
+      ctx.quadraticCurveTo(-2.2,-2, 0,-8.8);
+      ctx.quadraticCurveTo(2.2,-2, 0,4);
+      ctx.closePath();
+    }
     else ctx.ellipse(0,0,3.4,5.3,0,0,6.283);
   };
 
@@ -1949,6 +2002,24 @@ function drawFlorin(x, y, s, f, t){
     ctx.fillStyle = T.center;                     // el badajo
     ctx.beginPath(); ctx.arc(0, 7.4, 1.7, 0, 6.283); ctx.fill();
     ctx.restore();
+  } else if (FL.forma === "sombrero"){            // hongo: sombrerito con lunares
+    ctx.save(); ctx.translate(cx, cy+2); ctx.scale(FS, FS); ctx.rotate(sway*.04);
+    ctx.fillStyle = "#EDE3D0";                    // el pie
+    rr(ctx, -2.2, -1, 4.4, 9, 1.6); ctx.fill();
+    const grd = ctx.createLinearGradient(0, -8, 0, 1);
+    grd.addColorStop(0, T.petal); grd.addColorStop(1, T.petal2);
+    ctx.fillStyle = grd;
+    ctx.beginPath();
+    ctx.moveTo(-8.4, 0);
+    ctx.quadraticCurveTo(-8, -9.4, 0, -9.4);
+    ctx.quadraticCurveTo(8, -9.4, 8.4, 0);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = "rgba(0,0,0,.22)"; ctx.lineWidth = 1; ctx.stroke();
+    ctx.fillStyle = T.center;                     // los lunares
+    for (const [lx, ly, lr] of [[-4,-3.4,1.5],[1.2,-5.6,1.7],[4.6,-2.6,1.2]]){
+      ctx.beginPath(); ctx.arc(lx, ly, lr, 0, 6.283); ctx.fill();
+    }
+    ctx.restore();
   } else {
     for (let i=0;i<n;i++){
       const a = (i/n)*6.283 + (T.style === "turbo" ? t*2 : 0);
@@ -1959,6 +2030,16 @@ function drawFlorin(x, y, s, f, t){
       petalo(FL.forma); ctx.fill();
       ctx.strokeStyle = "rgba(0,0,0,.22)"; ctx.lineWidth = 1; ctx.stroke();
       ctx.restore();
+    }
+    if (FL.pelusa){                               // diente de león: una bolita en cada punta
+      ctx.fillStyle = "rgba(255,255,255,.9)";
+      for (let i=0;i<n;i++){
+        const a = (i/n)*6.283;
+        ctx.beginPath();
+        ctx.arc(cx + Math.cos(a-1.5708)*(R+3.4)*FS, cy + Math.sin(a-1.5708)*(R+3.4)*FS,
+                1.3*FS, 0, 6.283);
+        ctx.fill();
+      }
     }
     if (FL.labio){                                // la orquídea tiene labio abajo
       ctx.save(); ctx.translate(cx, cy+4.5*FS); ctx.scale(FS, FS);
@@ -1984,7 +2065,7 @@ function drawFlorin(x, y, s, f, t){
   }
 
   /* ---- carita en la cara frontal ---- */
-  const dark = (T.style === "ninja" || T.style === "cosmic");
+  const dark = (T.style === "ninja" || T.style === "cosmic" || T.style === "amaru");
   const ink = dark ? "#FFEFE2" : "#241209";
   const ey = top + 13;
   const blink = Math.sin(t*.9) > .984;
@@ -2039,16 +2120,108 @@ function drawFlorin(x, y, s, f, t){
       ctx.beginPath(); ctx.arc(Math.cos(a)*rr, top+H*.55 + Math.sin(a)*rr*.5, 1.5, 0, 6.283); ctx.fill();
     }
   }
+  if (T.style === "cebiche"){                   // su limón y su ají al lado
+    ctx.save(); ctx.translate(W+D+7, top+16);
+    ctx.fillStyle = "#C6E86B";
+    ctx.beginPath(); ctx.arc(0, 0, 4.6, 0, 6.283); ctx.fill();
+    ctx.strokeStyle = "rgba(0,0,0,.3)"; ctx.lineWidth = 1;
+    for (let i=0;i<5;i++){
+      const a = i*1.256;
+      ctx.beginPath(); ctx.moveTo(0,0);
+      ctx.lineTo(Math.cos(a)*4.2, Math.sin(a)*4.2); ctx.stroke();
+    }
+    ctx.fillStyle = "#E2453C";                  // el ají, bailando
+    ctx.save(); ctx.translate(-2, 9); ctx.rotate(Math.sin(t*4)*.5);
+    ctx.beginPath(); ctx.ellipse(0, 0, 1.9, 4.4, 0, 0, 6.283); ctx.fill();
+    ctx.restore(); ctx.restore();
+  }
+  if (T.style === "futbol"){                    // pelotita dando botes
+    const bx = W+D+8, by = top+20 - Math.abs(Math.sin(t*4))*11;
+    ctx.fillStyle = "#FFEFE2";
+    ctx.beginPath(); ctx.arc(bx, by, 4.2, 0, 6.283); ctx.fill();
+    ctx.fillStyle = "#241209";
+    ctx.beginPath(); ctx.arc(bx, by, 1.5, 0, 6.283); ctx.fill();
+    ctx.strokeStyle = "#FFEFE2"; ctx.lineWidth = 2;   // la banda de la camiseta
+    ctx.beginPath(); ctx.moveTo(-W, ey+9); ctx.lineTo(W, ey+5); ctx.stroke();
+  }
+  if (T.style === "chasqui"){                   // vincha y quipu colgando
+    ctx.fillStyle = "#E2453C";
+    ctx.fillRect(-W, ey-6, W*2, 3.4);
+    ctx.fillStyle = "#FFD84D";
+    for (let i=-1;i<2;i++) ctx.fillRect(i*7-1, ey-6, 2, 3.4);
+    ctx.strokeStyle = "#8B5A2B"; ctx.lineWidth = 1.4;   // el quipu
+    ctx.beginPath(); ctx.moveTo(-W-4, top+19); ctx.lineTo(-W-4, top+27); ctx.stroke();
+    const hilos = ["#E2453C","#FFD84D","#5CE1EA"];
+    for (let i=0;i<3;i++){
+      ctx.strokeStyle = hilos[i]; ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(-W-4, top+21+i*2.4);
+      ctx.lineTo(-W-9-i, top+25+i*2.4 + Math.sin(t*3+i)*1.4);
+      ctx.stroke();
+    }
+  }
+  if (T.style === "robot"){                     // antena, tornillos y ojo rojo
+    ctx.strokeStyle = "#5A6472"; ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.moveTo(W-4, top); ctx.lineTo(W+2, top-11); ctx.stroke();
+    ctx.fillStyle = Math.sin(t*5) > 0 ? "#FF3D6E" : "#7A1D33";
+    ctx.beginPath(); ctx.arc(W+2, top-12.5, 2.4, 0, 6.283); ctx.fill();
+    ctx.fillStyle = "rgba(0,0,0,.3)";
+    for (const [sx, sy] of [[-W+3, top+3],[W-4, top+3],[-W+3, bot-4],[W-4, bot-4]]){
+      ctx.beginPath(); ctx.arc(sx, sy, 1.4, 0, 6.283); ctx.fill();
+    }
+  }
+  if (T.style === "momia"){                     // vendas cruzando la cara
+    ctx.strokeStyle = "rgba(255,247,230,.85)"; ctx.lineWidth = 3.4;
+    ctx.beginPath();
+    ctx.moveTo(-W, ey-3);  ctx.lineTo(W, ey+1);
+    ctx.moveTo(-W, ey+7);  ctx.lineTo(W, ey+4);
+    ctx.moveTo(-W, ey+14); ctx.lineTo(W, ey+17);
+    ctx.stroke();
+    ctx.fillStyle = "#37D6E0";                  // los ojos en la rendija
+    ctx.fillRect(-8, ey+2, 4, 2.4); ctx.fillRect(4, ey+2, 4, 2.4);
+  }
+  if (T.style === "astro"){                     // casco con visor
+    ctx.strokeStyle = "#D9DDE3"; ctx.lineWidth = 2.4;
+    ctx.beginPath(); ctx.arc(0, ey+3, 13, 3.4, 6.02); ctx.stroke();
+    ctx.fillStyle = "rgba(92,225,234,.22)";
+    ctx.beginPath(); ctx.arc(0, ey+3, 12, 3.4, 6.02); ctx.fill();
+    ctx.strokeStyle = "rgba(255,255,255,.65)"; ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.arc(0, ey+3, 8.5, 3.6, 4.5); ctx.stroke();
+  }
+  if (T.style === "inca"){                      // el tumi sobre la flor
+    ctx.fillStyle = "#FFD84D"; ctx.strokeStyle = "#A97800"; ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(cx-2, cy-9); ctx.lineTo(cx+2, cy-9); ctx.lineTo(cx+2, cy-15);
+    ctx.lineTo(cx+7, cy-15); ctx.lineTo(cx, cy-22); ctx.lineTo(cx-7, cy-15);
+    ctx.lineTo(cx-2, cy-15); ctx.closePath();
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle = "#E0224F";
+    ctx.beginPath(); ctx.arc(cx, cy-16.5, 1.6, 0, 6.283); ctx.fill();
+  }
+  if (T.style === "amaru"){                     // escamas en la cara frontal
+    ctx.strokeStyle = "rgba(61,220,151,.35)"; ctx.lineWidth = 1;
+    for (let f=0;f<4;f++){
+      for (let k=-2;k<=2;k++){
+        ctx.beginPath();
+        ctx.arc(k*6 + (f%2 ? 3 : 0), top+8+f*6, 3.4, 3.4, 6.02);
+        ctx.stroke();
+      }
+    }
+  }
+  if (variant === "fantasma") ctx.globalAlpha = 1;   // de aquí en adelante, sólido
 
   /* ---- destellos de la variante, por encima del bloque ---- */
   if (variant && !REDUCED){
-    const arco = variant === "arcoiris";
-    const n = arco ? 6 : 4;
+    const arco = variant === "arcoiris", oro = variant === "dorado";
+    const n = arco ? 6 : oro ? 8 : variant === "fantasma" ? 3 : 4;
     for (let i=0;i<n;i++){
-      const a = -t*(arco ? 2.2 : 1.6) + i*(6.283/n);
+      const a = -t*(arco ? 2.2 : oro ? 1.1 : 1.6) + i*(6.283/n);
       const rr = 24 + Math.sin(t*3+i)*3;
       const px = Math.cos(a)*rr, py = top+H*.45 + Math.sin(a)*rr*.55;
-      ctx.fillStyle = arco ? "hsl(" + (((t*120)+i*60)%360|0) + " 95% 70%)" : "#FFFFFF";
+      ctx.fillStyle = arco ? "hsl(" + (((t*120)+i*60)%360|0) + " 95% 70%)"
+                    : oro  ? (i%2 ? "#FFD84D" : "#FFF0A5")
+                    : variant === "fantasma" ? "rgba(184,194,255,.9)"
+                    : "#FFFFFF";
       ctx.save();
       ctx.translate(px, py); ctx.rotate(a);
       ctx.beginPath();                          // chispita de 4 puntas
@@ -3028,6 +3201,7 @@ function frame(now){
   hud();
   requestAnimationFrame(frame);
 }
+
 
 resize();
 G = nuevaPartida(1);

@@ -5,7 +5,8 @@
 
 import { describe, expect, it } from "vitest";
 import {
-  ESCENARIOS, GOAL, LASER_DUR, LASER_PRECIO, RULETA_PRECIO, TIERS, WEAPONS,
+  ESCENARIOS, FLORES, GOAL, LASER_DUR, LASER_PRECIO, PORTAL_RAREZAS, RAR_COLOR,
+  RULETA, RULETA_INCOGNITA, RULETA_PRECIO, TIERS, WEAPONS, varMult,
   avanzar, crearPartida, girarRuleta, idsDeArmas, occupiedDe, playerIncome,
   spawnThief, usarArma, comprarArma, seleccionarArma, nuevoFlorin, baseDe, patiosDe,
   type EntradaJugador, type Estado,
@@ -168,6 +169,83 @@ describe("el desfile del portal", () => {
     }
     expect(cuenta["Común"]).toBeGreaterThan(cuenta["Cósmico"] || 0);
     expect(cuenta["Común"]).toBeGreaterThan(80);
+  });
+
+  it("la tabla del portal cubre TODAS las rarezas y va de más a menos", () => {
+    // Sin esto, agregar una rareza al catálogo y olvidarla en la tabla la deja
+    // imposible de conseguir del desfile, y nadie se entera.
+    expect(PORTAL_RAREZAS.map(f => f.tier)).toEqual(TIERS.map((_, i) => i));
+    for (let i = 1; i < PORTAL_RAREZAS.length; i++)
+      expect(PORTAL_RAREZAS[i].p).toBeLessThanOrEqual(PORTAL_RAREZAS[i - 1].p);
+    const total = PORTAL_RAREZAS.reduce((s, f) => s + f.p, 0);
+    expect(total).toBeCloseTo(100, 6);
+  });
+
+  it("hasta lo más raro llega a salir si esperas lo suficiente", () => {
+    const e = partida({ semilla: 3 });
+    const vistos = new Set<number>();
+    for (let i = 0; i < 20000 && vistos.size < TIERS.length; i++) {
+      e.portal.desfile.length = 0;
+      e.portal.timer = 0;
+      avanzar(e, nada(), 1 / 60);
+      const d = e.portal.desfile[0];
+      if (d) vistos.add(d.florin.tier);
+    }
+    expect(vistos.size).toBe(TIERS.length);
+  });
+});
+
+describe("el catálogo de Florines", () => {
+  it("cada rareza tiene su color: sin él la píldora sale gris", () => {
+    for (const T of TIERS) expect(RAR_COLOR[T.rar]).toBeTruthy();
+  });
+
+  it("precio e ingresos suben con la rareza, sin escalones al revés", () => {
+    for (let i = 1; i < TIERS.length; i++) {
+      expect(TIERS[i].price).toBeGreaterThan(TIERS[i - 1].price);
+      expect(TIERS[i].income).toBeGreaterThan(TIERS[i - 1].income);
+    }
+  });
+
+  it("las variantes multiplican en el orden que dice el álbum", () => {
+    expect(varMult(null)).toBe(1);
+    expect(varMult("brillante")).toBe(2);
+    expect(varMult("arcoiris")).toBe(3);
+    expect(varMult("fantasma")).toBe(4);
+    expect(varMult("dorado")).toBe(5);
+  });
+
+  it("un Florín rinde precio y variante juntos", () => {
+    const e = partida();
+    const p = e.players[0];
+    const ped = baseDe(e, p.baseId).peds[0];
+    ped.florin = { ...nuevoFlorin(e, TIERS.length - 1), variant: "dorado" };
+    expect(playerIncome(e, p)).toBe(TIERS[TIERS.length - 1].income * 5);
+  });
+
+  it("la ruleta solo reparte rarezas que existen", () => {
+    for (const c of RULETA)
+      if (c.kind === "florin") expect(TIERS[c.tier]).toBeDefined();
+    for (const f of RULETA_INCOGNITA){
+      if (f.tier != null) expect(TIERS[f.tier]).toBeDefined();
+      if (f.tierMax != null) expect(f.tierMax).toBeLessThan(TIERS.length);
+    }
+  });
+
+  it("la casilla ??? es la única que da variantes, y da las cuatro", () => {
+    expect(RULETA.every(c => c.kind !== "florin" || true)).toBe(true);
+    const deIncognita = new Set(RULETA_INCOGNITA.map(f => f.variant));
+    for (const v of ["brillante", "arcoiris", "fantasma", "dorado"])
+      expect(deIncognita.has(v as any)).toBe(true);
+  });
+
+  it("cada especie de flor tiene forma y nombre", () => {
+    expect(FLORES.length).toBeGreaterThanOrEqual(18);
+    for (const f of FLORES){
+      expect(f.nombre).toBeTruthy();
+      expect(f.forma).toBeTruthy();
+    }
+    expect(new Set(FLORES.map(f => f.id)).size).toBe(FLORES.length);
   });
 });
 

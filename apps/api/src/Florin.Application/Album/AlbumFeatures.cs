@@ -30,11 +30,14 @@ public record RegistrarEnAlbumCommand(int Tier, string? Variante) : IRequest<boo
 
 public class RegistrarEnAlbumCommandValidator : AbstractValidator<RegistrarEnAlbumCommand>
 {
-    private static readonly string[] Variantes = ["base", "brillante", "arcoiris"];
+    private static readonly string[] Variantes = ["base", "brillante", "arcoiris", "fantasma", "dorado"];
 
     public RegistrarEnAlbumCommandValidator()
     {
-        RuleFor(x => x.Tier).InclusiveBetween(0, 6);
+        // El tope sigue al catálogo del motor (TIERS). Si allá se agregan
+        // rarezas y esto no se mueve, el álbum deja de sincronizar justo en
+        // lo más raro y el jugador solo ve un 400.
+        RuleFor(x => x.Tier).InclusiveBetween(0, 14);
         RuleFor(x => x.Variante!).Must(v => Variantes.Contains(v))
             .When(x => x.Variante is not null)
             .WithMessage("Esa variante no existe.");

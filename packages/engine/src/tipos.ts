@@ -3,7 +3,7 @@
    DOM, ni audio, ni localStorage, ni Math.random. Todo lo que el jugador ve o
    escucha sale como `Evento` y lo interpreta quien renderice. */
 
-export type Variante = "brillante" | "arcoiris" | null;
+export type Variante = "brillante" | "arcoiris" | "fantasma" | "dorado" | null;
 
 /** Un Florín. `flor` es la especie (forma), `tier` la rareza (colores y valor). */
 export interface Florin {

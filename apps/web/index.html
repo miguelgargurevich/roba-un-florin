@@ -203,9 +203,12 @@
 
   /* ---------- álbum de Florines ---------- */
   #album{
-    position:absolute;inset:0;z-index:31;display:grid;place-items:center;padding:18px;
+    position:absolute;inset:0;z-index:31;display:grid;place-items:start center;padding:18px;
     background:rgba(15,7,14,.9);overflow:auto;
   }
+  /* margin:auto lo centra cuando cabe; con 75 láminas ya no cabe y se puede
+     hacer scroll hasta arriba, que con place-items:center era imposible. */
+  .albumCaja{margin:auto}
   #album[hidden]{display:none}
   .albumCaja{
     width:min(660px,100%);background:linear-gradient(180deg,var(--plum-800),var(--plum-900));
@@ -629,7 +632,7 @@
       <div class="rulTira"><div class="rulStrip" id="rulStrip"></div><i class="rulMarca"></i></div>
       <div class="rulPie">
         <button class="rulBtn" id="rulGirar">Girar · $1 200</button>
-        <span class="rulMsg" id="rulMsg">Hay casillas <b>???</b>: de ahí salen las variantes ✨ y 🌈.</span>
+        <span class="rulMsg" id="rulMsg">Hay casillas <b>???</b>: de ahí salen las cuatro variantes ✨ 🌈 👻 👑.</span>
       </div>
     </div>
 
@@ -669,7 +672,7 @@
   <div id="album" hidden>
     <div class="albumCaja">
       <h3>📖 Álbum de Florines <small id="albumCuenta">0 / 21</small></h3>
-      <p class="albumSub">Las variantes ✨ Brillante (×2) y 🌈 Arcoíris (×3) solo salen de la <b>Ruleta</b>.</p>
+      <p class="albumSub">Las cuatro variantes — ✨ Brillante (×2), 🌈 Arcoíris (×3), 👻 Fantasma (×4) y 👑 Dorado (×5) — solo salen de la casilla <b>???</b> de la Ruleta.</p>
       <div class="albumGrid" id="albumGrid"></div>
       <div class="bautizoBtns">
         <button class="bautizoBtn ok" id="albumCerrar">Volver al patio</button>
@@ -705,7 +708,7 @@
       <h1>Roba un<br><em>Florín</em></h1>
       <p class="sub">Un <b>Florín</b> es un bloquecito de tierra con su flor y su carita, y cada uno suelta dinero por segundo. Los vecinos tienen los suyos en la vitrina: róbatelos, llévalos a tu patio y defiéndelos a puro <b style="color:var(--chancla)">chancletazo</b>.</p>
       <ul class="rules">
-        <li><span class="pip">🌷</span><span>Cada Florín en tu vitrina paga por segundo, y solo si está en tu patio. Hay 7 rarezas, del bloque de tierra <b>Común</b> al <b>Cósmico</b>, y las variantes ✨ <b>Brillante</b> (×2) y 🌈 <b>Arcoíris</b> (×3).</span></li>
+        <li><span class="pip">🌷</span><span>Cada Florín en tu vitrina paga por segundo, y solo si está en tu patio. Hay <b>15 rarezas</b>, del bloque de tierra <b>Común</b> al <b>Amaru</b>, pasando por el Cebichero, el Chasqui, la Momia y el Inca de Oro. Y cuatro variantes: ✨ <b>Brillante</b> (×2), 🌈 <b>Arcoíris</b> (×3), 👻 <b>Fantasma</b> (×4) y 👑 <b>Dorado</b> (×5).</span></li>
         <li><span class="pip">🏃</span><span>Métete a las bases vecinas y <b>quédate junto a un Florín</b> hasta llenar el aro para llevártelo.</span></li>
         <li><span class="pip">😼</span><span>Cuatro vecinos vienen por los tuyos: <b style="color:#FFD84D">Mayo</b> agarra el más caro, <b style="color:#FF9EC4">El Sobri</b> agarra lo que pilla, <b style="color:#FF5C86">la Prima Yuli</b> vuela pero solo carga lo barato, y <b style="color:#8B6BEE">los Marcianos</b> se teletransportan.</span></li>
         <li><span class="pip">👵</span><span>Cada base tiene su <b>abuela</b>. Si te alcanza, sueltas el Florín y quedas mareado.</span></li>
@@ -714,9 +717,9 @@
         <li><span class="pip">🏡</span><span>Puedes <b>comprar dos patios más</b> ($4 000 y $12 000) para guardar más Florines: métete en la reja para comprarlos.</span></li>
         <li><span class="pip">🛡️</span><span>Cada patio tuyo tiene su <b>placa de láseres</b>: párate encima un segundo, paga $800 y nadie entra por 60 s. Luego tarda 30 s en recargar.</span></li>
         <li><span class="pip">💃</span><span>Del <b>portal</b> del centro sale un Florín cada 6 s: le da una vuelta a la Armería y se vuelve a meter. No es de nadie — <b>atrápalo al pasar</b> como si lo robaras. Así consigues tus Florines, y los raros salen poco: corre por ellos.</span></li>
-        <li><span class="pip">🎰</span><span>La <b>Ruleta</b> cuesta $1 200 por tirada. Las casillas <b>???</b> son las que dan las variantes ✨ y 🌈.</span></li>
+        <li><span class="pip">🎰</span><span>La <b>Ruleta</b> cuesta $1 200 por tirada. Las casillas <b>???</b> son las únicas que dan variantes, y dan las cuatro.</span></li>
         <li><span class="pip">🧰</span><span>La <b>Armería</b> está en el centro, rodeada por el desfile, y vende doce gadgets: 🧊 congeladora, 💨 secadora, ⚡ chicharra, 🥤 refresco, 👻 capa, 🍌 cáscaras, 🐕 chihuahua, ⏱️ reloj, 🧲 imán, 🛸 rayo alien, 🕸️ red y ☂️ paraguas.</span></li>
-        <li><span class="pip">📖</span><span>El <b>álbum</b> (botón 📖 o tecla <span class="k">B</span>) lleva la cuenta de las 21 combinaciones que has llegado a tener.</span></li>
+        <li><span class="pip">📖</span><span>El <b>álbum</b> (botón 📖 o tecla <span class="k">B</span>) lleva la cuenta de las <b>75 láminas</b> (15 rarezas × 5 variantes) que has llegado a tener.</span></li>
         <li><span class="pip">🚨</span><span>Si un vecino te está robando salta una <b>alarma</b>: te dice quién y de qué patio, y una <b>flecha</b> en el borde te marca por dónde correr.</span></li>
         <li><span class="pip">🗺️</span><span>Hay cuatro <b>escenarios</b> con su propio suelo y su reparto de casas: el <b>Barrio</b>, el colegio <b>Santa Teresita</b>, la <b>Playa</b> y el <b>Desierto</b>. Elígelo abajo.</span></li>
         <li><span class="pip">💰</span><span>La partida <b>no se acaba</b>: cada <b>$60 000</b> celebras un hito y sigues. Lo divertido es coleccionar, así que juega hasta que te aburras.</span></li>
