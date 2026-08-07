@@ -17,9 +17,13 @@ RUN dotnet publish src/Florin.Api/Florin.Api.csproj -c Release -o /app --no-rest
 
 FROM mcr.microsoft.com/dotnet/aspnet:9.0-alpine AS runtime
 WORKDIR /app
+# icu-libs: sin esto alpine corre en globalization-invariant y no existe más
+# cultura que la neutra — los mensajes de validación salían en inglés y pedir
+# "es" tiraba una excepción al arrancar. Son ~30 MB bien gastados.
 ENV ASPNETCORE_URLS=http://+:8080 \
-    TZ=America/Lima
-RUN apk add --no-cache tzdata curl && \
+    TZ=America/Lima \
+    DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
+RUN apk add --no-cache tzdata curl icu-libs icu-data-full && \
     adduser -D -u 1001 florin && chown -R florin /app
 USER florin
 COPY --from=build --chown=florin /app .

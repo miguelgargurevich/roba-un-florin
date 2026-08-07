@@ -23,8 +23,12 @@ const string CorsPolicy = "juego";
 
 // Los mensajes de validación se los lee un jugador, así que van en español
 // siempre. Sin esto dependen del locale de la máquina: en la Mac salían en
-// español y dentro del contenedor (sin locale) en inglés.
-ValidatorOptions.Global.LanguageManager.Culture = new CultureInfo("es");
+// español y dentro del contenedor en inglés.
+// El try no es adorno: si la imagen corre en globalization-invariant, pedir la
+// cultura "es" tira CultureNotFoundException y se cae la API entera. Que un
+// detalle de idioma tumbe el servicio no tiene ningún sentido.
+try { ValidatorOptions.Global.LanguageManager.Culture = new CultureInfo("es"); }
+catch (CultureNotFoundException){ /* se queda en inglés; el resto funciona */ }
 
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
