@@ -10,20 +10,20 @@
 
 import type {
   Base, Bala, DesfileItem, EntradaJugador, Estado, Florin, Jugador, Ladron,
-  Pedestal, Premio, Abuela, RefObjetivo,
+  Pedestal, Premio, Abuela, RefObjetivo, Trasto,
 } from "./tipos.js";
 import {
   GOAL, LADRONES, LASER_CARGA, RULETA, RULETA_INCOGNITA, RULETA_PRECIO,
-  PORTAL_CADA, PORTAL_MAX, PORTAL_RAREZAS, PORTAL_VUELTA,
-  LASER_DUR, LASER_PRECIO, LASER_RECARGA,
-  TIERS, VARIANTES, WEAPONS, WORLD_H, WORLD_W, varLabel,
+  PATADA, PORTAL_CADA, PORTAL_MAX, PORTAL_RAREZAS, PORTAL_VUELTA,
+  LASER_DUR, LASER_PRECIO, LASER_RECARGA, RODAR_ROCE, TRASTO_ALCANCE,
+  TIERS, VARIANTES, VEHICULOS, WEAPONS, WORLD_H, WORLD_W, esVehiculo, varLabel,
 } from "./datos.js";
 import { azar, clamp, dist2, inRect, lerp, money, pick, rnd, tiraDeTabla } from "./util.js";
 import {
-  baseDe, bloqueadoPorLaser, desfileDe, esMiPatio, florinIncome, freePed,
+  baseDe, bloqueadoPorLaser, desfileDe, enElMar, esMiPatio, florinIncome, freePed,
   freePedDe, jugadorDe, laserActivo, mismoFlorin, nuevoFlorin, nuevoId, occupied,
-  occupiedDe, patiosDe, pedDe, playerIncome, polvo, ponerLaser, puntoDelDesfile,
-  sonar, texto,
+  occupiedDe, patiosDe, pedDe, playerIncome, polvo, ponerLaser, puedeMojarse,
+  puntoDelDesfile, sonar, texto, trastoDe,
 } from "./estado.js";
 
 /* Cualquier cosa a la que se pueda golpear */
@@ -188,7 +188,7 @@ export function entregarPremio(e: Estado, p: Jugador, pr: Premio) {
     return;
   }
   const f = nuevoFlorin(e, pr.tier, { variant: pr.variant });
-  if (!p.carry) p.carry = f;
+  if (!p.carry) cargar(e, p, f);
   else e.ground.push(mismoFlorin(f, { x: p.x + rnd(e, -24, 24), y: p.y + 34, bob: 0, t: 0 }));
   const col = pr.variant
     ? (VARIANTES as any)[pr.variant].color
@@ -355,7 +355,7 @@ export function usarArma(e: Estado, p: Jugador) {
       p.ammo[w.id]++; p.cd = 0;
     } else {
       e.blasts.push({ x: p.x, y: p.y - 10, ang: Math.atan2(best.y - p.y, best.x - p.x), life: 0.4, kind: "cone" });
-      p.carry = mismoFlorin(best.florin!);
+      cargar(e, p, mismoFlorin(best.florin!));
       best.florin = null;
       p.stats.steals++;
       texto(e, best.x, best.y - 56, "🧲 ¡Jalado!", "#FF7A2F");
@@ -378,7 +378,7 @@ export function usarArma(e: Estado, p: Jugador) {
       texto(e, p.x, p.y - 62, best ? "Tienes las manos ocupadas" : "No hay nadie del desfile ahí", "#FF6B90");
       p.ammo[w.id]++; p.cd = 0;
     } else {
-      p.carry = mismoFlorin(best.florin);
+      cargar(e, p, mismoFlorin(best.florin));
       e.portal.desfile.splice(e.portal.desfile.indexOf(best), 1);
       p.stats.steals++;
       texto(e, best.x, best.y - 56, "🕸️ ¡A la red! " + TIERS[best.florin.tier].rar, "#BFE9FF");
@@ -447,6 +447,7 @@ export function avanzar(e: Estado, entradas: Record<number, EntradaJugador>, dt:
   }
 
   for (const p of e.players) avanzarJugador(e, p, entradas[p.idx], dt);
+  avanzarTrastos(e, dt);
 
   /* ---- balas de hielo ---- */
   for (let i = e.bolts.length - 1; i >= 0; i--) {
@@ -493,6 +494,7 @@ export function avanzar(e: Estado, entradas: Record<number, EntradaJugador>, dt:
     const casa = baseDe(e, t.homeId), victima = baseDe(e, t.victimId);
     let objetivo = pedDe(e, t.target);
     applyKnock(t, dt);
+    if (e.esc.mar != null && t.y > e.esc.mar) t.y = e.esc.mar;
     if (t.abducido > 0) {
       t.abducido -= dt;
       if (t.abducido <= 0) {
@@ -610,6 +612,7 @@ export function avanzar(e: Estado, entradas: Record<number, EntradaJugador>, dt:
   for (const b of e.bases) {
     const g = b.guard; if (!g) continue;
     applyKnock(g, dt);
+    if (e.esc.mar != null && g.y > e.esc.mar) g.y = e.esc.mar;
     if (g.abducido > 0) {
       g.abducido -= dt;
       if (g.abducido <= 0) {
@@ -809,6 +812,96 @@ export function avanzar(e: Estado, entradas: Record<number, EntradaJugador>, dt:
 }
 
 /* ---- lo que le pasa a UN jugador ---- */
+/* ============================================================
+   Trastos: bicis, tablas, pelotas
+   ============================================================ */
+
+/** Le pone el Florín en las manos y, si iba montado, lo baja: el vehículo es
+    para llegar, no para escapar con el botín. */
+export function cargar(e: Estado, p: Jugador, f: Florin): void {
+  p.carry = f;
+  if (p.montado != null) bajarse(e, p, true);
+}
+
+/** Te bajas de lo que lleves y queda tirado donde estás. */
+export function bajarse(e: Estado, p: Jugador, aviso = false): void {
+  const v = trastoDe(e, p.montado);
+  p.montado = null;
+  if (!v) return;
+  v.montadoPor = null;
+  v.x = p.x; v.y = p.y;
+  if (aviso) polvo(e, v.x, v.y, "#FFEFE2", 6);
+}
+
+/* Cuánto multiplica la velocidad lo que llevas debajo.
+
+   La tabla se agarra en la arena y con ella te metes al agua — es como funciona
+   surfear, y además es la única forma de que se pueda alcanzar: el tope de la
+   orilla te echa fuera antes de poder tocar nada que flote mar adentro. Fuera
+   de su elemento el trasto no te acelera, te estorba: la llevas a cuestas. */
+export function multDeMontura(e: Estado, p: Jugador): number {
+  const v = trastoDe(e, p.montado);
+  if (!v) return 1;
+  const info = VEHICULOS[v.tipo];
+  if (!info) return 1;
+  return info.agua === enElMar(e, p.y) ? info.mult : 0.9;
+}
+
+/* Montarse es automático al pisarlo, pero solo una vez por visita: sin el
+   `trastoUsado` te bajarías y te volverías a montar en el mismo frame mientras
+   sigues encima. Es el mismo bicho que ya mordió con la pasarela. */
+function tocarTrastos(e: Estado, p: Jugador): void {
+  let sigueCerca: number | null = null;
+
+  for (const v of e.trastos) {
+    if (v.montadoPor != null && v.montadoPor !== p.idx) continue;
+    const cerca = dist2(p.x, p.y, v.x, v.y) < TRASTO_ALCANCE * TRASTO_ALCANCE;
+    if (!cerca) continue;
+    if (p.trastoUsado === v.id) { sigueCerca = v.id; continue; }
+
+    if (esVehiculo(v.tipo)) {
+      // cargando un Florín no te montas: el vehículo es para llegar, no para huir
+      if (p.montado != null || p.carry) continue;
+      const info = VEHICULOS[v.tipo];
+      p.montado = v.id;
+      v.montadoPor = p.idx;
+      p.trastoUsado = v.id;
+      sigueCerca = v.id;
+      texto(e, p.x, p.y - 40, info.icon + " " + info.label, "#5CE1EA");
+      sonar(e, "grab");
+    } else {
+      // pelotas y matas: se patean en la dirección en la que ibas
+      const vel = Math.hypot(p.vx, p.vy);
+      if (vel < 40) continue;
+      v.vx = (p.vx / vel) * vel * PATADA;
+      v.vy = (p.vy / vel) * vel * PATADA;
+      p.trastoUsado = v.id;
+      sigueCerca = v.id;
+      polvo(e, v.x, v.y, "#FFEFE2", 5);
+      sonar(e, "whack");
+    }
+  }
+
+  // al alejarse se olvida, y se puede volver a interactuar
+  if (p.trastoUsado != null && sigueCerca !== p.trastoUsado) p.trastoUsado = null;
+}
+
+/** Lo que rueda: rozamiento, rebote en los bordes y nada más. No hace daño. */
+function avanzarTrastos(e: Estado, dt: number): void {
+  for (const v of e.trastos) {
+    if (v.montadoPor != null) continue;
+    if (!v.vx && !v.vy) continue;
+    v.x += v.vx * dt;
+    v.y += v.vy * dt;
+    v.giro += Math.hypot(v.vx, v.vy) * dt * 0.06;
+    if (v.x < 20 || v.x > WORLD_W - 20) { v.vx *= -0.7; v.x = clamp(v.x, 20, WORLD_W - 20); }
+    if (v.y < 20 || v.y > WORLD_H - 20) { v.vy *= -0.7; v.y = clamp(v.y, 20, WORLD_H - 20); }
+    const roce = Math.pow(RODAR_ROCE, dt);
+    v.vx *= roce; v.vy *= roce;
+    if (Math.hypot(v.vx, v.vy) < 6) { v.vx = 0; v.vy = 0; }
+  }
+}
+
 function avanzarJugador(e: Estado, p: Jugador, ent: EntradaJugador | undefined, dt: number) {
   p.money += playerIncome(e, p) * dt;
 
@@ -820,17 +913,35 @@ function avanzarJugador(e: Estado, p: Jugador, ent: EntradaJugador | undefined, 
   if (ent && ent.apunta) { p.apunta.on = true; p.apunta.wx = ent.apunta.x; p.apunta.wy = ent.apunta.y; }
   else if (ent) p.apunta.on = false;
 
-  if (p.stun > 0) { p.stun -= dt; ix = iy = 0; }
+  if (p.stun > 0) {
+    p.stun -= dt; ix = iy = 0;
+    if (p.montado != null) bajarse(e, p, true);   // un golpe te tira del vehículo
+  }
   if (p.boost > 0) p.boost -= dt;
   if (p.invis > 0) p.invis -= dt;
   if (p.inmune > 0) p.inmune -= dt;
   if (p.cd > 0) p.cd -= dt;
 
-  const speed = (p.carry ? 196 : 268) * (p.boost > 0 ? 1.75 : 1);
+  const speed = (p.carry ? 196 : 268) * (p.boost > 0 ? 1.75 : 1) * multDeMontura(e, p);
   p.vx = lerp(p.vx, ix * speed, 1 - Math.pow(0.0009, dt));
   p.vy = lerp(p.vy, iy * speed, 1 - Math.pow(0.0009, dt));
   p.x = clamp(p.x + p.vx * dt, 22, WORLD_W - 22);
   p.y = clamp(p.y + p.vy * dt, 22, WORLD_H - 22);
+
+  /* ---- la orilla ----
+     A pie el agua te para en seco; con tabla o flotador se entra. Si te bajas
+     estando dentro, el mismo tope te devuelve a la arena. */
+  if (e.esc.mar != null && !puedeMojarse(e, p) && p.y > e.esc.mar) {
+    p.y = e.esc.mar;
+    if (p.vy > 0) p.vy = 0;
+  }
+
+  tocarTrastos(e, p);
+  const montura = trastoDe(e, p.montado);
+  if (montura) {
+    montura.x = p.x; montura.y = p.y;
+    montura.giro = p.face > 0 ? 0 : Math.PI;
+  }
   if (Math.abs(ix) + Math.abs(iy) > 0.1) { p.dirx = ix; p.diry = iy; if (ix) p.face = ix > 0 ? 1 : -1; }
   p.walk += Math.hypot(p.vx, p.vy) * dt * 0.055;
 
@@ -903,7 +1014,7 @@ function avanzarJugador(e: Estado, p: Jugador, ent: EntradaJugador | undefined, 
       p.grab.t += dt;
       if (p.grab.t >= 0.55) {
         const fl = (best as any).florin as Florin;
-        p.carry = mismoFlorin(fl);
+        cargar(e, p, mismoFlorin(fl));
         const T = TIERS[fl.tier];
         if ((best as DesfileItem).esDesfile) {
           texto(e, best.x, best.y - 56, "¡Atrapado! " + T.rar, "#FF9EC4");
@@ -927,7 +1038,7 @@ function avanzarJugador(e: Estado, p: Jugador, ent: EntradaJugador | undefined, 
     const g = e.ground[i];
     if (p.idx === 0) { g.bob += dt * 3; g.t += dt; }
     if (!p.carry && p.stun <= 0 && dist2(p.x, p.y, g.x, g.y) < 40 * 40) {
-      p.carry = mismoFlorin(g);
+      cargar(e, p, mismoFlorin(g));
       texto(e, g.x, g.y - 50, g.nombre ? "¡" + g.nombre + " volvió!" : "¡Recogido!", "#3DDC97");
       e.ground.splice(i, 1);
       sonar(e, "grab");

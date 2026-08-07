@@ -16,7 +16,7 @@ import {
   florNombre, florinIncome, freePed, freePedDe, girarRuleta as girarEnMotor,
   inRect, laserActivo, lerp, money, nuevaPartidaMotor, nuevoFlorin, occupied,
   occupiedDe, orbitaDelCentro, playerIncome, puntoDelDesfile, rumboDeTiro,
-  patiosDe, revivirPartida, seleccionarArma, textoDePremio, usarArma, varLabel,
+  bajarse, patiosDe, revivirPartida, seleccionarArma, textoDePremio, usarArma, varLabel,
   varMult, visualDe,
 } from "./puente.js";
 import { nube } from "./nube.js";
@@ -74,6 +74,13 @@ function entradas(){
 
 /* Dónde apunta el ratón / el arrastre táctil, en coordenadas del mundo. */
 const mira = { on:false, wx:0, wy:0 };
+
+/** Bajarse a mano de lo que lleves debajo. */
+function bajarseDelTrasto(){
+  if (!G || !G.started || G.over || G.player.montado == null) return;
+  bajarse(G, G.player, true);
+  renderWbar();
+}
 
 /** Arranca una partida nueva en el escenario elegido. */
 function nuevaPartida(modo){
@@ -307,7 +314,9 @@ window.addEventListener("keydown", e => {
   if (G.mode === 2 && G.players[1] && G.players[1].teclas.fire.includes(k)) usarArma(G, G.players[1]);
   if (k === "p") togglePause();
   if (k === "m") toggleSound();
-  if (k === "n") abrirBautizo();
+  // La N sirve para dos cosas según el momento: si vas montado te bajas, y si
+  // no, bautizas. Nunca coinciden — montado no puedes cargar un Florín.
+  if (k === "n"){ if (G.player.montado != null) bajarseDelTrasto(); else abrirBautizo(); }
   if (k === "b") { if (document.getElementById("album").hidden) abrirAlbum(); else cerrarAlbum(); }
   if (k === "t") togglePanel("arm");
   if (k === "r") togglePanel("rul");
@@ -1140,10 +1149,10 @@ function casaBarrio(c, x, y, i, esc){
   rr(c, x+w/2-32*esc, y-h-43*esc, 24*esc, 7*esc, 3*esc); c.fill();
 }
 
-/* ---- bicicleta apoyada ---- */
+/* ---- bicicleta ---- */
 const BICI_COLOR = ["#FF5C86","#5CE1EA","#FFD84D","#9BD97F","#FF9EC4"];
-function biciBarrio(c, x, y, i){
-  const esc = .9 + az(i)*.25, giro = (az(i+5)-.5)*.7;
+function biciBarrio(c, x, y, i, giro = (az(i+5)-.5)*.7){
+  const esc = .95;
   c.save(); c.translate(x, y); c.rotate(giro); c.scale(esc, esc);
 
   c.fillStyle = "rgba(0,0,0,.2)";
@@ -1175,8 +1184,8 @@ function biciBarrio(c, x, y, i){
 }
 
 /* ---- pelotas ---- */
-function pelotaBarrio(c, x, y, i){
-  const r = 10 + az(i)*4;
+function pelotaBarrio(c, x, y, i, giro = 0){
+  const r = 12;
   c.fillStyle = "rgba(0,0,0,.2)";
   c.beginPath(); c.ellipse(x, y+r*.75, r*1.05, r*.4, 0, 0, 6.283); c.fill();
 
@@ -1204,6 +1213,112 @@ function pelotaBarrio(c, x, y, i){
   }
   c.fillStyle = "rgba(255,255,255,.4)";                   // brillo
   c.beginPath(); c.ellipse(x-r*.32, y-r*.42, r*.26, r*.18, -.6, 0, 6.283); c.fill();
+}
+
+/* ---- patineta ---- */
+const TABLA_COLOR = ["#FF3D6E","#37D6E0","#FFC53D","#8B6BEE","#3DDC97"];
+function dibujarPatineta(c, x, y, giro, i){
+  c.save(); c.translate(x, y); c.rotate(giro);
+  c.fillStyle = "rgba(0,0,0,.2)";
+  c.beginPath(); c.ellipse(0, 5, 25, 7, 0, 0, 6.283); c.fill();
+  c.fillStyle = "#3A2416";                             // ruedas
+  for (const rx of [-14, 14]){
+    c.beginPath(); c.ellipse(rx, 3, 4, 3.4, 0, 0, 6.283); c.fill();
+  }
+  c.fillStyle = TABLA_COLOR[i % TABLA_COLOR.length];   // la tabla
+  rr(c, -24, -6, 48, 9, 4.5); c.fill();
+  c.fillStyle = "rgba(255,255,255,.3)";                // la lija
+  rr(c, -19, -5, 38, 3, 1.5); c.fill();
+  c.restore();
+}
+
+/* ---- tabla de surf ---- */
+function dibujarTabla(c, x, y, giro, i){
+  c.save(); c.translate(x, y); c.rotate(giro);
+  c.fillStyle = "rgba(0,0,0,.16)";
+  c.beginPath(); c.ellipse(0, 6, 27, 8, 0, 0, 6.283); c.fill();
+  c.fillStyle = "#FFEFE2";
+  c.beginPath();
+  c.moveTo(-28, 0);
+  c.quadraticCurveTo(-16, -10, 16, -8);
+  c.quadraticCurveTo(28, -5, 28, 0);
+  c.quadraticCurveTo(28, 5, 16, 8);
+  c.quadraticCurveTo(-16, 10, -28, 0);
+  c.closePath(); c.fill();
+  c.strokeStyle = "rgba(0,0,0,.22)"; c.lineWidth = 1.4; c.stroke();
+  c.fillStyle = TABLA_COLOR[i % TABLA_COLOR.length];   // la franja del centro
+  c.beginPath();
+  c.moveTo(-24, 0); c.quadraticCurveTo(0, -4, 26, 0);
+  c.quadraticCurveTo(0, 4, -24, 0);
+  c.closePath(); c.fill();
+  c.restore();
+}
+
+/* ---- flotador ---- */
+function dibujarFlotador(c, x, y, giro, i){
+  c.save(); c.translate(x, y); c.rotate(giro);
+  c.fillStyle = "rgba(0,0,0,.14)";
+  c.beginPath(); c.ellipse(0, 6, 20, 7, 0, 0, 6.283); c.fill();
+  const col = TABLA_COLOR[i % TABLA_COLOR.length];
+  for (let k=0;k<6;k++){                               // gajos de dos colores
+    c.fillStyle = k % 2 ? "#FFEFE2" : col;
+    c.beginPath(); c.moveTo(0, 0);
+    c.ellipse(0, 0, 19, 15, 0, k*1.047, (k+1)*1.047);
+    c.closePath(); c.fill();
+  }
+  c.fillStyle = "#1FA8C4";                             // el agujero
+  c.beginPath(); c.ellipse(0, 0, 8, 6, 0, 0, 6.283); c.fill();
+  c.strokeStyle = "rgba(0,0,0,.2)"; c.lineWidth = 1.4;
+  c.beginPath(); c.ellipse(0, 0, 19, 15, 0, 0, 6.283); c.stroke();
+  c.restore();
+}
+
+/* ---- tabla de arena ---- */
+function dibujarTablaArena(c, x, y, giro, i){
+  c.save(); c.translate(x, y); c.rotate(giro);
+  c.fillStyle = "rgba(0,0,0,.2)";
+  c.beginPath(); c.ellipse(0, 6, 24, 7, 0, 0, 6.283); c.fill();
+  c.fillStyle = "#8B5A2B";
+  rr(c, -24, -8, 48, 14, 7); c.fill();
+  c.fillStyle = TABLA_COLOR[(i+2) % TABLA_COLOR.length];
+  rr(c, -20, -6, 40, 6, 3); c.fill();
+  c.strokeStyle = "#3A2416"; c.lineWidth = 2;          // las correas
+  c.beginPath();
+  c.moveTo(-9, -8); c.lineTo(-9, 6);
+  c.moveTo(9, -8);  c.lineTo(9, 6);
+  c.stroke();
+  c.restore();
+}
+
+/* ---- mata rodadora ---- */
+function dibujarMata(c, x, y, giro, i){
+  c.save(); c.translate(x, y); c.rotate(giro);
+  c.strokeStyle = "#A2832F"; c.lineWidth = 2.5;
+  c.beginPath();
+  for (let k=0;k<9;k++){
+    const a = k*.7 + i, r = 12 + az(i*4+k)*11;
+    c.moveTo(0, 0);
+    c.lineTo(Math.cos(a)*r, Math.sin(a)*r*.8);
+  }
+  c.stroke();
+  c.strokeStyle = "rgba(162,131,47,.6)"; c.lineWidth = 2;
+  c.beginPath(); c.ellipse(0, 0, 16, 13, 0, 0, 6.283); c.stroke();
+  c.restore();
+}
+
+/* Todo lo que se puede montar o patear. Va después de las cáscaras y antes de
+   la gente: así el que va montado sale dibujado encima de su bici. */
+function drawTrastos(){
+  for (const v of G.trastos){
+    const i = v.variante;
+    if (v.tipo === "bici")            biciBarrio(ctx, v.x, v.y, i, v.giro);
+    else if (v.tipo === "patineta")   dibujarPatineta(ctx, v.x, v.y, v.giro, i);
+    else if (v.tipo === "tabla")      dibujarTabla(ctx, v.x, v.y, v.giro, i);
+    else if (v.tipo === "flotador")   dibujarFlotador(ctx, v.x, v.y, v.giro, i);
+    else if (v.tipo === "tablaArena") dibujarTablaArena(ctx, v.x, v.y, v.giro, i);
+    else if (v.tipo === "mata")       dibujarMata(ctx, v.x, v.y, v.giro, i);
+    else                              pelotaBarrio(ctx, v.x, v.y, i, v.giro);
+  }
 }
 
 /* ---------- El Barrio: casas, postes, tendederos, bicis, pelotas y rayuela ---------- */
@@ -1262,9 +1377,6 @@ function decoBarrio(c, E){
       c.beginPath(); c.ellipse(x-4, y-4, 5, 4, 0, 0, 6.283); c.fill();
     }
   });
-
-  sembrar(c, 7, 2101, 34, (c,x,y,i) => biciBarrio(c, x, y, i));   // bicis tiradas
-  sembrar(c, 11, 2701, 20, (c,x,y,i) => pelotaBarrio(c, x, y, i)); // pelotas del recreo
 
   // la rayuela completa, del 1 al 10, en tiza de colores
   sembrar(c, 3, 1301, 130, (c,x,y,i) => rayuela(c, x, y+120, .95 + az(i)*.2));
@@ -1449,20 +1561,6 @@ function decoPlaya(c, E){
     c.restore();
   }, MAR - 130);
 
-  // pelotas de playa
-  sembrar(c, 3, 4001, 24, (c,x,y) => {
-    c.fillStyle = "rgba(0,0,0,.16)";
-    c.beginPath(); c.ellipse(x, y+13, 15, 5, 0, 0, 6.283); c.fill();
-    const gajos = ["#FFEFE2","#FF3D6E","#FFEFE2","#5CE1EA","#FFEFE2","#FFD84D"];
-    for (let k=0;k<6;k++){
-      c.fillStyle = gajos[k];
-      c.beginPath(); c.moveTo(x, y);
-      c.arc(x, y, 15, k*1.047, (k+1)*1.047); c.closePath(); c.fill();
-    }
-    c.strokeStyle = "rgba(0,0,0,.2)"; c.lineWidth = 1.6;
-    c.beginPath(); c.arc(x, y, 15, 0, 6.283); c.stroke();
-  }, MAR - 130);
-
   // conchas y estrellas de mar en la arena seca, nunca dentro del agua
   for (let i=0;i<44;i++){
     const x = azEntre(i,60,WORLD_W-60), y = azEntre(i+55,60,MAR-110);
@@ -1619,19 +1717,6 @@ function decoDesierto(c, E){
     c.fillStyle = "#3A2416";
     c.beginPath(); c.ellipse(x-7, y-4, 4.5, 5.5, 0, 0, 6.283); c.fill();
     c.beginPath(); c.ellipse(x+7, y-4, 4.5, 5.5, 0, 0, 6.283); c.fill();
-  });
-
-  sembrar(c, 7, 1701, 26, (c,x,y,i) => {      // mata rodadora
-    c.strokeStyle = "#A2832F"; c.lineWidth = 2.5;
-    c.beginPath();
-    for (let k=0;k<9;k++){
-      const a = k*.7 + az(i)*3, r = 12 + az(i*4+k)*11;
-      c.moveTo(x, y);
-      c.lineTo(x + Math.cos(a)*r, y + Math.sin(a)*r*.8);
-    }
-    c.stroke();
-    c.strokeStyle = "rgba(162,131,47,.6)"; c.lineWidth = 2;
-    c.beginPath(); c.ellipse(x, y, 16, 13, 0, 0, 6.283); c.stroke();
   });
 
   sembrar(c, 3, 2101, 46, (c,x,y) => {        // letrero viejo torcido
@@ -2725,6 +2810,7 @@ function draw(){
   drawPortal();
   if (G.mode === 1) drawRuleta();
   drawCascaras();
+  drawTrastos();
   for (const b of G.bases) drawLaser(b);
   drawDesfile();
   drawGrabRing();
@@ -3201,6 +3287,7 @@ function frame(now){
   hud();
   requestAnimationFrame(frame);
 }
+
 
 
 resize();

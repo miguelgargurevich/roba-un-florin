@@ -115,6 +115,36 @@ export const PORTAL_RAREZAS: { p: number; tier: number }[] = [
 
 export const LASER_DUR = 60, LASER_RECARGA = 30, LASER_PRECIO = 800, LASER_CARGA = 1;
 
+/* ---- trastos del escenario ----
+   Los vehículos son puro transporte: al agarrar un Florín te bajas, así que no
+   sirven para escapar con el botín y no hay nada que reequilibrar. Lo que
+   cambian es lo pesado que se hace cruzar un mapa de 2600×1700.
+
+   `agua` marca los que solo funcionan dentro del mar; los demás, solo fuera. */
+export interface Vehiculo { mult: number; agua: boolean; label: string; icon: string }
+export const VEHICULOS: Record<string, Vehiculo> = {
+  bici:       { mult:1.6,  agua:false, label:"bicicleta",     icon:"🚲" },
+  patineta:   { mult:1.45, agua:false, label:"patineta",      icon:"🛹" },
+  tablaArena: { mult:1.5,  agua:false, label:"tabla de arena",icon:"🏂" },
+  tabla:      { mult:1.7,  agua:true,  label:"tabla de surf", icon:"🏄" },
+  flotador:   { mult:1.15, agua:true,  label:"flotador",      icon:"🛟" },
+};
+export const esVehiculo = (tipo: string) => tipo in VEHICULOS;
+
+/** A qué distancia se monta o se patea un trasto. */
+export const TRASTO_ALCANCE = 30;
+/** Lo que empuja una patada, sobre la velocidad a la que ibas. */
+export const PATADA = 2.6;
+/** Rozamiento de lo que rueda: 1 = no frena nunca. */
+export const RODAR_ROCE = 0.12;
+
+export const TRASTOS_ESCENARIO: Record<string, { tipo: string; n: number }[]> = {
+  barrio:   [{ tipo:"bici", n:4 }, { tipo:"patineta", n:3 }, { tipo:"pelota", n:8 }],
+  colegio:  [{ tipo:"patineta", n:4 }, { tipo:"pelota", n:7 }],
+  playa:    [{ tipo:"tabla", n:3 }, { tipo:"flotador", n:2 }, { tipo:"pelota", n:6 }],
+  desierto: [{ tipo:"tablaArena", n:3 }, { tipo:"mata", n:7 }],
+};
+
 export const RULETA_PRECIO = 1200;
 export type CasillaRuleta =
   | { p: number; kind: "florin"; tier: number }
@@ -223,7 +253,8 @@ export const ESCENARIOS: Escenario[] = [
     patios:[[2150,1290],[1700,1290],[2150,860]] },
   { id:"playa",    nombre:"La Playa",
     casas:[[2150,90],[2150,620],[2150,1100],[560,1100]],
-    patios:[[70,90],[70,450],[70,810]] },
+    patios:[[70,90],[70,450],[70,810]],
+    mar: WORLD_H - 210 },
   { id:"desierto", nombre:"El Desierto",
     casas:[[70,90],[2150,90],[2150,1290],[1750,700]],
     patios:[[70,1290],[70,900],[70,510]] },

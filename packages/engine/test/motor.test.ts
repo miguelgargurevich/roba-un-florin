@@ -7,8 +7,9 @@ import { describe, expect, it } from "vitest";
 import {
   ESCENARIOS, FLORES, GOAL, LASER_DUR, LASER_PRECIO, PORTAL_RAREZAS, RAR_COLOR,
   RULETA, RULETA_INCOGNITA, RULETA_PRECIO, TIERS, WEAPONS, varMult,
-  avanzar, crearPartida, girarRuleta, idsDeArmas, occupiedDe, playerIncome,
-  spawnThief, usarArma, comprarArma, seleccionarArma, nuevoFlorin, baseDe, patiosDe,
+  avanzar, bajarse, cargar, crearPartida, girarRuleta, idsDeArmas, inRect,
+  occupiedDe, playerIncome, spawnThief, usarArma, comprarArma, seleccionarArma,
+  nuevoFlorin, baseDe, patiosDe, zap, multDeMontura,
   type EntradaJugador, type Estado,
 } from "../src/index.js";
 
@@ -246,6 +247,201 @@ describe("el catálogo de Florines", () => {
       expect(f.forma).toBeTruthy();
     }
     expect(new Set(FLORES.map(f => f.id)).size).toBe(FLORES.length);
+  });
+});
+
+describe("trastos: bicis, tablas y pelotas", () => {
+  const haciaLaDerecha = { 0: { mover: { x: 1, y: 0 }, apunta: null } };
+  /** Pone al jugador justo encima de un trasto del tipo pedido. */
+  function encimaDe(e: Estado, tipo: string) {
+    const v = e.trastos.find(x => x.tipo === tipo)!;
+    expect(v, `no hay ningún ${tipo} en ${e.esc.id}`).toBeTruthy();
+    e.players[0].x = v.x; e.players[0].y = v.y;
+    return v;
+  }
+
+  it("cada escenario reparte lo suyo, y nada cae encima de una base", () => {
+    for (const esc of ESCENARIOS) {
+      const e = partida({ escenario: esc.id });
+      expect(e.trastos.length).toBeGreaterThan(0);
+      for (const v of e.trastos)
+        for (const b of e.bases)
+          expect(inRect(v.x, v.y, b.rect, 0)).toBe(false);
+    }
+    expect(partida({ escenario: "barrio" }).trastos.some(v => v.tipo === "bici")).toBe(true);
+    expect(partida({ escenario: "barrio" }).trastos.some(v => v.tipo === "patineta")).toBe(true);
+    expect(partida({ escenario: "playa" }).trastos.some(v => v.tipo === "tabla")).toBe(true);
+    expect(partida({ escenario: "desierto" }).trastos.some(v => v.tipo === "tablaArena")).toBe(true);
+    expect(partida({ escenario: "colegio" }).trastos.some(v => v.tipo === "patineta")).toBe(true);
+  });
+
+  it("pisar una bici te monta y te hace correr más", () => {
+    const e = partida();
+    const p = e.players[0];
+    const bici = encimaDe(e, "bici");
+    avanzar(e, haciaLaDerecha, 1 / 60);
+    expect(p.montado).toBe(bici.id);
+    expect(bici.montadoPor).toBe(0);
+
+    const conBici = partida();
+    conBici.players[0].x = bici.x; conBici.players[0].y = bici.y;
+    correr(conBici, 2, haciaLaDerecha);
+    const aPie = partida();
+    aPie.players[0].x = 1300; aPie.players[0].y = 900;      // lejos de todo trasto
+    const x0 = aPie.players[0].x;
+    correr(aPie, 2, haciaLaDerecha);
+    const recorridoAPie = aPie.players[0].x - x0;
+    const recorridoEnBici = conBici.players[0].x - bici.x;
+    expect(recorridoEnBici).toBeGreaterThan(recorridoAPie * 1.3);
+  });
+
+  it("la bici te sigue mientras vas montado", () => {
+    const e = partida();
+    const bici = encimaDe(e, "bici");
+    correr(e, 1, haciaLaDerecha);
+    expect(bici.x).toBeCloseTo(e.players[0].x, 3);
+    expect(bici.y).toBeCloseTo(e.players[0].y, 3);
+  });
+
+  it("agarrar un Florín te baja, y la bici queda donde te bajaste", () => {
+    const e = partida();
+    const p = e.players[0];
+    const bici = encimaDe(e, "bici");
+    avanzar(e, haciaLaDerecha, 1 / 60);
+    expect(p.montado).toBe(bici.id);
+
+    cargar(e, p, nuevoFlorin(e, 0));
+    expect(p.montado).toBeNull();
+    expect(bici.montadoPor).toBeNull();
+    expect(bici.x).toBeCloseTo(p.x, 3);
+  });
+
+  it("cargando un Florín ya no te montas al pasar por encima", () => {
+    const e = partida();
+    const p = e.players[0];
+    p.carry = nuevoFlorin(e, 0);
+    encimaDe(e, "bici");
+    correr(e, 0.5, haciaLaDerecha);
+    expect(p.montado).toBeNull();
+  });
+
+  it("un golpe te tira del vehículo y lo deja tirado", () => {
+    const e = partida();
+    const p = e.players[0];
+    const bici = encimaDe(e, "bici");
+    avanzar(e, haciaLaDerecha, 1 / 60);
+    expect(p.montado).toBe(bici.id);
+
+    zap(e, p, 1.5, false);                 // lo que hace una abuela al alcanzarte
+    avanzar(e, nada(), 1 / 60);
+    expect(p.montado).toBeNull();
+    expect(bici.montadoPor).toBeNull();
+  });
+
+  it("no te montas y desmontas en bucle mientras sigues encima", () => {
+    const e = partida();
+    const p = e.players[0];
+    const bici = encimaDe(e, "bici");
+    avanzar(e, nada(), 1 / 60);
+    const montadoTras1 = p.montado;
+    bajarse(e, p);                          // te bajas a mano, sin moverte
+    correr(e, 1, nada());                   // y te quedas quieto encima
+    expect(montadoTras1).toBe(bici.id);
+    expect(p.montado).toBeNull();           // no se vuelve a montar solo
+  });
+
+  it("patear una pelota la manda a rodar, y frena sola", () => {
+    const e = partida();
+    const p = e.players[0];
+    const bola = e.trastos.find(v => v.tipo === "pelota")!;
+    p.x = bola.x - 26; p.y = bola.y;
+    correr(e, 0.6, haciaLaDerecha);         // llega con velocidad y la patea
+    expect(Math.hypot(bola.vx, bola.vy)).toBeGreaterThan(0);
+    const xTrasPatada = bola.x;
+
+    correr(e, 4, nada());
+    expect(bola.x).toBeGreaterThan(xTrasPatada);
+    expect(bola.vx).toBe(0);                // el rozamiento la para
+    expect(bola.vy).toBe(0);
+  });
+
+  it("la pelota no hace daño a nadie: es un juguete", () => {
+    const e = partida();
+    const bola = e.trastos.find(v => v.tipo === "pelota")!;
+    baseDe(e, e.players[0].baseId).peds[0].florin = nuevoFlorin(e, 0);  // si no, no viene nadie
+    for (let i = 0; i < 30; i++) spawnThief(e);
+    const t = e.thieves[0];
+    bola.x = t.x; bola.y = t.y;
+    bola.vx = 900; bola.vy = 0;
+    correr(e, 1, nada());
+    expect(t.stun).toBe(0);
+  });
+});
+
+describe("el mar de la playa", () => {
+  const haciaAbajo = { 0: { mover: { x: 0, y: 1 }, apunta: null } };
+
+  it("a pie te frena en la orilla", () => {
+    const e = partida({ escenario: "playa" });
+    const p = e.players[0];
+    const mar = e.esc.mar!;
+    p.x = 1300; p.y = mar - 60;
+    correr(e, 4, haciaAbajo);
+    expect(p.y).toBeLessThanOrEqual(mar + 0.001);
+  });
+
+  it("la tabla nace en la arena: dentro del agua sería inalcanzable", () => {
+    const e = partida({ escenario: "playa" });
+    for (const v of e.trastos.filter(x => x.tipo === "tabla" || x.tipo === "flotador"))
+      expect(v.y).toBeLessThan(e.esc.mar!);
+  });
+
+  it("la agarras en la orilla y con ella te metes al mar", () => {
+    const e = partida({ escenario: "playa" });
+    const p = e.players[0];
+    const tabla = e.trastos.find(v => v.tipo === "tabla")!;
+    p.x = tabla.x; p.y = tabla.y;
+    avanzar(e, nada(), 1 / 60);
+    expect(p.montado).toBe(tabla.id);
+
+    correr(e, 4, haciaAbajo);
+    expect(p.y).toBeGreaterThan(e.esc.mar! + 40);  // navegando mar adentro
+  });
+
+  it("en la arena la tabla estorba, en el agua vuela", () => {
+    const enAgua = partida({ escenario: "playa" });
+    const t1 = enAgua.trastos.find(v => v.tipo === "tabla")!;
+    enAgua.players[0].x = t1.x; enAgua.players[0].y = t1.y;
+    avanzar(enAgua, nada(), 1 / 60);
+    expect(multDeMontura(enAgua, enAgua.players[0])).toBeLessThan(1);   // en la arena
+    enAgua.players[0].y = enAgua.esc.mar! + 50;
+    expect(multDeMontura(enAgua, enAgua.players[0])).toBeGreaterThan(1); // en el agua
+  });
+
+  it("con la bici no se entra al agua", () => {
+    const e = partida({ escenario: "playa" });
+    const p = e.players[0];
+    const falsaBici = {
+      id: 9999, tipo: "bici" as const, x: 1300, y: e.esc.mar! - 20,
+      vx: 0, vy: 0, montadoPor: null, giro: 0, variante: 0,
+    };
+    e.trastos.push(falsaBici);
+    p.x = falsaBici.x; p.y = falsaBici.y;
+    avanzar(e, nada(), 1 / 60);
+    expect(p.montado).toBe(9999);          // se monta, es tierra
+    correr(e, 4, haciaAbajo);
+    expect(p.y).toBeLessThanOrEqual(e.esc.mar! + 0.001);   // pero el agua le para
+  });
+
+  it("los otros escenarios no tienen mar y se puede llegar al borde sur", () => {
+    for (const id of ["barrio", "colegio", "desierto"]) {
+      const e = partida({ escenario: id });
+      expect(e.esc.mar).toBeUndefined();
+      const p = e.players[0];
+      p.x = 1300; p.y = 1400;
+      correr(e, 6, haciaAbajo);
+      expect(p.y).toBeGreaterThan(1600);
+    }
   });
 });
 

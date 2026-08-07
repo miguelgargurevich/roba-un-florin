@@ -21,12 +21,14 @@ export {
   bloqueadoPorLaser, orbitaDelCentro, puntoDelDesfile, ponerLaser,
   PORTAL_BAJADA, PORTAL_ORBITA,
   baseDe, jugadorDe, pedDe, desfileDe, patiosDe, objetivoDe,
+  trastoDe, hayMar, enElMar, puedeMojarse,
 } from "./estado.js";
 export type { OpcionesPartida } from "./estado.js";
 export {
   avanzar, usarArma, comprarArma, seleccionarArma, girarRuleta, premioDeRuleta,
   textoDePremio, spawnThief, sacarDelPortal, comprarPatio, rumboDeTiro,
   maxTier, rollTier, blancosDe, dropCarried, zap, knock, applyKnock, escudoAguanta,
+  bajarse, cargar, multDeMontura,
 } from "./simular.js";
 
 import { WEAPONS } from "./datos.js";

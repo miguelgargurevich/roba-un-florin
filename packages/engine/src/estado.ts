@@ -3,11 +3,11 @@
 
 import type {
   Base, DesfileItem, Estado, Evento, Florin, Jugador, Laser, Pedestal, RefObjetivo,
-  RefPed, Sonido, Variante,
+  RefPed, Sonido, Trasto, Variante,
 } from "./tipos.js";
 import {
-  ESCENARIOS, FLORES, GOAL, LASER_CARGA, PATIOS_PRECIO, TIERS, VARIANTES,
-  WORLD_H, WORLD_W, varMult,
+  ESCENARIOS, FLORES, GOAL, LASER_CARGA, PATIOS_PRECIO, TIERS, TRASTOS_ESCENARIO,
+  VARIANTES, VEHICULOS, WORLD_H, WORLD_W, varMult,
 } from "./datos.js";
 import { azar, dist2, inRect, rnd } from "./util.js";
 
@@ -51,6 +51,20 @@ export function objetivoDe(e: Estado, r: RefObjetivo | null): Pedestal | Desfile
   return r.tipo === "ped" ? pedDe(e, r) : desfileDe(e, r.id);
 }
 export const nuevoId = (e: Estado) => ++e.proximoId;
+export const trastoDe = (e: Estado, id: number | null): Trasto | null =>
+  id == null ? null : e.trastos.find(x => x.id === id) || null;
+
+/* ---- el mar ----
+   Solo la playa lo tiene. A pie te frena en la orilla; con tabla o flotador se
+   entra, y el agua pasa a ser un carril rápido por el sur del mapa. */
+export const hayMar = (e: Estado) => e.esc.mar != null;
+export const enElMar = (e: Estado, y: number) => e.esc.mar != null && y > e.esc.mar;
+
+/** ¿Puede este jugador estar en esa `y`, o el agua se lo impide? */
+export function puedeMojarse(e: Estado, p: Jugador): boolean {
+  const v = trastoDe(e, p.montado);
+  return !!(v && VEHICULOS[v.tipo]?.agua);
+}
 
 /* ---- consultas sobre bases y jugadores ---- */
 export const freePed = (b: Base): Pedestal | null => b.peds.find(p => !p.florin) || null;
@@ -114,6 +128,46 @@ export function puntoDelDesfile(e: Estado, k: number) {
   return { x: entrada.x + (P.x - entrada.x) * f, y: entrada.y + (P.y - entrada.y) * f };
 }
 
+/* ---- reparto de trastos ----
+   El motor no sabe de canteros ni de canchas (eso es decorado del cliente), así
+   que solo esquiva lo que sí es suyo: las bases, la columna del centro y el
+   agua. Si un adorno del cliente se solapa con una bici, mala suerte: la bici
+   se dibuja encima y se sigue pudiendo montar. */
+function sitioLibreTrasto(e: Estado, x: number, y: number, m: number): boolean {
+  const choca = (r: { x: number; y: number; w: number; h: number }) =>
+    x - m < r.x + r.w && x + m > r.x && y - m < r.y + r.h && y + m > r.y;
+  for (const b of e.bases) if (choca({ x: b.rect.x - 20, y: b.rect.y - 20, w: b.rect.w + 40, h: b.rect.h + 40 })) return false;
+  if (choca({ x: e.armeria.x - 30, y: e.armeria.y - 30, w: e.armeria.w + 60, h: e.armeria.h + 60 })) return false;
+  if (choca({ x: e.ruleta.x - 30, y: e.ruleta.y - 30, w: e.ruleta.w + 60, h: e.ruleta.h + 60 })) return false;
+  if (choca({ x: e.portal.x - 80, y: e.portal.y - 80, w: 160, h: 160 })) return false;
+  for (const otro of e.trastos) if (dist2(x, y, otro.x, otro.y) < 60 * 60) return false;
+  return true;
+}
+
+function sembrarTrastos(e: Estado): void {
+  const receta = TRASTOS_ESCENARIO[e.esc.id] || [];
+  for (const { tipo, n } of receta) {
+    const aguaOnly = VEHICULOS[tipo]?.agua;
+    for (let k = 0; k < n; k++) {
+      for (let intento = 0; intento < 40; intento++) {
+        const x = rnd(e, 90, WORLD_W - 90);
+        /* Lo que flota nace en la orilla, no mar adentro: si naciera dentro del
+           agua sería inalcanzable, porque a pie el tope de la orilla te frena
+           antes de llegar. */
+        const y = e.esc.mar != null
+          ? (aguaOnly ? rnd(e, e.esc.mar - 70, e.esc.mar - 10) : rnd(e, 90, e.esc.mar - 110))
+          : rnd(e, 90, WORLD_H - 90);
+        if (!sitioLibreTrasto(e, x, y, 34)) continue;
+        e.trastos.push({
+          id: nuevoId(e), tipo: tipo as Trasto["tipo"], x, y, vx: 0, vy: 0,
+          montadoPor: null, giro: rnd(e, -0.6, 0.6), variante: (azar(e) * 5) | 0,
+        });
+        break;
+      }
+    }
+  }
+}
+
 /* ---- construcción del mundo ---- */
 function makeBase(id: number, name: string, x: number, y: number,
                   isPlayer: boolean, color: string, who?: string | null): Base {
@@ -137,6 +191,7 @@ function mkJugador(idx: number, base: Base, shirt: string, ammoIds: string[]): J
     carry: null, stun: 0, boost: 0, invis: 0, escudo: 0, inmune: 0,
     money: 260, ammo, wsel: 0, cd: 0, inShop: false, inRuleta: false, fullWarn: 0,
     chancla: { state: "held", x: 0, y: 0, vx: 0, vy: 0, spin: 0, travel: 0 },
+    montado: null, trastoUsado: null,
     grab: { ped: null, t: 0 },
     apunta: { on: false, wx: 0, wy: 0 },
     stats: { steals: 0, hits: 0, lost: 0, froze: 0 },
@@ -186,7 +241,7 @@ export function crearPartida(op: OpcionesPartida): Estado {
   const e: Estado = {
     t: 0, mode, esc, semilla, rngEstado: semilla | 0,
     bases, players: jugadores, armeria, ruleta, portal,
-    bolts: [], blasts: [], cascaras: [], perros: [], slowmo: 0,
+    bolts: [], blasts: [], cascaras: [], trastos: [], perros: [], slowmo: 0,
     thieves: [], ground: [], thiefTimer: 14,
     girando: null, ultimoPremio: null,
     hito: GOAL, hitoN: 0, fiesta: 0, alarma: null,
@@ -210,9 +265,11 @@ export function crearPartida(op: OpcionesPartida): Estado {
       isGuard: true, carry: null,
     };
   }
+
+  sembrarTrastos(e);       // después de las bases: necesita saber dónde no caben
   return e;
 }
 
 /* Reexportados por comodidad de quien consume el motor */
-export { VARIANTES, TIERS, FLORES, GOAL, LASER_CARGA, WORLD_W, WORLD_H, dist2 };
+export { VARIANTES, TIERS, FLORES, GOAL, LASER_CARGA, VEHICULOS, WORLD_W, WORLD_H, dist2 };
 export type { Variante, Evento };

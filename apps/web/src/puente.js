@@ -13,6 +13,7 @@ import {
   idsDeArmas, inRect, laserActivo, lerp, mismoFlorin, money, nuevoFlorin,
   occupied, occupiedDe, orbitaDelCentro, patiosDe, playerIncome, puntoDelDesfile,
   rumboDeTiro, seleccionarArma, textoDePremio, usarArma, varLabel, varMult,
+  VEHICULOS, bajarse, enElMar, trastoDe,
 } from "@florin/engine";
 
 export {
@@ -24,6 +25,7 @@ export {
   lerp, mismoFlorin, money, nuevoFlorin, occupied, occupiedDe, orbitaDelCentro,
   patiosDe, playerIncome, puntoDelDesfile, rumboDeTiro, seleccionarArma,
   textoDePremio, usarArma, varLabel, varMult,
+  VEHICULOS, bajarse, enElMar, trastoDe,
 };
 
 /* ---- escenarios: el motor pone el reparto, el cliente el aspecto ---- */
@@ -107,6 +109,14 @@ export function revivirPartida(texto){
     if (!G || !Array.isArray(G.players) || !G.players.length || !Array.isArray(G.bases)) return null;
     if (!G.esc || !VISUALES[G.esc.id]) return null;
     G.eventos = [];
+    /* Las partidas guardadas antes de los trastos no traen el campo. Se rellena
+       en vez de rechazarlas: perder el guardado de ayer por una función nueva
+       sería un pésimo intercambio. Nacen sin nada montado, que es lo correcto. */
+    if (!Array.isArray(G.trastos)) G.trastos = [];
+    for (const p of G.players){
+      if (p.montado === undefined) p.montado = null;
+      if (p.trastoUsado === undefined) p.trastoUsado = null;
+    }
     return conAtajos(G);
   } catch (_){ return null; }
 }

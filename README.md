@@ -28,10 +28,10 @@ Antes de jugar eliges dónde, y la elección se recuerda:
 
 | Escenario | Qué hay |
 |---|---|
-| 🏘️ **El Barrio** | **casas** de fachada de colores, techo de calamina y su tanque de agua, alineadas a las dos veredas · **bicicletas** tiradas y **pelotas** (de fútbol y de plástico a rayas) · postes de luz, tendederos con ropa, bolsas de basura y **rayuelas** con tiza de colores |
+| 🏘️ **El Barrio** | **casas** de fachada de colores, techo de calamina y su tanque de agua, alineadas a las dos veredas · postes de luz, tendederos con ropa, bolsas de basura y **rayuelas** con tiza de colores · y **bicis, patinetas y pelotas** con las que se juega (ver *Los trastos*) |
 | 🏫 **Sta. Teresita** | el patio del colegio: cancha pintada, canteros con césped y bordillo de ladrillo, palmeras, arbustos recortados, bancas, la **bandera del Perú**, el emblema **ST** en el suelo y las **rayuelas del recreo** |
-| 🏖️ **La Playa** | **mar con orilla y espuma**, **castillos de arena** con banderitas y palita, sombrillas, toallas, pelotas, conchas y estrellas de mar |
-| 🌵 **El Desierto** | tierra rajada, saguaros (algunos con flor), rocas, calaveras de vaca, matas rodadoras y letreros de "NI AGUA" |
+| 🏖️ **La Playa** | **mar con orilla y espuma** (solo se entra con tabla), **castillos de arena** con banderitas y palita, sombrillas, toallas, conchas y estrellas de mar · y **tablas de surf, flotadores y pelotas** |
+| 🌵 **El Desierto** | tierra rajada, saguaros (algunos con flor), rocas, calaveras de vaca, letreros de "NI AGUA" · y **tablas de arena y matas rodadoras** que se patean |
 
 Las **reglas son las mismas** en los cuatro, y la columna del centro (portal,
 Armería y Ruleta) no se mueve nunca: lo que cambia es el sitio y por dónde te
@@ -59,7 +59,7 @@ Un Florín tirado en el suelo lo puede recoger cualquiera: si le pegas a un ladr
 
 ## Controles
 
-**Teclado y ratón** — `WASD` / flechas para moverte · `espacio` o **clic** para usar el arma · `1`–`0` o `Q`/`E` cambiar de arma · `N` bautizar · `B` álbum · `T` Armería · `R` Ruleta · `P` pausa · `M` sonido
+**Teclado y ratón** — `WASD` / flechas para moverte · `espacio` o **clic** para usar el arma · `1`–`0` o `Q`/`E` cambiar de arma · `N` bautizar (o **bajarte** si vas montado) · `B` álbum · `T` Armería · `R` Ruleta · `P` pausa · `M` sonido
 
 **Táctil (celular y iPad)** — arrastra en una mitad de la pantalla para el joystick · toca el botón rosa para usar el arma · toca el **botón del arma** abajo para abrir la lista y cambiarla
 
@@ -265,6 +265,47 @@ suma es la variedad.
 El ritmo de los robos depende de **tu vitrina, no del reloj**: con un solo Florín
 pasan ~23 s entre visitas; con la vitrina llena de Florines caros, cada 10 s. Si
 te desvalijan, aflojan y te dan tregua para recuperarte.
+
+## Los trastos del escenario
+
+Cada escenario tiene cosas con las que se juega, y no son decorado: viven en el
+motor, así que en dos jugadores los dos ven la misma pelota rodar.
+
+| Escenario | Qué hay |
+|---|---|
+| 🏘️ **El Barrio** | 4 bicicletas, 3 patinetas y 8 pelotas |
+| 🏫 **Sta. Teresita** | 4 patinetas y 7 pelotas por el patio del recreo |
+| 🏖️ **La Playa** | 3 tablas de surf y 2 flotadores en la orilla, y 6 pelotas |
+| 🌵 **El Desierto** | 3 tablas de arena y 7 matas rodadoras |
+
+**Montarse** es automático: pisas la bici y ya vas encima. Te bajas al **agarrar
+un Florín**, al recibir **cualquier golpe** (queda tirada donde caíste, y la
+recoge quien pase) o pulsando `N`.
+
+| Vehículo | Velocidad |
+|---|---|
+| 🚲 Bicicleta | ×1.6 |
+| 🏂 Tabla de arena | ×1.5 |
+| 🛹 Patineta | ×1.45 |
+| 🏄 Tabla de surf | ×1.7, **solo en el agua** |
+| 🛟 Flotador | ×1.15, **solo en el agua** |
+
+Como agarrar un Florín te baja, el vehículo es **puro transporte**: sirve para
+llegar, no para escapar con el botín. Por eso no hay nada que reequilibrar.
+
+**Patear**: pasa por encima de una pelota o una mata rodadora y sale disparada
+en la dirección en la que ibas, con la fuerza de lo rápido que corrías. Rebota
+en los bordes y se frena sola. **No hace daño a nadie**: es un juguete.
+
+### El mar
+
+En la playa el agua **no se pisa**: a pie te frena en la orilla. Con una tabla o
+un flotador sí se entra, y el mar pasa a ser un carril rápido por el sur del
+mapa. Las tablas nacen en la arena, no mar adentro — si nacieran dentro serían
+inalcanzables, porque el tope de la orilla te para antes de llegar. Fuera de su
+elemento el trasto no acelera: la tabla en la arena la llevas a cuestas (×0.9).
+
+Los ladrones y las abuelas tampoco entran al agua, ni siquiera de un chancletazo.
 
 ## Cuenta en la nube (opcional)
 

@@ -111,6 +111,11 @@ export interface Jugador {
   inRuleta: boolean;
   fullWarn: number;
   chancla: Chancla;
+  /** id del trasto que lleva debajo, o null si va a pie */
+  montado: number | null;
+  /** el último trasto tocado: una acción por visita, o te montas y desmontas
+      en el mismo frame mientras sigues encima */
+  trastoUsado: number | null;
   grab: { ped: RefObjetivo | null; t: number };
   apunta: { on: boolean; wx: number; wy: number };
   stats: Stats;
@@ -148,6 +153,29 @@ export interface Portal {
   x: number; y: number; r: number;
   timer: number;
   desfile: DesfileItem[];
+}
+
+/* ---- trastos: lo del escenario con lo que se puede jugar ----
+   Antes las bicis y las pelotas eran pintura sobre el suelo cacheado. En cuanto
+   se mueven dejan de servir ahí y pasan a ser estado del motor, porque afectan
+   al juego (velocidad) y porque en dos jugadores los dos tienen que ver la
+   misma pelota rodar. */
+export type TipoTrasto =
+  | "bici" | "patineta" | "tabla" | "flotador" | "tablaArena"   // se montan
+  | "pelota" | "mata";                                          // se patean
+
+export interface Trasto {
+  id: number;
+  tipo: TipoTrasto;
+  x: number; y: number;
+  /** solo lo usan los que ruedan; los vehículos siguen a quien los monta */
+  vx: number; vy: number;
+  /** idx del jugador que va encima, o null */
+  montadoPor: number | null;
+  /** para dibujarlo ladeado, o rodando */
+  giro: number;
+  /** color/aspecto, sorteado al nacer */
+  variante: number;
 }
 
 export interface Cascara { x: number; y: number; duenoIdx: number | null; t: number }
@@ -204,6 +232,9 @@ export interface Escenario {
   nombre: string;
   casas: [number, number][];
   patios: [number, number][];
+  /** y desde la que empieza el mar. Solo la playa lo tiene: a pie te frena en
+      la orilla, y con tabla o flotador se puede entrar. */
+  mar?: number;
 }
 
 export interface Estado {
@@ -222,6 +253,7 @@ export interface Estado {
   bolts: Bala[];
   blasts: Rafaga[];
   cascaras: Cascara[];
+  trastos: Trasto[];
   perros: Perro[];
   slowmo: number;
   thieves: Ladron[];
