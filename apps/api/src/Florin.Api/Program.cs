@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Claims;
 using System.Text;
 using System.Threading.RateLimiting;
@@ -10,6 +11,7 @@ using Florin.Infrastructure;
 using Florin.Infrastructure.Persistence;
 using Florin.Infrastructure.Security;
 using Florin.Infrastructure.Seeding;
+using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -18,6 +20,11 @@ using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 const string CorsPolicy = "juego";
+
+// Los mensajes de validación se los lee un jugador, así que van en español
+// siempre. Sin esto dependen del locale de la máquina: en la Mac salían en
+// español y dentro del contenedor (sin locale) en inglés.
+ValidatorOptions.Global.LanguageManager.Culture = new CultureInfo("es");
 
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
