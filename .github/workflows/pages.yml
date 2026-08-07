@@ -1,0 +1,69 @@
+# Publica el juego en GitHub Pages construyendo apps/web.
+#
+# Antes Pages servía el index.html de la raíz del repo, que es el juego viejo de
+# un solo archivo y ya no es el mismo juego. Ahora sirve el build de verdad, el
+# mismo que corre en florin.gargurevich.dev.
+name: Pages
+
+on:
+  push:
+    branches: [main]
+    # Solo cuando cambia algo que afecta al build. Un cambio en la API o en el
+    # README no tiene por qué republicar el juego.
+    paths:
+      - "apps/web/**"
+      - "packages/engine/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Si se empujan dos commits seguidos, que gane el último y no se pisen.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - run: npm ci
+
+      # El motor no se publica, pero si sus pruebas fallan el juego está roto:
+      # más vale no publicarlo.
+      - name: Pruebas del motor
+        run: npm test
+
+      - name: Construir
+        run: npm run build --prefix apps/web
+        env:
+          # Las cuentas viven en el VPS. Este origen tiene que estar en
+          # Cors__Origins de la API o el bloque de cuenta no aparecerá aquí.
+          VITE_API: https://api.florin.gargurevich.dev
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: apps/web/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
