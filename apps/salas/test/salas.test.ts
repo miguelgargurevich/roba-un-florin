@@ -209,6 +209,52 @@ describe("los bots de los asientos libres", () => {
   });
 });
 
+describe("la parrilla de una carrera", () => {
+  it("nadie se mueve hasta que alguien da la salida", () => {
+    const { r, avanzar } = registro();
+    const s = r.crear("circuito", "carrera");
+    const a = s.sentar("ana", "Ana", cliente().enviar)!;
+    const donde = s.estado.players.map(p => ({ x: p.x, y: p.y }));
+    avanzar(6);
+    /* Ni los bots. Antes la carrera arrancaba al crear la sala y el amigo que
+       tardaba en entrar se la encontraba terminada: las vueltas duran medio
+       minuto. */
+    for (const p of s.estado.players){
+      expect(p.x, "alguien salió sin bandera").toBe(donde[p.idx].x);
+      expect(p.y).toBe(donde[p.idx].y);
+    }
+    expect(s.esperando).toBe(true);
+    expect(a.idx).toBe(0);
+  });
+
+  it("con la salida dada, cuenta atrás y a correr", () => {
+    const { r, avanzar } = registro();
+    const s = r.crear("circuito", "carrera");
+    const c = cliente();
+    s.sentar("ana", "Ana", c.enviar);
+    s.arrancar();
+    avanzar(1);
+    expect(s.esperando, "arrancó antes de tiempo").toBe(true);
+    expect(c.cuantos("salida"), "no avisó de la cuenta atrás").toBeGreaterThan(0);
+    avanzar(4);
+    expect(s.esperando).toBe(false);
+    const antes = s.estado.players.map(p => p.x);
+    avanzar(4);
+    const movidos = s.estado.players.filter((p, i) => Math.abs(p.x - antes[i]) > 20).length;
+    expect(movidos, "dada la salida, los bots siguen parados").toBeGreaterThan(2);
+  });
+
+  it("en aventura no hay parrilla que esperar", () => {
+    const { r, avanzar } = registro();
+    const s = r.crear("barrio", "aventura");
+    s.sentar("ana", "Ana", cliente().enviar);
+    expect(s.esperando).toBe(false);
+    const antes = s.estado.players.map(p => p.x);
+    avanzar(4);
+    expect(s.estado.players.some((p, i) => Math.abs(p.x - antes[i]) > 20)).toBe(true);
+  });
+});
+
 describe("la Ruleta y la Armería de una sala", () => {
   it("gira la ruleta y cobra la tirada", () => {
     const { r, avanzar } = registro();

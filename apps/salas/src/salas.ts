@@ -11,7 +11,7 @@ import {
   type EntradaJugador, type Estado,
 } from "@florin/engine";
 import {
-  ESPERA_VUELTA, HZ, RESYNC_CADA, SIN_SEÑALES, TICKS_POR_SEG,
+  CUENTA_ATRAS, ESPERA_VUELTA, HZ, RESYNC_CADA, SIN_SEÑALES, TICKS_POR_SEG,
   fotoMovil, type DeLaSala, type Presencia,
 } from "./protocolo.js";
 
@@ -46,10 +46,18 @@ export class Sala {
      un filo afiladísimo — el guardián de inactividad daba al jugador por ido en
      el primer tick y la sala se quedaba muda sin decir por qué. */
   readonly modo: "aventura" | "versus" | "carrera";
+  /* Una carrera espera en la parrilla hasta que alguien da la salida. Sin
+     esto los bots arrancaban al crear la sala y, con vueltas de medio minuto,
+     el amigo que tardaba en entrar se la encontraba terminada. En aventura no
+     hay nada que esperar: el mundo corre desde el primer momento. */
+  private enParrilla: boolean;
+  private salidaEn = 0;
+  private ultimoAviso = -1;
 
   constructor(codigo: string, escenario: string, private reloj: () => number,
               modo: "aventura" | "versus" | "carrera" = "aventura") {
     this.modo = modo;
+    this.enParrilla = modo === "carrera";
     this.codigo = codigo;
     const ahora = reloj();
     this.creada = ahora;
@@ -103,9 +111,46 @@ export class Sala {
     for (const a of this.asientos) { try { a.enviar?.(m); } catch { /* ya se fue */ } }
   }
 
+  /** Alguien da la salida. Vale cualquiera de los sentados: quien se anime. */
+  arrancar(): void {
+    if (!this.enParrilla || this.salidaEn) return;
+    this.salidaEn = this.reloj() + CUENTA_ATRAS * 1000;
+  }
+
+  /** ¿La carrera sigue esperando en la línea? */
+  get esperando(): boolean { return this.enParrilla; }
+
   /** Un paso de reloj. `dt` en segundos. */
   avanzar(dt: number): void {
     const ahora = this.reloj();
+
+    /* En la parrilla el mundo no avanza: solo corre la cuenta atrás. Se sigue
+       mandando la foto para que quien entre vea a los demás en la línea. */
+    if (this.enParrilla) {
+      if (this.salidaEn) {
+        const quedan = Math.max(0, Math.ceil((this.salidaEn - ahora) / 1000));
+        if (quedan !== this.ultimoAviso) {
+          this.ultimoAviso = quedan;
+          this.difundir({ t: "salida", en: quedan });
+        }
+        if (ahora >= this.salidaEn) this.enParrilla = false;
+      }
+      this.desdeTick += dt;
+      const cadaTick0 = 1 / TICKS_POR_SEG;
+      if (this.desdeTick >= cadaTick0) {
+        this.desdeTick = Math.min(this.desdeTick - cadaTick0, cadaTick0);
+        this.difundir({ t: "tick", n: ++this.n, movil: fotoMovil(this.estado) });
+      }
+      this.desdeResync += dt;
+      if (this.desdeResync >= RESYNC_CADA) {
+        this.desdeResync = Math.min(this.desdeResync - RESYNC_CADA, RESYNC_CADA);
+        this.difundir({ t: "mundo", mundo: this.estado });
+      }
+      for (const a of this.asientos)
+        if (a.enviar && ahora - a.ultimaSeñal > SIN_SEÑALES * 1000) this.soltar(a.userId);
+      return;
+    }
+
     this.acumulado += dt;
     const paso = 1 / HZ;
     let vueltas = 0;

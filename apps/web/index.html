@@ -333,6 +333,19 @@
     background:linear-gradient(180deg,#FF6B90,var(--chancla));color:#2A0512;
     box-shadow:0 8px 0 #8E1338;
   }
+  /* ---------- la cuenta atrás de la salida ---------- */
+  #cuentaAtras{
+    position:absolute;inset:0;z-index:25;display:grid;place-items:center;
+    pointer-events:none;font-family:var(--display);
+    font-size:clamp(90px,22vw,220px);line-height:1;color:var(--cream);
+    text-shadow:0 8px 0 rgba(15,7,14,.55);
+  }
+  #cuentaAtras[hidden]{display:none}
+  #salaArrancar.ok{
+    background:linear-gradient(180deg,#5FE8AE,var(--leaf));
+    border-color:transparent;color:#062B1C;font-weight:800;
+  }
+
   /* ---------- "gira el teléfono" ----------
      En el celular el juego es de horizontal y punto: en vertical el mapa se ve
      por una rendija y el HUD se come un quinto de la pantalla. Se pide girar y
@@ -770,6 +783,8 @@
   <!-- El "entra aquí" que sale sobre el personaje. Lo coloca hud(). -->
   <button id="accion" type="button" hidden></button>
 
+  <div id="cuentaAtras" hidden aria-live="assertive"></div>
+
   <!-- Soltar lo que llevas. Fuera de #touch: en escritorio también hace falta. -->
   <button id="dropBtn" type="button" hidden title="Soltar el Florín (tecla F)"
           aria-label="Soltar el Florín que llevas">👐<small>F</small></button>
@@ -813,6 +828,7 @@
       <span class="qué">Quién está</span>
       <ul id="salaGente"></ul>
       <p class="aviso" id="salaEstado"></p>
+      <button class="cerrar ok" id="salaArrancar" hidden>🏁 ¡Dar la salida!</button>
       <button class="cerrar" id="salaSalir">Salir de la sala</button>
     </div>
 

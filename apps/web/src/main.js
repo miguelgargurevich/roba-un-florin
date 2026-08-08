@@ -892,6 +892,7 @@ const elSala = {
   gente:  document.getElementById("salaGente"),
   estado: document.getElementById("salaEstado"),
   salir:  document.getElementById("salaSalir"),
+  arrancar: document.getElementById("salaArrancar"),
 };
 
 const decirSala = (t, mal) => {
@@ -913,6 +914,10 @@ function pintarGente(){
     '<li class="' + (x.conectado ? "" : "ido") + '"><span class="pip"></span>' +
     x.apodo.replace(/[<>&]/g, "") + (x.idx === sala.estado.idx ? " (tú)" : "") +
     (x.conectado ? "" : " · se cayó") + '</li>').join("");
+  /* El botón de dar la salida solo mientras la carrera espera en la línea. */
+  const esperando = !!sala?.estado.enParrilla;
+  elSala.arrancar.hidden = !esperando;
+  if (esperando) elSala.arrancar.disabled = sala.estado.cuenta != null;
 }
 
 function conectar(opciones){
@@ -935,7 +940,12 @@ function conectar(opciones){
         elSala.modoTxt.textContent = sala.estado.modo;
         elSala.estado.textContent = "";
         pintarGente();
+        if (sala.estado.enParrilla)
+          decirSala("En la parrilla. Cuando estén todos, den la salida.");
         Snd.unlock();
+      } else if (ev.tipo === "salida"){
+        pintarCuentaAtras(ev.en);
+        pintarGente();
       } else if (ev.tipo === "gente"){
         pintarGente();
       } else if (ev.tipo === "eventos"){
@@ -987,7 +997,22 @@ elSala.codigo.addEventListener("keydown", e => { if (e.key === "Enter") elSala.e
    lobby se siguen el uno al otro. */
 elSala.modo.addEventListener("change", () => elegirModoLocal(
   elSala.modo.value === "carrera" ? "carrera" : "aventura"));
+elSala.arrancar.addEventListener("click", () => {
+  sala?.arrancar();
+  elSala.arrancar.disabled = true;
+});
 elSala.salir.addEventListener("click", salirDeLaSala);
+
+/* El 3 · 2 · 1 · ¡YA! de la salida, a pantalla completa. */
+const elSalida = document.getElementById("cuentaAtras");
+let borrarCuenta = null;
+function pintarCuentaAtras(en){
+  clearTimeout(borrarCuenta);
+  elSalida.textContent = en > 0 ? String(en) : "¡YA!";
+  elSalida.hidden = false;
+  Snd.unlock();
+  borrarCuenta = setTimeout(() => { elSalida.hidden = true; }, en > 0 ? 1100 : 900);
+}
 
 /* Recién acá, con todo el formulario montado, se enchufa la cuenta. */
 nube.alCambiar(alEntrarOSalir);

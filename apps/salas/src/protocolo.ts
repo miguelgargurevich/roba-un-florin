@@ -29,6 +29,8 @@ export const SIN_SEÑALES = 20;
     Mientras tanto su muñeco no se mueve: sus Florines son suyos y volver de
     un túnel no debería costarte la vitrina. */
 export const ESPERA_VUELTA = 45;
+/** Los segundos de cuenta atrás desde que alguien da la salida. */
+export const CUENTA_ATRAS = 3;
 
 /* ---- lo que manda el cliente ---- */
 export type DelCliente =
@@ -42,16 +44,19 @@ export type DelCliente =
   | { t: "bajarse" }
   | { t: "vender"; b: number; i: number }
   | { t: "soltar" }
+  | { t: "arrancar" }
   | { t: "ping" };
 
 /* ---- lo que manda la sala ---- */
 export type DeLaSala =
   | { t: "bienvenida"; codigo: string; idx: number; apodo: string; modo: string;
-      mundo: Estado; gente: Presencia[] }
+      mundo: Estado; gente: Presencia[]; enParrilla: boolean }
   | { t: "mundo"; mundo: Estado }
   | { t: "tick"; n: number; movil: Movil }
   | { t: "gente"; gente: Presencia[] }
   | { t: "eventos"; eventos: Estado["eventos"] }
+  /** cuenta atrás de la salida; `en` son segundos, 0 es ¡YA! */
+  | { t: "salida"; en: number }
   | { t: "pong" }
   | { t: "error"; motivo: string };
 

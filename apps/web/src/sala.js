@@ -26,6 +26,8 @@ export function conectarSala({ url, token, codigo, modo, escenario, apodo, al })
   const estado = {
     conectado: false, codigo: codigo || null, idx: null, modo: modo || "aventura",
     gente: [], mundo: null, error: null,
+    /* Una carrera espera en la línea hasta que alguien da la salida. */
+    enParrilla: false, cuenta: null,
   };
 
   /* Las dos últimas fotos de lo que se mueve, con la hora en que llegaron. */
@@ -45,6 +47,7 @@ export function conectarSala({ url, token, codigo, modo, escenario, apodo, al })
         estado.conectado = true;
         estado.codigo = m.codigo; estado.idx = m.idx; estado.modo = m.modo;
         estado.gente = m.gente; estado.mundo = m.mundo;
+        estado.enParrilla = !!m.enParrilla; estado.cuenta = null;
         antes = ahora = null;
         al?.({ tipo: "entrado" });
       } else if (m.t === "mundo"){
@@ -59,6 +62,10 @@ export function conectarSala({ url, token, codigo, modo, escenario, apodo, al })
       } else if (m.t === "tick"){
         antes = ahora; tAntes = tAhora;
         ahora = m.movil; tAhora = performance.now();
+      } else if (m.t === "salida"){
+        estado.cuenta = m.en;
+        if (m.en <= 0) estado.enParrilla = false;
+        al?.({ tipo: "salida", en: m.en });
       } else if (m.t === "gente"){
         estado.gente = m.gente;
         al?.({ tipo: "gente" });
@@ -154,6 +161,7 @@ export function conectarSala({ url, token, codigo, modo, escenario, apodo, al })
     bajarse: () => mandar({ t: "bajarse" }),
     vender: (b, i) => mandar({ t: "vender", b, i }),
     soltar: () => mandar({ t: "soltar" }),
+    arrancar: () => mandar({ t: "arrancar" }),
     cerrar,
   };
 }

@@ -53,6 +53,7 @@ wss.on("connection", ws => {
       mandar(ws, {
         t: "bienvenida", codigo: sala.codigo, idx: asiento.idx,
         apodo: asiento.apodo, modo: sala.modo, mundo: sala.estado, gente: sala.gente,
+        enParrilla: sala.esperando,
       });
       sala.difundir({ t: "gente", gente: sala.gente });
       return;
@@ -63,6 +64,7 @@ wss.on("connection", ws => {
       s.asiento.entrada = { mover: m.mover, apunta: m.apunta };
     } else if (m.t === "arma")    s.sala.arma(s.asiento, m.i);
     else if (m.t === "comprar")   s.sala.comprar(s.asiento, m.i);
+    else if (m.t === "arrancar")  s.sala.arrancar();
     else if (m.t === "usar")      s.sala.usar(s.asiento);
     else if (m.t === "ruleta")    s.sala.ruleta(s.asiento);
     else if (m.t === "bajarse")   s.sala.bajar(s.asiento);
