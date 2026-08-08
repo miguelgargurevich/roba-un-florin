@@ -1324,6 +1324,447 @@ function drawTrastos(){
   }
 }
 
+/* ---------- Egipto: pirámides, la esfinge, obeliscos y datileras ---------- */
+function decoEgipto(c, E){
+  /* dunas: bandas suaves de arena más y menos tostada */
+  for (let k=0;k<9;k++){
+    c.fillStyle = k%2 ? "rgba(255,240,200,.12)" : "rgba(180,140,80,.12)";
+    c.beginPath();
+    c.moveTo(0, k*200);
+    for (let x=0;x<=WORLD_W;x+=60) c.lineTo(x, k*200 + Math.sin(x*.004 + k)*36);
+    c.lineTo(WORLD_W, k*200+120); c.lineTo(0, k*200+120);
+    c.closePath(); c.fill();
+  }
+  c.fillStyle = E.mancha;
+  for (let i=0;i<12;i++){
+    const x = azEntre(i,0,WORLD_W), y = azEntre(i+31,0,WORLD_H), r = 40+az(i+3)*50;
+    c.beginPath(); c.ellipse(x,y,r,r*.4,0,0,6.283); c.fill();
+  }
+
+  /* las pirámides, vistas en tres cuartos: dos caras y la arista */
+  sembrar(c, 4, 31, 130, (c,x,y,i) => {
+    const w = 190 + az(i)*90, h = 150 + az(i+4)*70;
+    vetoDeco.push({ x:x-w/2-20, y:y-h-20, w:w+40, h:h+50 });
+    c.fillStyle = "rgba(120,90,40,.3)";                       // sombra en la arena
+    c.beginPath();
+    c.moveTo(x-w/2, y); c.lineTo(x+w/2+50, y+16); c.lineTo(x+w/2, y+26); c.lineTo(x-w/2-30, y+10);
+    c.closePath(); c.fill();
+    c.fillStyle = "#D9B676";                                  // cara iluminada
+    c.beginPath(); c.moveTo(x, y-h); c.lineTo(x-w/2, y); c.lineTo(x, y+14); c.closePath(); c.fill();
+    c.fillStyle = "#B08A4A";                                  // cara en sombra
+    c.beginPath(); c.moveTo(x, y-h); c.lineTo(x+w/2, y); c.lineTo(x, y+14); c.closePath(); c.fill();
+    c.strokeStyle = "rgba(90,65,25,.45)"; c.lineWidth = 2;    // los escalones
+    for (let k=1;k<9;k++){
+      const f = k/9;
+      c.beginPath();
+      c.moveTo(x - (w/2)*f, y - h*(1-f));
+      c.lineTo(x + (w/2)*f, y - h*(1-f));
+      c.stroke();
+    }
+    c.strokeStyle = "rgba(255,240,200,.5)"; c.lineWidth = 2.5;
+    c.beginPath(); c.moveTo(x, y-h); c.lineTo(x, y+14); c.stroke();   // la arista
+    c.fillStyle = "#FFD84D";                                  // el remate dorado
+    c.beginPath(); c.moveTo(x, y-h); c.lineTo(x-9, y-h+16); c.lineTo(x+9, y-h+16); c.closePath(); c.fill();
+  });
+
+  /* la esfinge: una sola, tumbada y mirando al este */
+  sembrar(c, 1, 401, 120, (c,x,y) => {
+    vetoDeco.push({ x:x-95, y:y-80, w:190, h:110 });
+    c.fillStyle = "rgba(120,90,40,.28)";
+    c.beginPath(); c.ellipse(x, y+10, 92, 18, 0, 0, 6.283); c.fill();
+    c.fillStyle = "#CBA96C";                                  // el cuerpo tumbado
+    rr(c, x-88, y-34, 150, 44, 12); c.fill();
+    c.fillStyle = "#BC9856";                                  // las patas delanteras
+    rr(c, x+34, y-14, 56, 20, 8); c.fill();
+    c.fillStyle = "#D9B676";                                  // la cabeza
+    rr(c, x+46, y-72, 40, 42, 8); c.fill();
+    c.fillStyle = "#37D6E0";                                  // el nemes rayado
+    for (let k=0;k<4;k++) c.fillRect(x+46, y-72+k*10, 40, 4.5);
+    c.fillStyle = "#3A2416";
+    c.beginPath(); c.arc(x+78, y-56, 2.6, 0, 6.283); c.fill();
+  });
+
+  /* obeliscos con jeroglíficos */
+  sembrar(c, 5, 901, 44, (c,x,y,i) => {
+    const h = 96 + az(i)*40;
+    c.fillStyle = "rgba(120,90,40,.28)";
+    c.beginPath(); c.ellipse(x, y+6, 22, 8, 0, 0, 6.283); c.fill();
+    c.fillStyle = "#C9A05E";
+    c.beginPath();
+    c.moveTo(x-11, y); c.lineTo(x-8, y-h); c.lineTo(x+8, y-h); c.lineTo(x+11, y);
+    c.closePath(); c.fill();
+    c.fillStyle = "#FFD84D";                                  // la punta
+    c.beginPath(); c.moveTo(x-8, y-h); c.lineTo(x, y-h-18); c.lineTo(x+8, y-h); c.closePath(); c.fill();
+    c.fillStyle = "rgba(90,65,25,.6)";                        // jeroglíficos
+    for (let k=0;k<6;k++){
+      const gy = y - 14 - k*(h-24)/6;
+      c.fillRect(x-4, gy, 8, 2.4);
+      if (k%2) c.fillRect(x-2, gy-5, 4, 3.4);
+      else { c.beginPath(); c.arc(x, gy-5, 2.2, 0, 6.283); c.fill(); }
+    }
+  });
+
+  /* palmeras datileras y cráneos resecos */
+  sembrar(c, 8, 1501, 40, (c,x,y,i) => {
+    c.fillStyle = "rgba(120,90,40,.25)";
+    c.beginPath(); c.ellipse(x, y+6, 20, 7, 0, 0, 6.283); c.fill();
+    c.fillStyle = "#8B6F52";
+    c.beginPath();
+    c.moveTo(x-6, y+4); c.quadraticCurveTo(x-2, y-38, x-9, y-72);
+    c.lineTo(x+1, y-72); c.quadraticCurveTo(x+5, y-38, x+6, y+4);
+    c.closePath(); c.fill();
+    for (let k=0;k<7;k++){
+      const a = -2.7 + k*.63;
+      c.fillStyle = k%2 ? "#5B8C3E" : "#6FA84C";
+      c.save(); c.translate(x-4, y-74); c.rotate(a);
+      c.beginPath(); c.moveTo(0,0); c.quadraticCurveTo(28,-14, 54,4);
+      c.quadraticCurveTo(28,0, 0,5); c.closePath(); c.fill();
+      c.restore();
+    }
+    c.fillStyle = "#C4693F";                                  // racimo de dátiles
+    for (let k=0;k<5;k++)
+      { c.beginPath(); c.arc(x-4+az(i*3+k)*14-7, y-66+az(i+k)*8, 2.6, 0, 6.283); c.fill(); }
+  });
+  sembrar(c, 6, 2001, 24, (c,x,y) => {
+    c.fillStyle = "#EDE3D0";
+    c.beginPath(); c.ellipse(x, y, 13, 10, 0, 0, 6.283); c.fill();
+    c.beginPath(); c.moveTo(x-13,y-3); c.lineTo(x-24,y-14); c.lineTo(x-18,y-1); c.closePath(); c.fill();
+    c.beginPath(); c.moveTo(x+13,y-3); c.lineTo(x+24,y-14); c.lineTo(x+18,y-1); c.closePath(); c.fill();
+    c.fillStyle = "#3A2416";
+    c.beginPath(); c.ellipse(x-5, y-2, 3, 3.6, 0, 0, 6.283); c.fill();
+    c.beginPath(); c.ellipse(x+5, y-2, 3, 3.6, 0, 0, 6.283); c.fill();
+  });
+}
+
+/* ---------- El Amazonas: el río, la espesura y sus bichos ---------- */
+function decoAmazonas(c, E){
+  const RIO = WORLD_H - 240;          // tiene que casar con `mar` del escenario
+
+  /* la espesura: manchas de verde a distintas alturas para dar profundidad */
+  for (let i=0;i<26;i++){
+    const x = azEntre(i,0,WORLD_W), y = azEntre(i+31,0,RIO), r = 50+az(i+3)*70;
+    c.fillStyle = i%2 ? "rgba(45,85,40,.3)" : "rgba(70,110,55,.26)";
+    c.beginPath(); c.ellipse(x,y,r,r*.6,i,0,6.283); c.fill();
+  }
+
+  /* el río, con su ribera de barro y la corriente marcada */
+  const barro = c.createLinearGradient(0, RIO-70, 0, RIO+6);
+  barro.addColorStop(0, "rgba(90,70,40,0)");
+  barro.addColorStop(1, "rgba(105,80,45,.7)");
+  c.fillStyle = barro; c.fillRect(0, RIO-70, WORLD_W, 76);
+
+  const agua = c.createLinearGradient(0, RIO, 0, WORLD_H);
+  agua.addColorStop(0, "#6E7A3A");
+  agua.addColorStop(.4, "#4A6B4E");
+  agua.addColorStop(1, "#2E4A48");
+  c.fillStyle = agua;
+  c.beginPath();
+  c.moveTo(0, RIO);
+  for (let x=0;x<=WORLD_W;x+=30) c.lineTo(x, RIO + Math.sin(x*.009)*18 + Math.sin(x*.003)*11);
+  c.lineTo(WORLD_W, WORLD_H); c.lineTo(0, WORLD_H);
+  c.closePath(); c.fill();
+  c.strokeStyle = "rgba(200,220,180,.35)"; c.lineWidth = 4; c.lineCap = "round";
+  for (let k=0;k<5;k++){                                       // la corriente
+    c.beginPath();
+    const y0 = RIO + 46 + k*36;
+    for (let x=0;x<=WORLD_W;x+=40){
+      const y = y0 + Math.sin(x*.012 + k)*7;
+      x === 0 ? c.moveTo(x,y) : c.lineTo(x,y);
+    }
+    c.stroke();
+  }
+  c.lineCap = "butt";
+
+  /* nenúfares gigantes y un caimán, dentro del agua */
+  for (let i=0;i<9;i++){
+    const x = azEntre(i+90, 60, WORLD_W-60), y = azEntre(i+140, RIO+40, WORLD_H-40);
+    c.fillStyle = "#4E8C3A";
+    c.beginPath(); c.ellipse(x, y, 26+az(i)*12, 20+az(i+2)*9, az(i)*3, 0, 6.283); c.fill();
+    c.fillStyle = "#3E7030";
+    c.beginPath(); c.moveTo(x, y); c.lineTo(x+22, y+8); c.lineTo(x+12, y+16); c.closePath(); c.fill();
+    if (i % 3 === 0){                                          // su flor
+      c.fillStyle = "#FFEFE2";
+      for (let k=0;k<8;k++){
+        const a = k*.785;
+        c.beginPath();
+        c.ellipse(x+Math.cos(a)*6, y+Math.sin(a)*5, 4.6, 2.6, a, 0, 6.283); c.fill();
+      }
+      c.fillStyle = "#FFD84D";
+      c.beginPath(); c.arc(x, y, 3, 0, 6.283); c.fill();
+    }
+  }
+  for (let i=0;i<2;i++){                                       // caimán al acecho
+    const x = azEntre(i+500, 300, WORLD_W-300), y = azEntre(i+520, RIO+70, WORLD_H-70);
+    c.fillStyle = "#3E5A34";
+    rr(c, x-52, y-9, 104, 18, 8); c.fill();
+    c.beginPath(); c.moveTo(x+52, y); c.lineTo(x+78, y-6); c.lineTo(x+78, y+6); c.closePath(); c.fill();
+    c.fillStyle = "#2E4628";
+    for (let k=0;k<7;k++){
+      c.beginPath();
+      c.moveTo(x-44+k*13, y-9); c.lineTo(x-39+k*13, y-17); c.lineTo(x-34+k*13, y-9);
+      c.closePath(); c.fill();
+    }
+    c.fillStyle = "#FFD84D";
+    c.beginPath(); c.arc(x+34, y-10, 3.4, 0, 6.283); c.fill();
+    c.fillStyle = "#1B1B20";
+    c.beginPath(); c.arc(x+34, y-10, 1.5, 0, 6.283); c.fill();
+  }
+
+  /* árboles enormes con lianas */
+  sembrar(c, 9, 41, 62, (c,x,y,i) => {
+    vetoDeco.push({ x:x-40, y:y-96, w:80, h:110 });
+    c.fillStyle = "rgba(0,0,0,.24)";
+    c.beginPath(); c.ellipse(x, y+8, 36, 12, 0, 0, 6.283); c.fill();
+    c.fillStyle = "#6B4A2A";                                   // tronco con raíces
+    rr(c, x-11, y-70, 22, 78, 5); c.fill();
+    c.beginPath(); c.moveTo(x-11, y+8); c.lineTo(x-28, y+10); c.lineTo(x-11, y-14); c.closePath(); c.fill();
+    c.beginPath(); c.moveTo(x+11, y+8); c.lineTo(x+28, y+10); c.lineTo(x+11, y-14); c.closePath(); c.fill();
+    for (const [dx,dy,r] of [[0,-96,40],[-26,-78,28],[26,-80,30],[-10,-112,26]]){
+      c.fillStyle = ["#2F6B2A","#3E8434","#265C22"][(i+Math.abs(dx))%3];
+      c.beginPath(); c.arc(x+dx, y+dy, r, 0, 6.283); c.fill();
+    }
+    c.strokeStyle = "#4E7A34"; c.lineWidth = 2.4;              // lianas colgando
+    for (let k=0;k<3;k++){
+      const lx = x - 24 + k*24;
+      c.beginPath(); c.moveTo(lx, y-86);
+      c.quadraticCurveTo(lx + (k-1)*12, y-50, lx + (k-1)*6, y-16);
+      c.stroke();
+    }
+  }, RIO - 90);
+
+  /* guacamayos, monos y ranitas */
+  sembrar(c, 8, 701, 26, (c,x,y,i) => {
+    if (i % 3 === 0){                                          // guacamayo
+      c.fillStyle = "#E2453C";
+      c.beginPath(); c.ellipse(x, y, 9, 12, .3, 0, 6.283); c.fill();
+      c.fillStyle = "#37D6E0";
+      c.beginPath(); c.ellipse(x-6, y+2, 5, 9, .5, 0, 6.283); c.fill();
+      c.fillStyle = "#FFD84D";
+      c.beginPath(); c.moveTo(x+4, y+8); c.lineTo(x+16, y+26); c.lineTo(x+9, y+9); c.closePath(); c.fill();
+      c.fillStyle = "#EDE3D0";
+      c.beginPath(); c.arc(x+2, y-11, 5, 0, 6.283); c.fill();
+      c.fillStyle = "#3A2416";
+      c.beginPath(); c.moveTo(x+6, y-12); c.lineTo(x+13, y-8); c.lineTo(x+6, y-6); c.closePath(); c.fill();
+      c.beginPath(); c.arc(x+1, y-13, 1.4, 0, 6.283); c.fill();
+    } else if (i % 3 === 1){                                   // mono
+      c.fillStyle = "#8B6F52";
+      c.beginPath(); c.ellipse(x, y, 11, 13, 0, 0, 6.283); c.fill();
+      c.beginPath(); c.arc(x, y-15, 8, 0, 6.283); c.fill();
+      c.fillStyle = "#C9A97E";
+      c.beginPath(); c.ellipse(x, y-13, 5.5, 6, 0, 0, 6.283); c.fill();
+      for (const ox of [-8, 8]){ c.fillStyle = "#8B6F52"; c.beginPath(); c.arc(x+ox, y-17, 4, 0, 6.283); c.fill(); }
+      c.fillStyle = "#3A2416";
+      c.beginPath(); c.arc(x-2.4, y-14, 1.3, 0, 6.283); c.fill();
+      c.beginPath(); c.arc(x+2.4, y-14, 1.3, 0, 6.283); c.fill();
+      c.strokeStyle = "#8B6F52"; c.lineWidth = 2.6;            // la cola
+      c.beginPath(); c.moveTo(x+9, y+6);
+      c.quadraticCurveTo(x+26, y+4, x+22, y-12); c.stroke();
+    } else {                                                   // ranita
+      c.fillStyle = "#3DDC97";
+      c.beginPath(); c.ellipse(x, y, 10, 7.5, 0, 0, 6.283); c.fill();
+      for (const ox of [-6, 6]){
+        c.beginPath(); c.arc(x+ox, y-6, 4.2, 0, 6.283); c.fill();
+      }
+      c.fillStyle = "#FFEFE2";
+      for (const ox of [-6, 6]){ c.beginPath(); c.arc(x+ox, y-6.5, 2.4, 0, 6.283); c.fill(); }
+      c.fillStyle = "#1B1B20";
+      for (const ox of [-6, 6]){ c.beginPath(); c.arc(x+ox, y-6.5, 1.2, 0, 6.283); c.fill(); }
+    }
+  }, RIO - 60);
+
+  /* helechos del sotobosque */
+  sembrar(c, 14, 1301, 20, (c,x,y,i) => {
+    for (let k=0;k<6;k++){
+      const a = -1.5708 + (k-2.5)*.34;
+      c.strokeStyle = k%2 ? "#4E8C3A" : "#3E7030"; c.lineWidth = 3;
+      c.beginPath(); c.moveTo(x, y);
+      c.quadraticCurveTo(x + Math.cos(a)*14, y + Math.sin(a)*16,
+                         x + Math.cos(a)*24, y + Math.sin(a)*20 + 4);
+      c.stroke();
+    }
+  }, RIO - 40);
+}
+
+/* ---------- Machu Picchu: andenes, ruinas, llamas y neblina ---------- */
+function decoMachuPicchu(c, E){
+  /* andenes: las terrazas escalonadas de la ladera, en bandas horizontales */
+  for (let k = 0; k < 7; k++){
+    const y = 120 + k * 230, alto = 150;
+    c.fillStyle = k % 2 ? "rgba(120,150,95,.35)" : "rgba(100,130,80,.3)";
+    c.fillRect(0, y, WORLD_W, alto);
+    c.fillStyle = "rgba(120,116,104,.85)";        // el muro de piedra del andén
+    c.fillRect(0, y + alto, WORLD_W, 16);
+    c.strokeStyle = "rgba(60,58,52,.5)"; c.lineWidth = 2;
+    for (let x = 0; x < WORLD_W; x += 46){
+      c.strokeRect(x, y + alto, 46, 16);
+    }
+  }
+  c.fillStyle = E.mancha;
+  for (let i=0;i<16;i++){
+    const x = azEntre(i,0,WORLD_W), y = azEntre(i+41,0,WORLD_H), r = 30+az(i+3)*44;
+    c.beginPath(); c.ellipse(x,y,r,r*.5,i,0,6.283); c.fill();
+  }
+
+  /* ruinas: recintos de piedra sin techo, con sus vanos trapezoidales */
+  sembrar(c, 6, 61, 76, (c,x,y,i) => {
+    const w = 110 + az(i)*40, h = 78 + az(i+3)*26;
+    vetoDeco.push({ x:x-w/2-12, y:y-h-12, w:w+24, h:h+30 });
+    c.fillStyle = "rgba(0,0,0,.2)";
+    c.beginPath(); c.ellipse(x, y+6, w*.55, 14, 0, 0, 6.283); c.fill();
+    c.fillStyle = "#9A9182";
+    rr(c, x-w/2, y-h, w, h, 4); c.fill();
+    c.strokeStyle = "rgba(60,58,52,.55)"; c.lineWidth = 2;   // sillares
+    for (let f=0; f<4; f++){
+      const fy = y-h + f*(h/4);
+      c.beginPath(); c.moveTo(x-w/2, fy); c.lineTo(x+w/2, fy); c.stroke();
+      for (let q=0;q<4;q++){
+        const qx = x-w/2 + (w/4)*q + (f%2 ? w/8 : 0);
+        c.beginPath(); c.moveTo(qx, fy); c.lineTo(qx, fy + h/4); c.stroke();
+      }
+    }
+    c.fillStyle = "#3A3630";                                  // la puerta trapezoidal
+    c.beginPath();
+    c.moveTo(x-15, y); c.lineTo(x-11, y-40); c.lineTo(x+11, y-40); c.lineTo(x+15, y);
+    c.closePath(); c.fill();
+  });
+
+  /* llamas: la estampa del sitio */
+  sembrar(c, 7, 601, 38, (c,x,y,i) => {
+    const cuerpo = ["#EDE3D0","#C9B79A","#8B6F52"][i % 3];
+    c.fillStyle = "rgba(0,0,0,.2)";
+    c.beginPath(); c.ellipse(x, y+9, 20, 6, 0, 0, 6.283); c.fill();
+    c.fillStyle = "#6E5A44";                                  // patas
+    for (const px of [-11,-6,7,12]) c.fillRect(x+px, y-6, 3.4, 15);
+    c.fillStyle = cuerpo;                                     // cuerpo
+    rr(c, x-16, y-26, 32, 22, 10); c.fill();
+    const mira = i % 2 ? 1 : -1;
+    c.fillRect(x + mira*11, y-42, 5, 20);                     // cuello
+    c.beginPath(); c.ellipse(x + mira*15, y-46, 8, 6.5, 0, 0, 6.283); c.fill();
+    c.fillStyle = "#3A2416";                                  // orejas y ojo
+    c.beginPath(); c.moveTo(x+mira*12, y-51); c.lineTo(x+mira*13, y-58); c.lineTo(x+mira*16, y-51); c.closePath(); c.fill();
+    c.beginPath(); c.arc(x + mira*17, y-47, 1.5, 0, 6.283); c.fill();
+    c.fillStyle = "#E2453C";                                  // su borla de lana
+    c.beginPath(); c.arc(x + mira*12, y-56, 2.6, 0, 6.283); c.fill();
+  });
+
+  /* piedras sueltas y matas de ichu */
+  sembrar(c, 12, 1201, 22, (c,x,y,i) => {
+    c.fillStyle = i%2 ? "#8A8478" : "#736D62";
+    c.beginPath(); c.ellipse(x, y, 9+az(i)*7, 7+az(i+2)*5, az(i)*3, 0, 6.283); c.fill();
+  });
+  sembrar(c, 14, 1801, 20, (c,x,y,i) => {
+    c.strokeStyle = "#B5A75E"; c.lineWidth = 2;
+    for (let k=0;k<7;k++){
+      const a = -1.5708 + (k-3)*.22;
+      c.beginPath(); c.moveTo(x, y);
+      c.lineTo(x + Math.cos(a)*(11+az(i*3+k)*9), y + Math.sin(a)*(15+az(i+k)*8));
+      c.stroke();
+    }
+  });
+
+  /* neblina de la montaña: jirones claros por encima de todo */
+  c.fillStyle = "rgba(255,255,255,.13)";
+  for (let i=0;i<9;i++){
+    const x = azEntre(i+300,0,WORLD_W), y = azEntre(i+700,0,WORLD_H);
+    c.beginPath(); c.ellipse(x, y, 190+az(i)*130, 34+az(i+9)*22, 0, 0, 6.283); c.fill();
+  }
+}
+
+/* ---------- Nueva York: asfalto, taxis, rascacielos y vapor ---------- */
+function decoNuevaYork(c, E){
+  c.fillStyle = E.mancha;
+  for (let i=0;i<20;i++){
+    const x = azEntre(i,0,WORLD_W), y = azEntre(i+31,0,WORLD_H), r = 34+az(i+3)*50;
+    c.beginPath(); c.ellipse(x,y,r,r*.55,i,0,6.283); c.fill();
+  }
+
+  /* la avenida: dos calzadas con su línea discontinua y los pasos de cebra */
+  const calles = [520, 1180];
+  for (const cy of calles){
+    c.fillStyle = "rgba(20,20,24,.5)";
+    c.fillRect(0, cy, WORLD_W, 150);
+    c.fillStyle = "rgba(160,160,170,.5)";                     // bordillos
+    c.fillRect(0, cy-8, WORLD_W, 8);
+    c.fillRect(0, cy+150, WORLD_W, 8);
+    c.fillStyle = "#FFD84D";                                  // línea central
+    for (let x = 20; x < WORLD_W; x += 90) c.fillRect(x, cy+72, 46, 6);
+    c.fillStyle = "rgba(255,255,255,.8)";                     // paso de cebra
+    for (let k=0;k<7;k++) c.fillRect(760 + k*26, cy+8, 15, 134);
+  }
+
+  /* rascacielos vistos desde arriba: azoteas con tanques y aire acondicionado */
+  sembrar(c, 7, 71, 88, (c,x,y,i) => {
+    const w = 130 + az(i)*70, h = 110 + az(i+5)*60;
+    vetoDeco.push({ x:x-w/2-14, y:y-h-14, w:w+28, h:h+34 });
+    c.fillStyle = "rgba(0,0,0,.3)";
+    c.fillRect(x-w/2+10, y-h+12, w, h);                       // sombra proyectada
+    c.fillStyle = ["#6E7078","#5A5C66","#7C7E88"][i%3];
+    c.fillRect(x-w/2, y-h, w, h);
+    c.fillStyle = "rgba(0,0,0,.25)";                          // gravilla de la azotea
+    for (let k=0;k<18;k++)
+      c.fillRect(x-w/2+az(i*7+k)*w, y-h+az(i*3+k)*h, 3, 3);
+    c.fillStyle = "#3A3C44";                                  // el pretil
+    c.lineWidth = 0; c.fillRect(x-w/2, y-h, w, 9);
+    c.fillRect(x-w/2, y-9, w, 9); c.fillRect(x-w/2, y-h, 9, h); c.fillRect(x+w/2-9, y-h, 9, h);
+    c.fillStyle = "#9AA0AA";                                  // tanque de agua
+    rr(c, x-w/2+18, y-h+20, 26, 26, 4); c.fill();
+    c.fillStyle = "#C2C7CF";                                  // aire acondicionado
+    rr(c, x+w/2-56, y-40, 34, 24, 3); c.fill();
+    c.strokeStyle = "rgba(0,0,0,.3)"; c.lineWidth = 1.6;
+    for (let k=0;k<4;k++){
+      c.beginPath(); c.moveTo(x+w/2-52+k*8, y-38); c.lineTo(x+w/2-52+k*8, y-18); c.stroke();
+    }
+  });
+
+  /* taxis amarillos aparcados */
+  sembrar(c, 8, 801, 40, (c,x,y,i) => {
+    c.save(); c.translate(x, y); c.rotate(i%2 ? 0 : 1.5708);
+    c.fillStyle = "rgba(0,0,0,.25)";
+    c.beginPath(); c.ellipse(0, 6, 32, 11, 0, 0, 6.283); c.fill();
+    c.fillStyle = "#FFC53D";
+    rr(c, -30, -15, 60, 30, 8); c.fill();
+    c.fillStyle = "#2A2A30";                                  // parabrisas y luneta
+    rr(c, -18, -11, 14, 22, 3); c.fill();
+    rr(c, 6, -11, 14, 22, 3); c.fill();
+    c.fillStyle = "#1B1B20";                                  // ruedas
+    for (const [rx,ry] of [[-19,-17],[13,-17],[-19,13],[13,13]]) rr(c, rx, ry, 12, 5, 2.5), c.fill();
+    c.fillStyle = "#FFEFE2";                                  // el cartel de TAXI
+    rr(c, -6, -20, 12, 6, 2); c.fill();
+    c.restore();
+  });
+
+  /* hidrantes, tapas de alcantarilla con vapor y bolsas de basura */
+  sembrar(c, 10, 1401, 22, (c,x,y,i) => {
+    if (i % 3 === 0){                                         // hidrante
+      c.fillStyle = "rgba(0,0,0,.2)";
+      c.beginPath(); c.ellipse(x, y+10, 11, 4, 0, 0, 6.283); c.fill();
+      c.fillStyle = "#E2453C";
+      rr(c, x-7, y-18, 14, 28, 4); c.fill();
+      c.fillRect(x-12, y-12, 24, 6);
+      c.beginPath(); c.arc(x, y-19, 6, 0, 6.283); c.fill();
+    } else if (i % 3 === 1){                                  // alcantarilla con vapor
+      c.fillStyle = "#4A4A52";
+      c.beginPath(); c.ellipse(x, y, 17, 13, 0, 0, 6.283); c.fill();
+      c.strokeStyle = "rgba(20,20,24,.7)"; c.lineWidth = 2;
+      for (let k=-2;k<=2;k++){
+        c.beginPath(); c.moveTo(x-13, y+k*4.5); c.lineTo(x+13, y+k*4.5); c.stroke();
+      }
+      c.fillStyle = "rgba(255,255,255,.16)";
+      for (let k=0;k<3;k++){
+        c.beginPath();
+        c.ellipse(x + az(i*5+k)*16-8, y - 18 - k*16, 15+k*6, 9+k*4, 0, 0, 6.283);
+        c.fill();
+      }
+    } else {                                                  // bolsas de basura
+      c.fillStyle = "#22222A";
+      c.beginPath(); c.ellipse(x, y, 14, 12, az(i), 0, 6.283); c.fill();
+      c.beginPath(); c.ellipse(x+16, y+4, 11, 9, az(i+1), 0, 6.283); c.fill();
+      c.fillStyle = "rgba(255,255,255,.07)";
+      c.beginPath(); c.ellipse(x-4, y-4, 5, 4, 0, 0, 6.283); c.fill();
+    }
+  });
+}
+
 /* ---------- El Barrio: casas, postes, tendederos, bicis, pelotas y rayuela ---------- */
 function decoBarrio(c, E){
   c.fillStyle = E.mancha;
@@ -1755,6 +2196,10 @@ function pintarSuelo(){
   else if (E.deco === "colegio")  decoColegio(c, E);
   else if (E.deco === "olas")     decoPlaya(c, E);
   else if (E.deco === "grietas")  decoDesierto(c, E);
+  else if (E.deco === "andenes")  decoMachuPicchu(c, E);
+  else if (E.deco === "asfalto")  decoNuevaYork(c, E);
+  else if (E.deco === "duna")     decoEgipto(c, E);
+  else if (E.deco === "selva")    decoAmazonas(c, E);
 
   c.strokeStyle = E.borde; c.lineWidth = 16;
   c.strokeRect(8,8,WORLD_W-16,WORLD_H-16);

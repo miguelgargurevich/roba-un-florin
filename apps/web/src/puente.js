@@ -54,6 +54,30 @@ export const VISUALES = {
     suelo: "#C98B52", loseta: "rgba(255,239,226,.06)", mancha: "rgba(150,100,50,.24)",
     borde: "#8A5A2A", deco: "grietas",
   },
+  machupicchu: {
+    icono: "🏔️",
+    desc: "Andenes de piedra en la ceja de selva, con llamas, ruinas incas y la neblina de la montaña.",
+    suelo: "#7E9B63", loseta: "rgba(255,255,255,.08)", mancha: "rgba(70,95,55,.28)",
+    borde: "#4A6138", deco: "andenes",
+  },
+  nuevayork: {
+    icono: "🗽",
+    desc: "Asfalto, taxis amarillos, rascacielos, hidrantes y las tapas de alcantarilla echando vapor.",
+    suelo: "#4A4A52", loseta: "rgba(255,255,255,.05)", mancha: "rgba(25,25,30,.3)",
+    borde: "#2A2A30", deco: "asfalto",
+  },
+  egipto: {
+    icono: "🐫",
+    desc: "Arena, pirámides, la esfinge, obeliscos con jeroglíficos y palmeras datileras.",
+    suelo: "#E3C48A", loseta: "rgba(255,255,255,.07)", mancha: "rgba(190,150,90,.3)",
+    borde: "#B08A4A", deco: "duna",
+  },
+  amazonas: {
+    icono: "🐊",
+    desc: "Selva espesa con el río al sur, lianas, nenúfares, guacamayos, monos y algún caimán.",
+    suelo: "#3E6B3A", loseta: "rgba(255,255,255,.05)", mancha: "rgba(25,55,25,.32)",
+    borde: "#24421F", deco: "selva",
+  },
 };
 
 /** La lista para el selector de la portada: reparto del motor + aspecto local. */

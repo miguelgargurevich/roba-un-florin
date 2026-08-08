@@ -32,6 +32,10 @@ Antes de jugar eliges dónde, y la elección se recuerda:
 | 🏫 **Sta. Teresita** | el patio del colegio: cancha pintada, canteros con césped y bordillo de ladrillo, palmeras, arbustos recortados, bancas, la **bandera del Perú**, el emblema **ST** en el suelo y las **rayuelas del recreo** |
 | 🏖️ **La Playa** | **mar con orilla y espuma** (solo se entra con tabla), **castillos de arena** con banderitas y palita, sombrillas, toallas, conchas y estrellas de mar · y **tablas de surf, flotadores y pelotas** |
 | 🌵 **El Desierto** | tierra rajada, saguaros (algunos con flor), rocas, calaveras de vaca, letreros de "NI AGUA" · y **tablas de arena y matas rodadoras** que se patean |
+| 🏔️ **Machu Picchu** | andenes escalonados con su muro de sillares, ruinas de piedra con puertas trapezoidales, **llamas** con su borla de lana, matas de ichu y jirones de neblina · patinetas y pelotas |
+| 🗽 **Nueva York** | asfalto, dos avenidas con línea amarilla y pasos de cebra, azoteas de rascacielos con tanque de agua y aire acondicionado, **taxis amarillos**, hidrantes y alcantarillas echando vapor · patinetas y bicis |
+| 🐫 **Egipto** | dunas, **pirámides** escalonadas con su remate dorado, la **esfinge** con el nemes rayado, obeliscos con jeroglíficos, palmeras datileras y cráneos resecos · tablas de arena y matas |
+| 🐊 **El Amazonas** | la espesura, **el río al sur** (solo se cruza con tabla o flotador), árboles enormes con lianas, nenúfares gigantes en flor, **caimanes**, guacamayos, monos, ranitas y helechos |
 
 Las **reglas son las mismas** en los cuatro, y la columna del centro (portal,
 Armería y Ruleta) no se mueve nunca: lo que cambia es el sitio y por dónde te

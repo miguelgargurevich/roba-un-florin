@@ -143,6 +143,10 @@ export const TRASTOS_ESCENARIO: Record<string, { tipo: string; n: number }[]> = 
   colegio:  [{ tipo:"patineta", n:4 }, { tipo:"pelota", n:7 }],
   playa:    [{ tipo:"tabla", n:3 }, { tipo:"flotador", n:2 }, { tipo:"pelota", n:6 }],
   desierto: [{ tipo:"tablaArena", n:3 }, { tipo:"mata", n:7 }],
+  machupicchu: [{ tipo:"patineta", n:3 }, { tipo:"pelota", n:7 }],
+  nuevayork:   [{ tipo:"patineta", n:5 }, { tipo:"bici", n:3 }, { tipo:"pelota", n:6 }],
+  egipto:      [{ tipo:"tablaArena", n:4 }, { tipo:"mata", n:6 }],
+  amazonas:    [{ tipo:"tabla", n:3 }, { tipo:"flotador", n:2 }, { tipo:"pelota", n:6 }],
 };
 
 export const RULETA_PRECIO = 1200;
@@ -258,6 +262,23 @@ export const ESCENARIOS: Escenario[] = [
   { id:"desierto", nombre:"El Desierto",
     casas:[[70,90],[2150,90],[2150,1290],[1750,700]],
     patios:[[70,1290],[70,900],[70,510]] },
+
+  /* Los cuatro de viaje. Mismo reparto de siempre —un patio, cuatro casas y
+     los dos comprables al lado— porque las reglas no cambian con el sitio. */
+  { id:"machupicchu", nombre:"Machu Picchu",
+    casas:[[70,90],[2150,90],[2150,700],[2150,1290]],
+    patios:[[70,1290],[520,1290],[70,900]] },
+  { id:"nuevayork",   nombre:"Nueva York",
+    casas:[[70,90],[2150,90],[2150,1290],[560,90]],
+    patios:[[70,1290],[520,1290],[70,860]] },
+  { id:"egipto",      nombre:"Egipto",
+    casas:[[2150,90],[2150,700],[2150,1290],[70,90]],
+    patios:[[70,1290],[520,1290],[70,880]] },
+  { id:"amazonas",    nombre:"El Amazonas",
+    casas:[[70,90],[2150,90],[560,90],[2150,620]],
+    patios:[[70,1120],[520,1120],[70,760]],
+    // el río corre por el sur: sin balsa te frena en la ribera
+    mar: WORLD_H - 240 },
 ];
 
 export const varMult = (v: string | null) =>

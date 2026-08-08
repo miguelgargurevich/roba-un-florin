@@ -79,11 +79,29 @@ describe("el mundo se monta bien", () => {
     expect(baseDe(e, e.players[1].baseId).name).toBe("Patio del J2");
   });
 
-  it("los cuatro escenarios se pueden montar", () => {
+  it("todos los escenarios se pueden montar, y son ocho", () => {
+    expect(ESCENARIOS.length).toBe(8);
     for (const esc of ESCENARIOS) {
       const e = partida({ escenario: esc.id });
-      expect(e.esc.id).toBe(esc.id);
-      expect(e.bases.length).toBe(7);
+      expect(e.esc.id, esc.id).toBe(esc.id);
+      expect(e.bases.length, esc.id).toBe(7);
+      // las bases tienen que caber en el mundo, no salirse por un borde
+      for (const b of e.bases) {
+        expect(b.rect.x, esc.id + " " + b.name).toBeGreaterThanOrEqual(0);
+        expect(b.rect.y, esc.id + " " + b.name).toBeGreaterThanOrEqual(0);
+        expect(b.rect.x + b.rect.w, esc.id + " " + b.name).toBeLessThanOrEqual(2600);
+        expect(b.rect.y + b.rect.h, esc.id + " " + b.name).toBeLessThanOrEqual(1700);
+      }
+    }
+  });
+
+  it("cada escenario reparte trastos, y ninguno cae en el agua sin flotar", () => {
+    for (const esc of ESCENARIOS) {
+      const e = partida({ escenario: esc.id });
+      expect(e.trastos.length, esc.id).toBeGreaterThan(0);
+      if (e.esc.mar == null) continue;
+      for (const v of e.trastos)
+        expect(v.y, esc.id + " " + v.tipo).toBeLessThan(e.esc.mar);
     }
   });
 
@@ -553,8 +571,24 @@ describe("el mar de la playa", () => {
     expect(p.y).toBeLessThanOrEqual(e.esc.mar! + 0.001);   // pero el agua le para
   });
 
+  it("el río del Amazonas frena igual que el mar", () => {
+    const e = partida({ escenario: "amazonas" });
+    const p = e.players[0];
+    expect(e.esc.mar).toBeDefined();
+    p.x = 1300; p.y = e.esc.mar! - 60;
+    correr(e, 4, haciaAbajo);
+    expect(p.y).toBeLessThanOrEqual(e.esc.mar! + 0.001);
+
+    const tabla = e.trastos.find(v => v.tipo === "tabla")!;
+    p.x = tabla.x; p.y = tabla.y;
+    avanzar(e, nada(), 1 / 60);
+    expect(p.montado).toBe(tabla.id);
+    correr(e, 4, haciaAbajo);
+    expect(p.y).toBeGreaterThan(e.esc.mar! + 40);
+  });
+
   it("los otros escenarios no tienen mar y se puede llegar al borde sur", () => {
-    for (const id of ["barrio", "colegio", "desierto"]) {
+    for (const id of ["barrio", "colegio", "desierto", "machupicchu", "nuevayork", "egipto"]) {
       const e = partida({ escenario: id });
       expect(e.esc.mar).toBeUndefined();
       const p = e.players[0];
