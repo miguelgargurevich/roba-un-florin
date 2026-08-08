@@ -4,7 +4,7 @@
    reglas del juego ya las cubren los tests del motor. */
 
 import { describe, expect, it } from "vitest";
-import { JUGADORES_MAX } from "@florin/engine";
+import { JUGADORES_MAX, RULETA_PRECIO, WEAPONS } from "@florin/engine";
 import { Registro, type Sala } from "../src/salas.js";
 import { ESPERA_VUELTA, fotoMovil, TICKS_POR_SEG } from "../src/protocolo.js";
 import type { DeLaSala } from "../src/protocolo.js";
@@ -206,6 +206,49 @@ describe("los bots de los asientos libres", () => {
     uno.avanzar(5); dos.avanzar(5);
     expect(sa.estado.players.map(p => [Math.round(p.x), Math.round(p.y)]))
       .toEqual(sb.estado.players.map(p => [Math.round(p.x), Math.round(p.y)]));
+  });
+});
+
+describe("la Ruleta y la Armería de una sala", () => {
+  it("gira la ruleta y cobra la tirada", () => {
+    const { r, avanzar } = registro();
+    const s = r.crear();
+    const a = s.sentar("ana", "Ana", cliente().enviar)!;
+    const p = s.estado.players[a.idx];
+    p.money = 10_000;
+    p.x = s.estado.ruleta.x; p.y = s.estado.ruleta.y;
+    avanzar(0.2);
+    s.ruleta(a);
+    expect(s.estado.girando, "la tirada no arrancó").not.toBeNull();
+    expect(p.money).toBe(10_000 - RULETA_PRECIO);
+    avanzar(4);
+    expect(s.estado.girando, "la tirada no terminó").toBeNull();
+  });
+
+  it("compra un arma y suma munición", () => {
+    const { r, avanzar } = registro();
+    const s = r.crear();
+    const a = s.sentar("ana", "Ana", cliente().enviar)!;
+    const p = s.estado.players[a.idx];
+    p.money = 10_000;
+    p.x = s.estado.armeria.x + s.estado.armeria.w / 2;
+    p.y = s.estado.armeria.y + s.estado.armeria.h / 2;
+    avanzar(0.2);
+    const arma = WEAPONS[1];
+    const antes = p.ammo[arma.id];
+    s.comprar(a, 1);
+    expect(p.ammo[arma.id], "no llegó la munición").toBeGreaterThan(antes);
+    expect(p.money).toBe(10_000 - arma.price);
+  });
+
+  it("no le deja girar a quien no está en la ruleta", () => {
+    const { r } = registro();
+    const s = r.crear();
+    const a = s.sentar("ana", "Ana", cliente().enviar)!;
+    s.estado.players[a.idx].money = 10_000;
+    s.ruleta(a);
+    expect(s.estado.girando).toBeNull();
+    expect(s.estado.players[a.idx].money).toBe(10_000);
   });
 });
 

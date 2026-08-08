@@ -3,6 +3,10 @@ dist/
 .vite/
 *.tsbuildinfo
 
+# Configuración de cada máquina: a qué API y a qué salas apunta el dev server
+.env.local
+.env.*.local
+
 # .NET
 bin/
 obj/

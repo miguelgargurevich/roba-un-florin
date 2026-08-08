@@ -72,8 +72,12 @@ export function conectarSala({ url, token, codigo, modo, escenario, apodo, al })
     });
     ws.addEventListener("close", () => {
       estado.conectado = false;
+      /* Si el servidor ya dijo POR QUÉ te echó, ese motivo manda. Antes el
+         cierre venía justo detrás y pisaba "Hay que entrar con tu cuenta" con
+         un "se cortó… reconectando" que no ayuda a nadie. */
+      if (estado.error) return;
       al?.({ tipo: "caido" });
-      if (vivo && !estado.error) reintento = setTimeout(abrir, RECONECTAR_MS);
+      if (vivo) reintento = setTimeout(abrir, RECONECTAR_MS);
     });
     ws.addEventListener("error", () => { try { ws.close(); } catch (_){} });
   }

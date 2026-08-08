@@ -244,9 +244,15 @@ export function entregarPremio(e: Estado, p: Jugador, pr: Premio) {
   sonar(e, "place");
 }
 
-/** Arranca una tirada. Devuelve false si no se pudo (sin dinero o ya girando). */
+/** Arranca una tirada. Devuelve false si no se pudo (lejos, sin dinero, o ya
+    girando).
+
+    Lo de estar dentro se comprueba AQUÍ y no solo en la interfaz: en una sala
+    manda el servidor, y un cliente retocado podía girar desde su patio. Lo
+    mismo con la Armería. */
 export function girarRuleta(e: Estado, p: Jugador, dur = 2.2): boolean {
   if (e.girando) return false;
+  if (!p.inRuleta) return false;
   if (p.money < RULETA_PRECIO) {
     texto(e, p.x, p.y - 70, "Falta " + money(RULETA_PRECIO - p.money), "#FF6B90");
     sonar(e, "ouch");
@@ -261,6 +267,7 @@ export function girarRuleta(e: Estado, p: Jugador, dur = 2.2): boolean {
 export function comprarArma(e: Estado, p: Jugador, i: number): boolean {
   const w = WEAPONS[i];
   if (!w || w.price === 0) return false;
+  if (!p.inShop) return false;
   if (p.money < w.price) {
     texto(e, p.x, p.y - 62, "Falta " + money(w.price - p.money), "#FF6B90");
     sonar(e, "ouch");

@@ -16,6 +16,19 @@ import {
 } from "../src/index.js";
 
 const QUIETO: EntradaJugador = { mover: { x: 0, y: 0 }, apunta: null };
+
+/* La Ruleta y la Armería solo atienden a quien está dentro, y quien lo marca
+   es el paso de simulación. Estos dos plantan al jugador y dejan correr un
+   frame para que las banderas se pongan. */
+function enLaRuleta(e: Estado, p: any) {
+  p.x = e.ruleta.x; p.y = e.ruleta.y;
+  avanzar(e, nada(e.players.length), 1 / 60);
+}
+function enLaArmeria(e: Estado, p: any) {
+  p.x = e.armeria.x + e.armeria.w / 2;
+  p.y = e.armeria.y + e.armeria.h / 2;
+  avanzar(e, nada(e.players.length), 1 / 60);
+}
 const nada = (n = 1) => Object.fromEntries(Array.from({ length: n }, (_, i) => [i, QUIETO]));
 
 function partida(op: Partial<Parameters<typeof crearPartida>[0]> = {}) {
@@ -943,6 +956,8 @@ describe("armas", () => {
     const p = e.players[0];
     const i = WEAPONS.findIndex(w => w.id === "hielo");
     p.money = 5000;
+    expect(comprarArma(e, p, i), "sin estar dentro no se compra").toBe(false);
+    enLaArmeria(e, p);
     expect(comprarArma(e, p, i)).toBe(true);
     expect(p.money).toBe(5000 - WEAPONS[i].price);
     expect(p.ammo.hielo).toBe(WEAPONS[i].uses);
@@ -1043,6 +1058,8 @@ describe("ruleta", () => {
     const e = partida();
     const p = e.players[0];
     p.money = 10000;
+    expect(girarRuleta(e, p), "desde lejos no se gira").toBe(false);
+    enLaRuleta(e, p);
     expect(girarRuleta(e, p)).toBe(true);
     expect(p.money).toBe(10000 - RULETA_PRECIO);
     expect(e.girando).not.toBeNull();
@@ -1061,6 +1078,7 @@ describe("ruleta", () => {
 
   it("la casilla ??? es la única que da variantes", () => {
     const e = partida({ semilla: 4242 });
+    enLaRuleta(e, e.players[0]);
     let conVariante = 0, sorpresas = 0;
     for (let i = 0; i < 600; i++) {
       const pr = (e.ultimoPremio = null, girarRuleta(e, Object.assign(e.players[0], { money: 99999 })), e.girando!.premio);
