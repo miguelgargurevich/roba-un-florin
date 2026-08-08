@@ -262,7 +262,8 @@ describe("el vehículo de cada quien", () => {
     const a = s.sentar("ana", "Ana", cliente().enviar)!;
     const b = s.sentar("beto", "Beto", cliente().enviar)!;
     s.vehiculoDe(a, "ovni");
-    const suyo = i => s.estado.trastos.find(v => v.id === s.estado.players[i].montado)!.tipo;
+    const suyo = (i: number) =>
+      s.estado.trastos.find(v => v.id === s.estado.players[i].montado)!.tipo;
     expect(suyo(a.idx)).toBe("ovni");
     expect(suyo(b.idx), "el que no elige sale con lo del escenario").toBe("carrito");
   });

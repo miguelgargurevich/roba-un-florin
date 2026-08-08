@@ -24,7 +24,7 @@ export {
   baseDe, jugadorDe, pedDe, desfileDe, patiosDe, objetivoDe,
   nivelDeVitrina, vitrinaDe, nombreDeHito, HITOS_MAX,
   trastoDe, hayMar, enElMar, enElPuente, puedeMojarse,
-  darleVehiculo, vehiculoDelSitio,
+  darleVehiculo, vehiculoDelSitio, dentroDeLaPista, enLaPista,
 } from "./estado.js";
 export type { OpcionesPartida } from "./estado.js";
 export { pensarBot } from "./bot.js";

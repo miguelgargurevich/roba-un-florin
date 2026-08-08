@@ -16,7 +16,7 @@ import {
   VEHICULOS, bajarse, enElMar, trastoDe, nivelDeVitrina, vitrinaDe, nombreDeHito,
   venderFlorin, precioDeVenta, soltarCarga, puestoDe, puestosDeCarrera,
   VUELTAS, CIRCUITOS, JUGADORES_MAX, pensarBot, GARAJE, TRASTOS_ESCENARIO,
-  darleVehiculo, vehiculoDelSitio, esEspecial,
+  darleVehiculo, vehiculoDelSitio, esEspecial, ANCHO_PISTA, enLaPista,
 } from "@florin/engine";
 
 export {
@@ -31,7 +31,7 @@ export {
   VEHICULOS, bajarse, enElMar, trastoDe, nivelDeVitrina, vitrinaDe, nombreDeHito,
   venderFlorin, precioDeVenta, soltarCarga, puestoDe, puestosDeCarrera,
   VUELTAS, CIRCUITOS, JUGADORES_MAX, pensarBot, GARAJE, TRASTOS_ESCENARIO,
-  darleVehiculo, vehiculoDelSitio, esEspecial,
+  darleVehiculo, vehiculoDelSitio, esEspecial, ANCHO_PISTA, enLaPista,
 };
 
 /* ---- escenarios: el motor pone el reparto, el cliente el aspecto ---- */
@@ -40,49 +40,49 @@ export const VISUALES = {
     icono: "🏘️",
     desc: "La cuadra de tierra de siempre. Tus patios juntos al suroeste.",
     suelo: "#B45E38", loseta: "rgba(255,239,226,.07)", mancha: "rgba(120,58,32,.22)",
-    borde: "#5C2A18", deco: "manchas",
+    borde: "#5C2A18", deco: "manchas", topes: "llantas",
   },
   colegio: {
     icono: "🏫",
     desc: "El patio del Colegio Mixto Santa Teresita: cancha, jardines, palmeras, la bandera y las rayuelas del recreo.",
     suelo: "#C9BFA8", loseta: "rgba(255,255,255,.13)", mancha: "rgba(150,140,120,.22)",
-    borde: "#8A7A62", deco: "colegio",
+    borde: "#8A7A62", deco: "colegio", topes: "conos",
   },
   playa: {
     icono: "🏖️",
     desc: "Mar, orilla y castillos de arena. Nadie construye sobre la playa.",
     suelo: "#E0BE84", loseta: "rgba(255,255,255,.11)", mancha: "rgba(198,158,98,.3)",
-    borde: "#A9834A", deco: "olas",
+    borde: "#A9834A", deco: "olas", topes: "piedras",
   },
   desierto: {
     icono: "🌵",
     desc: "Tierra rajada y mucho espacio vacío entre casa y casa.",
     suelo: "#C98B52", loseta: "rgba(255,239,226,.06)", mancha: "rgba(150,100,50,.24)",
-    borde: "#8A5A2A", deco: "grietas",
+    borde: "#8A5A2A", deco: "grietas", topes: "piedras",
   },
   machupicchu: {
     icono: "🏔️",
     desc: "Andenes de piedra en la ceja de selva, con llamas, ruinas incas y la neblina de la montaña.",
     suelo: "#7E9B63", loseta: "rgba(255,255,255,.08)", mancha: "rgba(70,95,55,.28)",
-    borde: "#4A6138", deco: "andenes",
+    borde: "#4A6138", deco: "andenes", topes: "piedras",
   },
   nuevayork: {
     icono: "🗽",
     desc: "Asfalto, taxis amarillos, rascacielos, hidrantes y las tapas de alcantarilla echando vapor.",
     suelo: "#4A4A52", loseta: "rgba(255,255,255,.05)", mancha: "rgba(25,25,30,.3)",
-    borde: "#2A2A30", deco: "asfalto",
+    borde: "#2A2A30", deco: "asfalto", topes: "valla",
   },
   egipto: {
     icono: "🐫",
     desc: "Arena, pirámides, la esfinge, obeliscos con jeroglíficos y palmeras datileras.",
     suelo: "#E3C48A", loseta: "rgba(255,255,255,.07)", mancha: "rgba(190,150,90,.3)",
-    borde: "#B08A4A", deco: "duna",
+    borde: "#B08A4A", deco: "duna", topes: "piedras",
   },
   amazonas: {
     icono: "🐊",
     desc: "Selva espesa con el río al sur, lianas, nenúfares, guacamayos, monos y algún caimán.",
     suelo: "#3E6B3A", loseta: "rgba(255,255,255,.05)", mancha: "rgba(25,55,25,.32)",
-    borde: "#24421F", deco: "selva",
+    borde: "#24421F", deco: "selva", topes: "postes",
   },
 
   /* Los cuatro de juguete. El suelo del cuarto, a lo grande. */
@@ -90,49 +90,49 @@ export const VISUALES = {
     icono: "🏎️",
     desc: "La alfombra del cuarto con la pista naranja montada encima: el rizo, rampas de salto, aceleradores y bólidos a toda.",
     suelo: "#46506E", loseta: "rgba(255,255,255,.05)", mancha: "rgba(28,32,48,.3)",
-    borde: "#2A3049", deco: "pista",
+    borde: "#2A3049", deco: "pista", topes: "conos",
   },
   tablero: {
     icono: "🎲",
     desc: "El tablero gigante: casillas de colores, la cárcel, el aparcamiento gratis, casitas, hoteles, los mazos y los dados rodando.",
     suelo: "#D9D2B8", loseta: "rgba(255,255,255,.14)", mancha: "rgba(150,142,115,.2)",
-    borde: "#8A8266", deco: "tablero",
+    borde: "#8A8266", deco: "tablero", topes: "llantas",
   },
   mirador: {
     icono: "🚂",
     desc: "Vía de madera sobre la mesa verde: la montaña con su mirador, el túnel, la estación y los trencitos dando vueltas.",
     suelo: "#5E8A4E", loseta: "rgba(255,255,255,.07)", mancha: "rgba(50,80,42,.26)",
-    borde: "#3E5C34", deco: "mirador",
+    borde: "#3E5C34", deco: "mirador", topes: "postes",
   },
   costaverde: {
     icono: "🌊",
     desc: "El malecón de Lima: acantilado, el mar abajo, parapentes, palmeras y la ciclovía pegada al borde.",
     suelo: "#8E9A6C", loseta: "rgba(255,255,255,.07)", mancha: "rgba(90,100,70,.26)",
-    borde: "#5A6544", deco: "costa",
+    borde: "#5A6544", deco: "costa", topes: "valla",
   },
   nazca: {
     icono: "🛩️",
     desc: "La pampa con las líneas dibujadas en el suelo: el colibrí, el mono y la araña, y el mirador de fierro.",
     suelo: "#C98B52", loseta: "rgba(255,239,226,.06)", mancha: "rgba(150,100,50,.22)",
-    borde: "#8A5A2A", deco: "nazca",
+    borde: "#8A5A2A", deco: "nazca", topes: "piedras",
   },
   volcan: {
     icono: "🌋",
     desc: "Ceniza negra, ríos de lava, humaredas y el cráter en el medio. Cuidado con lo que arde.",
     suelo: "#3A3238", loseta: "rgba(255,255,255,.04)", mancha: "rgba(20,16,20,.35)",
-    borde: "#1E1A1E", deco: "volcan",
+    borde: "#1E1A1E", deco: "volcan", topes: "piedras",
   },
   luna: {
     icono: "🌕",
     desc: "Polvo gris, cráteres, la bandera, el módulo lunar y la Tierra saliendo por el horizonte.",
     suelo: "#8E8E96", loseta: "rgba(255,255,255,.05)", mancha: "rgba(60,60,68,.3)",
-    borde: "#55555E", deco: "luna",
+    borde: "#55555E", deco: "luna", topes: "nieve",
   },
   circuito: {
     icono: "🍄",
     desc: "Circuito de karts: pianitos, tuberías, bloques ?, cajas de ítem, aceleradores, monedas y setas.",
     suelo: "#57893F", loseta: "rgba(255,255,255,.06)", mancha: "rgba(45,75,35,.26)",
-    borde: "#31531F", deco: "circuito",
+    borde: "#31531F", deco: "circuito", topes: "tuberias",
   },
 };
 

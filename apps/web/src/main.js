@@ -18,7 +18,7 @@ import {
   occupiedDe, orbitaDelCentro, playerIncome, puntoDelDesfile, rumboDeTiro,
   bajarse, conAtajosDeSala as conAtajosMotor, nombreDeHito, patiosDe, precioDeVenta,
   puestoDe, puestosDeCarrera, VUELTAS, CIRCUITOS, pensarBot, GARAJE, VEHICULOS,
-  TRASTOS_ESCENARIO, darleVehiculo,
+  TRASTOS_ESCENARIO, darleVehiculo, esEspecial, ANCHO_PISTA,
   soltarCarga, trastoDe,
   venderFlorin,
   revivirPartida, seleccionarArma, textoDePremio,
@@ -666,11 +666,18 @@ const vehFila = document.getElementById("vehFila");
 const vehTitulo = document.getElementById("vehTitulo");
 try { vehSel = localStorage.getItem("florin_vehiculo") || null; } catch (_){}
 
+/* Todo lo que se monta en el juego, no solo lo que hay tirado en este
+   escenario: si existe la llama y el camello, se puede correr con ellos en
+   cualquier sitio. Los de agua fuera del agua van un poco más lentos —de eso
+   ya se encarga `multDeMontura`—, así que elegir tabla en el Volcán es una
+   decisión tonta pero legítima. */
 function vehiculosQuePuedoUsar(){
   const delSitio = (TRASTOS_ESCENARIO[ESCENARIOS[escSel].id] || [])
     .map(t => t.tipo).filter(t => VEHICULOS[t]);
+  const normales = Object.keys(VEHICULOS).filter(t => !esEspecial(t));
   const mios = GARAJE.map(g => g.tipo).filter(tengoVehiculo);
-  return [...new Set([...delSitio, ...mios])];
+  // primero lo del sitio, que es lo que pega, y después el resto
+  return [...new Set([...delSitio, ...normales, ...mios])];
 }
 
 function pintarVehiculos(){
@@ -4040,51 +4047,112 @@ function decoCostaVerde(c, E){
   }, MAR - 260);
 }
 
-/* ---------- Nazca: las líneas dibujadas en la pampa ---------- */
+/* ---------- Nazca: las líneas dibujadas en la pampa ----------
+   Las figuras son las de verdad y están dibujadas como están hechas: de UN
+   SOLO TRAZO continuo que nunca se cruza consigo mismo — así se rascaron, y
+   por eso se puede caminar entera una figura sin levantar el pie. Son cinco de
+   las famosas: el colibrí, el mono de la cola en espiral, la araña, el cóndor
+   y el astronauta de la ladera. */
 function decoNazca(c, E){
   c.fillStyle = E.mancha;
   for (let i=0;i<18;i++){
     const x = azEntre(i+7,0,WORLD_W), y = azEntre(i+37,0,WORLD_H), r = 44+az(i)*70;
     c.beginPath(); c.ellipse(x,y,r,r*.45,i,0,6.283); c.fill();
   }
-  /* el suelo rayado del desierto */
+  /* el suelo rayado de la pampa */
   c.strokeStyle = "rgba(255,239,226,.05)"; c.lineWidth = 6;
   for (let y=0;y<WORLD_H;y+=34){
     c.beginPath(); c.moveTo(0, y + Math.sin(y/200)*10); c.lineTo(WORLD_W, y - Math.sin(y/240)*10); c.stroke();
   }
 
-  /* Las líneas: surcos claros, un trazo continuo cada figura. Están dibujadas
-     a mano con puntos porque una curva bonita no se ve como algo rascado. */
-  const linea = (pts, cerrar) => {
-    c.strokeStyle = "#EBD3A2"; c.lineWidth = 13; c.lineJoin = "round"; c.lineCap = "round";
+  /* Un surco: se rascó la piedra oscura y debajo apareció la arena clara. Por
+     eso van dos trazos, uno ancho y claro y otro fino y más claro todavía. */
+  const surco = (pts, ancho = 14) => {
+    c.lineJoin = "round"; c.lineCap = "round";
+    c.strokeStyle = "#D9B884"; c.lineWidth = ancho;
     c.beginPath();
-    pts.forEach(([x,y], i) => i ? c.lineTo(x,y) : c.moveTo(x,y));
-    if (cerrar) c.closePath();
+    pts.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y));
     c.stroke();
-    c.strokeStyle = "rgba(255,255,255,.35)"; c.lineWidth = 5;
+    c.strokeStyle = "rgba(255,246,225,.5)"; c.lineWidth = ancho * .42;
     c.stroke();
   };
-  // el colibrí, arriba a la izquierda
-  const cb = (dx, dy, k) => ([dx*k, dy*k]);
-  linea([[330,300],[430,340],[560,350],[700,345],[820,330]]);          // el pico
-  linea([[560,350],[520,430],[430,520],[360,600]]);                    // ala izquierda
-  linea([[560,350],[620,440],[700,540],[760,620]]);                    // ala derecha
-  linea([[560,350],[556,470],[548,600],[540,700],[500,760]]);          // cuerpo y cola
-  linea([[540,700],[600,780]]);
-  // el mono, abajo a la derecha
-  linea([[1900,1180],[1990,1120],[2090,1140],[2140,1230],[2090,1320],[1980,1330],[1910,1270]], true);
-  linea([[2140,1230],[2230,1180],[2300,1250],[2260,1350],[2160,1380]]); // la cola en espiral
-  linea([[1900,1180],[1830,1090],[1760,1120]]);                        // brazo
-  // la araña, arriba a la derecha
-  const ax = 1980, ay = 420;
-  linea([[ax-40,ay],[ax+40,ay],[ax+40,ay+90],[ax-40,ay+90]], true);
-  for (let k=0;k<4;k++){
-    const off = k*34 - 50;
-    linea([[ax-40, ay+20+off*0.4],[ax-150, ay-30+off],[ax-210, ay+40+off]]);
-    linea([[ax+40, ay+20+off*0.4],[ax+150, ay-30+off],[ax+210, ay+40+off]]);
-  }
+  /* Traslada y escala una figura dibujada en su propio cuadriculado. */
+  const poner = (fig, ox, oy, k) => surco(fig.map(([x, y]) => [ox + x * k, oy + y * k]));
+  /* Una espiral, que es lo que tiene el mono en la cola y la araña en la pata. */
+  const espiral = (cx, cy, r0, vueltas, paso) => {
+    const p = [];
+    for (let i = 0; i <= vueltas * 24; i++){
+      const a = (i / 24) * 6.283, r = r0 + i * paso;
+      p.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r]);
+    }
+    return p;
+  };
 
-  /* el mirador de fierro que hay en la carretera, y piedras sueltas */
+  /* ---- el colibrí: pico larguísimo, alas rectas y cola de tijera ---- */
+  poner([
+    [0,0],[13,0],[26,1],[40,2],                     // el pico, que es media figura
+    [44,4],[40,7],[27,7],[15,7],[4,6],
+    [-2,10],[-6,17],[-8,26],                        // el cuello y el cuerpo
+    [-26,20],[-46,12],[-64,7],[-62,14],[-44,20],[-24,28],[-9,33],   // ala izquierda
+    [-8,40],[-8,52],
+    [-14,60],[-13,74],[-8,66],[-7,56],              // la cola en tijera
+    [-1,56],[0,68],[3,78],[6,64],[5,54],
+    [8,44],[9,34],
+    [24,30],[44,23],[64,16],[62,9],[42,14],[22,21],[8,25],
+    [7,17],[4,9],[0,4],[0,0],
+  ], 380, 330, 3.1);
+
+  /* ---- el mono: la cola en espiral es lo que todo el mundo reconoce ---- */
+  const mono = [
+    [0,0],[-14,-6],[-26,-16],[-30,-30],[-24,-42],[-10,-46],[4,-42],   // el cuerpo
+    [12,-30],[14,-16],[10,-4],
+    [26,2],[42,6],[54,14],                                            // el brazo derecho
+  ];
+  poner(mono, 1980, 1210, 2.2);
+  poner(espiral(0, 0, 4, 3.2, 2.6).map(([x, y]) => [x + 54, y + 44]), 1980, 1210, 2.2);
+  poner([[-30,-30],[-52,-40],[-70,-34],[-84,-20],[-84,-4],[-72,4]], 1980, 1210, 2.2);
+  poner([[0,0],[-6,16],[-16,28],[-30,32]], 1980, 1210, 2.2);          // las patas
+  poner([[10,-4],[14,14],[12,30],[2,38]], 1980, 1210, 2.2);
+  /* las manos: la de tres dedos y la de cuatro, que es la gracia del mono */
+  poner([[54,14],[62,8]], 1980, 1210, 2.2);
+  poner([[54,14],[64,16]], 1980, 1210, 2.2);
+  poner([[54,14],[62,22]], 1980, 1210, 2.2);
+  poner([[-72,4],[-80,10]], 1980, 1210, 2.2);
+  poner([[-72,4],[-82,2]], 1980, 1210, 2.2);
+
+  /* ---- la araña ---- */
+  const ax = 1960, ay = 430, ak = 2.0;
+  poner([[0,-22],[9,-14],[9,4],[0,14],[-9,4],[-9,-14],[0,-22]], ax, ay, ak);
+  for (let k = 0; k < 4; k++){
+    const dy = -14 + k * 10;
+    poner([[-9,dy],[-30,dy-6],[-52,dy+6],[-64,dy+22]], ax, ay, ak);
+    poner([[9,dy],[30,dy-6],[52,dy+6],[64,dy+22]], ax, ay, ak);
+  }
+  poner([[0,-22],[-5,-32]], ax, ay, ak);
+  poner([[0,-22],[5,-32]], ax, ay, ak);
+
+  /* ---- el cóndor: las alas abiertas de punta a punta ---- */
+  poner([
+    [0,0],[0,-12],[-5,-18],[-5,-26],[0,-30],[5,-26],[5,-18],[0,-12],  // cabeza y cuello
+  ], 700, 1150, 2.6);
+  poner([
+    [0,0],[-18,-4],[-42,-10],[-70,-14],[-96,-12],[-94,-4],[-68,-6],[-40,-2],[-16,6],
+    [-14,16],[-12,30],[-6,42],[0,50],[6,42],[12,30],[14,16],[16,6],
+    [40,-2],[68,-6],[94,-4],[96,-12],[70,-14],[42,-10],[18,-4],[0,0],
+  ], 700, 1150, 2.6);
+
+  /* ---- el astronauta, el de la mano levantada ---- */
+  const nx = 480, ny = 620, nk = 2.4;
+  poner([[0,-34],[10,-28],[13,-16],[10,-4],[0,2],[-10,-4],[-13,-16],[-10,-28],[0,-34]], nx, ny, nk);
+  poner([[0,2],[0,34]], nx, ny, nk);
+  poner([[0,10],[-20,20],[-24,6]], nx, ny, nk);      // el brazo que saluda
+  poner([[0,10],[20,22],[22,36]], nx, ny, nk);
+  poner([[0,34],[-12,54],[-18,66]], nx, ny, nk);
+  poner([[0,34],[12,54],[18,66]], nx, ny, nk);
+  poner([[-5,-22],[-2,-22]], nx, ny, nk);            // los ojos redondos
+  poner([[3,-22],[6,-22]], nx, ny, nk);
+
+  /* el mirador de fierro que hay junto a la carretera, y piedras sueltas */
   sembrar(c, 2, 5401, 70, (c,x,y) => {
     vetoDeco.push({ x:x-60, y:y-90, w:120, h:130 });
     c.fillStyle = "rgba(0,0,0,.22)";
@@ -4285,6 +4353,11 @@ function drawCircuito(){
     ctx.globalAlpha = 1;
   }
 
+  /* Los topes de los dos bordes. Lo que son cambia con el sitio: el motor solo
+     sabe que hay un ancho de pista, y aquí se decide si eso es una valla, unos
+     conos o un montón de piedras. */
+  dibujarTopes(c);
+
   /* la meta a cuadros, atravesada en el punto 0 */
   const [mx, my] = c[0], [sx, sy] = c[1] || c[0];
   const ang = Math.atan2(sy - my, sx - mx) + Math.PI / 2;
@@ -4292,6 +4365,84 @@ function drawCircuito(){
   for (let f=0; f<8; f++) for (let k=0; k<2; k++){
     ctx.fillStyle = (f + k) % 2 ? "#FFEFE2" : "#2A1226";
     ctx.fillRect(-96 + f*24, -26 + k*26, 24, 26);
+  }
+  ctx.restore();
+}
+
+/** Un tope cada tantos px a lo largo de los dos bordes de la pista. */
+function dibujarTopes(c){
+  const V = visualDe(G.esc.id);
+  const cual = V.topes || "conos";
+  const media = ANCHO_PISTA / 2;
+  let sobra = 0;
+  for (let i = 0; i < c.length; i++){
+    const [ax, ay] = c[i], [bx, by] = c[(i + 1) % c.length];
+    const dx = bx - ax, dy = by - ay, largo = Math.hypot(dx, dy) || 1;
+    const nx = -dy / largo, ny = dx / largo;         // la perpendicular
+    const cada = 62;
+    for (let d = sobra; d < largo; d += cada){
+      const px = ax + dx * (d / largo), py = ay + dy * (d / largo);
+      for (const lado of [-1, 1])
+        unTope(cual, px + nx * media * lado, py + ny * media * lado,
+               Math.atan2(dy, dx), (i * 97 + d) | 0);
+    }
+    sobra = (sobra - largo) % cada + cada;
+  }
+}
+
+function unTope(cual, x, y, ang, i){
+  ctx.save(); ctx.translate(x, y);
+  if (cual === "valla"){                              // guardarraíl de carretera
+    ctx.rotate(ang);
+    ctx.fillStyle = "rgba(0,0,0,.25)";
+    ctx.fillRect(-32, 4, 64, 5);
+    ctx.fillStyle = "#8A8478"; ctx.fillRect(-3, -6, 6, 12);
+    ctx.fillStyle = "#C9C2B8"; rr(ctx, -32, -10, 64, 7, 3); ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,.45)"; ctx.fillRect(-32, -10, 64, 2);
+  } else if (cual === "conos"){
+    ctx.fillStyle = "rgba(0,0,0,.25)";
+    ctx.beginPath(); ctx.ellipse(0, 8, 12, 4, 0, 0, 6.283); ctx.fill();
+    ctx.fillStyle = "#E2453C";
+    ctx.beginPath(); ctx.moveTo(-10, 8); ctx.lineTo(0, -18); ctx.lineTo(10, 8); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "#FFEFE2"; ctx.fillRect(-6.5, -4, 13, 5);
+  } else if (cual === "piedras"){
+    ctx.rotate(az(i) * 3);
+    ctx.fillStyle = "rgba(0,0,0,.25)";
+    ctx.beginPath(); ctx.ellipse(0, 7, 13, 4, 0, 0, 6.283); ctx.fill();
+    ctx.fillStyle = ["#8A8478","#9A9182","#736D62"][i % 3];
+    ctx.beginPath();
+    for (let k = 0; k < 6; k++){
+      const a = k * 1.047, r = 11 + az(i * 3 + k) * 6;
+      ctx[k ? "lineTo" : "moveTo"](Math.cos(a) * r, Math.sin(a) * r * .8);
+    }
+    ctx.closePath(); ctx.fill();
+  } else if (cual === "postes"){                      // los de madera del tren
+    ctx.fillStyle = "rgba(0,0,0,.25)";
+    ctx.beginPath(); ctx.ellipse(0, 8, 9, 3.5, 0, 0, 6.283); ctx.fill();
+    ctx.fillStyle = "#8A6A3C"; rr(ctx, -4, -20, 8, 28, 3); ctx.fill();
+    ctx.fillStyle = "#C9A46A"; rr(ctx, -12, -18, 24, 7, 3); ctx.fill();
+  } else if (cual === "tuberias"){
+    ctx.fillStyle = "rgba(0,0,0,.25)";
+    ctx.beginPath(); ctx.ellipse(0, 9, 14, 5, 0, 0, 6.283); ctx.fill();
+    ctx.fillStyle = "#2E8B32";
+    ctx.beginPath(); ctx.ellipse(0, 2, 14, 9, 0, 0, 6.283); ctx.fill();
+    ctx.fillStyle = "#4FB84A";
+    ctx.beginPath(); ctx.ellipse(0, -2, 14, 9, 0, 0, 6.283); ctx.fill();
+    ctx.fillStyle = "#1B5A1F";
+    ctx.beginPath(); ctx.ellipse(0, -2, 8, 5, 0, 0, 6.283); ctx.fill();
+  } else if (cual === "nieve"){                       // bloques de hielo / luna
+    ctx.rotate(az(i) * .6 - .3);
+    ctx.fillStyle = "rgba(0,0,0,.22)";
+    ctx.fillRect(-11, 4, 22, 5);
+    ctx.fillStyle = "#C9C2D8"; rr(ctx, -11, -12, 22, 18, 3); ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,.4)"; ctx.fillRect(-11, -12, 22, 4);
+  } else {                                            // llantas apiladas
+    ctx.fillStyle = "rgba(0,0,0,.25)";
+    ctx.beginPath(); ctx.ellipse(0, 7, 13, 4.5, 0, 0, 6.283); ctx.fill();
+    ctx.fillStyle = "#2A2226";
+    ctx.beginPath(); ctx.ellipse(0, 0, 13, 9, 0, 0, 6.283); ctx.fill();
+    ctx.fillStyle = i % 2 ? "#FFEFE2" : "#E2453C";
+    ctx.beginPath(); ctx.ellipse(0, -1, 7, 5, 0, 0, 6.283); ctx.fill();
   }
   ctx.restore();
 }

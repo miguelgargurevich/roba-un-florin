@@ -158,8 +158,12 @@ export interface Ladron {
 export interface DesfileItem {
   id: number;
   florin: Florin;
+  /** cuánto le queda de paseo, de 0 a 1; al llegar a 1 se vuelve al portal */
   k: number;
   x: number; y: number;
+  /** hacia dónde va ahora mismo, en radianes, y cuándo le toca cambiar */
+  rumbo: number;
+  vira: number;
   face: number;
   pop: number;
   esDesfile: true;

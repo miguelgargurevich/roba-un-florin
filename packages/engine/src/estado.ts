@@ -7,7 +7,7 @@ import type {
 } from "./tipos.js";
 import {
   ESCENARIOS, FLORES, GOAL, LASER_CARGA, PATIOS_PRECIO, TIERS, TRASTOS_ESCENARIO,
-  VARIANTES, VEHICULOS, WORLD_H, WORLD_W, esVehiculo, varMult,
+  ANCHO_PISTA, VARIANTES, VEHICULOS, WORLD_H, WORLD_W, esVehiculo, varMult,
 } from "./datos.js";
 import { azar, clamp, dist2, inRect, rnd } from "./util.js";
 
@@ -424,6 +424,51 @@ function aLaLineaDeSalida(e: Estado): void {
 
     darleVehiculo(e, p, p.vehiculo || vehiculoDelSitio(e), i);
   });
+}
+
+/* ---- los topes de la pista ----
+   Una carrera en la que puedes cortar campo a través no es una carrera: se va
+   en línea recta de punto a punto y el trazado da igual. Así que fuera del
+   asfalto hay tope y no se pasa.
+
+   El corredor se empuja al borde del corredor más cercano en vez de frenarlo
+   en seco: chocar contra un muro y quedarte pegado es lo más frustrante que
+   hay, y rozándolo se sigue avanzando. */
+function alSegmento(px: number, py: number, ax: number, ay: number, bx: number, by: number) {
+  const dx = bx - ax, dy = by - ay;
+  const largo = dx * dx + dy * dy;
+  const t = largo ? clamp(((px - ax) * dx + (py - ay) * dy) / largo, 0, 1) : 0;
+  const cx = ax + dx * t, cy = ay + dy * t;
+  return { d2: (px - cx) ** 2 + (py - cy) ** 2, cx, cy };
+}
+
+/** Devuelve el punto de la pista más cercano y a qué distancia está. */
+export function enLaPista(e: Estado, x: number, y: number) {
+  const c = e.esc.circuito!;
+  let mejor = { d2: Infinity, cx: x, cy: y };
+  for (let i = 0; i < c.length; i++) {
+    const [ax, ay] = c[i], [bx, by] = c[(i + 1) % c.length];
+    const q = alSegmento(x, y, ax, ay, bx, by);
+    if (q.d2 < mejor.d2) mejor = q;
+  }
+  return mejor;
+}
+
+/** Empuja a quien se salga de la pista. Solo en carrera y solo si hay pista. */
+export function dentroDeLaPista(e: Estado, p: { x: number; y: number; vx: number; vy: number }): boolean {
+  if (e.reglas.modo !== "carrera" || !e.esc.circuito?.length) return true;
+  const borde = ANCHO_PISTA / 2;
+  const q = enLaPista(e, p.x, p.y);
+  if (q.d2 <= borde * borde) return true;
+  const d = Math.sqrt(q.d2) || 1;
+  p.x = q.cx + (p.x - q.cx) / d * borde;
+  p.y = q.cy + (p.y - q.cy) / d * borde;
+  /* Se le quita la velocidad que iba HACIA fuera y se le deja la que va a lo
+     largo: así rozar el tope frena un poco pero no te clava. */
+  const nx = (p.x - q.cx) / borde, ny = (p.y - q.cy) / borde;
+  const haciaFuera = p.vx * nx + p.vy * ny;
+  if (haciaFuera > 0) { p.vx -= nx * haciaFuera; p.vy -= ny * haciaFuera; }
+  return false;
 }
 
 /** Con qué se corre aquí si nadie eligió: lo primero montable del escenario. */

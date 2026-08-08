@@ -6,7 +6,8 @@
 import { describe, expect, it } from "vitest";
 import {
   CIRCUITOS, ESCENARIOS, ESCUDO_DUR, FLORES, GARAJE, GOAL, HITO_R, JUGADORES_MAX,
-  VEHICULOS, VUELTAS, darleVehiculo, esEspecial, trastoDe, vehiculoDelSitio,
+  VEHICULOS, VUELTAS, ANCHO_PISTA, darleVehiculo, enLaPista, esEspecial, trastoDe,
+  vehiculoDelSitio,
   puestosDeCarrera, puestoDe, pensarBot, LASER_DUR, LASER_PRECIO, PORTAL_RAREZAS, RAR_COLOR,
   reglasPara,
   RULETA, RULETA_INCOGNITA, RULETA_PRECIO, TIERS, WEAPONS, varMult,
@@ -1055,6 +1056,38 @@ describe("soltar lo que llevas", () => {
   });
 });
 
+describe("los Florines del desfile", () => {
+  it("cada uno se va por su lado y no repiten recorrido", () => {
+    const e = partida();
+    for (let i = 0; i < 60 * 40; i++) avanzar(e, nada(), 1 / 60);
+    expect(e.portal.desfile.length).toBeGreaterThan(1);
+    const rumbos = new Set(e.portal.desfile.map(d => Math.round(d.rumbo * 10)));
+    expect(rumbos.size, "van todos en fila, como antes").toBeGreaterThan(1);
+  });
+
+  it("no se salen del mundo ni se meten al mar", () => {
+    const e = partida({ escenario: "playa" });
+    for (let i = 0; i < 60 * 120; i++) {
+      avanzar(e, nada(), 1 / 60);
+      for (const d of e.portal.desfile) {
+        expect(d.x).toBeGreaterThan(40);
+        expect(d.x).toBeLessThan(2600 - 40);
+        expect(d.y).toBeGreaterThan(40);
+        expect(d.y, "un Florín se fue nadando").toBeLessThan(e.esc.mar! - 20);
+      }
+    }
+  });
+
+  it("el paseo sigue siendo el mismo con la misma semilla", () => {
+    const foto = () => {
+      const e = partida({ semilla: 99 });
+      for (let i = 0; i < 60 * 30; i++) avanzar(e, nada(), 1 / 60);
+      return e.portal.desfile.map(d => [Math.round(d.x), Math.round(d.y)]);
+    };
+    expect(foto()).toEqual(foto());
+  });
+});
+
 describe("carrera", () => {
   const carrera = (esc = "circuito", jugadores = 2) =>
     crearPartida({ jugadores, escenario: esc, semilla: 7, armas: idsDeArmas(),
@@ -1130,6 +1163,33 @@ describe("carrera", () => {
       .filter(([k]) => !esEspecial(k)).map(([, v]) => v.mult);
     for (const g of GARAJE)
       expect(VEHICULOS[g.tipo].mult, g.tipo).toBeGreaterThan(Math.max(...normales));
+  });
+
+  it("de la pista no se sale", () => {
+    const e = carrera();
+    const p = e.players[0];
+    // empujarlo lejísimos y dejar correr un paso
+    p.x = 200; p.y = 200; p.vx = -600; p.vy = -600;
+    avanzar(e, nada(2), 1 / 60);
+    const q = enLaPista(e, p.x, p.y);
+    expect(Math.sqrt(q.d2), "se salió de la pista").toBeLessThanOrEqual(ANCHO_PISTA / 2 + 1);
+    // y una vuelta entera de bots tampoco se sale nunca
+    for (let i = 0; i < 60 * 60 && !e.over; i++) {
+      const ent: Record<number, EntradaJugador> = {};
+      for (const q2 of e.players) ent[q2.idx] = pensarBot(e, q2, 1 / 60).entrada;
+      avanzar(e, ent, 1 / 60);
+      for (const q2 of e.players)
+        expect(Math.sqrt(enLaPista(e, q2.x, q2.y).d2), "jugador " + q2.idx + " fuera")
+          .toBeLessThanOrEqual(ANCHO_PISTA / 2 + 1);
+    }
+  });
+
+  it("en aventura no hay topes: el mapa es libre", () => {
+    const e = partida();
+    const p = e.players[0];
+    p.x = 130; p.y = 130;
+    avanzar(e, nada(), 1 / 60);
+    expect(Math.round(p.x)).toBe(130);
   });
 
   it("no hay vecinos: ni ladrones, ni abuelas, ni desfile", () => {

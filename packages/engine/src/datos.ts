@@ -103,6 +103,8 @@ export const WEAPONS = [
 
 export const PORTAL_CADA = 6;                 // segundos entre Florines
 export const PORTAL_VUELTA = 26;              // lo que tarda uno en hacer el recorrido
+/** A qué velocidad pasean los Florines sueltos. */
+export const PORTAL_VEL = 132;
 export const PORTAL_MAX = 6;                  // tope de Florines en el desfile a la vez
 /* Qué sale del portal. Los pesos suman 100 y el desfile NO respeta maxTier: lo
    raro puede salir desde el primer segundo, solo que casi nunca.
@@ -305,6 +307,8 @@ export const VUELTAS = 3;
 /** A qué distancia cuenta que pasaste por un punto. Generoso a propósito: esto
     no es un simulador, y un niño no debería perder por pasar a 20 px. */
 export const HITO_R = 140;
+/** Lo ancho que es la pista. Fuera de aquí hay tope y no se pasa. */
+export const ANCHO_PISTA = 190;
 
 /* ---- el vocabulario de una pista ----
    Inspirado en los circuitos del Top Gear de Super Nintendo, que es lo que

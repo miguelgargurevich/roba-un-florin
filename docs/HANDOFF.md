@@ -8,10 +8,10 @@ Monorepo con workspaces npm:
 
 | Paquete | Qué es |
 |---|---|
-| `packages/engine` | el juego sin navegador: determinista, JSON serializable, 100 pruebas |
+| `packages/engine` | el juego sin navegador: determinista, JSON serializable, 107 pruebas |
 | `apps/web` | el cliente (Vite + canvas 2D). Solo dibuja y escucha teclas |
 | `apps/api` | cuentas, álbum y guardado (.NET 9, Clean Arch + CQRS), 32 pruebas |
-| `apps/salas` | servidor de salas autoritativo (Node + `ws`), 27 pruebas |
+| `apps/salas` | servidor de salas autoritativo (Node + `ws`), 32 pruebas |
 
 Funciona: un jugador, salas online hasta 5 (aventura, versus y carrera) con
 bots en los asientos libres, 16 escenarios —todos con circuito—, cuentas con
@@ -23,6 +23,13 @@ A medias / sin hacer: el modo cooperativo (aplazado a propósito — una sala en
 aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Última sesión
+
+- 2026-08-08 (claude-code): elegir vehículo antes de correr (todos los del
+  juego, no solo los del escenario) y cuatro especiales de Garaje —chancla
+  voladora, cóndor, ovni, Amaru— que se compran con dinero de aventura o salen
+  en la Ruleta. Topes en la pista según el escenario (de la ruta no se sale),
+  los Florines del desfile ahora pasean a rumbo libre en vez de dar la misma
+  vuelta, y las líneas de Nazca redibujadas con las figuras de verdad.
 
 - 2026-08-08 (claude-code): probada una **carrera en sala con dos clientes**
   contra producción. Salieron dos fallos, los dos arreglados: la carrera
@@ -115,6 +122,9 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Gotchas
 
+- El **Garaje vive en el navegador** (`florin_garaje`), como el álbum. El
+  servidor de salas no comprueba que de verdad tengas el vehículo que traes:
+  traerlo a la base querría decir guardarlo y confiar igual.
 - `window.prueba` (colocar al jugador, darle dinero, cargarle un Florín) existe
   **solo en desarrollo**: va dentro de `if (import.meta.env.DEV)` y Vite lo
   borra del build. Úsalo en vez de andamios de usar y tirar.
