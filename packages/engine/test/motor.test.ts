@@ -6,7 +6,8 @@
 import { describe, expect, it } from "vitest";
 import {
   CIRCUITOS, ESCENARIOS, ESCUDO_DUR, FLORES, GARAJE, GOAL, HITO_R, JUGADORES_MAX,
-  VEHICULOS, VUELTAS, ANCHO_PISTA, TRASTOS_ESCENARIO, CAJAS_EN_PISTA, ESPECIAL_NIVEL, darleVehiculo,
+  VEHICULOS, VUELTAS, ANCHO_PISTA, CASAS_POR_MAPA, PATIOS_PRECIO,
+  PORTAL_CADA, PORTAL_MAX, PORTAL_VUELTA, TRASTOS_ESCENARIO, CAJAS_EN_PISTA, ESPECIAL_NIVEL, darleVehiculo,
   enLaPista, esEspecial, potenciadorPorId, potenciadoresDe, trastoDe, usarPotenciador,
   vehiculoDelSitio,
   puestosDeCarrera, puestoDe, pensarBot, LASER_DUR, LASER_PRECIO, PORTAL_RAREZAS, RAR_COLOR,
@@ -26,12 +27,12 @@ const QUIETO: EntradaJugador = { mover: { x: 0, y: 0 }, apunta: null };
    es el paso de simulación. Estos dos plantan al jugador y dejan correr un
    frame para que las banderas se pongan. */
 function enLaRuleta(e: Estado, p: any) {
-  p.x = e.ruleta.x; p.y = e.ruleta.y;
+  p.x = e.ruletas[0].x; p.y = e.ruletas[0].y;
   avanzar(e, nada(e.players.length), 1 / 60);
 }
 function enLaArmeria(e: Estado, p: any) {
-  p.x = e.armeria.x + e.armeria.w / 2;
-  p.y = e.armeria.y + e.armeria.h / 2;
+  p.x = e.armerias[0].x + e.armerias[0].w / 2;
+  p.y = e.armerias[0].y + e.armerias[0].h / 2;
   avanzar(e, nada(e.players.length), 1 / 60);
 }
 const nada = (n = 1) => Object.fromEntries(Array.from({ length: n }, (_, i) => [i, QUIETO]));
@@ -83,10 +84,10 @@ describe("determinismo", () => {
 });
 
 describe("el mundo se monta bien", () => {
-  it("un jugador: 5 bases más 2 patios comprables", () => {
+  it("un jugador: su patio, los vecinos y los patios comprables", () => {
     const e = partida();
-    expect(e.bases.length).toBe(7);
-    expect(e.bases.filter(b => b.locked).length).toBe(2);
+    expect(e.bases.length).toBe(1 + CASAS_POR_MAPA + PATIOS_PRECIO.length);
+    expect(e.bases.filter(b => b.locked).length).toBe(PATIOS_PRECIO.length);
     expect(e.players.length).toBe(1);
     expect(e.players[0].patios.length).toBe(1);
   });
@@ -103,7 +104,7 @@ describe("el mundo se monta bien", () => {
     for (const esc of ESCENARIOS) {
       const e = partida({ escenario: esc.id });
       expect(e.esc.id, esc.id).toBe(esc.id);
-      expect(e.bases.length, esc.id).toBe(7);
+      expect(e.bases.length, esc.id).toBe(1 + CASAS_POR_MAPA + PATIOS_PRECIO.length);
       // las bases tienen que caber en el mundo, no salirse por un borde
       for (const b of e.bases) {
         expect(b.rect.x, esc.id + " " + b.name).toBeGreaterThanOrEqual(0);
@@ -138,14 +139,19 @@ describe("cada jugador de más reemplaza a un bot", () => {
   const botsDe = (e: Estado) => e.bases.filter(b => !b.isPlayer && b.who).length;
   const patiosDe_ = (e: Estado) => e.bases.filter(b => b.isPlayer && !b.locked).length;
 
-  it("de 1 a 5 jugadores, los bots bajan uno a uno", () => {
-    const esperado = [[1, 4], [2, 3], [3, 2], [4, 1], [5, 0]];
-    for (const [n, bots] of esperado) {
+  it("de 1 a 5 jugadores, los vecinos bajan uno a uno", () => {
+    /* Cada jugador de más se queda una casa de vecino. Con seis casas y cinco
+       jugadores como mucho, siempre quedan al menos dos vecinos a los que
+       robar — antes, con cuatro casas, la sala llena dejaba el mapa sin nadie
+       a quien robarle. */
+    for (let n = 1; n <= JUGADORES_MAX; n++) {
       const e = partida({ jugadores: n });
       expect(e.players.length, `${n} jugadores`).toBe(n);
-      expect(botsDe(e), `${n} jugadores → ${bots} bots`).toBe(bots);
+      expect(botsDe(e), `${n} jugadores`).toBe(CASAS_POR_MAPA - (n - 1));
       expect(patiosDe_(e)).toBe(n);
     }
+    expect(botsDe(partida({ jugadores: JUGADORES_MAX })),
+           "la sala llena se queda sin vecinos").toBeGreaterThan(0);
   });
 
   it("la sala llena son 5 y no se puede pedir más", () => {
@@ -168,11 +174,13 @@ describe("cada jugador de más reemplaza a un bot", () => {
     }
   });
 
-  it("el bot cuya casa ocupó alguien deja de mandar ladrones", () => {
-    const e = partida({ jugadores: 5 });
+  it("de la casa que ocupó un jugador ya no salen ladrones", () => {
+    const e = partida({ jugadores: JUGADORES_MAX });
     for (const p of e.players) baseDe(e, p.baseId).peds[0].florin = nuevoFlorin(e, 0);
     for (let i = 0; i < 60; i++) spawnThief(e);
-    expect(e.thieves.length).toBe(0);   // no queda ni una casa de vecino
+    const deVecino = new Set(e.bases.filter(b => b.who).map(b => b.who));
+    for (const t of e.thieves)
+      expect(deVecino.has(t.who), "salió un ladrón de una casa de jugador").toBe(true);
   });
 
   it("con 2 jugadores siguen robando 3 vecinos, y ninguno es el que se fue", () => {
@@ -185,11 +193,11 @@ describe("cada jugador de más reemplaza a un bot", () => {
     expect(quienes.size).toBeGreaterThan(1);
   });
 
-  it("solo se juega igual que siempre: 4 bots y los 2 patios en venta", () => {
+  it("solo se juega igual que siempre: todos los vecinos y los patios en venta", () => {
     const e = partida();
-    expect(botsDe(e)).toBe(4);
-    expect(e.bases.length).toBe(7);
-    expect(e.bases.filter(b => b.locked).length).toBe(2);
+    expect(botsDe(e)).toBe(CASAS_POR_MAPA);
+    expect(e.bases.length).toBe(1 + CASAS_POR_MAPA + PATIOS_PRECIO.length);
+    expect(e.bases.filter(b => b.locked).length).toBe(PATIOS_PRECIO.length);
     expect(baseDe(e, 0).name).toBe("Tu patio");
   });
 
@@ -197,13 +205,13 @@ describe("cada jugador de más reemplaza a un bot", () => {
     for (const n of [2, 3, 4, 5]) {
       const e = partida({ jugadores: n });
       expect(e.bases.filter(b => b.locked).length, `${n} jugadores`).toBe(0);
-      expect(e.bases.length).toBe(5);
+      expect(e.bases.length).toBe(1 + CASAS_POR_MAPA);
     }
   });
 
   it("las reglas se pueden pedir a mano por encima de las de serie", () => {
     const e = partida({ jugadores: 3, reglas: { patiosExtra: true } });
-    expect(e.bases.filter(b => b.locked).length).toBe(2);
+    expect(e.bases.filter(b => b.locked).length).toBe(PATIOS_PRECIO.length);
     expect(e.reglas.todasLasArmas).toBe(true);   // lo no dicho queda como toca
     expect(reglasPara(1).patiosExtra).toBe(true);
     expect(reglasPara(4).patiosExtra).toBe(false);
@@ -227,7 +235,7 @@ describe("cada jugador de más reemplaza a un bot", () => {
     for (const p of e.players){
       seleccionarArma(e, p, 3);
       expect(p.wsel).toBe(3);
-      p.x = e.armeria.x + e.armeria.w / 2; p.y = e.armeria.y + e.armeria.h / 2;
+      p.x = e.armerias[0].x + e.armerias[0].w / 2; p.y = e.armerias[0].y + e.armerias[0].h / 2;
     }
     avanzar(e, nada(4), 1 / 60);
     expect(e.players.every(p => p.inShop)).toBe(true);
@@ -383,15 +391,18 @@ describe("modo versus", () => {
 });
 
 describe("el desfile del portal", () => {
-  it("suelta un Florín cada 6 s y los recicla al terminar la vuelta", () => {
+  it("suelta uno cada tanto y los recicla al terminar la vuelta", () => {
+    /* El ritmo y el tope salen del tamaño del mapa: un mapa grande con el
+       desfile de siempre deja la pasarela medio vacía. */
     const e = partida();
-    correr(e, 3);
+    correr(e, 3);                       // el primero sale a los 2,5 s
     expect(e.portal.desfile.length).toBe(1);
-    correr(e, 6);
+    correr(e, PORTAL_CADA);
     expect(e.portal.desfile.length).toBe(2);
-    correr(e, 30);
+    correr(e, PORTAL_VUELTA * 2);
     expect(e.portal.desfile.length).toBeGreaterThan(2);
-    expect(e.portal.desfile.length).toBeLessThanOrEqual(6);
+    expect(e.portal.desfile.length,
+           "el desfile se pasó del tope").toBeLessThanOrEqual(PORTAL_MAX);
   });
 
   it("reparte rarezas con los pesos de la tabla: manda el Común", () => {
@@ -775,17 +786,17 @@ describe("el recorrido del desfile", () => {
   it("cada lóbulo rodea su puesto: la Armería a la izquierda, la Ruleta a la derecha", () => {
     const e = partida();
     const { cx } = centro();
-    expect(e.armeria.x + e.armeria.w / 2).toBeLessThan(cx);
-    expect(e.ruleta.x).toBeGreaterThan(cx);
+    expect(e.armerias[0].x + e.armerias[0].w / 2).toBeLessThan(cx);
+    expect(e.ruletas[0].x).toBeGreaterThan(cx);
     // los dos a media altura, no uno encima del otro
-    expect(Math.abs((e.armeria.y + e.armeria.h / 2) - e.ruleta.y)).toBeLessThan(10);
+    expect(Math.abs((e.armerias[0].y + e.armerias[0].h / 2) - e.ruletas[0].y)).toBeLessThan(10);
 
     // el ocho pasa por fuera de los dos, no por encima
     let rodeaArmeria = false, rodeaRuleta = false;
     for (let i = 0; i <= 400; i++){
       const q = puntoDelOcho(i / 400);
-      if (q.x < e.armeria.x - 20) rodeaArmeria = true;
-      if (q.x > e.ruleta.x + e.ruleta.r + 20) rodeaRuleta = true;
+      if (q.x < e.armerias[0].x - 20) rodeaArmeria = true;
+      if (q.x > e.ruletas[0].x + e.ruletas[0].r + 20) rodeaRuleta = true;
     }
     expect(rodeaArmeria).toBe(true);
     expect(rodeaRuleta).toBe(true);
@@ -793,13 +804,13 @@ describe("el recorrido del desfile", () => {
 
   it("la Ruleta es un círculo, y se entra por cercanía", () => {
     const e = partida();
-    expect(e.ruleta.r).toBeGreaterThan(0);
-    expect((e.ruleta as any).w).toBeUndefined();
+    expect(e.ruletas[0].r).toBeGreaterThan(0);
+    expect((e.ruletas[0] as any).w).toBeUndefined();
     const p = e.players[0];
-    p.x = e.ruleta.x; p.y = e.ruleta.y;
+    p.x = e.ruletas[0].x; p.y = e.ruletas[0].y;
     avanzar(e, nada(), 1 / 60);
     expect(p.inRuleta).toBe(true);
-    p.x = e.ruleta.x + e.ruleta.r + 200;
+    p.x = e.ruletas[0].x + e.ruletas[0].r + 200;
     avanzar(e, nada(), 1 / 60);
     expect(p.inRuleta).toBe(false);
   });
@@ -818,7 +829,9 @@ describe("el recorrido del desfile", () => {
 
 describe("la alarma no se calla hasta que se resuelve", () => {
   /** Corre hasta que la condición se cumpla, o falla diciendo qué esperaba. */
-  function hasta(e: Estado, que: string, cond: () => boolean, segs = 40) {
+  /* 90 s y no 40: el ladrón sale de una casa de vecino y tiene que cruzar el
+     mapa hasta el patio, y el mapa ahora es casi el doble de grande. */
+  function hasta(e: Estado, que: string, cond: () => boolean, segs = 90) {
     for (let i = 0; i < 60 * segs; i++) {
       avanzar(e, nada(), 1 / 60);
       if (cond()) return;
@@ -1173,6 +1186,36 @@ describe("el reparto del mapa", () => {
     for (const esc of CIRCUITOS) {
       const v = vehiculoDelSitio(partida({ escenario: esc.id }));
       expect(VEHICULOS[v]?.agua, esc.id + " sale a correr en " + v).toBeFalsy();
+    }
+  });
+
+  it("los dos puestos de cada clase están lejos y libres", () => {
+    /* El par de fuera existe para que desde una esquina no haya que cruzar el
+       mapa entero. Si acaba pegado al del centro no sirve de nada, y si acaba
+       encima de una casa tapa el botón de entrar. */
+    for (const esc of ESCENARIOS) {
+      const e = partida({ escenario: esc.id });
+      expect(e.armerias.length).toBe(2);
+      expect(e.ruletas.length).toBe(2);
+      const lejos = (a: { x: number; y: number }, b: { x: number; y: number }) =>
+        Math.hypot(a.x - b.x, a.y - b.y);
+      /* Lo intocable es que no caigan dentro de una casa (taparían el botón de
+         entrar). Lo de estar lejos cede si no hay hueco, así que se pide un
+         mínimo más flojo: lo bastante como para que el viaje valga la pena. */
+      expect(lejos(e.armerias[0], e.armerias[1]),
+             esc.id + ": las dos Armerías están juntas").toBeGreaterThan(WORLD_W * 0.22);
+      expect(lejos(e.ruletas[0], e.ruletas[1]),
+             esc.id + ": las dos Ruletas están juntas").toBeGreaterThan(WORLD_W * 0.22);
+      for (const b of e.bases) {
+        const r = b.rect;
+        for (const a of e.armerias)
+          expect(a.x < r.x + r.w && a.x + a.w > r.x && a.y < r.y + r.h && a.y + a.h > r.y,
+                 esc.id + ": una Armería cae dentro de la base " + b.id).toBe(false);
+        for (const ru of e.ruletas)
+          expect(ru.x + ru.r > r.x && ru.x - ru.r < r.x + r.w &&
+                 ru.y + ru.r > r.y && ru.y - ru.r < r.y + r.h,
+                 esc.id + ": una Ruleta cae dentro de la base " + b.id).toBe(false);
+      }
     }
   });
 

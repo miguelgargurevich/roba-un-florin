@@ -234,6 +234,13 @@ export function revivirPartida(texto){
        en vez de rechazarlas: perder el guardado de ayer por una función nueva
        sería un pésimo intercambio. Nacen sin nada montado, que es lo correcto. */
     if (!Array.isArray(G.trastos)) G.trastos = [];
+    /* Las de antes del mapa grande traen un solo puesto de cada, con el nombre
+       en singular. Se convierten a lista en vez de rechazarlas: quien tenga una
+       partida a medias sigue jugando, con un puesto en vez de dos. */
+    if (!Array.isArray(G.armerias)) G.armerias = G.armeria ? [G.armeria] : [];
+    if (!Array.isArray(G.ruletas))  G.ruletas  = G.ruleta  ? [G.ruleta]  : [];
+    delete G.armeria; delete G.ruleta;
+    if (!G.armerias.length || !G.ruletas.length) return null;
     for (const p of G.players){
       if (p.montado === undefined) p.montado = null;
       if (p.trastoUsado === undefined) p.trastoUsado = null;

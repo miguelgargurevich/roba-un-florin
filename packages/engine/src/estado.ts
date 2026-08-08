@@ -7,7 +7,7 @@ import type {
 } from "./tipos.js";
 import {
   ESCENARIOS, FLORES, GOAL, LASER_CARGA, PATIOS_PRECIO, TIERS, TRASTOS_ESCENARIO,
-  ANCHO_PISTA, CAJAS_EN_PISTA, VARIANTES, VEHICULOS, WORLD_H, WORLD_W, esVehiculo, varMult,
+  ANCHO_PISTA, CAJAS_EN_PISTA, ESCALA_MAPA, OCHO_A, OCHO_B, VARIANTES, VEHICULOS, WORLD_H, WORLD_W, esVehiculo, varMult,
 } from "./datos.js";
 import { azar, clamp, dist2, inRect, rnd } from "./util.js";
 
@@ -154,11 +154,10 @@ export function bloqueadoPorLaser(e: Estado, x: number, y: number, quien: Jugado
    La curva es una lemniscata de Gerono, que es la forma más simple de un ocho
    tumbado: x = A·cos t, y = (B/2)·sin 2t. Pasa por el origen en t = π/2 y en
    t = 3π/2, que es exactamente el cruce que se quiere. */
-/* La pasarela crece con el mapa, pero a la mitad de su ritmo: proporcional se
-   comía el centro entero, y fija se quedaba en una pista de baile perdida en un
-   descampado. Con esto ocupa el 41 % del ancho (antes el 48 %), y el sitio que
-   sobra alrededor es justo donde caben las casas nuevas. */
-export const OCHO_A = Math.round(WORLD_W * 0.206), OCHO_B = Math.round(WORLD_H * 0.32);
+/* Viven en `datos.ts`, que es donde está el tamaño del mundo del que salen: el
+   repartidor de casas necesita saber por dónde pasa la pasarela para no
+   plantarle una encima, y no puede importar de aquí sin morderse la cola. */
+export { OCHO_A, OCHO_B } from "./datos.js";
 
 export function centroDelMapa() {
   return { cx: WORLD_W / 2, cy: WORLD_H / 2 };
@@ -211,9 +210,10 @@ function sitioLibreTrasto(e: Estado, x: number, y: number, m: number): boolean {
   const choca = (r: { x: number; y: number; w: number; h: number }) =>
     x - m < r.x + r.w && x + m > r.x && y - m < r.y + r.h && y + m > r.y;
   for (const b of e.bases) if (choca({ x: b.rect.x - 20, y: b.rect.y - 20, w: b.rect.w + 40, h: b.rect.h + 40 })) return false;
-  if (choca({ x: e.armeria.x - 30, y: e.armeria.y - 30, w: e.armeria.w + 60, h: e.armeria.h + 60 })) return false;
-  if (choca({ x: e.ruleta.x - e.ruleta.r - 30, y: e.ruleta.y - e.ruleta.r - 30,
-              w: (e.ruleta.r + 30) * 2, h: (e.ruleta.r + 30) * 2 })) return false;
+  for (const a of e.armerias)
+    if (choca({ x: a.x - 30, y: a.y - 30, w: a.w + 60, h: a.h + 60 })) return false;
+  for (const r of e.ruletas)
+    if (choca({ x: r.x - r.r - 30, y: r.y - r.r - 30, w: (r.r + 30) * 2, h: (r.r + 30) * 2 })) return false;
   for (const P of [e.portal, e.portal.salida])
     if (choca({ x: P.x - 80, y: P.y - 80, w: 160, h: 160 })) return false;
   for (const otro of e.trastos) if (dist2(x, y, otro.x, otro.y) < 60 * 60) return false;
@@ -222,7 +222,11 @@ function sitioLibreTrasto(e: Estado, x: number, y: number, m: number): boolean {
 
 function sembrarTrastos(e: Estado): void {
   const receta = TRASTOS_ESCENARIO[e.esc.id] || [];
-  for (const { tipo, n } of receta) {
+  for (const { tipo, n: base } of receta) {
+    /* Las recetas se escribieron para el mapa chico. Se reparte la MISMA
+       densidad, no la misma cantidad: con las cuatro bicis de siempre, un mapa
+       casi el doble de grande se cruza andando. */
+    const n = Math.max(1, Math.round(base * ESCALA_MAPA));
     const aguaOnly = VEHICULOS[tipo]?.agua;
     for (let k = 0; k < n; k++) {
       for (let intento = 0; intento < 40; intento++) {
@@ -329,17 +333,30 @@ export function crearPartida(op: OpcionesPartida): Estado {
 
   /* Las bases se montan siempre igual y en el mismo orden: `baseDe` indexa por
      id, así que estos índices son un contrato y no se pueden reordenar. */
+  /* Los cuatro de siempre van primero y en este orden: los índices son el
+     contrato de `baseDe` y los `SLOTS` de los jugadores apuntan a ellos. Las
+     dos casas del final son las que trajo el mapa grande, y son siempre de
+     vecino: `JUGADORES_MAX` sigue en 5. */
+  const VECINOS: [string, string, string][] = [
+    ["Casa de Mayo", "#FFD84D", "mayo"],
+    ["Doña Chancla", "#FF9EC4", "sobri"],
+    ["Casa de la Prima Yuli", "#FF5C86", "yuli"],
+    ["Nave de los Marcianos", "#8B6BEE", "marcia"],
+    ["Quiosco de Doña Meche", "#5CE1EA", "meche"],
+    ["Casa del Chato", "#9BD97F", "chato"],
+  ];
   const bases: Base[] = [
     makeBase(0, n > 1 ? "Patio del J1" : "Tu patio", P[0][0], P[0][1], true, "#3DDC97"),
-    makeBase(1, "Casa de Mayo", C[0][0], C[0][1], false, "#FFD84D", "mayo"),
-    makeBase(2, "Doña Chancla", C[1][0], C[1][1], false, "#FF9EC4", "sobri"),
-    makeBase(3, "Casa de la Prima Yuli", C[2][0], C[2][1], false, "#FF5C86", "yuli"),
-    makeBase(4, "Nave de los Marcianos", C[3][0], C[3][1], false, "#8B6BEE", "marcia"),
   ];
+  VECINOS.forEach(([nombre, color, quien], k) => {
+    if (!C[k]) return;
+    bases.push(makeBase(k + 1, nombre, C[k][0], C[k][1], false, color, quien));
+  });
 
   if (reglas.patiosExtra) {
     PATIOS_PRECIO.forEach((precio, k) => {
-      const b = makeBase(5 + k, "Patio " + (k + 2), P[k + 1][0], P[k + 1][1], true, "#3DDC97");
+      if (!P[k + 1]) return;
+      const b = makeBase(bases.length, "Patio " + (k + 2), P[k + 1][0], P[k + 1][1], true, "#3DDC97");
       b.locked = true; b.price = precio;
       bases.push(b);
     });
@@ -366,8 +383,56 @@ export function crearPartida(op: OpcionesPartida): Estado {
      Armería a la izquierda y la Ruleta a la derecha. El desfile les da la
      vuelta a los dos, así que el centro del mapa es de verdad el centro. */
   const { cx, cy } = centroDelMapa();
-  const armeria = { x: cx - 450, y: cy - 75, w: 300, h: 150 };
-  const ruleta = { x: cx + 300, y: cy, r: 92 };
+  /* El par del centro, el de toda la vida, y otro par lejos para que desde una
+     esquina haya uno a mano sin cruzar el mapa entero.
+
+     El de fuera BUSCA sitio en vez de ir a un punto fijo: puesto a dedo en la
+     diagonal, caía dentro de una casa en cuanto el reparto del escenario era
+     otro (en el colegio, encima de Doña Chancla). Se prueban las cuatro
+     diagonales y se coge la primera libre. */
+  const chocaBase = (x: number, y: number, w: number, h: number) =>
+    bases.some(b => x < b.rect.x + b.rect.w + 40 && x + w > b.rect.x - 40 &&
+                    y < b.rect.y + b.rect.h + 40 && y + h > b.rect.y - 40);
+  /* Además de libre, LEJOS del puesto del centro: en El Barrio la primera
+     diagonal libre caía a 811 px de la Ruleta central, y dos ruletas a un paso
+     una de otra no ahorran ningún viaje. */
+  const LEJOS = WORLD_W * 0.34;
+  /* Primero libre y lejos; si no hay, libre aunque quede cerca. Estar LIBRE
+     manda sobre estar lejos: un puesto dentro de una casa tapa el botón de
+     entrar, que es la única forma de usarlo, mientras que uno algo cerca del
+     otro solo es menos cómodo. En El Desierto, con once bases repartidas,
+     ninguno de los treinta y seis candidatos cumplía las dos cosas. */
+  const buscar = <T>(w: number, h: number, centro: { x: number; y: number },
+                     orden: [number, number][], hacer: (x: number, y: number) => T): T => {
+    const sitios = orden.map(([fx, fy]) =>
+      [Math.round(WORLD_W * fx - w / 2), Math.round(WORLD_H * fy - h / 2)] as [number, number]);
+    const libres = sitios.filter(([x, y]) => !chocaBase(x, y, w, h));
+    const lejos = (p: [number, number]) =>
+      Math.hypot(p[0] + w / 2 - centro.x, p[1] + h / 2 - centro.y);
+    const elegido = libres.find(p => lejos(p) >= LEJOS)
+      ?? [...libres].sort((a, b) => lejos(b) - lejos(a))[0]
+      ?? [...sitios].sort((a, b) => lejos(b) - lejos(a))[0];
+    return hacer(elegido[0], elegido[1]);
+  };
+  /* Los candidatos son un anillo alrededor del centro, no cuatro esquinas: con
+     solo las diagonales, en el colegio ninguna quedaba a la vez libre y lejos y
+     había que conformarse con una encajada contra una casa. Se recorre en un
+     orden fijo, así que el sitio elegido es el mismo en cada partida. */
+  const anillo = (desde: number): [number, number][] =>
+    /* Dos radios: con uno solo, en El Desierto ninguno de los doce quedaba
+       libre y había que encajar la Armería contra una casa. */
+    [0.30, 0.25, 0.35].flatMap(rr =>
+      Array.from({ length: 12 }, (_, k) => {
+        const a = desde + k * (Math.PI / 6);
+        return [0.5 + Math.cos(a) * rr * 0.9, 0.5 + Math.sin(a) * rr] as [number, number];
+      }));
+  const arm0 = { x: cx - 450, y: cy - 75, w: 300, h: 150 };
+  const rul0 = { x: cx + 300, y: cy, r: 92 };
+  // la Armería de fuera empieza a buscar por abajo-derecha y la Ruleta por arriba-izquierda
+  const armerias = [arm0, buscar(300, 150, { x: arm0.x + 150, y: arm0.y + 75 },
+                                 anillo(Math.PI / 4), (x, y) => ({ x, y, w: 300, h: 150 }))];
+  const ruletas = [rul0, buscar(184, 184, rul0,
+                                anillo(-Math.PI * 0.75), (x, y) => ({ x: x + 92, y: y + 92, r: 92 }))];
   /* El portal de salida se aparta de la orilla. Con el margen fijo de siempre
      medido desde abajo acababa dentro del agua en cuanto el mapa creció —el mar
      va en fracción del alto y el margen no—, y los Florines del desfile salían
@@ -380,7 +445,7 @@ export function crearPartida(op: OpcionesPartida): Estado {
 
   const e: Estado = {
     t: 0, reglas, esc, semilla, rngEstado: semilla | 0,
-    bases, players: jugadores, armeria, ruleta, portal,
+    bases, players: jugadores, armerias, ruletas, portal,
     bolts: [], blasts: [], cascaras: [], trastos: [], perros: [], slowmo: 0,
     thieves: [], ground: [], thiefTimer: 14,
     girando: null, ultimoPremio: null, cajas: [],

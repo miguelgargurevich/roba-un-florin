@@ -24,6 +24,14 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Última sesión
 
+- 2026-08-08 (claude-code): **el mapa pasa de 2600x1700 a 3600x2100** (área
+  x1,71) y, sobre todo, su tamaño vuelve a ser dos números: el reparto entero
+  —casas, patios, caja de circuito, mar, puente, calles y óvalos del cliente—
+  pasó de ~70 coordenadas absolutas a fracciones del mundo. Y se llenó: seis
+  vecinos en vez de cuatro (Doña Meche y El Chato), cuatro patios comprables en
+  vez de dos, trastos y desfile a la misma densidad de antes, y un segundo par
+  de Armería y Ruleta lejos del centro. Las carreras crecen con él: 48-87 s.
+
 - 2026-08-08 (claude-code): promovido a producción el dinosaurio, La Prehistoria
   y el desfile por la pasarela. Ojo con el gotcha del build: el primer bundle
   subido apuntaba a `localhost` (ver Gotchas).
@@ -95,6 +103,11 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Próximos pasos
 
+- [ ] **Probarlo en el iPad.** El lienzo del suelo es del tamaño del mundo:
+      pasó de 4,4 a 7,6 Mpx. Está por debajo del límite de área de canvas de iOS
+      (16,7 Mpx) y en escritorio pintarlo cuesta 5 ms, pero en un iPad no se ha
+      probado. Si diera problemas, la solución es partir el suelo en mosaicos y
+      pintar solo los visibles.
 - [ ] **Los bots corren mucho más que un jugador en red.** Medido: 3 vueltas
       contra 1 en el mismo tiempo. Parte es la latencia (220 ms) y parte que el
       bot traza perfecto. Si va a jugarse en serio, hay que frenarlos en
@@ -155,6 +168,18 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
   ocho hay las dos cosas. Se sortea al salir del portal, no en el cruce: así el
   recorrido entero sigue siendo una función de `k` y dos clientes con la misma
   semilla ven lo mismo.
+- 2026-08-08: el reparto del mapa va en FRACCIONES del mundo, no en píxeles.
+  Para mover una casa se toca su `sitio(fx, fy)`: 0 la pega al borde de arriba o
+  de la izquierda y 1 al de abajo o de la derecha. Los decimales feos salen de
+  convertir las coordenadas viejas; a igual tamaño el reparto no se movió más de
+  1 px. Hay pruebas de que nada se sale del mundo, nada se solapa, el desfile no
+  cruza casas y los circuitos caben.
+- 2026-08-08: los sitios de más (las dos casas y los dos patios que trajo el
+  mapa grande, y el par de puestos de fuera) se acomodan SOLOS buscando hueco.
+  Escribir 64 coordenadas nuevas a mano para 16 escenarios era pedir errores, y
+  cada escenario conserva su carácter porque los suyos siguen escritos.
+  Al buscar, estar LIBRE manda sobre estar lejos: un puesto dentro de una casa
+  tapa el botón de entrar, que es la única forma de usarlo.
 - 2026-08-08: el dinosaurio es un trasto **normal**, no un especial de Garaje.
   Los especiales cuestan cientos de miles y vuelan; el dino se encuentra tirado
   en la Prehistoria como la llama en Machu Picchu. Hay prueba de que sigue por

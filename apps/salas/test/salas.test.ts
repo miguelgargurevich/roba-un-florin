@@ -284,7 +284,7 @@ describe("la Ruleta y la Armería de una sala", () => {
     const a = s.sentar("ana", "Ana", cliente().enviar)!;
     const p = s.estado.players[a.idx];
     p.money = 10_000;
-    p.x = s.estado.ruleta.x; p.y = s.estado.ruleta.y;
+    p.x = s.estado.ruletas[0].x; p.y = s.estado.ruletas[0].y;
     avanzar(0.2);
     s.ruleta(a);
     expect(s.estado.girando, "la tirada no arrancó").not.toBeNull();
@@ -299,8 +299,8 @@ describe("la Ruleta y la Armería de una sala", () => {
     const a = s.sentar("ana", "Ana", cliente().enviar)!;
     const p = s.estado.players[a.idx];
     p.money = 10_000;
-    p.x = s.estado.armeria.x + s.estado.armeria.w / 2;
-    p.y = s.estado.armeria.y + s.estado.armeria.h / 2;
+    p.x = s.estado.armerias[0].x + s.estado.armerias[0].w / 2;
+    p.y = s.estado.armerias[0].y + s.estado.armerias[0].h / 2;
     avanzar(0.2);
     const arma = WEAPONS[1];
     const antes = p.ammo[arma.id];

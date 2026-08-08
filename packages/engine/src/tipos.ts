@@ -320,8 +320,12 @@ export interface Estado {
 
   bases: Base[];
   players: Jugador[];
-  armeria: Rect;
-  ruleta: Circulo;
+  /* Van en lista porque el mapa grande tiene dos de cada, en diagonal: con un
+     solo par en el centro, ir a comprar desde una esquina era un viaje de ida y
+     vuelta más largo que la propia partida. El primero de cada lista es el del
+     centro, el de siempre. */
+  armerias: Rect[];
+  ruletas: Circulo[];
   portal: Portal;
 
   bolts: Bala[];

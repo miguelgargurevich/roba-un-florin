@@ -1391,7 +1391,7 @@ function avanzarJugador(e: Estado, p: Jugador, ent: EntradaJugador | undefined, 
 
   /* ---- estar en los puestos: solo marca la cercanía, el panel lo abre el host ---- */
   if (e.reglas.puestos) {
-    p.inShop = inRect(p.x, p.y, e.armeria, 30);
-    p.inRuleta = dist2(p.x, p.y, e.ruleta.x, e.ruleta.y) < (e.ruleta.r + 30) ** 2;
+    p.inShop = e.armerias.some(a => inRect(p.x, p.y, a, 30));
+    p.inRuleta = e.ruletas.some(r => dist2(p.x, p.y, r.x, r.y) < (r.r + 30) ** 2);
   }
 }

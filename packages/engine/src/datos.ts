@@ -8,8 +8,14 @@
 import type { Escenario } from "./tipos.js";
 
 export const WORLD_W = 3600, WORLD_H = 2100;
+
+/* Cuánto más grande es el mapa que aquel para el que se escribieron a mano las
+   recetas de trastos y el ritmo del desfile. Todo lo que llena el mundo se
+   multiplica por esto: si no, agrandar el mapa es repartir lo mismo por el
+   doble de sitio, que es un descampado con las mismas cuatro bicis. */
+export const ESCALA_MAPA = (WORLD_W * WORLD_H) / (2600 * 1700);
 export const GOAL = 60000;
-export const PATIOS_PRECIO = [4000, 12000];
+export const PATIOS_PRECIO = [4000, 12000, 30000, 70000];
 
 export const TIERS = [
   { name:"Florín Común",       rar:"Común",     price:100,   income:3,   n:5,  style:"plain",
@@ -101,11 +107,14 @@ export const WEAPONS = [
     desc:"Te protege tres minutos: aguanta los golpes sin soltar lo que cargas." },
 ];
 
-export const PORTAL_CADA = 6;                 // segundos entre Florines
-export const PORTAL_VUELTA = 26;              // lo que tarda uno en hacer el recorrido
+export const PORTAL_CADA = 6 / ESCALA_MAPA;   // segundos entre Florines
+/* Lo que tarda uno en el recorrido. Sube con la pasarela: con el tiempo fijo,
+   un ocho más largo solo significaba Florines más veloces y más difíciles de
+   atrapar, que no es lo que se quería al agrandar el mapa. */
+export const PORTAL_VUELTA = Math.round(26 * (WORLD_W / 2600));
 /** A qué velocidad pasean los Florines sueltos. */
 export const PORTAL_VEL = 132;
-export const PORTAL_MAX = 6;                  // tope de Florines en el desfile a la vez
+export const PORTAL_MAX = Math.round(6 * ESCALA_MAPA);  // Florines en el desfile a la vez
 /* Qué sale del portal. Los pesos suman 100 y el desfile NO respeta maxTier: lo
    raro puede salir desde el primer segundo, solo que casi nunca.
    El Amaru va a 0.4 → sale un par de veces por hora de juego. Con menos, nadie
@@ -261,6 +270,16 @@ export const LADRONES: Record<string, any> = {
   marcia: { label:"Marciano", shirt:"#8B6BEE", skin:"#9FE6A0", hair:"#2A1226",
             cap:null,      ears:"#8B6BEE", spd:1.05, greedy:true, salta:5,
             frase:"El Marciano se llevó" },
+  /* Los dos del mapa grande. Doña Meche es la del quiosco: va despacio pero
+     solo se agacha por lo caro, así que cuando te la encuentras ya es tarde. */
+  meche:  { label:"Doña Meche", shirt:"#5CE1EA", skin:"#D8A87A", hair:"#8A8478",
+            cap:null,      ears:null,      spd:0.80, greedy:true,
+            frase:"Doña Meche se llevó" },
+  /* El Chato corre casi como la Prima Yuli y además carga de todo: es el que
+     más lejos llega antes de que le tires la chancla. */
+  chato:  { label:"El Chato",  shirt:"#9BD97F", skin:"#B57A50", hair:"#1A1008",
+            cap:"#3DDC97", ears:null,      spd:1.30, greedy:false, maxTier:3,
+            frase:"El Chato se llevó" },
 };
 
 export const RAR_COLOR: Record<string, string> = {
@@ -544,6 +563,12 @@ function trazar(base: P[], cx: number, cy: number, w: number, h: number, alReves
    circuito. Los decimales salen de convertir las coordenadas viejas, así que
    con el mundo de siempre el reparto es el de siempre (hay prueba). */
 const BASE_W = 380, BASE_H = 330;
+
+/* La pasarela crece con el mapa, pero a la mitad de su ritmo: proporcional se
+   comía el centro entero, y fija se quedaba en una pista de baile perdida en un
+   descampado. Con esto ocupa el 41 % del ancho (antes el 48 %), y el sitio que
+   sobra alrededor es justo donde caben las casas nuevas. */
+export const OCHO_A = Math.round(WORLD_W * 0.206), OCHO_B = Math.round(WORLD_H * 0.32);
 const MARGEN = 70, MARGEN_ARRIBA = 80;
 
 export const ancho = (f: number) => Math.round(WORLD_W * f);
@@ -557,7 +582,56 @@ function sitio(fx: number, fy: number): [number, number] {
   ];
 }
 
-export const ESCENARIOS: Escenario[] = [
+/** Cuántas casas de vecino y cuántos patios hay en cada mapa. */
+export const CASAS_POR_MAPA = 6, PATIOS_POR_MAPA = 5;
+
+/* Los sitios escritos a mano en cada escenario son su carácter: en Nueva York
+   las casas van arriba en fila, en el colegio pegadas a la izquierda. Con el
+   mapa grande caben más de los que hay escritos, así que los que faltan se
+   acomodan solos en los huecos del borde, que es donde no estorban.
+
+   Determinista: recorre los mismos candidatos en el mismo orden siempre. */
+function acomodar(puestos: [number, number][], cuantos: number): [number, number][] {
+  const { cx, cy } = { cx: WORLD_W / 2, cy: WORLD_H / 2 };
+  const HOLGURA = 60;
+  const cabe = (p: [number, number]) => {
+    for (const q of puestos)
+      if (Math.abs(p[0] - q[0]) < BASE_W + HOLGURA && Math.abs(p[1] - q[1]) < BASE_H + HOLGURA)
+        return false;
+    /* Ni encima de la pasarela: se mira la caja del ocho con holgura, que aquí
+       sí vale — no hace falta hilar fino, sobra sitio en los bordes. */
+    if (p[0] < cx + OCHO_A + HOLGURA && p[0] + BASE_W > cx - OCHO_A - HOLGURA &&
+        p[1] < cy + OCHO_B / 2 + HOLGURA && p[1] + BASE_H > cy - OCHO_B / 2 - HOLGURA)
+      return false;
+    /* Ni en la columna del centro, que es por donde el desfile baja del portal
+       de arriba y sale por el de abajo. La caja del ocho no la cubre: son dos
+       rectas verticales que van de borde a borde. */
+    return !(p[0] < cx + 90 && p[0] + BASE_W > cx - 90);
+  };
+  /* Por los cuatro bordes, de fuera hacia dentro. */
+  const candidatos: [number, number][] = [];
+  for (const fy of [0, 0.5, 0.25, 0.75, 1]) for (const fx of [0, 1])
+    candidatos.push(sitio(fx, fy));
+  for (const fx of [0.5, 0.25, 0.75]) for (const fy of [0, 1])
+    candidatos.push(sitio(fx, fy));
+  const nuevos: [number, number][] = [];
+  for (const c of candidatos) {
+    if (nuevos.length >= cuantos) break;
+    if (!cabe(c)) continue;
+    puestos.push(c); nuevos.push(c);
+  }
+  return nuevos;
+}
+
+/** Rellena un escenario hasta el cupo de casas y patios del mapa. */
+function completar(e: Escenario): Escenario {
+  const puestos: [number, number][] = [...e.casas, ...e.patios];
+  e.casas = [...e.casas, ...acomodar(puestos, CASAS_POR_MAPA - e.casas.length)];
+  e.patios = [...e.patios, ...acomodar(puestos, PATIOS_POR_MAPA - e.patios.length)];
+  return e;
+}
+
+export const ESCENARIOS: Escenario[] = ([
   { id:"barrio",   nombre:"El Barrio",
     casas:[sitio(0,0.008),sitio(1,0.008),sitio(1,0.508),sitio(1,0.992)],
     patios:[sitio(0,0.992),sitio(0.216,0.992),sitio(0,0.672)],
@@ -657,7 +731,7 @@ export const ESCENARIOS: Escenario[] = [
     casas:[sitio(0,0.008),sitio(1,0.008),sitio(1,0.508),sitio(1,0.992)],
     patios:[sitio(0,0.992),sitio(0.216,0.992),sitio(0,0.672)],
     circuito: trazar(HERRADURA, medioX(), alto(0.5), ancho(0.885), alto(0.8)) },
-];
+]).map(completar);
 
 /** Los escenarios donde se puede correr, para el selector del lobby. */
 export const CIRCUITOS = ESCENARIOS.filter(e => e.circuito);

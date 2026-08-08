@@ -330,7 +330,10 @@ function resize(){
   VW = cv.clientWidth; VH = cv.clientHeight;
   cv.width = Math.round(VW*DPR); cv.height = Math.round(VH*DPR);
   ZOOM = clamp(Math.min(VW/1150, VH/820), .46, 1.05);
-  mm.width = 300; mm.height = 200;
+  /* El alto sale de la proporción del mundo. Con 200 fijos y un mapa más
+     apaisado, el minimapa estiraba el mundo a lo alto y las distancias que
+     enseñaba eran mentira. */
+  mm.width = 300; mm.height = Math.round(300 * WORLD_H / WORLD_W);
 }
 window.addEventListener("resize", resize);
 
@@ -1478,8 +1481,11 @@ function libreDeco(x, y, m){
                      caja.y < r.y+r.h && caja.y+caja.h > r.y;
   for (const r of vetoDeco) if (choca(r)) return false;
   for (const b of G.bases) if (choca({ x:b.rect.x-24, y:b.rect.y-46, w:b.rect.w+48, h:b.rect.h+70 })) return false;
-  if (choca({ x:G.armeria.x-30, y:G.armeria.y-30, w:G.armeria.w+60, h:G.armeria.h+60 })) return false;
-  const ru = G.ruleta;
+  for (const a of G.armerias)
+    if (choca({ x:a.x-30, y:a.y-30, w:a.w+60, h:a.h+60 })) return false;
+  for (const ru of G.ruletas)
+    if (choca({ x:ru.x-ru.r-30, y:ru.y-ru.r-30, w:(ru.r+30)*2, h:(ru.r+30)*2 })) return false;
+  const ru = G.ruletas[0];
   if (choca({ x:ru.x-ru.r-30, y:ru.y-ru.r-30, w:(ru.r+30)*2, h:(ru.r+30)*2 })) return false;
   for (const P of [G.portal, G.portal.salida])
     if (choca({ x:P.x-90, y:P.y-90, w:180, h:180 })) return false;
@@ -5560,8 +5566,8 @@ function drawFlorin(x, y, s, f, t){
   ctx.restore();
 }
 
-function drawArmeria(){
-  const a = G.armeria;
+function drawArmeria(){ for (const a of G.armerias) unaArmeria(a); }
+function unaArmeria(a){
   ctx.save();
   ctx.fillStyle = "rgba(42,18,38,.62)";
   roundRect(a.x, a.y, a.w, a.h, 20); ctx.fill();
@@ -5837,8 +5843,8 @@ function drawDesfile(){
   }
 }
 
-function drawRuleta(){
-  const r = G.ruleta;
+function drawRuleta(){ for (const r of G.ruletas) unaRuleta(r); }
+function unaRuleta(r){
   ctx.save();
   /* Es una ruleta: un círculo. Antes era una caja con una ruedita dibujada
      dentro, que es como poner la foto de una cosa en vez de la cosa. */
@@ -6317,17 +6323,17 @@ function drawMinimap(){
       mctx.fillText(String(n), (b.rect.x+b.rect.w/2)*sx, (b.rect.y+b.rect.h/2)*sy);
     }
   }
-  const a = G.armeria;
   mctx.strokeStyle = "#FF3D6E"; mctx.lineWidth = 3;
-  mctx.strokeRect(a.x*sx, a.y*sy, a.w*sx, a.h*sy);
+  for (const a of G.armerias) mctx.strokeRect(a.x*sx, a.y*sy, a.w*sx, a.h*sy);
   mctx.strokeStyle = "#FF5C86"; mctx.lineWidth = 3;
   for (const P of [G.portal, G.portal.salida]){
     mctx.beginPath(); mctx.arc(P.x*sx, P.y*sy, 6, 0, 6.283); mctx.stroke();
   }
   if (!G.local2){
-    const ru = G.ruleta;
     mctx.strokeStyle = "#FFC53D"; mctx.lineWidth = 3;
-    mctx.beginPath(); mctx.arc(ru.x*sx, ru.y*sy, ru.r*sx, 0, 6.283); mctx.stroke();
+    for (const ru of G.ruletas){
+      mctx.beginPath(); mctx.arc(ru.x*sx, ru.y*sy, ru.r*sx, 0, 6.283); mctx.stroke();
+    }
   }
   // los Florines del desfile, con el color de su rareza: se ve si vale la pena correr
   for (const d of G.portal.desfile){
@@ -6728,8 +6734,8 @@ if (import.meta.env.DEV) {
   window.prueba = {
     estado: () => G,
     ir: (x, y) => { G.player.x = x; G.player.y = y; },
-    aLaRuleta: () => { G.player.x = G.ruleta.x; G.player.y = G.ruleta.y; },
-    aLaArmeria: () => { const a = G.armeria; G.player.x = a.x + a.w/2; G.player.y = a.y + a.h/2; },
+    aLaRuleta: () => { G.player.x = G.ruletas[0].x; G.player.y = G.ruletas[0].y; },
+    aLaArmeria: () => { const a = G.armerias[0]; G.player.x = a.x + a.w/2; G.player.y = a.y + a.h/2; },
     montar: tipo => { const v = G.trastos.find(t => t.tipo === tipo); if (!v) return null;
                       G.player.x = v.x; G.player.y = v.y; return v.tipo; },
     dinero: n => { G.player.money = n; },
