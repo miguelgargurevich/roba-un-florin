@@ -1511,6 +1511,24 @@ function sembrarEnFranja(c, n, semilla, margen, pintar, y0, y1){
   return puestos;
 }
 
+/* Sitio para un adorno GRANDE (un volcán, una cueva). `sembrar` no sirve: parte
+   el mapa en bandas y se rinde a los 26 intentos, y con un margen del tamaño de
+   un volcán no encuentra nada en un mapa con cuatro casas, tres patios y la
+   alfombra del desfile — medido, 0 de 2 volcanes puestos. Aquí se barre el mapa
+   entero y, si aun así no cabe, se afloja el margen en vez de no dibujar nada:
+   un volcán un poco justo se ve mejor que un escenario volcánico sin volcanes. */
+function huecoGrande(semilla, margen, y0, y1){
+  for (let intento=0; intento<4; intento++){
+    const m = margen * (1 - intento * .22);
+    for (let k=0;k<160;k++){
+      const i = semilla + intento*911 + k*13;
+      const x = azEntre(i, 90, WORLD_W-90), y = azEntre(i+4242, y0, y1);
+      if (libreDeco(x, y, m)) return [x, y];
+    }
+  }
+  return null;
+}
+
 /* Lo mismo por todo el mapa. `maxY` permite dejar zonas fuera (en la playa, el agua). */
 function sembrar(c, n, semilla, margen, pintar, maxY){
   return sembrarEnFranja(c, n, semilla, margen, pintar, 60, maxY == null ? WORLD_H-60 : maxY);
@@ -1835,6 +1853,110 @@ function dibujarBestia(c, x, y, giro, i, cual, trote){
   c.restore();
 }
 
+/* El dinosaurio. No es una bestia más de `dibujarBestia`: es del doble de alto,
+   se apoya en dos patas y la cola le hace de contrapeso, así que hay que
+   dibujarlo entero aparte. Al andar cabecea y bate la cola — un tiranosaurio
+   que se desliza en línea recta parece un juguete de ruedas. */
+function dibujarDino(c, x, y, giro, i, trote){
+  const mira = Math.cos(giro) >= 0 ? 1 : -1;
+  const t = trote || 0;
+  const paso = G.t * 6;
+  const cabeceo = Math.sin(paso) * .06 * t;
+  const piel  = ["#5C8A46","#7A6A3E","#8A5240"][i % 3];
+  const panza = ["#B9C98A","#C4B686","#C99A82"][i % 3];
+  c.save(); c.translate(x, y);
+  c.fillStyle = "rgba(0,0,0,.26)";
+  c.beginPath(); c.ellipse(0, 14, 40, 11, 0, 0, 6.283); c.fill();
+  c.scale(mira, 1);
+  c.rotate(cabeceo);
+
+  /* la cola: tres tramos que se afinan y ondean con retraso entre sí */
+  c.strokeStyle = piel; c.lineCap = "round";
+  const colaY = -34;
+  c.lineWidth = 15;
+  c.beginPath(); c.moveTo(-14, colaY);
+  c.quadraticCurveTo(-40, colaY - 4 + Math.sin(paso*.8)*5,
+                     -60, colaY - 10 + Math.sin(paso*.8 - .6)*9);
+  c.stroke();
+  c.lineWidth = 8;
+  c.beginPath(); c.moveTo(-58, colaY - 9 + Math.sin(paso*.8 - .6)*9);
+  c.quadraticCurveTo(-76, colaY - 16 + Math.sin(paso*.8 - 1)*12,
+                     -92, colaY - 26 + Math.sin(paso*.8 - 1.4)*15);
+  c.stroke();
+
+  /* las patas traseras, en zigzag como las de un ave: muslo, caña y pie */
+  [[-6, 0], [4, Math.PI]].forEach(([px, fase], k) => {
+    const sw = Math.sin(paso + fase) * t;
+    c.save(); c.translate(px, -26);
+    c.strokeStyle = k ? piel : "#4A7038";
+    c.lineWidth = 13;
+    c.beginPath(); c.moveTo(0, 0); c.lineTo(-6 + sw*7, 14); c.stroke();   // muslo
+    c.lineWidth = 8;
+    c.beginPath(); c.moveTo(-6 + sw*7, 14); c.lineTo(4 + sw*10, 30); c.stroke();  // caña
+    c.lineWidth = 6;
+    c.beginPath(); c.moveTo(4 + sw*10, 30);
+    c.lineTo(14 + sw*10, 36 - Math.max(0, sw)*6); c.stroke();             // el pie
+    c.restore();
+  });
+
+  /* el cuerpo, echado hacia adelante */
+  c.fillStyle = piel;
+  c.beginPath();
+  c.moveTo(-16, -44);
+  c.quadraticCurveTo(4, -52, 22, -44);
+  c.quadraticCurveTo(30, -32, 20, -20);
+  c.quadraticCurveTo(0, -12, -14, -22);
+  c.closePath(); c.fill();
+  c.fillStyle = panza;                                   // la panza más clara
+  c.beginPath();
+  c.moveTo(-12, -22); c.quadraticCurveTo(4, -13, 20, -21);
+  c.quadraticCurveTo(6, -17, -12, -22); c.closePath(); c.fill();
+
+  /* los bracitos ridículos, con dos garras */
+  c.strokeStyle = piel; c.lineWidth = 5;
+  c.beginPath(); c.moveTo(18, -32); c.lineTo(27, -26 + Math.sin(paso)*2*t); c.stroke();
+  c.strokeStyle = "#EDE3D0"; c.lineWidth = 2;
+  c.beginPath(); c.moveTo(27, -26); c.lineTo(32, -28); c.stroke();
+  c.beginPath(); c.moveTo(27, -26); c.lineTo(32, -23); c.stroke();
+
+  /* el cuello y la cabezota */
+  c.strokeStyle = piel; c.lineWidth = 13; c.lineCap = "round";
+  c.beginPath(); c.moveTo(16, -44); c.quadraticCurveTo(26, -56, 30, -64); c.stroke();
+  c.fillStyle = piel;
+  c.beginPath();
+  c.moveTo(20, -62);
+  c.quadraticCurveTo(30, -76, 46, -74);
+  c.lineTo(58, -68); c.lineTo(56, -60); c.lineTo(36, -56);
+  c.quadraticCurveTo(24, -55, 20, -62);
+  c.closePath(); c.fill();
+  /* la mandíbula, que se abre un poco al correr */
+  c.save(); c.translate(36, -62); c.rotate(.18 + Math.max(0, Math.sin(paso*.5)) * .22 * t);
+  c.fillStyle = piel;
+  c.beginPath(); c.moveTo(0, 0); c.lineTo(22, 2); c.lineTo(20, 9); c.lineTo(0, 8); c.closePath(); c.fill();
+  c.fillStyle = "#FFF6E1";                               // los dientes de abajo
+  for (let k=0;k<4;k++){
+    c.beginPath(); c.moveTo(3+k*5, 1); c.lineTo(6+k*5, 1); c.lineTo(4.5+k*5, -4); c.closePath(); c.fill();
+  }
+  c.restore();
+  c.fillStyle = "#FFF6E1";                               // los de arriba
+  for (let k=0;k<5;k++){
+    c.beginPath(); c.moveTo(32+k*5, -60); c.lineTo(35+k*5, -60); c.lineTo(33.5+k*5, -54); c.closePath(); c.fill();
+  }
+  c.fillStyle = "#FFD84D";                               // el ojo
+  c.beginPath(); c.ellipse(34, -69, 4.4, 3.6, 0, 0, 6.283); c.fill();
+  c.fillStyle = "#1A1410";
+  c.beginPath(); c.ellipse(35, -69, 1.4, 3, 0, 0, 6.283); c.fill();
+
+  /* la cresta de púas del lomo, de la nuca a la cola */
+  c.fillStyle = "#3E5C30";
+  for (let k=0;k<8;k++){
+    const px = 14 - k*4.2, py = -46 - Math.sin(k/8*Math.PI)*3;
+    const h = 7 - Math.abs(k-3)*.9;
+    c.beginPath(); c.moveTo(px-3, py); c.lineTo(px+3, py); c.lineTo(px, py-h); c.closePath(); c.fill();
+  }
+  c.restore();
+}
+
 /* ---- los especiales ----
    No se encuentran tirados: se ganan en la Ruleta o se compran en el Garaje.
    Se dibujan más grandes y con brillo propio: si te costaron 300 000, tienen
@@ -2109,6 +2231,17 @@ function sembrarFauna(esc){
   }
   /* Los de juguete también tienen quien se mueva: sin eso el decorado es una
      foto y la pista o el circuito se ven muertos. */
+  if (esc.id === "prehistoria"){
+    /* Los pterodáctilos planean en círculos altos y los raptores cruzan la
+       pampa a la carrera. Es lo que hace que el sitio no parezca un museo. */
+    for (let i = 0; i < 5; i++)
+      nuevo("pterodactilo", azar2(200, WORLD_W - 200), azar2(120, WORLD_H - 200),
+            { r: azar2(90, 180), ritmo: azar2(.3, .5) });
+    for (let i = 0; i < 3; i++)
+      nuevo("raptor", azar2(200, WORLD_W - 200), azar2(200, WORLD_H - 150),
+            { rumbo: i % 2 ? 1 : -1, mirada: i % 2 ? 1 : -1,
+              vel: azar2(70, 120), ritmo: azar2(1.4, 2.0) });
+  }
   if (esc.id === "pista"){
     CALLES_PISTA.forEach((y, k) => {
       for (let i = 0; i < 2; i++)
@@ -2160,6 +2293,17 @@ function animarFauna(dt){
       girar(a, dt);
       a.salto = Math.sin(a.t);                 // el arco de salir del agua
       a.y = clamp(a.y0 - Math.max(0, a.salto) * 26, RIO + 40, WORLD_H - 60);
+    } else if (a.tipo === "pterodactilo"){     // planea en círculos anchos y lentos
+      a.x = a.x0 + Math.cos(a.t * .4) * a.r;
+      a.y = a.y0 + Math.sin(a.t * .55) * a.r * .38;
+      a.mirada = Math.sin(a.t * .4) >= 0 ? -1 : 1;
+    } else if (a.tipo === "raptor"){           // cruza la pampa a zancadas
+      a.x += a.rumbo * a.vel * dt;
+      if (a.x < 140) a.rumbo = 1;
+      if (a.x > WORLD_W - 140) a.rumbo = -1;
+      a.x = clamp(a.x, 90, WORLD_W - 90);
+      girar(a, dt);
+      a.y = a.y0 + Math.abs(Math.sin(a.t * 2)) * -5;   // el brinco de cada zancada
     } else if (a.tipo === "guacamayo"){        // vuela en círculos amplios
       a.x = a.x0 + Math.cos(a.t * .5) * a.r;
       a.y = a.y0 + Math.sin(a.t * .7) * a.r * .45;
@@ -2203,6 +2347,8 @@ function drawFauna(){
   for (const a of fauna){
     if (a.tipo === "delfin")         dibujarDelfin(ctx, a);
     else if (a.tipo === "guacamayo") dibujarGuacamayo(ctx, a);
+    else if (a.tipo === "pterodactilo") dibujarPterodactilo(ctx, a);
+    else if (a.tipo === "raptor")    dibujarRaptor(ctx, a);
     else if (a.tipo === "mono")      dibujarMono(ctx, a);
     else if (a.tipo === "bolido")    dibujarBolido(ctx, a);
     else if (a.tipo === "ficha")     dibujarFicha(ctx, a);
@@ -2211,6 +2357,56 @@ function drawFauna(){
     else if (a.tipo === "cajaItem")  dibujarCajaItem(ctx, a);
     else                             dibujarRana(ctx, a);
   }
+}
+
+/* ---- lo que vuela y corre por la Prehistoria ---- */
+function dibujarPterodactilo(c, a){
+  const bat = Math.sin(a.t * 2.6);                       // el aleteo, lento y planeado
+  c.save(); c.translate(a.x, a.y); c.scale(a.mirada || .01, 1);
+  c.fillStyle = "rgba(0,0,0,.13)";                       // la sombra, lejos abajo
+  c.beginPath(); c.ellipse(0, 46, 22, 6, 0, 0, 6.283); c.fill();
+  c.fillStyle = "#8A6A4E";
+  /* el ala membranosa: del hombro al dedo largo y de vuelta al cuerpo */
+  for (const lado of [-1, 1]){
+    c.beginPath();
+    c.moveTo(0, -2);
+    c.quadraticCurveTo(lado*20, -12 - bat*10, lado*40, -6 - bat*14);
+    c.quadraticCurveTo(lado*26, 8 - bat*4, 0, 5);
+    c.closePath(); c.fill();
+  }
+  c.fillStyle = "#6E5240";
+  c.beginPath(); c.ellipse(0, 0, 7, 10, 0, 0, 6.283); c.fill();    // el cuerpo
+  c.beginPath(); c.ellipse(0, -12, 4.5, 6, 0, 0, 6.283); c.fill(); // la cabeza
+  c.beginPath();                                          // el pico largo
+  c.moveTo(-2, -15); c.lineTo(2, -15); c.lineTo(0, -28); c.closePath(); c.fill();
+  c.beginPath();                                          // la cresta de la nuca
+  c.moveTo(-1, -16); c.lineTo(-9, -22); c.lineTo(-2, -12); c.closePath(); c.fill();
+  c.restore();
+}
+
+function dibujarRaptor(c, a){
+  const paso = a.t * 3;
+  c.save(); c.translate(a.x, a.y); c.scale(a.mirada || .01, 1);
+  c.fillStyle = "rgba(0,0,0,.22)";
+  c.beginPath(); c.ellipse(0, 10, 17, 5, 0, 0, 6.283); c.fill();
+  c.strokeStyle = "#8A6A3E"; c.lineCap = "round";
+  c.lineWidth = 5;                                        // las dos patas, alternas
+  [0, Math.PI].forEach(f => {
+    const sw = Math.sin(paso + f);
+    c.beginPath(); c.moveTo(-1, -4); c.lineTo(-4 + sw*5, 4); c.lineTo(2 + sw*7, 10); c.stroke();
+  });
+  c.lineWidth = 4;                                        // la cola, tiesa y horizontal
+  c.beginPath(); c.moveTo(-8, -8);
+  c.quadraticCurveTo(-20, -10 + Math.sin(paso*.7)*3, -30, -13); c.stroke();
+  c.fillStyle = "#9A7748";
+  c.beginPath(); c.ellipse(-2, -9, 11, 6.5, -.12, 0, 6.283); c.fill();   // el cuerpo
+  c.strokeStyle = "#9A7748"; c.lineWidth = 4;
+  c.beginPath(); c.moveTo(6, -12); c.lineTo(12, -19); c.stroke();        // el cuello
+  c.fillStyle = "#9A7748";
+  c.beginPath(); c.ellipse(15, -20, 6.5, 4, .2, 0, 6.283); c.fill();     // la cabeza
+  c.fillStyle = "#FFD84D";
+  c.beginPath(); c.arc(16, -21, 1.5, 0, 6.283); c.fill();
+  c.restore();
 }
 
 /* ---- lo que corre por los escenarios de juguete ---- */
@@ -2417,6 +2613,10 @@ const MONTURA = {
      queda tapada por la del jugador y la llama se ve como un bulto blanco. */
   llama:      { baja: 4,  sube: 28, sombra: 28, atras: 11 },
   camello:    { baja: 4,  sube: 32, sombra: 30, atras: 12 },
+  /* El dinosaurio va aparte: es el doble de alto que la llama, así que el
+     jinete sube el doble y se sienta casi sobre la cadera, que es donde
+     tendría dónde agarrarse. */
+  dino:       { baja: 2,  sube: 50, sombra: 40, atras: 21 },
   /* En el carrito y en la vagoneta vas metido dentro: subes poco y te sientas
      atrás, que es donde está el hueco. */
   carrito:    { baja: 5,  sube: 12, sombra: 26, atras: 6 },
@@ -2469,6 +2669,7 @@ function dibujarTrasto(v, x, y, giro, trote){
     else if (v.tipo === "balsa")      dibujarBalsa(ctx, x, y, giro, i);
     else if (v.tipo === "llama")      dibujarBestia(ctx, x, y, giro, i, "llama", trote);
     else if (v.tipo === "camello")    dibujarBestia(ctx, x, y, giro, i, "camello", trote);
+    else if (v.tipo === "dino")       dibujarDino(ctx, x, y, giro, i, trote);
     else if (v.tipo === "mata")       dibujarMata(ctx, x, y, giro, i);
     else if (v.tipo === "ovni")       dibujarOvni(ctx, x, y, giro, i, trote);
     else if (v.tipo === "chancla")    dibujarChanclaVoladora(ctx, x, y, giro, i, trote);
@@ -4119,123 +4320,258 @@ function decoCostaVerde(c, E){
    por eso se puede caminar entera una figura sin levantar el pie. Son cinco de
    las famosas: el colibrí, el mono de la cola en espiral, la araña, el cóndor
    y el astronauta de la ladera. */
-function decoNazca(c, E){
+/* ---------- La Prehistoria ----------
+   Volcanes al fondo, helechos gigantes, huesos a medio enterrar, pozos de brea
+   y una cueva con pinturas rupestres. Todo lo que se dibuja aquí es adorno: lo
+   único de la prehistoria con lo que se juega es el dinosaurio, que es un
+   trasto normal y vive en el motor. */
+function decoPrehistoria(c, E){
+  /* tierra revuelta: manchas de barro y ceniza */
   c.fillStyle = E.mancha;
-  for (let i=0;i<18;i++){
-    const x = azEntre(i+7,0,WORLD_W), y = azEntre(i+37,0,WORLD_H), r = 44+az(i)*70;
-    c.beginPath(); c.ellipse(x,y,r,r*.45,i,0,6.283); c.fill();
+  for (let i=0;i<22;i++){
+    const x = azEntre(i+7,0,WORLD_W), y = azEntre(i+37,0,WORLD_H), r = 40+az(i)*55;
+    c.beginPath(); c.ellipse(x,y,r,r*.40,i,0,6.283); c.fill();
   }
-  /* el suelo rayado de la pampa */
-  c.strokeStyle = "rgba(255,239,226,.05)"; c.lineWidth = 6;
-  for (let y=0;y<WORLD_H;y+=34){
-    c.beginPath(); c.moveTo(0, y + Math.sin(y/200)*10); c.lineTo(WORLD_W, y - Math.sin(y/240)*10); c.stroke();
-  }
-
-  /* Un surco: se rascó la piedra oscura y debajo apareció la arena clara. Por
-     eso van dos trazos, uno ancho y claro y otro fino y más claro todavía. */
-  const surco = (pts, ancho = 14) => {
-    c.lineJoin = "round"; c.lineCap = "round";
-    c.strokeStyle = "#D9B884"; c.lineWidth = ancho;
-    c.beginPath();
-    pts.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y));
-    c.stroke();
-    c.strokeStyle = "rgba(255,246,225,.5)"; c.lineWidth = ancho * .42;
-    c.stroke();
-  };
-  /* Traslada y escala una figura dibujada en su propio cuadriculado. */
-  const poner = (fig, ox, oy, k) => surco(fig.map(([x, y]) => [ox + x * k, oy + y * k]));
-  /* Una espiral, que es lo que tiene el mono en la cola y la araña en la pata. */
-  const espiral = (cx, cy, r0, vueltas, paso) => {
-    const p = [];
-    for (let i = 0; i <= vueltas * 24; i++){
-      const a = (i / 24) * 6.283, r = r0 + i * paso;
-      p.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r]);
+  /* Grietas de tierra seca. Cortas y tenues a propósito: con tramos largos los
+     quiebros se cerraban solos y el suelo se llenaba de triángulos. */
+  c.strokeStyle = "rgba(40,28,18,.09)"; c.lineWidth = 2;
+  for (let i=0;i<34;i++){
+    const x = azEntre(i+300,0,WORLD_W), y = azEntre(i+900,0,WORLD_H);
+    const a = azEntre(i+55, 0, 6.283);
+    c.beginPath(); c.moveTo(x,y);
+    let px = x, py = y;
+    for (let k=0;k<3;k++){
+      px += Math.cos(a + azEntre(i*9+k,-.5,.5)) * 26;
+      py += Math.sin(a + azEntre(i*9+k,-.5,.5)) * 26;
+      c.lineTo(px, py);
     }
-    return p;
-  };
-
-  /* ---- el colibrí: pico larguísimo, alas rectas y cola de tijera ---- */
-  poner([
-    [0,0],[13,0],[26,1],[40,2],                     // el pico, que es media figura
-    [44,4],[40,7],[27,7],[15,7],[4,6],
-    [-2,10],[-6,17],[-8,26],                        // el cuello y el cuerpo
-    [-26,20],[-46,12],[-64,7],[-62,14],[-44,20],[-24,28],[-9,33],   // ala izquierda
-    [-8,40],[-8,52],
-    [-14,60],[-13,74],[-8,66],[-7,56],              // la cola en tijera
-    [-1,56],[0,68],[3,78],[6,64],[5,54],
-    [8,44],[9,34],
-    [24,30],[44,23],[64,16],[62,9],[42,14],[22,21],[8,25],
-    [7,17],[4,9],[0,4],[0,0],
-  ], 380, 330, 3.1);
-
-  /* ---- el mono: la cola en espiral es lo que todo el mundo reconoce ---- */
-  const mono = [
-    [0,0],[-14,-6],[-26,-16],[-30,-30],[-24,-42],[-10,-46],[4,-42],   // el cuerpo
-    [12,-30],[14,-16],[10,-4],
-    [26,2],[42,6],[54,14],                                            // el brazo derecho
-  ];
-  poner(mono, 1980, 1210, 2.2);
-  poner(espiral(0, 0, 4, 3.2, 2.6).map(([x, y]) => [x + 54, y + 44]), 1980, 1210, 2.2);
-  poner([[-30,-30],[-52,-40],[-70,-34],[-84,-20],[-84,-4],[-72,4]], 1980, 1210, 2.2);
-  poner([[0,0],[-6,16],[-16,28],[-30,32]], 1980, 1210, 2.2);          // las patas
-  poner([[10,-4],[14,14],[12,30],[2,38]], 1980, 1210, 2.2);
-  /* las manos: la de tres dedos y la de cuatro, que es la gracia del mono */
-  poner([[54,14],[62,8]], 1980, 1210, 2.2);
-  poner([[54,14],[64,16]], 1980, 1210, 2.2);
-  poner([[54,14],[62,22]], 1980, 1210, 2.2);
-  poner([[-72,4],[-80,10]], 1980, 1210, 2.2);
-  poner([[-72,4],[-82,2]], 1980, 1210, 2.2);
-
-  /* ---- la araña ---- */
-  const ax = 1960, ay = 430, ak = 2.0;
-  poner([[0,-22],[9,-14],[9,4],[0,14],[-9,4],[-9,-14],[0,-22]], ax, ay, ak);
-  for (let k = 0; k < 4; k++){
-    const dy = -14 + k * 10;
-    poner([[-9,dy],[-30,dy-6],[-52,dy+6],[-64,dy+22]], ax, ay, ak);
-    poner([[9,dy],[30,dy-6],[52,dy+6],[64,dy+22]], ax, ay, ak);
+    c.stroke();
   }
-  poner([[0,-22],[-5,-32]], ax, ay, ak);
-  poner([[0,-22],[5,-32]], ax, ay, ak);
 
-  /* ---- el cóndor: las alas abiertas de punta a punta ---- */
-  poner([
-    [0,0],[0,-12],[-5,-18],[-5,-26],[0,-30],[5,-26],[5,-18],[0,-12],  // cabeza y cuello
-  ], 700, 1150, 2.6);
-  poner([
-    [0,0],[-18,-4],[-42,-10],[-70,-14],[-96,-12],[-94,-4],[-68,-6],[-40,-2],[-16,6],
-    [-14,16],[-12,30],[-6,42],[0,50],[6,42],[12,30],[14,16],[16,6],
-    [40,-2],[68,-6],[94,-4],[96,-12],[70,-14],[42,-10],[18,-4],[0,0],
-  ], 700, 1150, 2.6);
-
-  /* ---- el astronauta, el de la mano levantada ---- */
-  const nx = 480, ny = 620, nk = 2.4;
-  poner([[0,-34],[10,-28],[13,-16],[10,-4],[0,2],[-10,-4],[-13,-16],[-10,-28],[0,-34]], nx, ny, nk);
-  poner([[0,2],[0,34]], nx, ny, nk);
-  poner([[0,10],[-20,20],[-24,6]], nx, ny, nk);      // el brazo que saluda
-  poner([[0,10],[20,22],[22,36]], nx, ny, nk);
-  poner([[0,34],[-12,54],[-18,66]], nx, ny, nk);
-  poner([[0,34],[12,54],[18,66]], nx, ny, nk);
-  poner([[-5,-22],[-2,-22]], nx, ny, nk);            // los ojos redondos
-  poner([[3,-22],[6,-22]], nx, ny, nk);
-
-  /* el mirador de fierro que hay junto a la carretera, y piedras sueltas */
-  sembrar(c, 2, 5401, 70, (c,x,y) => {
-    vetoDeco.push({ x:x-60, y:y-90, w:120, h:130 });
-    c.fillStyle = "rgba(0,0,0,.22)";
-    c.beginPath(); c.ellipse(x, y+22, 52, 14, 0, 0, 6.283); c.fill();
-    c.strokeStyle = "#A8A29A"; c.lineWidth = 7;
-    c.beginPath(); c.moveTo(x-40, y+20); c.lineTo(x-10, y-70); c.stroke();
-    c.beginPath(); c.moveTo(x+40, y+20); c.lineTo(x+10, y-70); c.stroke();
-    for (let k=0;k<4;k++){
-      const yy = y + 12 - k*22, w = 38 - k*7;
-      c.lineWidth = 4;
-      c.beginPath(); c.moveTo(x-w, yy); c.lineTo(x+w, yy); c.stroke();
+  /* ---- los volcanes del fondo, humeando ---- */
+  const volcan = (x, y, k) => {
+    vetoDeco.push({ x:x-150*k, y:y-190*k, w:300*k, h:230*k });
+    c.save(); c.translate(x, y); c.scale(k, k);
+    c.fillStyle = "rgba(0,0,0,.2)";
+    c.beginPath(); c.ellipse(0, 34, 160, 26, 0, 0, 6.283); c.fill();
+    c.fillStyle = "#4A3E36";                                  // la ladera
+    c.beginPath(); c.moveTo(-150, 34); c.lineTo(-34, -140);
+    c.lineTo(34, -140); c.lineTo(150, 34); c.closePath(); c.fill();
+    c.fillStyle = "#5C4E42";                                  // la cara iluminada
+    c.beginPath(); c.moveTo(0, -140); c.lineTo(34, -140); c.lineTo(150, 34); c.lineTo(60, 34); c.closePath(); c.fill();
+    c.fillStyle = "#E2453C";                                  // el cráter
+    c.beginPath(); c.ellipse(0, -140, 34, 11, 0, 0, 6.283); c.fill();
+    c.fillStyle = "#FFC53D";
+    c.beginPath(); c.ellipse(0, -141, 20, 6, 0, 0, 6.283); c.fill();
+    /* dos coladas de lava bajando */
+    c.strokeStyle = "#D8452E"; c.lineWidth = 9; c.lineCap = "round";
+    c.beginPath(); c.moveTo(-10,-136); c.quadraticCurveTo(-52,-60,-72,32); c.stroke();
+    c.beginPath(); c.moveTo(12,-136); c.quadraticCurveTo(48,-70,58,32); c.stroke();
+    c.strokeStyle = "#FFB020"; c.lineWidth = 3.5;
+    c.beginPath(); c.moveTo(-10,-136); c.quadraticCurveTo(-52,-60,-72,32); c.stroke();
+    /* la humareda */
+    c.fillStyle = "rgba(190,180,172,.30)";
+    for (let i=0;i<5;i++){
+      const yy = -160 - i*40, rr0 = 26 + i*15;
+      c.beginPath(); c.arc(azEntre(i+k*10,-22,22), yy, rr0, 0, 6.283); c.fill();
     }
-    c.fillStyle = "#8A8478"; rr(c, x-34, y-88, 68, 20, 4); c.fill();
+    c.restore();
+  };
+  /* Los volcanes buscan sitio: puestos a dedo, uno acababa dentro de un patio.
+     Van en la mitad de arriba, que es donde queda "el fondo". */
+  for (let v=0; v<2; v++){
+    const p = huecoGrande(6000 + v*77, 175, 280, WORLD_H * .5);
+    if (p) volcan(p[0], p[1], v ? .78 : 1);
+  }
+
+  /* ---- los helechos y las cícadas gigantes ---- */
+  sembrar(c, 16, 6100, 46, (c,x,y,i) => {
+    vetoDeco.push({ x:x-42, y:y-70, w:84, h:90 });
+    c.fillStyle = "rgba(0,0,0,.2)";
+    c.beginPath(); c.ellipse(x, y+12, 30, 9, 0, 0, 6.283); c.fill();
+    c.fillStyle = "#6A5236";
+    c.fillRect(x-4, y-16, 8, 28);                              // el tronquito
+    /* siete frondas abiertas en abanico, cada una con sus foliolos */
+    for (let k=0;k<7;k++){
+      const a = -Math.PI/2 + (k-3) * .42 + az(i*7+k)*.1;
+      const L = 40 + az(i*5+k)*22;
+      const ex = x + Math.cos(a)*L, ey = y - 14 + Math.sin(a)*L;
+      c.strokeStyle = ["#3E6B36","#4C7C3C","#2F5A2C"][(i+k)%3];
+      c.lineWidth = 4.5; c.lineCap = "round";
+      c.beginPath(); c.moveTo(x, y-14);
+      c.quadraticCurveTo(x + Math.cos(a)*L*.6, y-14 + Math.sin(a)*L*.6 - 10, ex, ey);
+      c.stroke();
+      c.lineWidth = 2;
+      for (let f=1; f<=4; f++){                                // los foliolos
+        const t = f/5;
+        const px = x + (ex-x)*t, py = (y-14) + (ey-(y-14))*t - Math.sin(t*Math.PI)*8;
+        c.beginPath(); c.moveTo(px, py); c.lineTo(px - Math.sin(a)*9, py + Math.cos(a)*9); c.stroke();
+        c.beginPath(); c.moveTo(px, py); c.lineTo(px + Math.sin(a)*9, py - Math.cos(a)*9); c.stroke();
+      }
+    }
   });
-  sembrar(c, 12, 5501, 20, (c,x,y,i) => {
-    c.fillStyle = i%2 ? "#8A6A44" : "#A08258";
-    c.beginPath(); c.ellipse(x, y, 9+az(i)*6, 7+az(i+2)*4, az(i)*3, 0, 6.283); c.fill();
+
+  /* ---- los pozos de brea: negros, espesos y con burbujas ---- */
+  sembrar(c, 5, 6200, 60, (c,x,y,i) => {
+    vetoDeco.push({ x:x-58, y:y-34, w:116, h:68 });
+    c.fillStyle = "#4A3A26";                                   // el borde de barro
+    c.beginPath(); c.ellipse(x, y, 56, 30, az(i), 0, 6.283); c.fill();
+    c.fillStyle = "#17120E";
+    c.beginPath(); c.ellipse(x, y, 47, 24, az(i), 0, 6.283); c.fill();
+    c.fillStyle = "rgba(255,255,255,.07)";                     // el brillo aceitoso
+    c.beginPath(); c.ellipse(x-13, y-7, 17, 7, -.4, 0, 6.283); c.fill();
+    for (let k=0;k<3;k++){                                     // burbujas reventadas
+      const bx = x + azEntre(i*4+k, -30, 30), by = y + azEntre(i*4+k+9, -14, 14);
+      c.strokeStyle = "rgba(120,110,100,.35)"; c.lineWidth = 2;
+      c.beginPath(); c.arc(bx, by, 4 + az(i+k)*4, 0, 6.283); c.stroke();
+    }
+  });
+
+  /* ---- esqueletos a medio enterrar: costillar, columna y calavera ---- */
+  sembrar(c, 4, 6300, 70, (c,x,y,i) => {
+    vetoDeco.push({ x:x-110, y:y-40, w:220, h:80 });
+    c.save(); c.translate(x, y); c.rotate(azEntre(i, -.35, .35));
+    c.strokeStyle = "#E4DCC8"; c.lineCap = "round";
+    c.lineWidth = 8;
+    c.beginPath(); c.moveTo(-96, 0);                            // la columna
+    c.quadraticCurveTo(0, -14, 88, 4); c.stroke();
+    c.lineWidth = 5.5;
+    for (let k=0;k<7;k++){                                      // las costillas
+      const t = k/6, cx = -72 + t*128, cy = -10 + Math.sin(t*Math.PI)*-4;
+      c.beginPath(); c.moveTo(cx, cy);
+      c.quadraticCurveTo(cx-6, cy+26, cx+4, cy+38); c.stroke();
+    }
+    c.fillStyle = "#E4DCC8";                                    // la calavera
+    c.beginPath(); c.ellipse(-108, -2, 22, 13, -.2, 0, 6.283); c.fill();
+    c.beginPath(); c.ellipse(-126, 2, 11, 7, -.2, 0, 6.283); c.fill();   // el hocico
+    c.fillStyle = "#6A6252";
+    c.beginPath(); c.arc(-110, -6, 4, 0, 6.283); c.fill();      // la cuenca del ojo
+    c.restore();
+  });
+
+  /* ---- las huellas: tres dedos, en fila y alternando pie ---- */
+  sembrar(c, 7, 6400, 40, (c,x,y,i) => {
+    const a = azEntre(i, 0, 6.283);
+    c.fillStyle = "rgba(50,36,22,.30)";
+    for (let k=0;k<5;k++){
+      const px = x + Math.cos(a)*k*54, py = y + Math.sin(a)*k*54 + (k%2 ? 16 : -16);
+      c.save(); c.translate(px, py); c.rotate(a);
+      c.beginPath(); c.ellipse(0, 0, 15, 11, 0, 0, 6.283); c.fill();
+      for (const d of [-.6, 0, .6]){                            // los tres dedos
+        c.beginPath();
+        c.ellipse(Math.cos(d)*17, Math.sin(d)*17, 7, 5, d, 0, 6.283); c.fill();
+      }
+      c.restore();
+    }
+  });
+
+  /* ---- el nido con los huevos ---- */
+  sembrar(c, 3, 6500, 44, (c,x,y,i) => {
+    vetoDeco.push({ x:x-44, y:y-30, w:88, h:60 });
+    c.fillStyle = "rgba(0,0,0,.2)";
+    c.beginPath(); c.ellipse(x, y+6, 40, 14, 0, 0, 6.283); c.fill();
+    c.strokeStyle = "#7A5C34"; c.lineWidth = 5;                 // las ramas del nido
+    for (let k=0;k<9;k++){
+      const a = k*.7;
+      c.beginPath();
+      c.ellipse(x, y, 36 - (k%3)*3, 17 - (k%3)*2, a, a, a + 2.4); c.stroke();
+    }
+    c.fillStyle = "#EDE0C4";                                    // tres huevos
+    for (const [ex, ey, r] of [[-12,-2,11],[10,-4,12],[0,7,10]]){
+      c.beginPath(); c.ellipse(x+ex, y+ey, r*.78, r, .2, 0, 6.283); c.fill();
+      c.fillStyle = "rgba(160,140,110,.35)";
+      c.beginPath(); c.arc(x+ex+3, y+ey+3, r*.3, 0, 6.283); c.fill();
+      c.fillStyle = "#EDE0C4";
+    }
+  });
+
+  /* ---- la fogata: leños en pirámide y un fuego siempre distinto ---- */
+  sembrar(c, 4, 6600, 40, (c,x,y,i) => {
+    vetoDeco.push({ x:x-34, y:y-40, w:68, h:66 });
+    c.fillStyle = "#5A5248";                                    // el círculo de piedras
+    for (let k=0;k<8;k++){
+      const a = k*.785;
+      c.beginPath(); c.ellipse(x+Math.cos(a)*26, y+Math.sin(a)*13, 7, 5, a, 0, 6.283); c.fill();
+    }
+    c.strokeStyle = "#6A4E30"; c.lineWidth = 6; c.lineCap = "round";
+    c.beginPath(); c.moveTo(x-14, y+6); c.lineTo(x+10, y-14); c.stroke();
+    c.beginPath(); c.moveTo(x+14, y+6); c.lineTo(x-10, y-14); c.stroke();
+    c.fillStyle = "#FF8A2B";                                    // la llama
+    c.beginPath();
+    c.moveTo(x-11, y-2); c.quadraticCurveTo(x-4, y-22, x, y-34);
+    c.quadraticCurveTo(x+5, y-20, x+11, y-2); c.closePath(); c.fill();
+    c.fillStyle = "#FFD84D";
+    c.beginPath();
+    c.moveTo(x-5, y-2); c.quadraticCurveTo(x-1, y-14, x+1, y-22);
+    c.quadraticCurveTo(x+4, y-12, x+5, y-2); c.closePath(); c.fill();
+  });
+
+  /* ---- la cueva pintada: la roca, la boca oscura y las figuras ocres ---- */
+  const cueva = (cx, cy) => {
+    vetoDeco.push({ x:cx-130, y:cy-120, w:260, h:170 });
+    c.fillStyle = "rgba(0,0,0,.22)";
+    c.beginPath(); c.ellipse(cx, cy+42, 128, 22, 0, 0, 6.283); c.fill();
+    c.fillStyle = "#6E6254";                                    // el peñasco
+    c.beginPath();
+    c.moveTo(cx-126, cy+42); c.lineTo(cx-96, cy-64); c.lineTo(cx-30, cy-110);
+    c.lineTo(cx+52, cy-98); c.lineTo(cx+112, cy-30); c.lineTo(cx+126, cy+42);
+    c.closePath(); c.fill();
+    c.fillStyle = "rgba(255,255,255,.07)";                      // la cara con luz
+    c.beginPath();
+    c.moveTo(cx-30, cy-110); c.lineTo(cx+52, cy-98); c.lineTo(cx+112, cy-30);
+    c.lineTo(cx+40, cy-40); c.closePath(); c.fill();
+    c.fillStyle = "#1A1410";                                    // la boca
+    c.beginPath();
+    c.moveTo(cx-34, cy+42); c.quadraticCurveTo(cx-30, cy-30, cx+4, cy-32);
+    c.quadraticCurveTo(cx+38, cy-30, cx+34, cy+42); c.closePath(); c.fill();
+    /* las pinturas rupestres: manos en negativo, bisontes y cazadores palotes */
+    c.fillStyle = "rgba(178,86,44,.75)";
+    for (const [hx, hy] of [[-88,-32],[-72,-14],[-96,-8]]){     // manos sopladas
+      c.save(); c.translate(cx+hx, cy+hy); c.scale(.85,.85);
+      c.beginPath(); c.ellipse(0, 4, 7, 9, 0, 0, 6.283); c.fill();
+      for (const d of [-.9,-.45,0,.45,.9]){
+        c.beginPath(); c.ellipse(Math.sin(d)*7, -6 - Math.cos(d)*5, 2.2, 5, d, 0, 6.283); c.fill();
+      }
+      c.restore();
+    }
+    /* un bisonte de perfil, gordo por delante y flaco por detrás */
+    c.save(); c.translate(cx+54, cy-52);
+    c.beginPath();
+    c.moveTo(-22,4); c.quadraticCurveTo(-20,-12,-6,-14);
+    c.quadraticCurveTo(10,-16,20,-6); c.lineTo(24,-10); c.lineTo(26,0);
+    c.quadraticCurveTo(14,8,-4,8); c.closePath(); c.fill();
+    c.fillRect(-18,6,3,10); c.fillRect(-8,6,3,10); c.fillRect(8,6,3,9); c.fillRect(16,6,3,9);
+    c.strokeStyle = "rgba(178,86,44,.75)"; c.lineWidth = 2;
+    c.beginPath(); c.moveTo(22,-10); c.lineTo(28,-16); c.stroke();   // el cuerno
+    c.restore();
+    /* dos cazadores palote con la lanza en alto */
+    c.strokeStyle = "rgba(40,30,24,.7)"; c.lineWidth = 2.6; c.lineCap = "round";
+    for (const [px, py] of [[-82,-54],[-62,-48]]){
+      c.save(); c.translate(cx+px, cy+py);
+      c.beginPath(); c.arc(0,-14,3.4,0,6.283); c.stroke();
+      c.beginPath(); c.moveTo(0,-11); c.lineTo(0,2); c.stroke();
+      c.beginPath(); c.moveTo(0,-8); c.lineTo(-7,-14); c.stroke();
+      c.beginPath(); c.moveTo(0,-8); c.lineTo(8,-16); c.stroke();
+      c.beginPath(); c.moveTo(0,2); c.lineTo(-6,12); c.stroke();
+      c.beginPath(); c.moveTo(0,2); c.lineTo(6,12); c.stroke();
+      c.beginPath(); c.moveTo(10,-22); c.lineTo(6,-10); c.stroke();  // la lanza
+      c.restore();
+    }
+  };
+  const sitioCueva = huecoGrande(6800, 145, 240, WORLD_H - 170);
+  if (sitioCueva) cueva(sitioCueva[0], sitioCueva[1]);
+
+  /* ---- y peñascos sueltos por todas partes ---- */
+  sembrar(c, 20, 6700, 22, (c,x,y,i) => {
+    c.fillStyle = "rgba(0,0,0,.18)";
+    c.beginPath(); c.ellipse(x, y+7, 15, 5, 0, 0, 6.283); c.fill();
+    c.fillStyle = ["#7A7264","#8A8172","#655D52"][i % 3];
+    c.beginPath();
+    for (let k=0;k<7;k++){
+      const a = k * .898, r = 12 + az(i*3+k)*8;
+      c[k ? "lineTo" : "moveTo"](x + Math.cos(a)*r, y + Math.sin(a)*r*.75);
+    }
+    c.closePath(); c.fill();
   });
 }
 
@@ -4508,6 +4844,19 @@ function unTope(cual, x, y, ang, i){
       ctx[k ? "lineTo" : "moveTo"](Math.cos(a) * r, Math.sin(a) * r * .8);
     }
     ctx.closePath(); ctx.fill();
+  } else if (cual === "huesos"){                     // fémures clavados en la tierra
+    ctx.rotate(az(i) * .6 - .3);
+    ctx.fillStyle = "rgba(0,0,0,.25)";
+    ctx.beginPath(); ctx.ellipse(0, 8, 13, 4, 0, 0, 6.283); ctx.fill();
+    ctx.fillStyle = "#E4DCC8";
+    /* un hueso es una caña con dos cabezas: dos círculos arriba, dos abajo */
+    ctx.beginPath(); ctx.arc(-5, -18, 5.5, 0, 6.283); ctx.fill();
+    ctx.beginPath(); ctx.arc(5, -20, 5.5, 0, 6.283); ctx.fill();
+    ctx.beginPath(); ctx.arc(-4, 4, 5, 0, 6.283); ctx.fill();
+    ctx.beginPath(); ctx.arc(5, 5, 5, 0, 6.283); ctx.fill();
+    rr(ctx, -4.5, -18, 9, 24, 4); ctx.fill();
+    ctx.fillStyle = "rgba(150,138,112,.35)";
+    ctx.fillRect(-4.5, -8, 3, 14);
   } else if (cual === "postes"){                      // los de madera del tren
     ctx.fillStyle = "rgba(0,0,0,.25)";
     ctx.beginPath(); ctx.ellipse(0, 8, 9, 3.5, 0, 0, 6.283); ctx.fill();
@@ -4569,7 +4918,7 @@ function pintarSuelo(){
   else if (E.deco === "mirador")  decoMirador(c, E);
   else if (E.deco === "circuito") decoCircuito(c, E);
   else if (E.deco === "costa")    decoCostaVerde(c, E);
-  else if (E.deco === "nazca")    decoNazca(c, E);
+  else if (E.deco === "prehistoria") decoPrehistoria(c, E);
   else if (E.deco === "volcan")   decoVolcan(c, E);
   else if (E.deco === "luna")     decoLuna(c, E);
 

@@ -112,11 +112,11 @@ export const VISUALES = {
     suelo: "#8E9A6C", loseta: "rgba(255,255,255,.07)", mancha: "rgba(90,100,70,.26)",
     borde: "#5A6544", deco: "costa", topes: "valla",
   },
-  nazca: {
-    icono: "🛩️",
-    desc: "La pampa con las líneas dibujadas en el suelo: el colibrí, el mono y la araña, y el mirador de fierro.",
-    suelo: "#C98B52", loseta: "rgba(255,239,226,.06)", mancha: "rgba(150,100,50,.22)",
-    borde: "#8A5A2A", deco: "nazca", topes: "piedras",
+  prehistoria: {
+    icono: "🦕",
+    desc: "Antes de todo: volcanes humeando, helechos gigantes, huesos a medio enterrar, pozos de brea y una cueva pintada. Aquí se monta en dinosaurio.",
+    suelo: "#7C6A4A", loseta: "rgba(255,239,226,.05)", mancha: "rgba(60,46,30,.26)",
+    borde: "#4A3A26", deco: "prehistoria", topes: "huesos",
   },
   volcan: {
     icono: "🌋",

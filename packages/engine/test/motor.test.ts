@@ -6,7 +6,7 @@
 import { describe, expect, it } from "vitest";
 import {
   CIRCUITOS, ESCENARIOS, ESCUDO_DUR, FLORES, GARAJE, GOAL, HITO_R, JUGADORES_MAX,
-  VEHICULOS, VUELTAS, ANCHO_PISTA, CAJAS_EN_PISTA, ESPECIAL_NIVEL, darleVehiculo,
+  VEHICULOS, VUELTAS, ANCHO_PISTA, TRASTOS_ESCENARIO, CAJAS_EN_PISTA, ESPECIAL_NIVEL, darleVehiculo,
   enLaPista, esEspecial, potenciadorPorId, potenciadoresDe, trastoDe, usarPotenciador,
   vehiculoDelSitio,
   puestosDeCarrera, puestoDe, pensarBot, LASER_DUR, LASER_PRECIO, PORTAL_RAREZAS, RAR_COLOR,
@@ -1185,6 +1185,22 @@ describe("carrera", () => {
     // y un tipo inventado no cambia nada
     darleVehiculo(e, e.players[2], "submarino");
     expect(trastoDe(e, e.players[2].montado)!.tipo).toBe("carrito");
+  });
+
+  it("el dinosaurio se monta, es de la Prehistoria y no es un especial", () => {
+    // se encuentra tirado: no se compra ni se gana
+    expect(esEspecial("dino"), "el dino acabó en el Garaje").toBe(false);
+    // y es el más rápido de los que se encuentran tirados
+    const normales = Object.entries(VEHICULOS)
+      .filter(([k]) => !esEspecial(k) && k !== "dino").map(([, v]) => v.mult);
+    expect(VEHICULOS.dino.mult).toBeGreaterThan(Math.max(...normales));
+    // en su escenario hay dinos de sobra para todos los que corren
+    const hay = TRASTOS_ESCENARIO.prehistoria.find(t => t.tipo === "dino");
+    expect(hay, "la Prehistoria se quedó sin dinos").toBeTruthy();
+    // y montado de verdad: en carrera te toca el del sitio
+    const e = carrera("prehistoria", 2);
+    expect(vehiculoDelSitio(e)).toBe("dino");
+    expect(trastoDe(e, e.players[0].montado)!.tipo).toBe("dino");
   });
 
   it("los especiales vuelan: el agua no los para", () => {

@@ -140,6 +140,10 @@ export const VEHICULOS: Record<string, Vehiculo> = {
      la pista de plástico o en el circuito tiene que sentirse así. */
   carrito:    { mult:1.75, agua:false, label:"carrito",       icon:"🏎️" },
   vagoneta:   { mult:1.5,  agua:false, label:"vagoneta",      icon:"🚃" },
+  /* El dinosaurio. Lo más rápido que se encuentra tirado por ahí, y con
+     diferencia lo más grande: si vas montado en un tiranosaurio, tiene que
+     notarse desde el otro lado del mapa. */
+  dino:       { mult:1.9,  agua:false, label:"dinosaurio",    icon:"🦖" },
 
   /* ---- los especiales ----
      No se encuentran tirados por el mapa: se ganan en la Ruleta o se compran
@@ -188,7 +192,7 @@ export const TRASTOS_ESCENARIO: Record<string, { tipo: string; n: number }[]> = 
   mirador:     [{ tipo:"vagoneta", n:4 },   { tipo:"piedra", n:7 }],
   circuito:    [{ tipo:"carrito", n:5 },    { tipo:"caparazon", n:7 }],
   costaverde:  [{ tipo:"bici", n:5 },       { tipo:"patineta", n:4 }, { tipo:"pelota", n:5 }],
-  nazca:       [{ tipo:"tablaArena", n:4 }, { tipo:"carrito", n:3 },  { tipo:"piedra", n:6 }],
+  prehistoria: [{ tipo:"dino", n:4 },       { tipo:"piedra", n:8 },   { tipo:"coco", n:5 }],
   volcan:      [{ tipo:"carrito", n:4 },    { tipo:"piedra", n:8 }],
   luna:        [{ tipo:"carrito", n:5 },    { tipo:"piedra", n:7 }],
 };
@@ -347,7 +351,7 @@ export const ESPECIAL_NIVEL: Record<string, Potenciador> = {
   mirador:     { id:"vapor",       icon:"💨", nombre:"Chorro de vapor",     efecto:"turbo" },
   circuito:    { id:"seta",        icon:"🍄", nombre:"Súper seta",          efecto:"turbo" },
   costaverde:  { id:"parapente",   icon:"🪂", nombre:"Parapente",           efecto:"fantasma" },
-  nazca:       { id:"lineas",      icon:"🛩️", nombre:"Vuelo de las líneas", efecto:"turbo" },
+  prehistoria: { id:"meteorito",   icon:"☄️", nombre:"Meteorito",           efecto:"rayo" },
   volcan:      { id:"erupcion",    icon:"🌋", nombre:"Erupción",            efecto:"rayo" },
   luna:        { id:"gravedad",    icon:"🌕", nombre:"Gravedad cero",       efecto:"fantasma" },
 };
@@ -609,7 +613,7 @@ export const ESCENARIOS: Escenario[] = [
     // el mar al sur; el acantilado y la pista van pegados a la orilla
     mar: 1480,
     circuito: trazar(HORQUILLA, 1300, 725, 2300, 1220) },
-  { id:"nazca",      nombre:"Nazca",
+  { id:"prehistoria", nombre:"La Prehistoria",
     casas:[[70,90],[2150,90],[2150,1290],[70,1290]],
     patios:[[560,90],[1050,90],[560,1290]],
     // las líneas son la pista: por eso se corre en ocho, cruzando por el medio

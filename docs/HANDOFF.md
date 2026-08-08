@@ -24,6 +24,12 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Última sesión
 
+- 2026-08-08 (claude-code): **el dinosaurio** (montable, el más rápido de los
+  que se encuentran tirados) y **La Prehistoria en lugar de Nazca**: volcanes
+  humeando, helechos y cícadas, pozos de brea, esqueletos a medio enterrar,
+  huellas de tres dedos, nidos con huevos, fogatas y una cueva con pinturas
+  rupestres. Topes de hueso en su circuito, y pterodáctilos y raptores de fauna.
+
 - 2026-08-08 (claude-code): pistas de carrera **entre 10 % y 62 % más largas**
   (6 000–9 000 px por vuelta; las tres vueltas pasan de 32–51 s a 42–63 s), sin
   agrandar el mundo: rectas serpenteadas, más panzas en el anillo, seis dientes
@@ -107,6 +113,11 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 - [ ] **Bots también fuera de las salas.** `pensarBot` vive en el motor y lo usa
       la sala; jugando solo en el navegador sigues sin vecinos que jueguen.
       Se pidió "el mínimo si quiero jugar solo con bots".
+- [ ] **Nazca ya no existe como escenario.** Una partida guardada con
+      `escenario: "nazca"` cae al escenario por defecto (El Barrio). El guardado
+      en la nube trae el estado entero, así que esas partidas siguen abriendo:
+      lo único que pierden es el decorado propio. Si alguna vez molesta, la
+      solución es un alias `nazca → prehistoria` en `crearPartida`.
 - [ ] Resolver la pregunta de derechos sobre Invictor / Florín **antes** de
       monetizar nada. Incluye las cuatro marcas de juguete, que ahora salen con
       su nombre en el selector de escenario.
@@ -128,6 +139,14 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
   genéricos (`pista`, `tablero`, `mirador`, `circuito`) porque viajan en las
   partidas guardadas y en las salas: cambiar un nombre no rompe nada, cambiar un
   id sí.
+- 2026-08-08: el dinosaurio es un trasto **normal**, no un especial de Garaje.
+  Los especiales cuestan cientos de miles y vuelan; el dino se encuentra tirado
+  en la Prehistoria como la llama en Machu Picchu. Hay prueba de que sigue por
+  debajo de todos los del Garaje en velocidad.
+- 2026-08-08: al cambiar Nazca por la Prehistoria se cambió también el **id**
+  (`nazca` → `prehistoria`), en contra de la regla del 2026-08-07 de no tocar
+  ids. Aquí no es un renombrado: es otro escenario. Dejar el id viejo apuntando
+  a un sitio que ya no se le parece engaña a quien lea el código después.
 - 2026-08-07: el azar del cliente (`azar2`) es solo para adornos. Gastar el del
   motor desde el navegador desincronizaría una sala.
 - 2026-08-05: `escudo` pasó de sí/no a segundos (el paraguas dura 3 minutos).

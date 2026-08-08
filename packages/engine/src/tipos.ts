@@ -192,7 +192,7 @@ export interface Circulo { x: number; y: number; r: number }
 export type TipoTrasto =
   // se montan
   | "bici" | "patineta" | "tabla" | "flotador" | "tablaArena"
-  | "balsa" | "llama" | "camello" | "carrito" | "vagoneta"
+  | "balsa" | "llama" | "camello" | "carrito" | "vagoneta" | "dino"
   // los especiales: no se encuentran tirados, se ganan o se compran
   | "ovni" | "chancla" | "condor" | "amaru"
   // se patean
