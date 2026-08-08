@@ -17,7 +17,7 @@ import {
   venderFlorin, precioDeVenta, soltarCarga, puestoDe, puestosDeCarrera,
   VUELTAS, CIRCUITOS, JUGADORES_MAX, pensarBot, GARAJE, TRASTOS_ESCENARIO,
   darleVehiculo, vehiculoDelSitio, esEspecial, ANCHO_PISTA, enLaPista,
-  usarPotenciador, potenciadoresDe, potenciadorPorId,
+  usarPotenciador, potenciadoresDe, potenciadorPorId, colocarPuestos,
 } from "@florin/engine";
 
 export {
@@ -33,7 +33,7 @@ export {
   venderFlorin, precioDeVenta, soltarCarga, puestoDe, puestosDeCarrera,
   VUELTAS, CIRCUITOS, JUGADORES_MAX, pensarBot, GARAJE, TRASTOS_ESCENARIO,
   darleVehiculo, vehiculoDelSitio, esEspecial, ANCHO_PISTA, enLaPista,
-  usarPotenciador, potenciadoresDe, potenciadorPorId,
+  usarPotenciador, potenciadoresDe, potenciadorPorId, colocarPuestos,
 };
 
 /* ---- escenarios: el motor pone el reparto, el cliente el aspecto ---- */
@@ -234,13 +234,19 @@ export function revivirPartida(texto){
        en vez de rechazarlas: perder el guardado de ayer por una función nueva
        sería un pésimo intercambio. Nacen sin nada montado, que es lo correcto. */
     if (!Array.isArray(G.trastos)) G.trastos = [];
-    /* Las de antes del mapa grande traen un solo puesto de cada, con el nombre
-       en singular. Se convierten a lista en vez de rechazarlas: quien tenga una
-       partida a medias sigue jugando, con un puesto en vez de dos. */
-    if (!Array.isArray(G.armerias)) G.armerias = G.armeria ? [G.armeria] : [];
-    if (!Array.isArray(G.ruletas))  G.ruletas  = G.ruleta  ? [G.ruleta]  : [];
+    /* Las de antes del mapa grande traen un solo puesto de cada, en singular y
+       en el centro de un mundo que ya no existe. Convertirlos a lista sin más
+       los dejaba a 400 px del centro nuevo, por donde SÍ pasa el desfile: se
+       veía la pasarela dando vueltas lejos de la Ruleta. Se recolocan, y de paso
+       les toca el segundo par. Las casas se quedan donde estaban —moverlas
+       arrastraría los pedestales y con ellos los Florines, que son el progreso. */
+    if (!Array.isArray(G.armerias) || !Array.isArray(G.ruletas) ||
+        !G.armerias.length || !G.ruletas.length) {
+      const puestos = colocarPuestos(G.bases);
+      G.armerias = puestos.armerias;
+      G.ruletas = puestos.ruletas;
+    }
     delete G.armeria; delete G.ruleta;
-    if (!G.armerias.length || !G.ruletas.length) return null;
     for (const p of G.players){
       if (p.montado === undefined) p.montado = null;
       if (p.trastoUsado === undefined) p.trastoUsado = null;

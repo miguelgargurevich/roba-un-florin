@@ -324,6 +324,59 @@ export function reglasPara(jugadores: number): Reglas {
   };
 }
 
+/** Dónde van las Armerías y las Ruletas de un mapa, esquivando las bases.
+
+    Vive aparte de `crearPartida` porque también hace falta al REVIVIR una
+    partida guardada: las de antes del mapa grande traen un solo puesto de cada
+    y en el centro de un mundo que ya no existe, así que el desfile —que sí pasa
+    por el centro nuevo— les pasaba a 400 px de la Ruleta. */
+export function colocarPuestos(bases: Base[]) {
+  const { cx, cy } = centroDelMapa();
+  const chocaBase = (x: number, y: number, w: number, h: number) =>
+    bases.some(b => x < b.rect.x + b.rect.w + 40 && x + w > b.rect.x - 40 &&
+                    y < b.rect.y + b.rect.h + 40 && y + h > b.rect.y - 40);
+  /* El de fuera está para que desde una esquina haya uno a mano sin cruzar el
+     mapa entero, así que se le pide LEJOS del central. Puesto a dedo en una
+     diagonal caía dentro de una casa en cuanto el reparto del escenario era
+     otro (en el colegio, encima de Doña Chancla). */
+  const LEJOS = WORLD_W * 0.34;
+  /* Primero libre y lejos; si no hay, libre aunque quede cerca. Estar LIBRE
+     manda sobre estar lejos: un puesto dentro de una casa tapa el botón de
+     entrar, que es la única forma de usarlo, mientras que uno algo cerca del
+     otro solo es menos cómodo. */
+  const buscar = <T>(w: number, h: number, centro: { x: number; y: number },
+                     orden: [number, number][], hacer: (x: number, y: number) => T): T => {
+    const sitios = orden.map(([fx, fy]) =>
+      [Math.round(WORLD_W * fx - w / 2), Math.round(WORLD_H * fy - h / 2)] as [number, number]);
+    const libres = sitios.filter(([x, y]) => !chocaBase(x, y, w, h));
+    const lejos = (p: [number, number]) =>
+      Math.hypot(p[0] + w / 2 - centro.x, p[1] + h / 2 - centro.y);
+    const elegido = libres.find(p => lejos(p) >= LEJOS)
+      ?? [...libres].sort((a, b) => lejos(b) - lejos(a))[0]
+      ?? [...sitios].sort((a, b) => lejos(b) - lejos(a))[0];
+    return hacer(elegido[0], elegido[1]);
+  };
+  /* Un anillo alrededor del centro, no cuatro esquinas: con solo las
+     diagonales, en el colegio ninguna quedaba a la vez libre y lejos, y en El
+     Desierto —once bases— hacía falta un segundo radio. Orden fijo, así que el
+     sitio elegido es el mismo en cada partida. */
+  const anillo = (desde: number): [number, number][] =>
+    [0.30, 0.25, 0.35].flatMap(rr =>
+      Array.from({ length: 12 }, (_, k) => {
+        const a = desde + k * (Math.PI / 6);
+        return [0.5 + Math.cos(a) * rr * 0.9, 0.5 + Math.sin(a) * rr] as [number, number];
+      }));
+  const arm0 = { x: cx - 450, y: cy - 75, w: 300, h: 150 };
+  const rul0 = { x: cx + 300, y: cy, r: 92 };
+  // la Armería de fuera empieza a buscar por abajo-derecha y la Ruleta por arriba-izquierda
+  return {
+    armerias: [arm0, buscar(300, 150, { x: arm0.x + 150, y: arm0.y + 75 },
+                            anillo(Math.PI / 4), (x, y) => ({ x, y, w: 300, h: 150 }))],
+    ruletas: [rul0, buscar(184, 184, rul0,
+                           anillo(-Math.PI * 0.75), (x, y) => ({ x: x + 92, y: y + 92, r: 92 }))],
+  };
+}
+
 export function crearPartida(op: OpcionesPartida): Estado {
   const n = clampEntero(op.jugadores ?? 1, 1, JUGADORES_MAX);
   const reglas: Reglas = { ...reglasPara(n), ...(op.reglas || {}) };
@@ -383,56 +436,7 @@ export function crearPartida(op: OpcionesPartida): Estado {
      Armería a la izquierda y la Ruleta a la derecha. El desfile les da la
      vuelta a los dos, así que el centro del mapa es de verdad el centro. */
   const { cx, cy } = centroDelMapa();
-  /* El par del centro, el de toda la vida, y otro par lejos para que desde una
-     esquina haya uno a mano sin cruzar el mapa entero.
-
-     El de fuera BUSCA sitio en vez de ir a un punto fijo: puesto a dedo en la
-     diagonal, caía dentro de una casa en cuanto el reparto del escenario era
-     otro (en el colegio, encima de Doña Chancla). Se prueban las cuatro
-     diagonales y se coge la primera libre. */
-  const chocaBase = (x: number, y: number, w: number, h: number) =>
-    bases.some(b => x < b.rect.x + b.rect.w + 40 && x + w > b.rect.x - 40 &&
-                    y < b.rect.y + b.rect.h + 40 && y + h > b.rect.y - 40);
-  /* Además de libre, LEJOS del puesto del centro: en El Barrio la primera
-     diagonal libre caía a 811 px de la Ruleta central, y dos ruletas a un paso
-     una de otra no ahorran ningún viaje. */
-  const LEJOS = WORLD_W * 0.34;
-  /* Primero libre y lejos; si no hay, libre aunque quede cerca. Estar LIBRE
-     manda sobre estar lejos: un puesto dentro de una casa tapa el botón de
-     entrar, que es la única forma de usarlo, mientras que uno algo cerca del
-     otro solo es menos cómodo. En El Desierto, con once bases repartidas,
-     ninguno de los treinta y seis candidatos cumplía las dos cosas. */
-  const buscar = <T>(w: number, h: number, centro: { x: number; y: number },
-                     orden: [number, number][], hacer: (x: number, y: number) => T): T => {
-    const sitios = orden.map(([fx, fy]) =>
-      [Math.round(WORLD_W * fx - w / 2), Math.round(WORLD_H * fy - h / 2)] as [number, number]);
-    const libres = sitios.filter(([x, y]) => !chocaBase(x, y, w, h));
-    const lejos = (p: [number, number]) =>
-      Math.hypot(p[0] + w / 2 - centro.x, p[1] + h / 2 - centro.y);
-    const elegido = libres.find(p => lejos(p) >= LEJOS)
-      ?? [...libres].sort((a, b) => lejos(b) - lejos(a))[0]
-      ?? [...sitios].sort((a, b) => lejos(b) - lejos(a))[0];
-    return hacer(elegido[0], elegido[1]);
-  };
-  /* Los candidatos son un anillo alrededor del centro, no cuatro esquinas: con
-     solo las diagonales, en el colegio ninguna quedaba a la vez libre y lejos y
-     había que conformarse con una encajada contra una casa. Se recorre en un
-     orden fijo, así que el sitio elegido es el mismo en cada partida. */
-  const anillo = (desde: number): [number, number][] =>
-    /* Dos radios: con uno solo, en El Desierto ninguno de los doce quedaba
-       libre y había que encajar la Armería contra una casa. */
-    [0.30, 0.25, 0.35].flatMap(rr =>
-      Array.from({ length: 12 }, (_, k) => {
-        const a = desde + k * (Math.PI / 6);
-        return [0.5 + Math.cos(a) * rr * 0.9, 0.5 + Math.sin(a) * rr] as [number, number];
-      }));
-  const arm0 = { x: cx - 450, y: cy - 75, w: 300, h: 150 };
-  const rul0 = { x: cx + 300, y: cy, r: 92 };
-  // la Armería de fuera empieza a buscar por abajo-derecha y la Ruleta por arriba-izquierda
-  const armerias = [arm0, buscar(300, 150, { x: arm0.x + 150, y: arm0.y + 75 },
-                                 anillo(Math.PI / 4), (x, y) => ({ x, y, w: 300, h: 150 }))];
-  const ruletas = [rul0, buscar(184, 184, rul0,
-                                anillo(-Math.PI * 0.75), (x, y) => ({ x: x + 92, y: y + 92, r: 92 }))];
+  const { armerias, ruletas } = colocarPuestos(bases);
   /* El portal de salida se aparta de la orilla. Con el margen fijo de siempre
      medido desde abajo acababa dentro del agua en cuanto el mapa creció —el mar
      va en fracción del alto y el margen no—, y los Florines del desfile salían

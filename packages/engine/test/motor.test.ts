@@ -16,7 +16,7 @@ import {
   avanzar, bajarse, cargar, crearPartida, girarRuleta, idsDeArmas, inRect,
   occupiedDe, playerIncome, spawnThief, usarArma, comprarArma, seleccionarArma,
   nuevoFlorin, baseDe, patiosDe, zap, multDeMontura, puntoDelDesfile, puntoDelOcho,
-  centroDelMapa, WORLD_W, WORLD_H, OCHO_A,
+  centroDelMapa, WORLD_W, WORLD_H, OCHO_A, colocarPuestos,
   nivelDeVitrina, nombreDeHito, HITOS_MAX, vitrinaDe, venderFlorin, precioDeVenta, soltarCarga,
   type EntradaJugador, type Estado,
 } from "../src/index.js";
@@ -1644,5 +1644,56 @@ describe("el estado viaja por la red", () => {
       }
     })(e, "e");
     expect(malos).toEqual([]);
+  });
+});
+
+/* Reproduce lo que hay en la nube de quien dejó una partida a medias ANTES del
+   mapa grande: mundo 2600x1700, `armeria`/`ruleta` en singular, cuatro casas. */
+function guardadoViejo() {
+  const e: any = JSON.parse(JSON.stringify(
+    crearPartida({ jugadores: 1, escenario: "barrio", semilla: 7, armas: ["chancla"] })));
+  e.armeria = { x: 850, y: 775, w: 300, h: 150 };
+  e.ruleta = { x: 1600, y: 850, r: 92 };
+  delete e.armerias; delete e.ruletas;
+  e.bases = e.bases.slice(0, 7);
+  e.esc.casas = [[70,90],[2150,90],[2150,700],[2150,1290]];
+  e.esc.patios = [[70,1290],[520,1290],[70,900]];
+  for (const b of e.bases) { b.rect.x = Math.min(b.rect.x, 2220); b.rect.y = Math.min(b.rect.y, 1370); }
+  e.players[0].x = 1300; e.players[0].y = 850;
+  return e;
+}
+
+describe("una partida guardada del mapa anterior", () => {
+  it("con la migración del cliente, sigue avanzando sin reventar", () => {
+    const e = guardadoViejo();
+    // lo que hace revivirPartida en apps/web/src/puente.js
+    const puestos = colocarPuestos(e.bases);
+    e.armerias = puestos.armerias; e.ruletas = puestos.ruletas;
+    delete e.armeria; delete e.ruleta;
+
+    const nada = (): Record<number, EntradaJugador> =>
+      ({ 0: { mover: { x: 1, y: 0 }, apunta: null } });
+    expect(() => { for (let i = 0; i < 60 * 30; i++) avanzar(e, nada(), 1 / 60); }).not.toThrow();
+
+    // y todo sigue dentro del mundo nuevo
+    for (const p of e.players) {
+      expect(p.x).toBeGreaterThan(0); expect(p.x).toBeLessThan(WORLD_W);
+      expect(p.y).toBeGreaterThan(0); expect(p.y).toBeLessThan(WORLD_H);
+    }
+    expect(e.portal.desfile.length).toBeGreaterThan(0);
+  });
+
+  it("y los puestos se le recolocan al centro nuevo, con el segundo par", () => {
+    /* Sin esto, sus puestos se quedaban en el centro de un mundo que ya no
+       existe y el desfile —que sí pasa por el centro nuevo— les daba vueltas a
+       400 px de la Ruleta. */
+    const e = guardadoViejo();
+    const puestos = colocarPuestos(e.bases);
+    expect(puestos.armerias.length).toBe(2);
+    expect(puestos.ruletas.length).toBe(2);
+    const { cx, cy } = centroDelMapa();
+    const a = puestos.armerias[0];
+    expect(Math.hypot(a.x + a.w / 2 - cx, a.y + a.h / 2 - cy),
+           "la Armería del centro quedó lejos del centro").toBeLessThan(500);
   });
 });
