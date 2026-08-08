@@ -115,13 +115,18 @@ function bajarseDelTrasto(){
 
 /** Arranca una partida nueva en el escenario elegido. */
 /* Si en la portada eliges Carrera, jugar solo arranca una carrera contra bots.
-   Vive aquí y no en el motor porque es cosa de la portada, no del juego. */
-let modoLocal = "aventura";
+   Vive aquí y no en el motor porque es cosa de la portada, no del juego.
+
+   La fuente de verdad es el BOTÓN marcado, no una variable: guardándola aparte
+   se desincronizaban —la portada decía Carrera y arrancaba una aventura— y
+   además así el que lee el código no tiene que buscar quién la puso. */
+const modoElegido = () =>
+  document.querySelector("#modoFila .modoBtn.sel")?.dataset.modo || "aventura";
 
 function nuevaPartida(modo){
   pops = []; puffs = [];
-  const G2 = nuevaPartidaMotor(modo, ESCENARIOS[escSel].id, modoLocal === "carrera");
-  if (modoLocal === "carrera" && vehSel) darleVehiculo(G2, G2.players[0], vehSel);
+  const G2 = nuevaPartidaMotor(modo, ESCENARIOS[escSel].id, modoElegido() === "carrera");
+  if (modoElegido() === "carrera" && vehSel) darleVehiculo(G2, G2.players[0], vehSel);
   G2.started = false; G2.paused = false;    // banderas del cliente, no del motor
   return G2;
 }
@@ -683,7 +688,7 @@ function vehiculosQuePuedoUsar(){
 }
 
 function pintarVehiculos(){
-  const corriendo = modoLocal === "carrera";
+  const corriendo = modoElegido() === "carrera";
   vehTitulo.hidden = !corriendo;
   vehFila.hidden = !corriendo;
   if (!corriendo) return;
@@ -694,7 +699,9 @@ function pintarVehiculos(){
     const v = VEHICULOS[tipo];
     const b = document.createElement("button");
     b.type = "button";
-    b.className = "escBtn" + (tipo === vehSel ? " sel" : "");
+    /* Clase propia aunque se vea igual: compartir `.escBtn` con los escenarios
+       hacía que cualquier `querySelectorAll(".escBtn")` mezclara las dos filas. */
+    b.className = "escBtn vehBtn" + (tipo === vehSel ? " sel" : "");
     b.innerHTML = '<span class="ic">' + v.icon + '</span><span>' + v.label + '</span>';
     b.setAttribute("aria-pressed", String(tipo === vehSel));
     b.addEventListener("click", () => {
@@ -708,7 +715,6 @@ function pintarVehiculos(){
 }
 
 function elegirModoLocal(m){
-  modoLocal = m;
   for (const b of document.querySelectorAll("#modoFila .modoBtn")){
     const suyo = b.dataset.modo === m;
     b.classList.toggle("sel", suyo);
@@ -722,14 +728,21 @@ function elegirModoLocal(m){
   if (m === "carrera" && !puedeCorrer(escSel))
     elegirEscenario(ESCENARIOS.findIndex(e => e.id === CIRCUITOS[0].id));
   pintarVehiculos();
-  const jugar = document.getElementById("btnStart");
-  jugar.textContent = m === "carrera" ? "Correr ▸"
-    : (typeof guardadaEnLaNube !== "undefined" && guardadaEnLaNube
-        ? "Empezar de cero ▸" : "Jugar solo ▸");
+  rotularBotonJugar();
   const sel = document.getElementById("salaModo");
   if (sel && m === "carrera") sel.value = "carrera";
   if (sel && m !== "carrera" && sel.value === "carrera") sel.value = "aventura";
   Snd.unlock();
+}
+
+/** Qué dice el botón grande. Depende del modo y de si hay partida guardada, y
+    los dos cambian por su cuenta: por eso se decide en un solo sitio. */
+function rotularBotonJugar(){
+  const b = document.getElementById("btnStart");
+  if (!b) return;
+  b.textContent = modoElegido() === "carrera" ? "Correr ▸"
+    : (typeof guardadaEnLaNube !== "undefined" && guardadaEnLaNube
+        ? "Empezar de cero ▸" : "Jugar solo ▸");
 }
 
 function elegirEscenario(i){
@@ -829,12 +842,12 @@ const empujarPreferencias = () => {
 async function alEntrarOSalir(jugador){
   elCuenta.entrar.hidden = !!jugador;
   elCuenta.hola.hidden = !jugador;
-  if (!jugador){ btnSeguir.hidden = true; btnUno.textContent = "Jugar solo ▸"; refrescarOnline(); return; }
+  if (!jugador){ btnSeguir.hidden = true; rotularBotonJugar(); refrescarOnline(); return; }
   elCuenta.nombre.textContent = jugador.apodo;
   if (nube.desconectado){
     decir("El servidor no responde. Puedes jugar igual: tu progreso queda en este navegador.", "mal");
     btnSeguir.hidden = true;
-    btnUno.textContent = "Jugar solo ▸";
+    rotularBotonJugar();
     refrescarOnline();
     return;
   }
@@ -922,7 +935,7 @@ async function buscarPartidaGuardada(){
   btnSeguir.hidden = !hay;
   // Solo se guarda una partida por jugador, así que empezar otra pisa la vieja.
   // Que el botón lo diga es más honesto que un cartel de confirmación.
-  btnUno.textContent = hay ? "Empezar de cero ▸" : "1 jugador ▸";
+  rotularBotonJugar();
   if (!hay) return;
   const g = guardadaEnLaNube;
   btnSeguir.textContent =
