@@ -7,8 +7,10 @@ ENV NODE_ENV=production TZ=America/Lima
 COPY package.json package-lock.json ./
 COPY packages/engine/package.json packages/engine/
 COPY apps/salas/package.json apps/salas/
-RUN npm ci --omit=dev --workspace @florin/salas --include-workspace-root \
- && npm i -D tsx typescript --workspace @florin/salas
+# tsx va en dependencies, no en devDependencies: es lo que ARRANCA el servidor.
+# Con NODE_ENV=production npm se salta las de desarrollo, así que ponerlo ahí
+# daba un contenedor que compilaba bien y moría al arrancar con "tsx: not found".
+RUN npm ci --omit=dev --workspace @florin/salas --include-workspace-root
 
 COPY packages/engine packages/engine
 COPY apps/salas apps/salas
