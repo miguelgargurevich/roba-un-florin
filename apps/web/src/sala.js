@@ -21,7 +21,7 @@ const RECONCILIAR = 6;
 /** Velocidad base del jugador en el motor, para adelantarse. */
 const VEL = 268;
 
-export function conectarSala({ url, token, codigo, modo, escenario, apodo, al }) {
+export function conectarSala({ url, token, codigo, modo, escenario, apodo, vehiculo, al }) {
   let ws = null, vivo = true, reintento = null;
   const estado = {
     conectado: false, codigo: codigo || null, idx: null, modo: modo || "aventura",
@@ -39,7 +39,7 @@ export function conectarSala({ url, token, codigo, modo, escenario, apodo, al })
     ws = new WebSocket(url);
     ws.addEventListener("open", () => {
       estado.error = null;
-      mandar({ t: "entrar", token, codigo: estado.codigo, modo, escenario, apodo });
+      mandar({ t: "entrar", token, codigo: estado.codigo, modo, escenario, apodo, vehiculo });
     });
     ws.addEventListener("message", ev => {
       let m; try { m = JSON.parse(ev.data); } catch { return; }

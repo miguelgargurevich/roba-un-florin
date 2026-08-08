@@ -15,7 +15,8 @@ import {
   rumboDeTiro, seleccionarArma, textoDePremio, usarArma, varLabel, varMult,
   VEHICULOS, bajarse, enElMar, trastoDe, nivelDeVitrina, vitrinaDe, nombreDeHito,
   venderFlorin, precioDeVenta, soltarCarga, puestoDe, puestosDeCarrera,
-  VUELTAS, CIRCUITOS, JUGADORES_MAX, pensarBot,
+  VUELTAS, CIRCUITOS, JUGADORES_MAX, pensarBot, GARAJE, TRASTOS_ESCENARIO,
+  darleVehiculo, vehiculoDelSitio, esEspecial,
 } from "@florin/engine";
 
 export {
@@ -29,7 +30,8 @@ export {
   textoDePremio, usarArma, varLabel, varMult,
   VEHICULOS, bajarse, enElMar, trastoDe, nivelDeVitrina, vitrinaDe, nombreDeHito,
   venderFlorin, precioDeVenta, soltarCarga, puestoDe, puestosDeCarrera,
-  VUELTAS, CIRCUITOS, JUGADORES_MAX, pensarBot,
+  VUELTAS, CIRCUITOS, JUGADORES_MAX, pensarBot, GARAJE, TRASTOS_ESCENARIO,
+  darleVehiculo, vehiculoDelSitio, esEspecial,
 };
 
 /* ---- escenarios: el motor pone el reparto, el cliente el aspecto ---- */

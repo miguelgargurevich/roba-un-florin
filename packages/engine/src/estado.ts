@@ -422,17 +422,30 @@ function aLaLineaDeSalida(e: Estado): void {
     p.face = Math.cos(ang) >= 0 ? 1 : -1;
     p.carrera = { vuelta: 0, hito: 1, fin: -1 };
 
-    /* Cada uno con el vehículo que toca en este sitio: en la Luna un carrito,
-       en la Costa Verde una bici. Se crean aparte de los que hay sueltos por el
-       mapa para que nadie empiece a pie. */
-    const tipo = (TRASTOS_ESCENARIO[e.esc.id] || []).map(t => t.tipo).find(esVehiculo) || "bici";
-    const v: Trasto = {
-      id: nuevoId(e), tipo: tipo as Trasto["tipo"], x: p.x, y: p.y, vx: 0, vy: 0,
-      montadoPor: p.idx, pateadoPor: null, giro: 0, variante: i,
-    };
-    e.trastos.push(v);
-    p.montado = v.id;
+    darleVehiculo(e, p, p.vehiculo || vehiculoDelSitio(e), i);
   });
+}
+
+/** Con qué se corre aquí si nadie eligió: lo primero montable del escenario. */
+export const vehiculoDelSitio = (e: Estado): string =>
+  (TRASTOS_ESCENARIO[e.esc.id] || []).map(t => t.tipo).find(esVehiculo) || "bici";
+
+/** Le pone (o le cambia) el vehículo a alguien, ahí donde esté.
+
+    Se crea aparte de los que hay sueltos por el mapa: en una carrera nadie
+    empieza a pie, y el que elige ovni tiene que salir en ovni aunque en ese
+    escenario no haya ninguno tirado. */
+export function darleVehiculo(e: Estado, p: Jugador, tipo: string, variante = 0): void {
+  if (!VEHICULOS[tipo]) return;
+  const viejo = e.trastos.findIndex(v => v.id === p.montado);
+  if (viejo >= 0) e.trastos.splice(viejo, 1);
+  const v: Trasto = {
+    id: nuevoId(e), tipo: tipo as Trasto["tipo"], x: p.x, y: p.y, vx: 0, vy: 0,
+    montadoPor: p.idx, pateadoPor: null, giro: 0, variante,
+  };
+  e.trastos.push(v);
+  p.montado = v.id;
+  p.vehiculo = tipo;
 }
 
 /* Reexportados por comodidad de quien consume el motor */

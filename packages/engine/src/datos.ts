@@ -138,7 +138,28 @@ export const VEHICULOS: Record<string, Vehiculo> = {
      la pista de plástico o en el circuito tiene que sentirse así. */
   carrito:    { mult:1.75, agua:false, label:"carrito",       icon:"🏎️" },
   vagoneta:   { mult:1.5,  agua:false, label:"vagoneta",      icon:"🚃" },
+
+  /* ---- los especiales ----
+     No se encuentran tirados por el mapa: se ganan en la Ruleta o se compran
+     en el Garaje con dinero de aventura, y una vez tuyos son tuyos para
+     siempre. Todos vuelan o flotan (`agua`), que es medio chiste y medio
+     ventaja: con uno de estos el mar deja de ser una pared. */
+  ovni:       { mult:2.1,  agua:true,  label:"ovni",          icon:"🛸" },
+  chancla:    { mult:1.95, agua:true,  label:"chancla voladora", icon:"🩴" },
+  condor:     { mult:2.0,  agua:true,  label:"cóndor",        icon:"🦅" },
+  amaru:      { mult:2.2,  agua:true,  label:"Amaru",         icon:"🐉" },
 };
+
+/** Lo que cuesta cada especial en el Garaje, y qué hay que haber hecho antes.
+    Los precios son de aventura larga a propósito: son el premio a haber
+    jugado, no una compra de las primeras. */
+export const GARAJE: { tipo: string; precio: number; comoSale: string }[] = [
+  { tipo:"chancla", precio: 45_000,  comoSale:"La chancla de tu mamá, pero con alas. Flota sobre el agua." },
+  { tipo:"condor",  precio: 120_000, comoSale:"El cóndor de la sierra. Vuela por encima de todo." },
+  { tipo:"ovni",    precio: 300_000, comoSale:"El platillo de los Marcianos. Nadie sabe cómo lo consiguieron." },
+  { tipo:"amaru",   precio: 750_000, comoSale:"La serpiente alada. Lo más rápido que hay, y no es discutible." },
+];
+export const esEspecial = (tipo: string) => GARAJE.some(g => g.tipo === tipo);
 export const esVehiculo = (tipo: string) => tipo in VEHICULOS;
 
 /** A qué distancia se monta o se patea un trasto. */
@@ -175,11 +196,15 @@ export type CasillaRuleta =
   | { p: number; kind: "florin"; tier: number }
   | { p: number; kind: "dinero"; monto: number }
   | { p: number; kind: "arma" }
+  | { p: number; kind: "vehiculo" }
   | { p: number; kind: "incognita" };
 /* La ruleta no lista las quince rarezas: la tira se volvería ilegible. Reparte
    las de abajo y va salteando arriba (7, 9, 11, 13, 14); las que faltan salen
    del desfile. */
 export const RULETA: CasillaRuleta[] = [
+  /* Un vehículo especial sale poco a propósito: es EL premio de la Ruleta, y
+     si saliera seguido dejaría de serlo. */
+  { p:2,   kind:"vehiculo" },
   { p:18,  kind:"florin", tier:0 },
   { p:14,  kind:"florin", tier:1 },
   { p:12,  kind:"florin", tier:2 },

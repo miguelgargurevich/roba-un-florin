@@ -5,7 +5,7 @@
    está en @florin/engine y se prueba sin red. */
 
 import {
-  JUGADORES_MAX, avanzar, bajarse, comprarArma, crearPartida, girarRuleta, idsDeArmas,
+  JUGADORES_MAX, avanzar, bajarse, comprarArma, crearPartida, darleVehiculo, girarRuleta, idsDeArmas,
   pensarBot,
   seleccionarArma, soltarCarga, usarArma, venderFlorin,
   type EntradaJugador, type Estado,
@@ -109,6 +109,17 @@ export class Sala {
 
   difundir(m: DeLaSala): void {
     for (const a of this.asientos) { try { a.enviar?.(m); } catch { /* ya se fue */ } }
+  }
+
+  /** Con qué sale a la pista quien acaba de sentarse.
+
+      No se comprueba que de verdad lo tenga en su Garaje: el Garaje vive en el
+      navegador de cada uno y traerlo aquí querría decir guardarlo en la base y
+      confiar igual. Es un juego de barrio entre amigos; si alguien se hace
+      trampa con un Amaru, el castigo es que sus amigos lo sepan. */
+  vehiculoDe(a: Asiento, tipo: string | undefined): void {
+    if (this.modo !== "carrera" || !tipo) return;
+    darleVehiculo(this.estado, this.estado.players[a.idx], tipo);
   }
 
   /** Alguien da la salida. Vale cualquiera de los sentados: quien se anime. */

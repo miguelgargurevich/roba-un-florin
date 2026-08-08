@@ -13,7 +13,7 @@ import type {
   Pedestal, Premio, Abuela, RefObjetivo, RefPed, Trasto,
 } from "./tipos.js";
 import {
-  ESCUDO_DUR, GOAL, LADRONES, LASER_CARGA, RULETA, RULETA_INCOGNITA, RULETA_PRECIO,
+  ESCUDO_DUR, GARAJE, GOAL, LADRONES, LASER_CARGA, RULETA, RULETA_INCOGNITA, RULETA_PRECIO,
   PATADA, PORTAL_CADA, PORTAL_MAX, PORTAL_RAREZAS, PORTAL_VUELTA,
   LASER_DUR, LASER_PRECIO, LASER_RECARGA, RODAR_ROCE, TRASTO_ALCANCE, HITO_R, VUELTAS,
   TIERS, VARIANTES, VEHICULOS, WEAPONS, WORLD_H, WORLD_W, esVehiculo, varLabel, varMult,
@@ -206,6 +206,10 @@ export function premioDeRuleta(e: Estado): Premio {
     const i = 1 + ((azar(e) * (WEAPONS.length - 1)) | 0);
     return { kind: "arma", arma: i };
   }
+  if (casilla.kind === "vehiculo") {
+    const g = GARAJE[(azar(e) * GARAJE.length) | 0];
+    return { kind: "vehiculo", tipo: g.tipo };
+  }
   const s = tiraDeTabla(e, RULETA_INCOGNITA);
   const tier = s.tier != null ? s.tier : ((azar(e) * ((s.tierMax ?? 0) + 1)) | 0);
   return { kind: "florin", tier, variant: s.variant, sorpresa: true };
@@ -214,6 +218,7 @@ export function premioDeRuleta(e: Estado): Premio {
 export function textoDePremio(pr: Premio): string {
   if (pr.kind === "dinero") return money(pr.monto);
   if (pr.kind === "arma") return WEAPONS[pr.arma].icon + " " + WEAPONS[pr.arma].name + " ×2";
+  if (pr.kind === "vehiculo") return VEHICULOS[pr.tipo].icon + " " + VEHICULOS[pr.tipo].label;
   const T = TIERS[pr.tier];
   return (pr.variant ? (VARIANTES as any)[pr.variant].icon + " " : "") + T.name +
     " · " + T.rar + (pr.variant ? " " + (VARIANTES as any)[pr.variant].label : "");
@@ -231,6 +236,14 @@ export function entregarPremio(e: Estado, p: Jugador, pr: Premio) {
     p.ammo[w.id] += 2;
     texto(e, p.x, p.y - 70, w.icon + " +2 usos", w.color);
     sonar(e, "buy");
+    return;
+  }
+  if (pr.kind === "vehiculo") {
+    const v = VEHICULOS[pr.tipo];
+    texto(e, p.x, p.y - 70, v.icon + " ¡" + v.label.toUpperCase() + "!", "#8B6BEE");
+    polvo(e, p.x, p.y - 20, "#8B6BEE", 22);
+    e.eventos.push({ t: "vehiculo", tipo: pr.tipo, jugador: p.idx });
+    sonar(e, "win");
     return;
   }
   const f = nuevoFlorin(e, pr.tier, { variant: pr.variant });

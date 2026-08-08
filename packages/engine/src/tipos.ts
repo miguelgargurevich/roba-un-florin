@@ -107,6 +107,8 @@ export interface Jugador {
   escudo: number; inmune: number;
   /** solo los asientos que juega la máquina: a dónde iba y cuándo repensarlo */
   bot?: { x: number; y: number; repensar: number };
+  /** en carrera, con qué sale a la pista. Sin esto, lo que toque en el sitio. */
+  vehiculo?: string;
   /** solo en carrera: vuelta, siguiente punto de paso, y en qué segundo cruzó
       la meta (-1 mientras corre) */
   carrera?: { vuelta: number; hito: number; fin: number };
@@ -184,6 +186,8 @@ export type TipoTrasto =
   // se montan
   | "bici" | "patineta" | "tabla" | "flotador" | "tablaArena"
   | "balsa" | "llama" | "camello" | "carrito" | "vagoneta"
+  // los especiales: no se encuentran tirados, se ganan o se compran
+  | "ovni" | "chancla" | "condor" | "amaru"
   // se patean
   | "pelota" | "mata" | "coco" | "piedra" | "dado" | "caparazon";
 
@@ -221,7 +225,8 @@ export interface Rafaga { x: number; y: number; ang?: number; life: number; kind
 export type Premio =
   | { kind: "florin"; tier: number; variant: Variante; sorpresa?: boolean }
   | { kind: "dinero"; monto: number }
-  | { kind: "arma"; arma: number };
+  | { kind: "arma"; arma: number }
+  | { kind: "vehiculo"; tipo: string };
 
 export interface Girando { t: number; dur: number; premio: Premio; jugadorIdx: number }
 
@@ -243,6 +248,8 @@ export type Evento =
   | { t: "album"; tier: number; variant: Variante }
   | { t: "hito"; n: number; monto: number; jugador: number }
   | { t: "meta"; jugador: number; puesto: number; segundos: number }
+  /** te ganaste un vehículo especial; quién lo guarda es cosa del cliente */
+  | { t: "vehiculo"; tipo: string; jugador: number }
   | { t: "fin"; ganador: number | null };
 
 export type Sonido =

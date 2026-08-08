@@ -255,6 +255,27 @@ describe("la parrilla de una carrera", () => {
   });
 });
 
+describe("el vehículo de cada quien", () => {
+  it("quien trae el suyo sale con el suyo, y quien no, con el del sitio", () => {
+    const { r } = registro();
+    const s = r.crear("luna", "carrera");
+    const a = s.sentar("ana", "Ana", cliente().enviar)!;
+    const b = s.sentar("beto", "Beto", cliente().enviar)!;
+    s.vehiculoDe(a, "ovni");
+    const suyo = i => s.estado.trastos.find(v => v.id === s.estado.players[i].montado)!.tipo;
+    expect(suyo(a.idx)).toBe("ovni");
+    expect(suyo(b.idx), "el que no elige sale con lo del escenario").toBe("carrito");
+  });
+
+  it("en aventura el vehículo que traigas da igual", () => {
+    const { r } = registro();
+    const s = r.crear("barrio", "aventura");
+    const a = s.sentar("ana", "Ana", cliente().enviar)!;
+    s.vehiculoDe(a, "ovni");
+    expect(s.estado.players[a.idx].montado, "en aventura se empieza a pie").toBeNull();
+  });
+});
+
 describe("la Ruleta y la Armería de una sala", () => {
   it("gira la ruleta y cobra la tirada", () => {
     const { r, avanzar } = registro();

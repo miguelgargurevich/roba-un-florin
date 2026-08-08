@@ -17,7 +17,8 @@ import {
   inRect, laserActivo, lerp, money, nuevaPartidaMotor, nuevoFlorin, occupied,
   occupiedDe, orbitaDelCentro, playerIncome, puntoDelDesfile, rumboDeTiro,
   bajarse, conAtajosDeSala as conAtajosMotor, nombreDeHito, patiosDe, precioDeVenta,
-  puestoDe, puestosDeCarrera, VUELTAS, CIRCUITOS, pensarBot,
+  puestoDe, puestosDeCarrera, VUELTAS, CIRCUITOS, pensarBot, GARAJE, VEHICULOS,
+  TRASTOS_ESCENARIO, darleVehiculo,
   soltarCarga, trastoDe,
   venderFlorin,
   revivirPartida, seleccionarArma, textoDePremio,
@@ -53,6 +54,14 @@ function consumirEventos(){
       case "sonido": { const f = ev.cual === "throw" ? "throw_" : ev.cual;
                        if (Snd[f]) Snd[f](); break; }
       case "album":  vistoEnAlbum(ev.tier, ev.variant); break;
+      case "vehiculo":
+        /* En una sala el evento llega para todos: solo es tuyo si el jugador
+           que lo ganó eres tú. */
+        if (ev.jugador === (sala ? sala.estado.idx : 0)){
+          if (!ganarVehiculo(ev.tipo))
+            pop(G.player.x, G.player.y - 96, "Ya lo tenías — toma " + money(4000), "#FFC53D");
+        }
+        break;
       case "fin":    endGame(ev.ganador == null ? null : G.players[ev.ganador]); break;
       case "hito":   guardarPartidaAhora(); break;   // el HUD ya lo celebra leyendo G.fiesta
     }
@@ -111,6 +120,7 @@ let modoLocal = "aventura";
 function nuevaPartida(modo){
   pops = []; puffs = [];
   const G2 = nuevaPartidaMotor(modo, ESCENARIOS[escSel].id, modoLocal === "carrera");
+  if (modoLocal === "carrera" && vehSel) darleVehiculo(G2, G2.players[0], vehSel);
   G2.started = false; G2.paused = false;    // banderas del cliente, no del motor
   return G2;
 }
@@ -378,6 +388,30 @@ const guardarAlbumLocal = () => {
   try { localStorage.setItem("florin_album", JSON.stringify(album)); } catch (_){}
 };
 
+/* ============================================================
+   El Garaje
+   ============================================================
+   Los vehículos especiales son del JUGADOR, no de la partida: se compran una
+   vez con dinero de aventura (o se ganan en la Ruleta) y quedan para siempre.
+   Se guardan como el álbum — en el navegador — porque son un logro, no un
+   estado de partida. */
+let garaje = {};
+try { garaje = JSON.parse(localStorage.getItem("florin_garaje") || "{}") || {}; } catch (_){ garaje = {}; }
+const tengoVehiculo = tipo => !!garaje[tipo];
+const guardarGaraje = () => {
+  try { localStorage.setItem("florin_garaje", JSON.stringify(garaje)); } catch (_){}
+};
+
+function ganarVehiculo(tipo, comoLoDigo){
+  if (garaje[tipo]) return false;
+  garaje[tipo] = 1;
+  guardarGaraje();
+  const v = VEHICULOS[tipo];
+  pop(G.player.x, G.player.y - 96, comoLoDigo || ("🔧 " + v.icon + " ¡" + v.label + " al Garaje!"), "#8B6BEE");
+  pintarGaraje();
+  return true;
+}
+
 function vistoEnAlbum(tier, variant){
   const k = albumKey(tier, variant);
   if (album[k]) return;
@@ -626,6 +660,44 @@ const escBtns = ESCENARIOS.map((e, i) => {
    circuito, y si el elegido no lo tiene se salta al primero que sí. */
 const puedeCorrer = i => CIRCUITOS.some(c => c.id === ESCENARIOS[i].id);
 
+/* Con qué corres: lo del escenario más lo que tengas en el Garaje. */
+let vehSel = null;
+const vehFila = document.getElementById("vehFila");
+const vehTitulo = document.getElementById("vehTitulo");
+try { vehSel = localStorage.getItem("florin_vehiculo") || null; } catch (_){}
+
+function vehiculosQuePuedoUsar(){
+  const delSitio = (TRASTOS_ESCENARIO[ESCENARIOS[escSel].id] || [])
+    .map(t => t.tipo).filter(t => VEHICULOS[t]);
+  const mios = GARAJE.map(g => g.tipo).filter(tengoVehiculo);
+  return [...new Set([...delSitio, ...mios])];
+}
+
+function pintarVehiculos(){
+  const corriendo = modoLocal === "carrera";
+  vehTitulo.hidden = !corriendo;
+  vehFila.hidden = !corriendo;
+  if (!corriendo) return;
+  const lista = vehiculosQuePuedoUsar();
+  if (!lista.includes(vehSel)) vehSel = lista[0] || null;
+  vehFila.innerHTML = "";
+  for (const tipo of lista){
+    const v = VEHICULOS[tipo];
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "escBtn" + (tipo === vehSel ? " sel" : "");
+    b.innerHTML = '<span class="ic">' + v.icon + '</span><span>' + v.label + '</span>';
+    b.setAttribute("aria-pressed", String(tipo === vehSel));
+    b.addEventListener("click", () => {
+      vehSel = tipo;
+      try { localStorage.setItem("florin_vehiculo", tipo); } catch (_){}
+      pintarVehiculos();
+      Snd.unlock();
+    });
+    vehFila.appendChild(b);
+  }
+}
+
 function elegirModoLocal(m){
   modoLocal = m;
   for (const b of document.querySelectorAll("#modoFila .modoBtn")){
@@ -640,6 +712,7 @@ function elegirModoLocal(m){
   });
   if (m === "carrera" && !puedeCorrer(escSel))
     elegirEscenario(ESCENARIOS.findIndex(e => e.id === CIRCUITOS[0].id));
+  pintarVehiculos();
   const jugar = document.getElementById("btnStart");
   jugar.textContent = m === "carrera" ? "Correr ▸"
     : (typeof guardadaEnLaNube !== "undefined" && guardadaEnLaNube
@@ -658,6 +731,7 @@ function elegirEscenario(i){
     b.setAttribute("aria-pressed", String(k === i));
   });
   escDesc.textContent = ESCENARIOS[i].desc;
+  pintarVehiculos();
   Snd.unlock();
 }
 elegirEscenario(escSel);
@@ -927,6 +1001,7 @@ function conectar(opciones){
     url: URL_SALAS,
     token: JSON.parse(localStorage.getItem("florin_sesion") || "{}").accessToken,
     apodo: nube.jugador?.apodo,
+    vehiculo: vehSel || undefined,
     ...opciones,
     al: ev => {
       if (ev.tipo === "entrado"){
@@ -1687,6 +1762,125 @@ function dibujarBestia(c, x, y, giro, i, cual, trote){
   c.restore();
 }
 
+/* ---- los especiales ----
+   No se encuentran tirados: se ganan en la Ruleta o se compran en el Garaje.
+   Se dibujan más grandes y con brillo propio: si te costaron 300 000, tienen
+   que notarse desde el otro lado del mapa. */
+function dibujarOvni(c, x, y, giro, i, trote){
+  const flota = Math.sin(G.t * 2.2 + i) * 4;
+  c.fillStyle = "rgba(0,0,0,.22)";
+  c.beginPath(); c.ellipse(x, y + 22, 30, 9, 0, 0, 6.283); c.fill();
+  c.save(); c.translate(x, y + flota);
+  c.fillStyle = "rgba(140,220,255,.16)";                 // el haz de luz
+  c.beginPath();
+  c.moveTo(-14, 4); c.lineTo(14, 4); c.lineTo(26, 26); c.lineTo(-26, 26);
+  c.closePath(); c.fill();
+  c.fillStyle = "#7FD3F0";                               // la cúpula
+  c.beginPath(); c.arc(0, -8, 15, Math.PI, 0); c.fill();
+  c.fillStyle = "rgba(255,255,255,.4)";
+  c.beginPath(); c.ellipse(-5, -13, 5, 3.4, -.4, 0, 6.283); c.fill();
+  const plato = c.createLinearGradient(-32, 0, 32, 0);
+  plato.addColorStop(0, "#5A5A66"); plato.addColorStop(.5, "#C9C2D8"); plato.addColorStop(1, "#5A5A66");
+  c.fillStyle = plato;
+  c.beginPath(); c.ellipse(0, -6, 32, 11, 0, 0, 6.283); c.fill();
+  c.fillStyle = "#3A3444";
+  c.beginPath(); c.ellipse(0, -2, 32, 8, 0, 0, 6.283); c.fill();
+  for (let k = 0; k < 6; k++){                           // las luces girando
+    const a = G.t * 2.4 + k * 1.047;
+    const lx = Math.cos(a) * 26, ly = -4 + Math.sin(a) * 7;
+    c.fillStyle = ["#FF6B90","#FFC53D","#8FE388","#5CE1EA","#8B6BEE","#FFEFE2"][k];
+    c.globalAlpha = .5 + Math.sin(a) * .5;
+    c.beginPath(); c.arc(lx, ly, 3.4, 0, 6.283); c.fill();
+  }
+  c.globalAlpha = 1;
+  c.restore();
+}
+
+function dibujarChanclaVoladora(c, x, y, giro, i, trote){
+  const aletea = Math.sin(G.t * 12) * .5;
+  c.save(); c.translate(x, y); c.rotate(giro);
+  c.fillStyle = "rgba(0,0,0,.22)";
+  c.beginPath(); c.ellipse(0, 16, 26, 8, 0, 0, 6.283); c.fill();
+  c.fillStyle = "#FFEFE2";                               // las alitas
+  for (const lado of [-1, 1]){
+    c.save(); c.scale(1, lado); c.rotate(aletea * lado * .3);
+    c.beginPath(); c.ellipse(-4, -20, 20, 9, -.5, 0, 6.283); c.fill();
+    c.restore();
+  }
+  c.fillStyle = "#7A0F2E";                               // la suela
+  c.beginPath(); c.ellipse(0, 2, 30, 15, 0, 0, 6.283); c.fill();
+  c.fillStyle = "#FF3D6E";
+  c.beginPath(); c.ellipse(0, -1, 26, 12, 0, 0, 6.283); c.fill();
+  c.strokeStyle = "#7A0F2E"; c.lineWidth = 5; c.lineCap = "round";
+  c.beginPath(); c.moveTo(12, -1); c.lineTo(-6, -8); c.stroke();   // las tiras
+  c.beginPath(); c.moveTo(12, -1); c.lineTo(-6, 6); c.stroke();
+  c.lineCap = "butt";
+  c.restore();
+}
+
+function dibujarCondor(c, x, y, giro, i, trote){
+  const alas = Math.sin(G.t * 4.5 + i);
+  const mira = Math.cos(giro) >= 0 ? 1 : -1;
+  c.fillStyle = "rgba(0,0,0,.2)";
+  c.beginPath(); c.ellipse(x, y + 24, 30, 9, 0, 0, 6.283); c.fill();
+  c.save(); c.translate(x, y + alas * 3); c.scale(mira, 1);
+  c.fillStyle = "#2A2226";                               // las alas, enormes
+  for (const lado of [-1, 1]){
+    c.save(); c.scale(1, lado); c.rotate(alas * lado * .18);
+    c.beginPath();
+    c.moveTo(-6, -4); c.quadraticCurveTo(-30, -26, -54, -14);
+    c.quadraticCurveTo(-30, -6, -6, 4); c.closePath(); c.fill();
+    c.restore();
+  }
+  c.fillStyle = "#3A3238";
+  c.beginPath(); c.ellipse(0, 0, 20, 11, 0, 0, 6.283); c.fill();
+  c.fillStyle = "#FFEFE2";                               // el collar blanco
+  c.beginPath(); c.ellipse(13, -2, 8, 6, 0, 0, 6.283); c.fill();
+  c.fillStyle = "#2A2226";
+  c.beginPath(); c.arc(21, -6, 7, 0, 6.283); c.fill();
+  c.fillStyle = "#C97A1F";                               // la carúncula y el pico
+  c.beginPath(); c.moveTo(26, -6); c.lineTo(36, -3); c.lineTo(26, 0); c.closePath(); c.fill();
+  c.beginPath(); c.ellipse(22, -13, 5, 4, -.4, 0, 6.283); c.fill();
+  c.restore();
+}
+
+function dibujarAmaru(c, x, y, giro, i, trote){
+  const onda = G.t * 3;
+  const mira = Math.cos(giro) >= 0 ? 1 : -1;
+  c.fillStyle = "rgba(0,0,0,.2)";
+  c.beginPath(); c.ellipse(x, y + 22, 32, 9, 0, 0, 6.283); c.fill();
+  c.save(); c.translate(x, y); c.scale(mira, 1);
+  /* el cuerpo: anillos que se ondulan, de la cola a la cabeza */
+  for (let k = 8; k >= 0; k--){
+    const f = k / 8;
+    const bx = -f * 54, by = Math.sin(onda + k * .7) * 9 * f;
+    c.fillStyle = k % 2 ? "#2E8B32" : "#4FB84A";
+    c.beginPath(); c.ellipse(bx, by, 13 - f * 7, 11 - f * 6, 0, 0, 6.283); c.fill();
+  }
+  c.fillStyle = "#E2453C";                               // las alas de plumas
+  for (const lado of [-1, 1]){
+    c.save(); c.scale(1, lado); c.rotate(Math.sin(onda * 1.6) * .18);
+    c.beginPath();
+    c.moveTo(-10, -4); c.quadraticCurveTo(-26, -30, -44, -18);
+    c.quadraticCurveTo(-24, -8, -10, 2); c.closePath(); c.fill();
+    c.restore();
+  }
+  c.fillStyle = "#4FB84A";                               // la cabeza
+  c.beginPath(); c.ellipse(14, 0, 15, 12, 0, 0, 6.283); c.fill();
+  c.fillStyle = "#FFC53D";                               // la cresta de oro
+  for (let k = 0; k < 4; k++){
+    c.beginPath();
+    c.moveTo(6 + k * 5, -10); c.lineTo(9 + k * 5, -21); c.lineTo(12 + k * 5, -10);
+    c.closePath(); c.fill();
+  }
+  c.fillStyle = "#FFEFE2"; c.beginPath(); c.arc(21, -3, 3.4, 0, 6.283); c.fill();
+  c.fillStyle = "#2A1226"; c.beginPath(); c.arc(22, -3, 1.7, 0, 6.283); c.fill();
+  c.fillStyle = "#E2453C";                               // la lengua bífida
+  c.beginPath(); c.moveTo(28, 3); c.lineTo(40, 1); c.lineTo(34, 4); c.lineTo(40, 7);
+  c.closePath(); c.fill();
+  c.restore();
+}
+
 /* ---- los de juguete: carrito, vagoneta, dado y caparazón ---- */
 const CARRITO_COLOR = ["#E2453C","#FFC53D","#5CE1EA","#8FE388","#FF6B90"];
 
@@ -2154,6 +2348,11 @@ const MONTURA = {
      atrás, que es donde está el hueco. */
   carrito:    { baja: 5,  sube: 12, sombra: 26, atras: 6 },
   vagoneta:   { baja: 5,  sube: 14, sombra: 27, atras: 4 },
+  /* Los especiales van por el aire, así que el jinete sube bastante más. */
+  ovni:       { baja: 2,  sube: 20, sombra: 30, atras: 0 },
+  chancla:    { baja: 6,  sube: 16, sombra: 28, atras: 0 },
+  condor:     { baja: 4,  sube: 22, sombra: 30, atras: 10 },
+  amaru:      { baja: 4,  sube: 24, sombra: 32, atras: 14 },
 };
 const monturaDe = p => (p.montado != null ? MONTURA[trastoDe(G, p.montado)?.tipo] : null) || null;
 
@@ -2198,6 +2397,10 @@ function dibujarTrasto(v, x, y, giro, trote){
     else if (v.tipo === "llama")      dibujarBestia(ctx, x, y, giro, i, "llama", trote);
     else if (v.tipo === "camello")    dibujarBestia(ctx, x, y, giro, i, "camello", trote);
     else if (v.tipo === "mata")       dibujarMata(ctx, x, y, giro, i);
+    else if (v.tipo === "ovni")       dibujarOvni(ctx, x, y, giro, i, trote);
+    else if (v.tipo === "chancla")    dibujarChanclaVoladora(ctx, x, y, giro, i, trote);
+    else if (v.tipo === "condor")     dibujarCondor(ctx, x, y, giro, i, trote);
+    else if (v.tipo === "amaru")      dibujarAmaru(ctx, x, y, giro, i, trote);
     else if (v.tipo === "carrito")    dibujarCarrito(ctx, x, y, giro, i, trote);
     else if (v.tipo === "vagoneta")   dibujarVagoneta(ctx, x, y, giro, i, trote);
     else if (v.tipo === "dado")       dibujarDado(ctx, x, y, giro, i);
@@ -5590,6 +5793,42 @@ function renderWbar(){
 function renderRack(){
   el.armMon.textContent = money(G.money);
   rackBtns.forEach((b,k) => { b.disabled = G.money < WEAPONS[k+1].price; });
+  pintarGaraje();
+}
+
+/* ---- el mostrador del Garaje ----
+   Se paga con el dinero de la partida, así que solo se compra jugando. Los
+   precios son de aventura larga a propósito: el Amaru cuesta 750 000 porque
+   tenerlo tiene que significar algo. */
+const elGaraje = document.getElementById("garaje");
+function pintarGaraje(){
+  if (!elGaraje) return;
+  const plata = G && G.started ? G.money : 0;
+  elGaraje.innerHTML = "";
+  for (const g of GARAJE){
+    const v = VEHICULOS[g.tipo];
+    const tuyo = tengoVehiculo(g.tipo);
+    const b = document.createElement("button");
+    b.className = "buy" + (tuyo ? " tuyo" : "");
+    b.type = "button";
+    b.disabled = tuyo || plata < g.precio;
+    b.innerHTML =
+      '<span class="ic">' + v.icon + '</span>' +
+      '<span><span class="nm">' + v.label + '</span><br>' +
+      (tuyo ? '<span class="ya">✔ ya es tuyo</span>'
+            : '<span class="pr">' + money(g.precio) + '</span>') +
+      '<br><span class="ds">' + g.comoSale + '</span></span>';
+    b.addEventListener("click", () => {
+      if (tengoVehiculo(g.tipo) || !G.started || G.money < g.precio) return;
+      /* En una sala no se compra: el dinero lo lleva el servidor y una compra
+         local se la tragaría el siguiente resync. */
+      if (sala){ pop(G.player.x, G.player.y - 80, "El Garaje es de tu partida, no de la sala", "#FF6B90"); return; }
+      G.player.money -= g.precio;
+      ganarVehiculo(g.tipo, "🔧 " + v.icon + " ¡" + v.label + " es tuyo!");
+      renderRack();
+    });
+    elGaraje.appendChild(b);
+  }
 }
 
 /* ============================================================
@@ -5828,6 +6067,7 @@ if (import.meta.env.DEV) {
     montar: tipo => { const v = G.trastos.find(t => t.tipo === tipo); if (!v) return null;
                       G.player.x = v.x; G.player.y = v.y; return v.tipo; },
     dinero: n => { G.player.money = n; },
+    vehiculo: (tipo, quien = 0) => { darleVehiculo(G, G.players[quien], tipo); return tipo; },
     cargar: tier => { G.player.carry = nuevoFlorin(G, tier ?? 3); },
     yo: () => ({ x: Math.round(G.player.x), y: Math.round(G.player.y),
                  dinero: Math.round(G.player.money), carry: !!G.player.carry,

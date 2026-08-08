@@ -49,6 +49,7 @@ wss.on("connection", ws => {
       const asiento = sala.sentar(quien.userId, m.apodo || quien.apodo, x => mandar(ws, x));
       if (!asiento) { mandar(ws, { t: "error", motivo: "La sala está llena." }); return; }
 
+      sala.vehiculoDe(asiento, m.vehiculo);
       sesiones.set(ws, { sala, asiento });
       mandar(ws, {
         t: "bienvenida", codigo: sala.codigo, idx: asiento.idx,

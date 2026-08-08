@@ -35,7 +35,9 @@ export const CUENTA_ATRAS = 3;
 /* ---- lo que manda el cliente ---- */
 export type DelCliente =
   | { t: "entrar"; token?: string; codigo?: string; escenario?: string; apodo?: string;
-      modo?: "aventura" | "versus" | "carrera" }
+      modo?: "aventura" | "versus" | "carrera";
+      /** con qué quiere correr; el servidor no comprueba si de verdad lo tiene */
+      vehiculo?: string }
   | { t: "entrada"; mover: { x: number; y: number }; apunta: { x: number; y: number } | null }
   | { t: "arma"; i: number }
   | { t: "comprar"; i: number }

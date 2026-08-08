@@ -5,7 +5,8 @@
 
 import { describe, expect, it } from "vitest";
 import {
-  CIRCUITOS, ESCENARIOS, ESCUDO_DUR, FLORES, GOAL, HITO_R, JUGADORES_MAX, VUELTAS,
+  CIRCUITOS, ESCENARIOS, ESCUDO_DUR, FLORES, GARAJE, GOAL, HITO_R, JUGADORES_MAX,
+  VEHICULOS, VUELTAS, darleVehiculo, esEspecial, trastoDe, vehiculoDelSitio,
   puestosDeCarrera, puestoDe, pensarBot, LASER_DUR, LASER_PRECIO, PORTAL_RAREZAS, RAR_COLOR,
   reglasPara,
   RULETA, RULETA_INCOGNITA, RULETA_PRECIO, TIERS, WEAPONS, varMult,
@@ -1101,6 +1102,34 @@ describe("carrera", () => {
             .toBeGreaterThan(HITO_R);
         }
     }
+  });
+
+  it("cada uno sale con el vehículo que eligió", () => {
+    const e = crearPartida({
+      jugadores: 3, escenario: "luna", semilla: 7, armas: idsDeArmas(),
+      reglas: { modo: "carrera", vecinos: false, puestos: false },
+    });
+    // por defecto, lo del sitio
+    expect(vehiculoDelSitio(e)).toBe("carrito");
+    expect(trastoDe(e, e.players[0].montado)!.tipo).toBe("carrito");
+    // y quien tiene un especial, sale con el suyo
+    darleVehiculo(e, e.players[1], "ovni");
+    expect(trastoDe(e, e.players[1].montado)!.tipo).toBe("ovni");
+    expect(e.players[1].vehiculo).toBe("ovni");
+    // sin dejar el viejo tirado en la pista
+    expect(e.trastos.filter(v => v.montadoPor === 1).length).toBe(1);
+    // y un tipo inventado no cambia nada
+    darleVehiculo(e, e.players[2], "submarino");
+    expect(trastoDe(e, e.players[2].montado)!.tipo).toBe("carrito");
+  });
+
+  it("los especiales vuelan: el agua no los para", () => {
+    for (const g of GARAJE) expect(VEHICULOS[g.tipo].agua, g.tipo).toBe(true);
+    // y son más rápidos que cualquier cosa que se encuentre tirada
+    const normales = Object.entries(VEHICULOS)
+      .filter(([k]) => !esEspecial(k)).map(([, v]) => v.mult);
+    for (const g of GARAJE)
+      expect(VEHICULOS[g.tipo].mult, g.tipo).toBeGreaterThan(Math.max(...normales));
   });
 
   it("no hay vecinos: ni ladrones, ni abuelas, ni desfile", () => {

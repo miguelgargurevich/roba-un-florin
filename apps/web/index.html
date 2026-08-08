@@ -394,6 +394,11 @@
   .comoSeJuega summary:hover{color:var(--cream)}
   .comoSeJuega summary:focus-visible{outline:3px solid var(--cosmo);outline-offset:2px}
 
+  /* ---------- el Garaje ---------- */
+  .garajeTitulo{margin-top:10px !important;padding-top:9px;border-top:1px solid rgba(255,239,226,.14)}
+  .buy.tuyo{border-color:var(--leaf);background:color-mix(in srgb,var(--leaf) 14%, var(--plum-700))}
+  .buy .ya{font-size:10px;font-weight:800;color:var(--leaf)}
+
   /* ---------- a qué jugamos (portada) ---------- */
   .modoFila{display:grid;grid-template-columns:1fr 1fr;gap:8px}
   .modoBtn{
@@ -843,6 +848,10 @@
       <button class="cerrarX" data-cerrar="arm" aria-label="Cerrar la Armería">✕</button>
       <h2>🧰 Armería <small id="armMoney">$0</small></h2>
       <div class="rack" id="rack"></div>
+      <!-- El Garaje va con la Armería: es el otro sitio donde se gasta plata,
+           y así no hay que inventar otro puesto en el mapa. -->
+      <h2 class="garajeTitulo">🔧 Garaje <small>vehículos especiales, para siempre</small></h2>
+      <div class="rack" id="garaje"></div>
     </div>
 
     <div id="ruleta" hidden>
@@ -960,6 +969,9 @@
           <span class="ds">Tres vueltas al circuito, montado. Gana el primero.</span>
         </button>
       </div>
+
+      <p class="escTitulo" id="vehTitulo" hidden>Con qué corres</p>
+      <div class="escFila" id="vehFila" hidden></div>
 
       <p class="escTitulo">Escenario</p>
       <div class="escFila" id="escFila"></div>
