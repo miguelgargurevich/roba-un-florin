@@ -24,6 +24,13 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Última sesión
 
+- 2026-08-08 (claude-code): **El Valle**, la prueba de mundo abierto: tres sitios
+  que ya existían —La Catarata, La Construcción, El Zoológico— cosidos en un
+  mapa de 10 800 x 2 100 que se cruza andando, sin menú. Para que fuera posible:
+  el tamaño del mundo lo pide cada escenario (antes era una constante global) y
+  el suelo va por MOSAICOS de 1024 px, así que el tamaño del mapa dejó de tener
+  techo. En staging, no en producción.
+
 - 2026-08-08 (claude-code): en tableta **no se podían comprar armas**: el
   guardián del doble toque cancelaba el `touchend`, y con él el `click` que iOS
   genera después. Ahora no se cancela nunca sobre un control (ver gotchas).
@@ -209,6 +216,23 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
   pintar el suelo crecía con el mundo aunque en pantalla quepa lo mismo. Medido
   en escritorio: 0,105 ms contra 0,153 por volcado — irrelevante aquí, pero es
   el tipo de coste que se nota en una tableta.
+- 2026-08-08: el tamaño del mundo lo pide cada escenario y ya no es constante.
+  `WORLD_W`/`WORLD_H` son `let` exportados: en ESM los imports son enlaces
+  vivos, así que los ~160 sitios que ya los leían siguen funcionando sin tocar
+  nada. Lo que hubo que mover son las DERIVADAS —`OCHO_A`, `ESCALA_MAPA`, los
+  `PORTAL_*` y cuatro constantes del cliente—, que se congelaban al cargar el
+  módulo: ahora se recalculan en `fijarMundo`.
+- 2026-08-08: los escenarios se ESCRIBEN en fracciones y se MONTAN en píxeles
+  (`montarEscenario`), al empezar la partida. Antes se resolvían al cargar el
+  módulo con el mundo de 3600 x 2100, y un mapa de otro tamaño habría salido con
+  las casas apiñadas en una esquina.
+- 2026-08-08: el suelo va por mosaicos de 1024 px, pintados cuando se ven. Un
+  lienzo del tamaño del mundo tiene techo (iOS no pasa de 16,7 Mpx) y El Valle
+  son 22,7. Cada mosaico usa el MISMO código de decorado recortado a su
+  rectángulo, y encaja con el vecino porque el decorado es determinista.
+- 2026-08-08: los decorados dibujan sobre `DECO_W`/`DECO_H` (la caja que toque),
+  no sobre el mundo. Eso es lo que deja pintar tres zonas distintas en un mismo
+  mapa sin tocar ni una de las 25 funciones de decorado.
 - 2026-08-08: los adornos GRANDES (volcanes, castillo, Coliseo, recintos del
   zoo, rueda de la fortuna) van con `huecoGrande`, no con `sembrar`. `sembrar`
   reparte en bandas y se rinde a los 26 intentos: con algo más grande que una

@@ -283,9 +283,24 @@ export interface EntradaJugador {
   apunta: { x: number; y: number } | null;
 }
 
+/** Un trazado de circuito guardado en fracciones del mundo. */
+export interface Trazado {
+  base: [number, number][];
+  cx: number; cy: number; w: number; h: number; alReves: boolean;
+}
+
+/* Un escenario se ESCRIBE en fracciones y se MONTA en píxeles. Los campos son
+   los mismos en las dos formas; lo que cambia es qué significan los números.
+   `montarEscenario` hace la conversión al empezar la partida, con el tamaño de
+   mundo que pida el sitio. */
 export interface Escenario {
   id: string;
   nombre: string;
+  /** el tamaño de mundo que pide. Sin esto, el de siempre. */
+  mundo?: { w: number; h: number };
+  /** Si es un valle de varias zonas, dónde empieza cada una y qué decorado usa.
+      Lo lee el cliente para pintar; el motor solo lo lleva de paseo. */
+  zonas?: { id: string; x0: number; x1: number }[];
   casas: [number, number][];
   patios: [number, number][];
   /** y desde la que empieza el agua: a pie te frena en la orilla, y con tabla
@@ -296,8 +311,10 @@ export interface Escenario {
       cruza andando: si no, sería un dibujo bonito y nada más. */
   puente?: { x: number; w: number };
   /** Los puntos de paso del circuito, en orden y en bucle. Sin esto aquí no se
-      corre: el escenario no aparece en el modo carrera. */
+      corre: el escenario no aparece en el modo carrera. Antes de montar es el
+      trazado en fracciones; después, los puntos de verdad. */
   circuito?: [number, number][];
+  trazado?: Trazado;
 }
 
 /* Lo que antes decidía `mode: 1 | 2`. Separado, porque eran cuatro reglas

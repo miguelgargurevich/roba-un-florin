@@ -7,7 +7,7 @@ import type {
 } from "./tipos.js";
 import {
   ESCENARIOS, FLORES, GOAL, LASER_CARGA, PATIOS_PRECIO, TIERS, TRASTOS_ESCENARIO,
-  ANCHO_PISTA, CAJAS_EN_PISTA, ESCALA_MAPA, OCHO_A, OCHO_B, VARIANTES, dificultadDe, VEHICULOS, WORLD_H, WORLD_W, esVehiculo, varMult,
+  ANCHO_PISTA, CAJAS_EN_PISTA, ESCALA_MAPA, OCHO_A, OCHO_B, VARIANTES, dificultadDe, montarEscenario, VEHICULOS, WORLD_H, WORLD_W, esVehiculo, varMult,
 } from "./datos.js";
 import { azar, clamp, dist2, inRect, rnd } from "./util.js";
 
@@ -381,7 +381,10 @@ export function colocarPuestos(bases: Base[]) {
 export function crearPartida(op: OpcionesPartida): Estado {
   const n = clampEntero(op.jugadores ?? 1, 1, JUGADORES_MAX);
   const reglas: Reglas = { ...reglasPara(n), ...(op.reglas || {}) };
-  const esc = ESCENARIOS.find(x => x.id === op.escenario) || ESCENARIOS[0];
+  /* Montar el escenario es lo PRIMERO: fija el tamaño del mundo y pasa sus
+     fracciones a píxeles. Todo lo que viene después —las bases, los trastos,
+     la pasarela, la pista— se coloca con ese mundo ya puesto. */
+  const esc = montarEscenario(ESCENARIOS.find(x => x.id === op.escenario) || ESCENARIOS[0]);
   const semilla = op.semilla ?? 1;
   const C = esc.casas, P = esc.patios;
 

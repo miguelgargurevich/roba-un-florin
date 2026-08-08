@@ -5,15 +5,25 @@
    los Marcianos) y los de los Florines viven SOLO en estas tablas. Cambiarlos es
    editar este archivo, no tocar reglas. */
 
-import type { Escenario } from "./tipos.js";
+import type { Escenario , Trazado} from "./tipos.js";
 
-export const WORLD_W = 3600, WORLD_H = 2100;
+/* El tamaño del mundo ya NO es una constante: lo fija cada escenario al empezar
+   la partida. Casi todos miden 3600 x 2100, pero El Valle es tres zonas cosidas
+   y necesita ser mucho más ancho.
+
+   Van como `let` exportado a propósito: en ESM los imports son enlaces vivos,
+   así que los 160 sitios que ya leían `WORLD_W` siguen leyendo el valor bueno
+   sin tocar ni una línea. Lo que sí hubo que mover son las constantes DERIVADAS
+   de él, que se congelaban al cargar el módulo: ahora se recalculan en
+   `fijarMundo`. */
+export const MUNDO_NORMAL = { w: 3600, h: 2100 };
+export let WORLD_W = MUNDO_NORMAL.w, WORLD_H = MUNDO_NORMAL.h;
 
 /* Cuánto más grande es el mapa que aquel para el que se escribieron a mano las
    recetas de trastos y el ritmo del desfile. Todo lo que llena el mundo se
    multiplica por esto: si no, agrandar el mapa es repartir lo mismo por el
    doble de sitio, que es un descampado con las mismas cuatro bicis. */
-export const ESCALA_MAPA = (WORLD_W * WORLD_H) / (2600 * 1700);
+export let ESCALA_MAPA = 1;
 export const GOAL = 60000;
 export const PATIOS_PRECIO = [4000, 12000, 30000, 70000];
 
@@ -107,14 +117,14 @@ export const WEAPONS = [
     desc:"Te protege tres minutos: aguanta los golpes sin soltar lo que cargas." },
 ];
 
-export const PORTAL_CADA = 6 / ESCALA_MAPA;   // segundos entre Florines
+export let PORTAL_CADA = 6;                   // segundos entre Florines
 /* Lo que tarda uno en el recorrido. Sube con la pasarela: con el tiempo fijo,
    un ocho más largo solo significaba Florines más veloces y más difíciles de
    atrapar, que no es lo que se quería al agrandar el mapa. */
-export const PORTAL_VUELTA = Math.round(26 * (WORLD_W / 2600));
+export let PORTAL_VUELTA = 26;
 /** A qué velocidad pasean los Florines sueltos. */
 export const PORTAL_VEL = 132;
-export const PORTAL_MAX = Math.round(6 * ESCALA_MAPA);  // Florines en el desfile a la vez
+export let PORTAL_MAX = 6;                    // Florines en el desfile a la vez
 /* Qué sale del portal. Los pesos suman 100 y el desfile NO respeta maxTier: lo
    raro puede salir desde el primer segundo, solo que casi nunca.
    El Amaru va a 0.4 → sale un par de veces por hora de juego. Con menos, nadie
@@ -205,8 +215,16 @@ export const GARAJE: { tipo: string; precio: number; comoSale: string }[] = [
 export const TIERRA_DEL_ESPECIAL: Record<string, string> = {
   dragon: "medieval", monster: "construccion", grua: "construccion",
 };
-export const esDeSuTierra = (tipo: string, escenario: string) =>
-  TIERRA_DEL_ESPECIAL[tipo] === escenario;
+/** ¿Este especial se encuentra tirado en este sitio? En su tierra, o en un
+    valle que la contenga: El Valle incluye La Construcción, así que allí hay
+    grúas por el mismo motivo que las hay en la obra. */
+export const esDeSuTierra = (tipo: string, escenario: string) => {
+  const suya = TIERRA_DEL_ESPECIAL[tipo];
+  if (!suya) return false;
+  if (suya === escenario) return true;
+  const esc = ESCENARIOS.find(e => e.id === escenario);
+  return !!esc?.zonas?.some(z => z.id === suya);
+};
 export const esEspecial = (tipo: string) => GARAJE.some(g => g.tipo === tipo);
 export const esVehiculo = (tipo: string) => tipo in VEHICULOS;
 
@@ -238,6 +256,11 @@ export const TRASTOS_ESCENARIO: Record<string, { tipo: string; n: number }[]> = 
   construccion:[{ tipo:"grua", n:2 },       { tipo:"monster", n:2 },  { tipo:"ladrillo", n:9 }, { tipo:"barril", n:5 }],
   /* La bici va aquí: era la del Barrio y sin esto se quedaba sin ningún sitio
      donde encontrarla. En un camino de cerro, una de montaña pega. */
+  /* El Valle reparte lo de sus tres zonas: bicis y llamas del cerro, grúas y
+     monsters de la obra, elefantes del zoológico. */
+  valle:       [{ tipo:"bici", n:3 },       { tipo:"llama", n:3 },    { tipo:"grua", n:2 },
+                { tipo:"monster", n:2 },    { tipo:"elefante", n:2 }, { tipo:"piedra", n:6 },
+                { tipo:"ladrillo", n:6 },   { tipo:"banano", n:6 }],
   catarata:    [{ tipo:"bici", n:3 },       { tipo:"llama", n:3 },
                 { tipo:"balsa", n:2 },      { tipo:"piedra", n:8 }],
   nevado:      [{ tipo:"motonieve", n:3 },  { tipo:"tablaArena", n:3 },{ tipo:"bolaNieve", n:9 }],
@@ -643,10 +666,16 @@ function repartir(pts: [number, number][]): [number, number][] {
     1700), así que girar 90° aplastaría la pista contra el lado corto — una
     recta de 330 px se quedaba en 124, más cerca que el radio de paso, y la
     vuelta se daba sin correrla. */
-function trazar(base: P[], cx: number, cy: number, w: number, h: number, alReves = false):
-    [number, number][] {
-  const k = alReves ? -1 : 1;
-  return repartir(base.map(([nx, ny]) =>
+function trazar(base: P[], cx: number, cy: number, w: number, h: number, alReves = false): Trazado {
+  return { base, cx, cy, w, h, alReves };
+}
+
+/** Un trazado en fracciones a los puntos de paso de verdad. */
+export function trazadoAPuntos(t: Trazado): [number, number][] {
+  const k = t.alReves ? -1 : 1;
+  const cx = WORLD_W * t.cx, cy = WORLD_H * t.cy;
+  const w = WORLD_W * t.w, h = WORLD_H * t.h;
+  return repartir(t.base.map(([nx, ny]) =>
     [Math.round(cx + nx * k * w / 2), Math.round(cy + ny * k * h / 2)] as [number, number]));
 }
 
@@ -671,14 +700,35 @@ const BASE_W = 380, BASE_H = 330;
    comía el centro entero, y fija se quedaba en una pista de baile perdida en un
    descampado. Con esto ocupa el 41 % del ancho (antes el 48 %), y el sitio que
    sobra alrededor es justo donde caben las casas nuevas. */
-export const OCHO_A = Math.round(WORLD_W * 0.206), OCHO_B = Math.round(WORLD_H * 0.32);
+export let OCHO_A = 0, OCHO_B = 0;
+
+/** Fija el tamaño del mundo y recalcula todo lo que sale de él. Se llama al
+    crear la partida, antes de colocar nada. */
+export function fijarMundo(w: number, h: number): void {
+  WORLD_W = w; WORLD_H = h;
+  ESCALA_MAPA = (w * h) / (2600 * 1700);
+  PORTAL_CADA = 6 / ESCALA_MAPA;
+  PORTAL_MAX = Math.round(6 * ESCALA_MAPA);
+  PORTAL_VUELTA = Math.round(26 * (w / 2600));
+  OCHO_A = Math.round(w * 0.206);
+  OCHO_B = Math.round(h * 0.32);
+}
+fijarMundo(MUNDO_NORMAL.w, MUNDO_NORMAL.h);
 const MARGEN = 70, MARGEN_ARRIBA = 80;
 
-export const ancho = (f: number) => Math.round(WORLD_W * f);
-export const alto  = (f: number) => Math.round(WORLD_H * f);
-export const medioX = () => Math.round(WORLD_W / 2);
+/* Devuelven la FRACCIÓN, no el píxel: quien la use la resuelve al montar. */
+export const ancho = (f: number) => f;
+export const alto  = (f: number) => f;
+export const medioX = () => 0.5;
 
-function sitio(fx: number, fy: number): [number, number] {
+/* Los escenarios se escriben en FRACCIONES y se resuelven a píxeles al empezar
+   la partida, no al cargar el módulo. Antes se congelaban con el mundo de 3600
+   x 2100, y así El Valle —que es mucho más ancho— habría salido con las casas
+   apiñadas en su primera zona. */
+function sitio(fx: number, fy: number): [number, number] { return [fx, fy]; }
+
+/** Una fracción de casa/patio a píxeles, con el mundo que toque. */
+export function sitioAPixel([fx, fy]: [number, number]): [number, number] {
   return [
     Math.round(MARGEN + fx * (WORLD_W - 2 * MARGEN - BASE_W)),
     Math.round(MARGEN_ARRIBA + fy * (WORLD_H - MARGEN_ARRIBA - MARGEN - BASE_H)),
@@ -712,11 +762,12 @@ function acomodar(puestos: [number, number][], cuantos: number): [number, number
     return !(p[0] < cx + 90 && p[0] + BASE_W > cx - 90);
   };
   /* Por los cuatro bordes, de fuera hacia dentro. */
+  /* En PÍXELES: `acomodar` corre al montar, cuando el mundo ya está fijado. */
   const candidatos: [number, number][] = [];
   for (const fy of [0, 0.5, 0.25, 0.75, 1]) for (const fx of [0, 1])
-    candidatos.push(sitio(fx, fy));
+    candidatos.push(sitioAPixel([fx, fy]));
   for (const fx of [0.5, 0.25, 0.75]) for (const fy of [0, 1])
-    candidatos.push(sitio(fx, fy));
+    candidatos.push(sitioAPixel([fx, fy]));
   const nuevos: [number, number][] = [];
   for (const c of candidatos) {
     if (nuevos.length >= cuantos) break;
@@ -726,13 +777,28 @@ function acomodar(puestos: [number, number][], cuantos: number): [number, number
   return nuevos;
 }
 
-/** Rellena un escenario hasta el cupo de casas y patios del mapa. */
-function completar(e: Escenario): Escenario {
+/** Deja un escenario listo para jugar: fija el mundo que pide, pasa sus
+    fracciones a píxeles, rellena los sitios que falten y traza el circuito.
+
+    Devuelve una COPIA. El catálogo `ESCENARIOS` se queda siempre en fracciones,
+    que es lo que permite montar el mismo sitio en mundos de distinto tamaño. */
+export function montarEscenario(base: Escenario): Escenario {
+  fijarMundo(base.mundo?.w ?? MUNDO_NORMAL.w, base.mundo?.h ?? MUNDO_NORMAL.h);
+  const e: Escenario = { ...base };
+  e.casas = base.casas.map(sitioAPixel);
+  e.patios = base.patios.map(sitioAPixel);
   const puestos: [number, number][] = [...e.casas, ...e.patios];
   e.casas = [...e.casas, ...acomodar(puestos, CASAS_POR_MAPA - e.casas.length)];
   e.patios = [...e.patios, ...acomodar(puestos, PATIOS_POR_MAPA - e.patios.length)];
+  if (base.mar != null) e.mar = Math.round(WORLD_H * base.mar);
+  if (base.puente) e.puente = { x: Math.round(WORLD_W * base.puente.x),
+                                w: Math.round(WORLD_W * base.puente.w) };
+  if (base.trazado) e.circuito = trazadoAPuntos(base.trazado);
   return e;
 }
+
+/** ¿Se puede correr aquí? Se mira el trazado, que es lo que hay sin montar. */
+export const tieneCircuito = (e: Escenario) => !!e.trazado;
 
 export const ESCENARIOS: Escenario[] = ([
   /* La Catarata ocupa el sitio de El Barrio: es el escenario de partida, el
@@ -741,24 +807,24 @@ export const ESCENARIOS: Escenario[] = ([
   { id:"catarata", nombre:"La Catarata",
     casas:[sitio(0,0.008),sitio(1,0.008),sitio(1,0.508),sitio(1,0.992)],
     patios:[sitio(0,0.992),sitio(0.216,0.992),sitio(0,0.672)],
-    circuito: trazar(CHICANA, medioX(), alto(0.5), ancho(0.885), alto(0.8)) },
+    trazado: trazar(CHICANA, medioX(), alto(0.5), ancho(0.885), alto(0.8)) },
   { id:"colegio",  nombre:"Sta. Teresita",
     casas:[sitio(0,0.008),sitio(0.236,0.008),sitio(0,0.475),sitio(0,0.992)],
     patios:[sitio(1,0.992),sitio(0.784,0.992),sitio(1,0.639)],
     // en el colegio se corre alrededor de la cancha, en rectángulo
-    circuito: trazar(ZIGZAG, medioX(), alto(0.5), ancho(0.885), alto(0.8)) },
+    trazado: trazar(ZIGZAG, medioX(), alto(0.5), ancho(0.885), alto(0.8)) },
   { id:"playa",    nombre:"La Playa",
     casas:[sitio(1,0.008),sitio(1,0.443),sitio(1,0.836),sitio(0.236,0.836)],
     patios:[sitio(0,0.008),sitio(0,0.303),sitio(0,0.598)],
     mar: alto(0.876),
     // pegado a la orilla pero sin meterse: en la arena mojada se corre mejor
     // la herradura, con la caja recortada por el mar, se quedaba corta
-    circuito: trazar(HORQUILLA, medioX(), alto(0.438), ancho(0.885), alto(0.729)) },
+    trazado: trazar(HORQUILLA, medioX(), alto(0.438), ancho(0.885), alto(0.729)) },
   { id:"desierto", nombre:"El Desierto",
     // la cuarta rozaba el lóbulo derecho de la pasarela: apartada a la derecha
     casas:[sitio(0,0.008),sitio(1,0.008),sitio(1,0.992),sitio(0.87,0.508)],
     patios:[sitio(0,0.992),sitio(0,0.672),sitio(0,0.352)],
-    circuito: trazar(RINON, medioX(), alto(0.5), ancho(0.885), alto(0.8)) },
+    trazado: trazar(RINON, medioX(), alto(0.5), ancho(0.885), alto(0.8)) },
 
   /* Los cuatro de viaje. Mismo reparto de siempre —un patio, cuatro casas y
      los dos comprables al lado— porque las reglas no cambian con el sitio. */
@@ -766,7 +832,7 @@ export const ESCENARIOS: Escenario[] = ([
     casas:[sitio(0,0.008),sitio(1,0.008),sitio(1,0.508),sitio(1,0.992)],
     patios:[sitio(0,0.992),sitio(0.216,0.992),sitio(0,0.672)],
     // el circuito sigue los andenes, que ya son bandas horizontales
-    circuito: trazar(HORQUILLA, medioX(), alto(0.5), ancho(0.885), alto(0.8)) },
+    trazado: trazar(HORQUILLA, medioX(), alto(0.5), ancho(0.885), alto(0.8)) },
   /* Nueva York se reparte a propósito: las casas arriba, los patios a la
      izquierda, Central Park ocupando toda la derecha y el puerto abajo. El
      puente de Brooklyn es el único paso a pie sobre el agua. */
@@ -776,11 +842,11 @@ export const ESCENARIOS: Escenario[] = ([
     mar: alto(0.841),
     puente: { x: ancho(0.723), w: ancho(0.131) },
     // por las cuadras, y sin bajar al puerto: el puente es de a pie
-    circuito: trazar(ZIGZAG, medioX(), alto(0.421), ancho(0.885), alto(0.694)) },
+    trazado: trazar(ZIGZAG, medioX(), alto(0.421), ancho(0.885), alto(0.694)) },
   { id:"egipto",      nombre:"Egipto",
     casas:[sitio(1,0.008),sitio(1,0.508),sitio(1,0.992),sitio(0,0.008)],
     patios:[sitio(0,0.992),sitio(0.216,0.992),sitio(0,0.656)],
-    circuito: trazar(HERRADURA, medioX(), alto(0.5), ancho(0.885), alto(0.8), true) },
+    trazado: trazar(HERRADURA, medioX(), alto(0.5), ancho(0.885), alto(0.8), true) },
   { id:"amazonas",    nombre:"El Amazonas",
     casas:[sitio(0,0.008),sitio(1,0.008),sitio(0.236,0.008),sitio(1,0.443)],
     patios:[sitio(0,0.852),sitio(0.216,0.852),sitio(0,0.557)],
@@ -788,7 +854,7 @@ export const ESCENARIOS: Escenario[] = ([
     mar: alto(0.859),
     // la pista se queda en tierra firme, al norte del río
     // el riñón en una caja baja se queda corto: la chicana cunde más
-    circuito: trazar(CHICANA, medioX(), alto(0.421), ancho(0.885), alto(0.694), true) },
+    trazado: trazar(CHICANA, medioX(), alto(0.421), ancho(0.885), alto(0.694), true) },
 
   /* Los cuatro de juguete: el suelo del cuarto convertido en cuadra. El
      reparto es el de siempre —cuatro casas, un patio y los dos comprables al
@@ -797,22 +863,22 @@ export const ESCENARIOS: Escenario[] = ([
     casas:[sitio(0,0.008),sitio(1,0.008),sitio(1,0.508),sitio(1,0.992)],
     patios:[sitio(0,0.992),sitio(0.216,0.992),sitio(0,0.672)],
     // la pista de plástico ya era un circuito: solo faltaba decirlo
-    circuito: trazar(HORQUILLA, medioX(), alto(0.5), ancho(0.885), alto(0.8), true) },
+    trazado: trazar(HORQUILLA, medioX(), alto(0.5), ancho(0.885), alto(0.8), true) },
   { id:"tablero",  nombre:"Monopoly",
     casas:[sitio(0,0.008),sitio(0.236,0.008),sitio(0.745,0.008),sitio(0.99,0.008)],
     patios:[sitio(0,0.992),sitio(0.216,0.992),sitio(0,0.672)],
     // por el anillo de casillas: el tablero ya era una pista, con sus esquinas
-    circuito: trazar(ZIGZAG, medioX(), alto(0.5), ancho(0.885), alto(0.8), true) },
+    trazado: trazar(ZIGZAG, medioX(), alto(0.5), ancho(0.885), alto(0.8), true) },
   /* En el Mirador las casas van todas a la derecha y arriba: la esquina
      noroeste se deja libre a propósito para que quepa la montaña. */
   { id:"mirador",  nombre:"Thomas y el Mirador",
     casas:[sitio(1,0.008),sitio(1,0.508),sitio(1,0.992),sitio(0.745,0.008)],
     patios:[sitio(0,0.992),sitio(0.216,0.992),sitio(0,0.656)],
-    circuito: trazar(TREBOL, medioX(), alto(0.5), ancho(0.885), alto(0.8), true) },
+    trazado: trazar(TREBOL, medioX(), alto(0.5), ancho(0.885), alto(0.8), true) },
   { id:"circuito", nombre:"Mario Kart",
     casas:[sitio(0,0.008),sitio(1,0.008),sitio(0.236,0.008),sitio(1,0.443)],
     patios:[sitio(0,0.852),sitio(0.216,0.852),sitio(0,0.557)],
-    circuito: trazar(CHICANA, medioX(), alto(0.5), ancho(0.885), alto(0.8), true) },
+    trazado: trazar(CHICANA, medioX(), alto(0.5), ancho(0.885), alto(0.8), true) },
 
   /* ---- los cuatro de correr ----
      Nacieron como circuitos: el reparto de casas es el de siempre porque en
@@ -822,17 +888,17 @@ export const ESCENARIOS: Escenario[] = ([
     patios:[sitio(0,0.361),sitio(0.15,0.361),sitio(0,0.656)],
     // el mar al sur; el acantilado y la pista van pegados a la orilla
     mar: alto(0.871),
-    circuito: trazar(HORQUILLA, medioX(), alto(0.426), ancho(0.885), alto(0.718)) },
+    trazado: trazar(HORQUILLA, medioX(), alto(0.426), ancho(0.885), alto(0.718)) },
   { id:"prehistoria", nombre:"La Prehistoria",
     casas:[sitio(0,0.008),sitio(1,0.008),sitio(1,0.992),sitio(0,0.992)],
     // el de en medio arriba estaba justo donde baja el desfile del portal
     patios:[sitio(0.236,0.008),sitio(0,0.5),sitio(0.236,0.992)],
     // las líneas son la pista: por eso se corre en ocho, cruzando por el medio
-    circuito: trazar(TREBOL, medioX(), alto(0.5), ancho(0.885), alto(0.8)) },
+    trazado: trazar(TREBOL, medioX(), alto(0.5), ancho(0.885), alto(0.8)) },
   { id:"volcan",     nombre:"El Volcán",
     casas:[sitio(0,0.008),sitio(1,0.008),sitio(1,0.992),sitio(0.236,0.992)],
     patios:[sitio(0,0.992),sitio(0,0.656),sitio(0,0.328)],
-    circuito: trazar(RINON, medioX(), alto(0.5), ancho(0.885), alto(0.8), true) },
+    trazado: trazar(RINON, medioX(), alto(0.5), ancho(0.885), alto(0.8), true) },
   /* Los cuatro de historia. Cada uno trae su vehículo: la grúa y el monster de
      la obra, el dragón de la Edad Media, el carro romano y la carabela. Los
      tres primeros además se compran en el Garaje, que es lo que permite
@@ -840,49 +906,68 @@ export const ESCENARIOS: Escenario[] = ([
   { id:"construccion", nombre:"La Construcción",
     casas:[sitio(0,0.008),sitio(1,0.008),sitio(1,0.992),sitio(0,0.992)],
     patios:[sitio(0.236,0.008),sitio(0,0.5),sitio(0.236,0.992)],
-    circuito: trazar(ZIGZAG, medioX(), alto(0.5), ancho(0.885), alto(0.8)) },
+    trazado: trazar(ZIGZAG, medioX(), alto(0.5), ancho(0.885), alto(0.8)) },
   { id:"medieval",   nombre:"La Edad Media",
     casas:[sitio(0,0.008),sitio(0.236,0.008),sitio(1,0.508),sitio(0,0.992)],
     patios:[sitio(1,0.008),sitio(0.784,0.992),sitio(1,0.992)],
-    circuito: trazar(TREBOL, medioX(), alto(0.5), ancho(0.885), alto(0.8), true) },
+    trazado: trazar(TREBOL, medioX(), alto(0.5), ancho(0.885), alto(0.8), true) },
   { id:"italia",     nombre:"Italia",
     casas:[sitio(0,0.008),sitio(1,0.008),sitio(1,0.992),sitio(0.236,0.992)],
     patios:[sitio(0,0.508),sitio(0.236,0.008),sitio(0,0.992)],
-    circuito: trazar(RINON, medioX(), alto(0.5), ancho(0.885), alto(0.8), true) },
+    trazado: trazar(RINON, medioX(), alto(0.5), ancho(0.885), alto(0.8), true) },
   /* El mar al sur: cruzarlo en carabela es la gracia del sitio, así que la
      pista se recorta por encima de la orilla como en los demás de costa. */
   { id:"america",    nombre:"El Descubrimiento",
     casas:[sitio(0,0),sitio(0.236,0),sitio(0.745,0),sitio(0.99,0)],
     patios:[sitio(0,0.361),sitio(0.15,0.361),sitio(0,0.656)],
     mar: alto(0.855),
-    circuito: trazar(HERRADURA, medioX(), alto(0.415), ancho(0.885), alto(0.68)) },
+    trazado: trazar(HERRADURA, medioX(), alto(0.415), ancho(0.885), alto(0.68)) },
 
   /* Los cuatro de paseo: el cerro nevado, el zoológico, la feria y la nave. */
   { id:"nevado",   nombre:"Farellones",
     casas:[sitio(0,0.008),sitio(1,0.008),sitio(1,0.508),sitio(0,0.992)],
     patios:[sitio(0.236,0.008),sitio(0.236,0.992),sitio(1,0.992)],
-    circuito: trazar(HORQUILLA, medioX(), alto(0.5), ancho(0.885), alto(0.8), true) },
+    trazado: trazar(HORQUILLA, medioX(), alto(0.5), ancho(0.885), alto(0.8), true) },
   { id:"zoo",      nombre:"El Zoológico",
     casas:[sitio(0,0.008),sitio(0.236,0.008),sitio(1,0.008),sitio(1,0.992)],
     patios:[sitio(0,0.508),sitio(0,0.992),sitio(0.784,0.992)],
-    circuito: trazar(CHICANA, medioX(), alto(0.5), ancho(0.885), alto(0.8)) },
+    trazado: trazar(CHICANA, medioX(), alto(0.5), ancho(0.885), alto(0.8)) },
   { id:"feria",    nombre:"El Parque de Diversiones",
     casas:[sitio(0,0.008),sitio(1,0.008),sitio(0,0.992),sitio(1,0.992)],
     patios:[sitio(0.236,0.008),sitio(0,0.5),sitio(0.784,0.008)],
-    circuito: trazar(ZIGZAG, medioX(), alto(0.5), ancho(0.885), alto(0.8), true) },
+    trazado: trazar(ZIGZAG, medioX(), alto(0.5), ancho(0.885), alto(0.8), true) },
   { id:"nave",     nombre:"La Nave Espacial",
     casas:[sitio(0,0.008),sitio(1,0.008),sitio(1,0.508),sitio(1,0.992)],
     patios:[sitio(0,0.992),sitio(0.236,0.992),sitio(0,0.508)],
-    circuito: trazar(TREBOL, medioX(), alto(0.5), ancho(0.885), alto(0.8)) },
+    trazado: trazar(TREBOL, medioX(), alto(0.5), ancho(0.885), alto(0.8)) },
+
+  /* ---- El Valle ----
+     La prueba de si esto puede ser un mundo abierto: tres sitios que ya existen,
+     cosidos en un mapa continuo, sin menú para pasar de uno a otro. Tres veces
+     el ancho de siempre, que solo es posible porque el suelo va por mosaicos y
+     el tamaño del mundo lo pide cada escenario.
+
+     No tiene circuito: no es un sitio para dar vueltas, es un sitio para andar. */
+  { id:"valle",      nombre:"El Valle",
+    mundo: { w: 10800, h: 2100 },
+    zonas: [
+      { id:"catarata",     x0: 0,    x1: 3600 },
+      { id:"construccion", x0: 3600, x1: 7200 },
+      { id:"zoo",          x0: 7200, x1: 10800 },
+    ],
+    /* Repartidas por las tres zonas: la gracia es que para robarle a todos hay
+       que cruzar el valle entero. */
+    casas:[sitio(0.06,0.008),sitio(0.30,0.9),sitio(0.60,0.008),sitio(0.78,0.9)],
+    patios:[sitio(0.02,0.5),sitio(0.40,0.5),sitio(0.94,0.5)] },
 
   { id:"luna",       nombre:"La Luna",
     casas:[sitio(0,0.008),sitio(1,0.008),sitio(1,0.508),sitio(1,0.992)],
     patios:[sitio(0,0.992),sitio(0.216,0.992),sitio(0,0.672)],
-    circuito: trazar(HERRADURA, medioX(), alto(0.5), ancho(0.885), alto(0.8)) },
-]).map(completar);
+    trazado: trazar(HERRADURA, medioX(), alto(0.5), ancho(0.885), alto(0.8)) },
+]);
 
 /** Los escenarios donde se puede correr, para el selector del lobby. */
-export const CIRCUITOS = ESCENARIOS.filter(e => e.circuito);
+export const CIRCUITOS = ESCENARIOS.filter(tieneCircuito);
 
 export const varMult = (v: string | null) =>
   (v && (VARIANTES as any)[v] ? (VARIANTES as any)[v].mult : 1) as number;

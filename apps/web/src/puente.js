@@ -40,7 +40,7 @@ export {
 /* ---- escenarios: el motor pone el reparto, el cliente el aspecto ---- */
 export const VISUALES = {
   catarata: {
-    icono: "💦",
+    icono: "🏞️",
     desc: "El paseo al cerro: camino inca de piedra, vegetación, y la caída de agua sobre la poza donde se meten los chicos y se sientan alrededor.",
     suelo: "#8E9A66", loseta: "rgba(255,255,255,.05)", mancha: "rgba(60,72,40,.24)",
     borde: "#4A5432", deco: "catarata", topes: "cantos",
@@ -172,6 +172,12 @@ export const VISUALES = {
     desc: "Dentro de la nave: pasillos de chapa, ventanas al espacio, consolas, rejillas de ventilación y tripulantes de colores.",
     suelo: "#3E4A5C", loseta: "rgba(150,190,230,.07)", mancha: "rgba(24,30,40,.34)",
     borde: "#26303E", deco: "nave", topes: "bidones",
+  },
+  valle: {
+    icono: "🗺️",
+    desc: "Tres sitios cosidos en un mapa: del cerro de la catarata a la obra, y de la obra al zoológico. Se cruza andando, sin volver al menú.",
+    suelo: "#8E9A66", loseta: "rgba(255,255,255,.05)", mancha: "rgba(60,72,40,.24)",
+    borde: "#4A5432", deco: "catarata", topes: "cantos",
   },
   luna: {
     icono: "🌕",

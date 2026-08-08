@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 import {
   CIRCUITOS, ESCENARIOS, ESCUDO_DUR, FLORES, GARAJE, GOAL, HITO_R, JUGADORES_MAX,
   VEHICULOS, VUELTAS, ANCHO_PISTA, CASAS_POR_MAPA, PATIOS_PRECIO, TIERRA_DEL_ESPECIAL,
+  montarEscenario, esDeSuTierra,
   PORTAL_CADA, PORTAL_MAX, PORTAL_VUELTA, TRASTOS_ESCENARIO, CAJAS_EN_PISTA, ESPECIAL_NIVEL, darleVehiculo,
   enLaPista, esEspecial, potenciadorPorId, potenciadoresDe, trastoDe, usarPotenciador,
   vehiculoDelSitio,
@@ -99,8 +100,8 @@ describe("el mundo se monta bien", () => {
     expect(baseDe(e, e.players[1].baseId).name).toBe("Patio del J2");
   });
 
-  it("todos los escenarios se pueden montar, y son veinticuatro", () => {
-    expect(ESCENARIOS.length).toBe(24);
+  it("todos los escenarios se pueden montar, y son veinticinco", () => {
+    expect(ESCENARIOS.length).toBe(25);
     for (const esc of ESCENARIOS) {
       const e = partida({ escenario: esc.id });
       expect(e.esc.id, esc.id).toBe(esc.id);
@@ -1138,17 +1139,21 @@ describe("el reparto del mapa", () => {
     a[1] < b[1] + CASA_H && a[1] + CASA_H > b[1];
 
   it("ninguna casa ni patio se sale del mundo", () => {
-    for (const esc of ESCENARIOS) for (const [x, y] of [...esc.casas, ...esc.patios]) {
+    for (const base of ESCENARIOS) {
+      const esc = montarEscenario(base);
+      for (const [x, y] of [...esc.casas, ...esc.patios]) {
       const donde = esc.id + " en " + x + "," + y;
       expect(x, donde).toBeGreaterThanOrEqual(0);
       expect(y, donde).toBeGreaterThanOrEqual(0);
       expect(x + CASA_W, donde + " se sale por la derecha").toBeLessThanOrEqual(WORLD_W);
       expect(y + CASA_H, donde + " se sale por abajo").toBeLessThanOrEqual(WORLD_H);
+      }
     }
   });
 
   it("no hay dos encima", () => {
-    for (const esc of ESCENARIOS) {
+    for (const base of ESCENARIOS) {
+      const esc = montarEscenario(base);
       const todas = [...esc.casas, ...esc.patios];
       for (let i = 0; i < todas.length; i++) for (let j = i + 1; j < todas.length; j++)
         expect(solapan(todas[i], todas[j]),
@@ -1221,7 +1226,8 @@ describe("el reparto del mapa", () => {
   });
 
   it("los circuitos caben en el mundo", () => {
-    for (const esc of ESCENARIOS) {
+    for (const base of CIRCUITOS) {
+      const esc = montarEscenario(base);
       for (const [x, y] of esc.circuito!) {
         const donde = esc.id + " en " + x + "," + y;
         expect(x, donde).toBeGreaterThan(ANCHO_PISTA / 2);
@@ -1300,8 +1306,12 @@ describe("carrera", () => {
                    reglas: { modo: "carrera", vecinos: false, puestos: false } });
 
   it("en TODOS los escenarios se puede correr, y se sale en línea y montado", () => {
-    expect(CIRCUITOS.length, "hay escenarios sin circuito").toBe(ESCENARIOS.length);
-    for (const esc of CIRCUITOS) {
+    /* Todos menos El Valle, que no es un sitio para dar vueltas sino para
+       andar de una zona a otra. */
+    const sinPista = ESCENARIOS.filter(e => !CIRCUITOS.includes(e)).map(e => e.id);
+    expect(sinPista, "hay escenarios de más sin circuito").toEqual(["valle"]);
+    for (const base of CIRCUITOS) {
+      const esc = montarEscenario(base);
       const e = carrera(esc.id, 4);
       const [mx, my] = esc.circuito![0];
       for (const p of e.players) {
@@ -1330,7 +1340,8 @@ describe("carrera", () => {
       }
       return L;
     };
-    for (const esc of CIRCUITOS) {
+    for (const base of CIRCUITOS) {
+      const esc = montarEscenario(base);
       const L = largoDe(esc.circuito!);
       /* Una vuelta corta se corre de memoria en dos intentos. El listón está
          donde estaban las pistas ANTES de alargarlas (la más corta medía
@@ -1345,7 +1356,8 @@ describe("carrera", () => {
        sitio y te saltas un trozo de pista. Es lo que decide cada cuántos px va
        un punto: en las curvas cerradas la cuerda es mucho más corta que el
        arco. */
-    for (const esc of CIRCUITOS) {
+    for (const base of CIRCUITOS) {
+      const esc = montarEscenario(base);
       const c = esc.circuito!;
       for (let i = 0; i < c.length; i++) {
         const a = c[i], b = c[(i + 1) % c.length];
@@ -1357,7 +1369,8 @@ describe("carrera", () => {
   });
 
   it("las pistas caben en el mapa y no se pisan a sí mismas", () => {
-    for (const esc of CIRCUITOS) {
+    for (const base of CIRCUITOS) {
+      const esc = montarEscenario(base);
       const c = esc.circuito!;
       for (const [x, y] of c) {
         expect(x, esc.id + ": la pista se sale por los lados").toBeGreaterThan(90);
@@ -1416,7 +1429,7 @@ describe("carrera", () => {
       expect(suyo.trastos.some(t => t.tipo === tipo),
              tipo + " no aparece en " + donde).toBe(true);
       for (const esc of ESCENARIOS) {
-        if (esc.id === donde) continue;
+        if (esDeSuTierra(tipo, esc.id)) continue;   // su sitio, o un valle que lo incluya
         const otro = partida({ escenario: esc.id });
         expect(otro.trastos.some(t => t.tipo === tipo),
                tipo + " apareció tirado en " + esc.id).toBe(false);
