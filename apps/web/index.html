@@ -551,6 +551,17 @@
     font-family:var(--ui);font-weight:800;font-size:11.5px;
   }
 
+  /* Las dos salidas del final: repetir, o volver al inicio a cambiar de modo.
+     Con solo "Otra ronda" no había forma de pasar de carrera a aventura sin
+     recargar la página: este panel tapa la barra de arriba, con el botón 🏠. */
+  .salidas{display:flex;gap:10px;flex-wrap:wrap}
+  .salidas .play{flex:1 1 180px}
+  .play.menu{
+    background:linear-gradient(180deg,#5B4160,var(--plum-700,#3B1B36));
+    color:var(--cream);box-shadow:0 8px 0 #241028;
+  }
+  .play.menu:active{box-shadow:0 4px 0 #241028;transform:translateY(4px)}
+
   .modos{display:flex;gap:9px;flex-wrap:wrap}
   .modos .play{flex:1 1 190px}
   .play.dos{
@@ -1092,7 +1103,10 @@
         <div class="stat"><div class="label">Tiempo</div><div class="val" id="stTime">0:00</div></div>
         <div class="stat"><div class="label" id="lbRate">Ingresos finales</div><div class="val" id="stRate">$0/s</div></div>
       </div>
-      <button class="play" id="btnAgain">Otra ronda ▸</button>
+      <div class="salidas">
+        <button class="play" id="btnAgain">Otra ronda ▸</button>
+        <button class="play menu" id="btnMenu">◂ Al inicio</button>
+      </div>
     </div>
   </div>
 </div>

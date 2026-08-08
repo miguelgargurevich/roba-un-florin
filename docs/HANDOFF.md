@@ -24,6 +24,11 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Última sesión
 
+- 2026-08-08 (claude-code): **del final de una partida se puede volver al
+  inicio**. El cartel del final es una capa a pantalla completa y su único botón
+  era "Otra ronda", que repite el MISMO modo: para pasar de carrera a aventura
+  había que recargar la página, porque el panel tapa la barra con el 🏠.
+
 - 2026-08-08 (claude-code): **promovido a producción** el mapa grande completo
   (3600x2100, seis vecinos, cuatro patios, dos puestos de cada, dinosaurio, La
   Prehistoria y el desfile por la pasarela). Verificado: bundle sin `localhost`,

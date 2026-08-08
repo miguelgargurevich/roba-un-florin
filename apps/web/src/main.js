@@ -1066,6 +1066,9 @@ function conectar(opciones){
 /* Volver al inicio. Desde una sala te devuelve al lobby; jugando solo, guarda
    antes de salir para que "Seguir donde quedaste" tenga qué seguir. */
 function volverAlInicio(){
+  /* Lo primero, quitar el cartel del final: es una capa por encima de todo y si
+     se queda puesta, el inicio aparece detrás y no se puede tocar nada. */
+  el.end.hidden = true;
   if (sala){ salirDeLaSala(); return; }
   if (G && G.started && !G.over) guardarPartidaAhora();
   el.arm.hidden = true; el.rul.hidden = true;
@@ -1158,6 +1161,10 @@ despertarCuenta();
 
 document.getElementById("btnStart").addEventListener("click", () => startGame(1));
 document.getElementById("btnAgain").addEventListener("click", () => startGame());
+/* La otra salida del final. Sin esto, terminar una carrera te dejaba con un
+   único botón que repetía carrera: para pasarte a aventura había que recargar
+   la página, porque el panel de fin tapa la barra de arriba con el 🏠. */
+document.getElementById("btnMenu").addEventListener("click", volverAlInicio);
 /* El duelo de dos en un teclado se retiró al llegar las salas: jugar con gente
    es online. El motor sigue sabiendo de N jugadores, así que no se perdió nada
    — lo que se fue es el reparto de teclas de un solo teclado. */
