@@ -17,6 +17,7 @@ import {
   venderFlorin, precioDeVenta, soltarCarga, puestoDe, puestosDeCarrera,
   VUELTAS, CIRCUITOS, JUGADORES_MAX, pensarBot, GARAJE, TRASTOS_ESCENARIO,
   darleVehiculo, vehiculoDelSitio, esEspecial, ANCHO_PISTA, enLaPista,
+  usarPotenciador, potenciadoresDe, potenciadorPorId,
 } from "@florin/engine";
 
 export {
@@ -32,6 +33,7 @@ export {
   venderFlorin, precioDeVenta, soltarCarga, puestoDe, puestosDeCarrera,
   VUELTAS, CIRCUITOS, JUGADORES_MAX, pensarBot, GARAJE, TRASTOS_ESCENARIO,
   darleVehiculo, vehiculoDelSitio, esEspecial, ANCHO_PISTA, enLaPista,
+  usarPotenciador, potenciadoresDe, potenciadorPorId,
 };
 
 /* ---- escenarios: el motor pone el reparto, el cliente el aspecto ---- */

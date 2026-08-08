@@ -19,6 +19,7 @@ import {
   bajarse, conAtajosDeSala as conAtajosMotor, nombreDeHito, patiosDe, precioDeVenta,
   puestoDe, puestosDeCarrera, VUELTAS, CIRCUITOS, pensarBot, GARAJE, VEHICULOS,
   TRASTOS_ESCENARIO, darleVehiculo, esEspecial, ANCHO_PISTA,
+  usarPotenciador, potenciadoresDe, potenciadorPorId,
   soltarCarga, trastoDe,
   venderFlorin,
   revivirPartida, seleccionarArma, textoDePremio,
@@ -360,6 +361,7 @@ window.addEventListener("keydown", e => {
   // no, bautizas. Nunca coinciden — montado no puedes cargar un Florín.
   if (k === "n"){ if (G.player.montado != null) bajarseDelTrasto(); else abrirBautizo(); }
   if (k === "f") soltarLoQueLlevo();
+  if (k === "e") usarMiItem();
   if (k === "b") { if (document.getElementById("album").hidden) abrirAlbum(); else cerrarAlbum(); }
   if (k === "t") togglePanel("arm");
   if (k === "r") togglePanel("rul");
@@ -1084,6 +1086,40 @@ elSala.arrancar.addEventListener("click", () => {
   elSala.arrancar.disabled = true;
 });
 elSala.salir.addEventListener("click", salirDeLaSala);
+
+/* ---- la ranura del objeto ----
+   Mientras la ruleta gira se ven iconos pasando: no saber qué te tocó es la
+   mitad de la gracia. */
+const elItem = document.getElementById("itemSlot");
+const elItemIc = document.getElementById("itemIc");
+const elItemNm = document.getElementById("itemNm");
+
+function usarMiItem(){
+  if (!G || !G.started || G.over) return;
+  const it = G.player?.item;
+  if (!it || !it.que || it.girando > 0) return;
+  if (sala) sala.item(); else usarPotenciador(G, G.player);
+}
+elItem.addEventListener("click", usarMiItem);
+
+function pintarItem(){
+  const corriendo = G.reglas?.modo === "carrera";
+  const it = corriendo ? G.player?.item : null;
+  if (!it || (!it.que && it.girando <= 0)){ elItem.hidden = true; return; }
+  elItem.hidden = false;
+  if (it.girando > 0){
+    const lista = potenciadoresDe(G.esc.id);
+    const cual = lista[(Math.floor(G.t * 14) % lista.length + lista.length) % lista.length];
+    elItem.classList.add("girando"); elItem.classList.remove("listo");
+    elItemIc.textContent = cual.icon;
+    elItemNm.textContent = "…";
+    return;
+  }
+  const pot = potenciadorPorId(it.que);
+  elItem.classList.remove("girando"); elItem.classList.add("listo");
+  elItemIc.textContent = pot ? pot.icon : "?";
+  elItemNm.textContent = pot ? pot.nombre : "";
+}
 
 /* El 3 · 2 · 1 · ¡YA! de la salida, a pantalla completa. */
 const elSalida = document.getElementById("cuentaAtras");
@@ -4358,6 +4394,32 @@ function drawCircuito(){
      conos o un montón de piedras. */
   dibujarTopes(c);
 
+  /* Las cajas de ítem. Las que alguien acaba de reventar se dibujan en
+     fantasma con su cuenta atrás: así sabes que ahí va a volver a haber una. */
+  for (const caja of G.cajas || []){
+    const flota = Math.sin(G.t * 2 + caja.id) * 6;
+    if (caja.listo > 0){
+      ctx.globalAlpha = .2;
+      ctx.strokeStyle = "#FFC53D"; ctx.lineWidth = 3;
+      rr(ctx, caja.x - 20, caja.y - 20, 40, 40, 7); ctx.stroke();
+      ctx.globalAlpha = 1;
+      continue;
+    }
+    ctx.fillStyle = "rgba(0,0,0,.22)";
+    ctx.beginPath(); ctx.ellipse(caja.x, caja.y + 26, 20, 7, 0, 0, 6.283); ctx.fill();
+    ctx.save(); ctx.translate(caja.x, caja.y + flota);
+    ctx.globalAlpha = .9;
+    ctx.fillStyle = "#FFEFE2"; rr(ctx, -23, -23, 46, 46, 9); ctx.fill();
+    ctx.strokeStyle = "#FFC53D"; ctx.lineWidth = 5;
+    rr(ctx, -23, -23, 46, 46, 9); ctx.stroke();
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = "#E2453C";
+    ctx.font = "800 28px system-ui, sans-serif";
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText("?", 0, 2);
+    ctx.restore();
+  }
+
   /* la meta a cuadros, atravesada en el punto 0 */
   const [mx, my] = c[0], [sx, sy] = c[1] || c[0];
   const ang = Math.atan2(sy - my, sx - mx) + Math.PI / 2;
@@ -4525,18 +4587,87 @@ function drawBase(b){
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
   ctx.fillText(rotulo, r.x+r.w/2, r.y-20);
 
-  /* Patio en venta: reja de barrotes y el cartel de "métete para comprarlo" */
+  /* Patio en venta.
+
+     Antes eran barrotes verticales de lado a lado y parecía una cárcel, que es
+     justo lo contrario de lo que se quiere vender. Ahora es lo que es: un
+     terreno baldío con su cerco de estacas y su cartel de SE VENDE clavado. La
+     hierba seca y los pedestales fantasma dicen "aquí cabrían tus Florines"
+     mucho mejor que una reja. */
   if (b.locked){
-    ctx.strokeStyle = "rgba(255,239,226,.22)"; ctx.lineWidth = 5;
-    ctx.beginPath();
-    for (let x = r.x+26; x < r.x+r.w-20; x += 34){ ctx.moveTo(x, r.y+18); ctx.lineTo(x, r.y+r.h-18); }
-    ctx.moveTo(r.x+20, r.y+34);      ctx.lineTo(r.x+r.w-20, r.y+34);
-    ctx.moveTo(r.x+20, r.y+r.h-34);  ctx.lineTo(r.x+r.w-20, r.y+r.h-34);
-    ctx.stroke();
-    ctx.fillStyle = "#FFEFE2";
-    ctx.font = "800 15px system-ui, sans-serif";
+    const cx = r.x + r.w / 2, cy = r.y + r.h / 2;
+
+    // hierba seca y piedritas: está abandonado, no encerrado
+    ctx.strokeStyle = "rgba(200,180,120,.28)"; ctx.lineWidth = 2.5;
+    for (let i = 0; i < 26; i++){
+      const gx = azEntre(b.id * 71 + i, r.x + 24, r.x + r.w - 24);
+      const gy = azEntre(b.id * 71 + i + 300, r.y + 24, r.y + r.h - 24);
+      ctx.beginPath();
+      for (let k = -1; k <= 1; k++){
+        ctx.moveTo(gx, gy);
+        ctx.lineTo(gx + k * 5 + azEntre(i + k, -2, 2), gy - 11 - Math.abs(k) * -3);
+      }
+      ctx.stroke();
+    }
+
+    // los huecos donde irían los Florines, marcados en fantasma
+    for (const ped of b.peds){
+      ctx.strokeStyle = "rgba(255,239,226,.14)"; ctx.lineWidth = 3;
+      ctx.setLineDash([7, 7]);
+      roundRect(ped.x - 27, ped.y + 4, 54, 20, 7); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // el cerco: estaquitas de madera con dos cuerdas, no barrotes
+    const estacas = [];
+    const paso = 62;
+    for (let x = r.x + 16; x <= r.x + r.w - 16; x += paso) estacas.push([x, r.y + 12], [x, r.y + r.h - 12]);
+    for (let y = r.y + 12 + paso; y < r.y + r.h - 20; y += paso) estacas.push([r.x + 16, y], [r.x + r.w - 16, y]);
+    ctx.strokeStyle = "rgba(200,170,110,.5)"; ctx.lineWidth = 2.5;
+    ctx.setLineDash([9, 7]);
+    for (const dy of [-4, 4]){
+      ctx.beginPath();
+      ctx.rect(r.x + 16, r.y + 12 + dy, r.w - 32, r.h - 24);
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
+    for (const [ex, ey] of estacas){
+      ctx.fillStyle = "rgba(0,0,0,.25)";
+      ctx.beginPath(); ctx.ellipse(ex, ey + 9, 5, 2.5, 0, 0, 6.283); ctx.fill();
+      ctx.fillStyle = "#8A6A3C";
+      ctx.beginPath();
+      ctx.moveTo(ex - 3.5, ey + 9); ctx.lineTo(ex - 2.5, ey - 12);
+      ctx.lineTo(ex + 2.5, ey - 12); ctx.lineTo(ex + 3.5, ey + 9);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = "rgba(255,239,226,.22)"; ctx.fillRect(ex - 2.5, ey - 12, 2, 21);
+    }
+
+    // el cartel de SE VENDE, clavado y un poco chueco
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(-0.045);
+    ctx.fillStyle = "rgba(0,0,0,.3)";
+    ctx.fillRect(-6, 22, 12, 46);
+    ctx.fillStyle = "#8A6A3C"; ctx.fillRect(-5, 20, 10, 46);   // el palo
+    ctx.fillStyle = "rgba(0,0,0,.3)";
+    roundRect(-124, -34, 248, 62, 6); ctx.fill();
+    ctx.fillStyle = "#EFE4C8";                                  // la tabla
+    roundRect(-128, -38, 256, 62, 6); ctx.fill();
+    ctx.strokeStyle = "#8A6A3C"; ctx.lineWidth = 4;
+    roundRect(-128, -38, 256, 62, 6); ctx.stroke();
+    ctx.fillStyle = "#8A6A3C";                                  // los clavos
+    for (const nx of [-116, 116]){
+      ctx.beginPath(); ctx.arc(nx, -26, 3.4, 0, 6.283); ctx.fill();
+      ctx.beginPath(); ctx.arc(nx, 12, 3.4, 0, 6.283); ctx.fill();
+    }
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    ctx.fillText("EN VENTA · métete para comprarlo", r.x+r.w/2, r.y+r.h/2);
+    ctx.fillStyle = "#B03A2E";
+    ctx.font = "800 25px " + (getComputedStyle(document.body).getPropertyValue("--display") || "system-ui");
+    ctx.fillText("SE VENDE", 0, -18);
+    ctx.fillStyle = "#4A3A20";
+    ctx.font = "700 13px system-ui, sans-serif";
+    ctx.fillText(money(b.price) + " · métete para comprarlo", 0, 8);
+    ctx.restore();
     ctx.restore();
     return;
   }
@@ -6025,8 +6156,10 @@ function hud(){
     el.throwB.classList.toggle("cool", G.cd > 0 ||
       (w0.id === "chancla" ? G.chancla.state !== "held" : G.ammo[w0.id] <= 0));
     pintarAccion();
+    pintarItem();
     return;
   }
+  elItem.hidden = true;
   const v = vitrinaDe(G, G.player);
   el.goal.textContent = v.llenos + " / " + v.huecos;
   el.bar.style.width = clamp(v.llenos/v.huecos*100, 0, 100).toFixed(1) + "%";

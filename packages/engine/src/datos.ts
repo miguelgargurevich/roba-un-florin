@@ -309,6 +309,57 @@ export const VUELTAS = 3;
 export const HITO_R = 140;
 /** Lo ancho que es la pista. Fuera de aquí hay tope y no se pasa. */
 export const ANCHO_PISTA = 190;
+/** Cuántas cajas de ítem hay repartidas por el circuito. */
+export const CAJAS_EN_PISTA = 10;
+/** Lo que tarda una caja en volver después de que se la lleven. */
+export const CAJA_VUELVE = 6;
+/** Lo que gira la ruleta de la caja antes de pararse en algo. */
+export const CAJA_GIRA = 1.1;
+
+/* ---- potenciadores ----
+   Cuatro que salen en todas partes, y uno propio de cada escenario: el efecto
+   se repite pero el objeto es del sitio, que es lo que hace que correr en el
+   Volcán no se sienta igual que correr en la Luna. */
+export interface Potenciador {
+  id: string; icon: string; nombre: string;
+  efecto: "turbo" | "escudo" | "fantasma" | "cascara" | "rayo";
+}
+
+export const POTENCIADORES: Potenciador[] = [
+  { id:"turbo",    icon:"🥤", nombre:"Refresco",  efecto:"turbo" },
+  { id:"escudo",   icon:"☂️", nombre:"Paraguas",  efecto:"escudo" },
+  { id:"fantasma", icon:"👻", nombre:"Capa",      efecto:"fantasma" },
+  { id:"cascara",  icon:"🍌", nombre:"Cáscara",   efecto:"cascara" },
+];
+
+/** El objeto propio de cada nivel. Sale menos que los otros: es el bueno. */
+export const ESPECIAL_NIVEL: Record<string, Potenciador> = {
+  barrio:      { id:"chancletazo", icon:"🩴", nombre:"Chancletazo de mamá", efecto:"rayo" },
+  colegio:     { id:"timbre",      icon:"🔔", nombre:"Timbre del recreo",   efecto:"rayo" },
+  playa:       { id:"ola",         icon:"🌊", nombre:"Ola",                 efecto:"rayo" },
+  desierto:    { id:"espejismo",   icon:"🌵", nombre:"Espejismo",           efecto:"fantasma" },
+  machupicchu: { id:"neblina",     icon:"🌫️", nombre:"Neblina de la ceja",  efecto:"fantasma" },
+  nuevayork:   { id:"taxi",        icon:"🚕", nombre:"Taxi amarillo",       efecto:"turbo" },
+  egipto:      { id:"momia",       icon:"🧟", nombre:"Maldición de la momia", efecto:"rayo" },
+  amazonas:    { id:"caiman",      icon:"🐊", nombre:"Caimán",              efecto:"rayo" },
+  pista:       { id:"acelerador",  icon:"⚡", nombre:"Acelerador naranja",   efecto:"turbo" },
+  tablero:     { id:"dado",        icon:"🎲", nombre:"Dado de la suerte",   efecto:"turbo" },
+  mirador:     { id:"vapor",       icon:"💨", nombre:"Chorro de vapor",     efecto:"turbo" },
+  circuito:    { id:"seta",        icon:"🍄", nombre:"Súper seta",          efecto:"turbo" },
+  costaverde:  { id:"parapente",   icon:"🪂", nombre:"Parapente",           efecto:"fantasma" },
+  nazca:       { id:"lineas",      icon:"🛩️", nombre:"Vuelo de las líneas", efecto:"turbo" },
+  volcan:      { id:"erupcion",    icon:"🌋", nombre:"Erupción",            efecto:"rayo" },
+  luna:        { id:"gravedad",    icon:"🌕", nombre:"Gravedad cero",       efecto:"fantasma" },
+};
+
+/** Todo lo que puede tocarte en este escenario. */
+export const potenciadoresDe = (escId: string): Potenciador[] => {
+  const propio = ESPECIAL_NIVEL[escId];
+  return propio ? [...POTENCIADORES, propio] : POTENCIADORES;
+};
+export const potenciadorPorId = (id: string): Potenciador | undefined =>
+  POTENCIADORES.find(p => p.id === id) ||
+  Object.values(ESPECIAL_NIVEL).find(p => p.id === id);
 
 /* ---- el vocabulario de una pista ----
    Inspirado en los circuitos del Top Gear de Super Nintendo, que es lo que

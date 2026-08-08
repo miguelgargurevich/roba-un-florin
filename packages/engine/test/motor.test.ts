@@ -6,7 +6,8 @@
 import { describe, expect, it } from "vitest";
 import {
   CIRCUITOS, ESCENARIOS, ESCUDO_DUR, FLORES, GARAJE, GOAL, HITO_R, JUGADORES_MAX,
-  VEHICULOS, VUELTAS, ANCHO_PISTA, darleVehiculo, enLaPista, esEspecial, trastoDe,
+  VEHICULOS, VUELTAS, ANCHO_PISTA, CAJAS_EN_PISTA, ESPECIAL_NIVEL, darleVehiculo,
+  enLaPista, esEspecial, potenciadorPorId, potenciadoresDe, trastoDe, usarPotenciador,
   vehiculoDelSitio,
   puestosDeCarrera, puestoDe, pensarBot, LASER_DUR, LASER_PRECIO, PORTAL_RAREZAS, RAR_COLOR,
   reglasPara,
@@ -1190,6 +1191,48 @@ describe("carrera", () => {
     p.x = 130; p.y = 130;
     avanzar(e, nada(), 1 / 60);
     expect(Math.round(p.x)).toBe(130);
+  });
+
+  it("las cajas de la pista dan un potenciador, tras girar", () => {
+    const e = carrera();
+    const p = e.players[0];
+    expect(e.cajas.length).toBe(CAJAS_EN_PISTA);
+    const caja = e.cajas[0];
+    p.x = caja.x; p.y = caja.y;
+    avanzar(e, nada(2), 1 / 60);
+    expect(p.item!.girando, "la caja no dio nada").toBeGreaterThan(0);
+    expect(p.item!.que, "salió el premio sin girar").toBeNull();
+    expect(caja.listo, "la caja no se gastó").toBeGreaterThan(0);
+    for (let i = 0; i < 90; i++) avanzar(e, nada(2), 1 / 60);
+    expect(p.item!.que, "la ruleta no paró en nada").not.toBeNull();
+    expect(potenciadorPorId(p.item!.que!), "salió algo que no existe").toBeTruthy();
+  });
+
+  it("cada escenario tiene su objeto propio", () => {
+    for (const esc of CIRCUITOS) {
+      const propio = ESPECIAL_NIVEL[esc.id];
+      expect(propio, esc.id + " no tiene objeto propio").toBeTruthy();
+      expect(potenciadoresDe(esc.id)).toContain(propio);
+    }
+    // y no se repiten los nombres entre niveles
+    const ids = Object.values(ESPECIAL_NIVEL).map(p => p.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it("el rayo frena a los demás y no a quien lo tira", () => {
+    const e = carrera("circuito", 3);
+    const p = e.players[0];
+    p.item = { que: ESPECIAL_NIVEL.circuito.efecto === "rayo" ? ESPECIAL_NIVEL.circuito.id : "x", girando: 0 };
+    // el del circuito es turbo, así que probamos con uno que sí sea rayo
+    p.item = { que: ESPECIAL_NIVEL.volcan.id, girando: 0 };
+    expect(usarPotenciador(e, p)).toBe(true);
+    expect(p.stun, "se frenó a sí mismo").toBe(0);
+    expect(e.players.slice(1).every(q => q.stun > 0), "no frenó a los demás").toBe(true);
+  });
+
+  it("sin nada en la mano no se usa nada", () => {
+    const e = carrera();
+    expect(usarPotenciador(e, e.players[0])).toBe(false);
   });
 
   it("no hay vecinos: ni ladrones, ni abuelas, ni desfile", () => {

@@ -16,7 +16,7 @@ import {
   ESCUDO_DUR, GARAJE, GOAL, LADRONES, LASER_CARGA, RULETA, RULETA_INCOGNITA, RULETA_PRECIO,
   PATADA, PORTAL_CADA, PORTAL_MAX, PORTAL_RAREZAS, PORTAL_VUELTA,
   LASER_DUR, LASER_PRECIO, LASER_RECARGA, RODAR_ROCE, TRASTO_ALCANCE, HITO_R, VUELTAS,
-  PORTAL_VEL,
+  PORTAL_VEL, CAJA_GIRA, CAJA_VUELVE, potenciadoresDe, potenciadorPorId,
   TIERS, VARIANTES, VEHICULOS, WEAPONS, WORLD_H, WORLD_W, esVehiculo, varLabel, varMult,
 } from "./datos.js";
 import { azar, clamp, dist2, inRect, lerp, money, pick, rnd, tiraDeTabla } from "./util.js";
@@ -531,9 +531,81 @@ export function puestosDeCarrera(e: Estado): Jugador[] {
 export const puestoDe = (e: Estado, p: Jugador): number =>
   puestosDeCarrera(e).indexOf(p) + 1;
 
+/* ---- las cajas de ítem ----
+   Al pasarle por encima, la caja se rompe y en tu mano empieza a girar una
+   ruleta: no sabes qué te tocó hasta que para. Es lo que hace que valga la
+   pena desviarse a por una aunque vayas primero. */
+function pasoCajas(e: Estado, dt: number): void {
+  for (const caja of e.cajas) {
+    if (caja.listo > 0) { caja.listo -= dt; continue; }
+    for (const p of e.players) {
+      if (p.item && (p.item.que || p.item.girando > 0)) continue;   // ya llevas uno
+      if (dist2(p.x, p.y, caja.x, caja.y) > 46 * 46) continue;
+      p.item = { que: null, girando: CAJA_GIRA };
+      caja.listo = CAJA_VUELVE;
+      polvo(e, caja.x, caja.y, "#FFC53D", 14);
+      sonar(e, "grab");
+      break;
+    }
+  }
+  for (const p of e.players) {
+    const it = p.item;
+    if (!it || it.girando <= 0) continue;
+    it.girando -= dt;
+    if (it.girando > 0) continue;
+    /* Y aquí para la ruleta. El especial del nivel pesa menos que los
+       comunes: es el bueno y tiene que costar. */
+    const lista = potenciadoresDe(e.esc.id);
+    const comunes = lista.length - 1;
+    const i = azar(e) < 0.18 ? lista.length - 1 : (azar(e) * comunes) | 0;
+    const pot = lista[Math.min(i, lista.length - 1)];
+    it.que = pot.id;
+    it.girando = 0;
+    texto(e, p.x, p.y - 76, pot.icon + " " + pot.nombre, "#FFC53D");
+    sonar(e, "buy");
+  }
+}
+
+/** Usa lo que lleves en la mano. Devuelve false si no llevabas nada. */
+export function usarPotenciador(e: Estado, p: Jugador): boolean {
+  const it = p.item;
+  if (!it || !it.que || it.girando > 0) return false;
+  const pot = potenciadorPorId(it.que);
+  it.que = null;
+  if (!pot) return false;
+
+  if (pot.efecto === "turbo") {
+    p.boost = Math.max(p.boost, 3.2);
+    texto(e, p.x, p.y - 70, pot.icon + " ¡" + pot.nombre + "!", "#FF9EC4");
+  } else if (pot.efecto === "escudo") {
+    p.escudo = Math.max(p.escudo, 14);
+    texto(e, p.x, p.y - 70, pot.icon + " protegido", "#5CE1EA");
+  } else if (pot.efecto === "fantasma") {
+    p.invis = Math.max(p.invis, 5);
+    texto(e, p.x, p.y - 70, pot.icon + " " + pot.nombre, "#C9C2D8");
+  } else if (pot.efecto === "cascara") {
+    e.cascaras.push({ x: p.x - p.face * 46, y: p.y + 12, duenoIdx: p.idx, t: 0 });
+    texto(e, p.x, p.y - 70, pot.icon + " ¡ahí va!", "#FFD84D");
+  } else {
+    /* El rayo: a todos los demás, no al que lo tira. Es el objeto de
+       remontada, así que castiga sobre todo a quien va delante. */
+    let cuantos = 0;
+    for (const q of e.players) {
+      if (q.idx === p.idx || (q.carrera && q.carrera.fin >= 0)) continue;
+      zap(e, q, 1.6, false);
+      cuantos++;
+    }
+    texto(e, p.x, p.y - 70, pot.icon + " ¡" + pot.nombre + "! (" + cuantos + ")", "#8B6BEE");
+  }
+  polvo(e, p.x, p.y - 18, "#FFC53D", 14);
+  sonar(e, "whack");
+  return true;
+}
+
 function pasoCarrera(e: Estado, dt: number): void {
   const c = e.esc.circuito;
   if (!c || !c.length) return;
+  pasoCajas(e, dt);
   for (const p of e.players) {
     const r = (p.carrera ??= { vuelta: 0, hito: 1, fin: -1 });
     if (r.fin >= 0) continue;

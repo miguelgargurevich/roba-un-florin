@@ -8,7 +8,7 @@ Monorepo con workspaces npm:
 
 | Paquete | Qué es |
 |---|---|
-| `packages/engine` | el juego sin navegador: determinista, JSON serializable, 107 pruebas |
+| `packages/engine` | el juego sin navegador: determinista, JSON serializable, 111 pruebas |
 | `apps/web` | el cliente (Vite + canvas 2D). Solo dibuja y escucha teclas |
 | `apps/api` | cuentas, álbum y guardado (.NET 9, Clean Arch + CQRS), 32 pruebas |
 | `apps/salas` | servidor de salas autoritativo (Node + `ws`), 32 pruebas |
@@ -23,6 +23,11 @@ A medias / sin hacer: el modo cooperativo (aplazado a propósito — una sala en
 aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Última sesión
+
+- 2026-08-08 (claude-code): cajas de ítem en las carreras con ruleta de
+  potenciadores (cuatro comunes y uno propio de cada uno de los 16 escenarios),
+  y el patio en venta redibujado: era una reja de barrotes que parecía cárcel y
+  ahora es un terreno baldío con cerco de estacas y cartel de SE VENDE.
 
 - 2026-08-08 (claude-code): elegir vehículo antes de correr (todos los del
   juego, no solo los del escenario) y cuatro especiales de Garaje —chancla

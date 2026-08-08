@@ -162,6 +162,7 @@ export function conectarSala({ url, token, codigo, modo, escenario, apodo, vehic
     vender: (b, i) => mandar({ t: "vender", b, i }),
     soltar: () => mandar({ t: "soltar" }),
     arrancar: () => mandar({ t: "arrancar" }),
+    item: () => mandar({ t: "item" }),
     cerrar,
   };
 }

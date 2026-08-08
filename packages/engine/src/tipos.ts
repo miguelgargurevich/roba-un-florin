@@ -107,6 +107,9 @@ export interface Jugador {
   escudo: number; inmune: number;
   /** solo los asientos que juega la máquina: a dónde iba y cuándo repensarlo */
   bot?: { x: number; y: number; repensar: number };
+  /** en carrera: lo que llevas en la mano. `girando` son los segundos que le
+      quedan a la ruleta de la caja antes de parar en algo. */
+  item?: { que: string | null; girando: number };
   /** en carrera, con qué sale a la pista. Sin esto, lo que toque en el sitio. */
   vehiculo?: string;
   /** solo en carrera: vuelta, siguiente punto de paso, y en qué segundo cruzó
@@ -232,6 +235,10 @@ export type Premio =
   | { kind: "arma"; arma: number }
   | { kind: "vehiculo"; tipo: string };
 
+/** Una caja de ítem en la pista. `listo` son los segundos que tarda en volver
+    después de que alguien la reviente. */
+export interface CajaItem { id: number; x: number; y: number; listo: number }
+
 export interface Girando { t: number; dur: number; premio: Premio; jugadorIdx: number }
 
 export interface Alarma {
@@ -326,6 +333,8 @@ export interface Estado {
   thiefTimer: number;
 
   girando: Girando | null;
+  /** solo en carrera: las cajas de ítem repartidas por la pista */
+  cajas: CajaItem[];
   ultimoPremio: Premio | null;
 
   alarma: Alarma | null;

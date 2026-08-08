@@ -47,6 +47,7 @@ export type DelCliente =
   | { t: "vender"; b: number; i: number }
   | { t: "soltar" }
   | { t: "arrancar" }
+  | { t: "item" }
   | { t: "ping" };
 
 /* ---- lo que manda la sala ---- */

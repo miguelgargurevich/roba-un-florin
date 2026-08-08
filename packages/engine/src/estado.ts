@@ -7,7 +7,7 @@ import type {
 } from "./tipos.js";
 import {
   ESCENARIOS, FLORES, GOAL, LASER_CARGA, PATIOS_PRECIO, TIERS, TRASTOS_ESCENARIO,
-  ANCHO_PISTA, VARIANTES, VEHICULOS, WORLD_H, WORLD_W, esVehiculo, varMult,
+  ANCHO_PISTA, CAJAS_EN_PISTA, VARIANTES, VEHICULOS, WORLD_H, WORLD_W, esVehiculo, varMult,
 } from "./datos.js";
 import { azar, clamp, dist2, inRect, rnd } from "./util.js";
 
@@ -368,7 +368,7 @@ export function crearPartida(op: OpcionesPartida): Estado {
     bases, players: jugadores, armeria, ruleta, portal,
     bolts: [], blasts: [], cascaras: [], trastos: [], perros: [], slowmo: 0,
     thieves: [], ground: [], thiefTimer: 14,
-    girando: null, ultimoPremio: null,
+    girando: null, ultimoPremio: null, cajas: [],
     alarma: null,
     over: false, winnerIdx: null, proximoId: 0,
     eventos: [],
@@ -414,6 +414,21 @@ function aLaLineaDeSalida(e: Estado): void {
   const lx = Math.cos(ang + Math.PI / 2), ly = Math.sin(ang + Math.PI / 2);
   const ax = -Math.cos(ang), ay = -Math.sin(ang);
 
+  /* Las cajas: repartidas por la pista, siempre en el mismo sitio y en el eje
+     del asfalto, para que se pueda pasar por ellas a propósito y no de rebote. */
+  e.cajas = [];
+  for (let k = 0; k < CAJAS_EN_PISTA; k++) {
+    const f = ((k + 0.5) / CAJAS_EN_PISTA) * c.length;
+    const i = Math.floor(f) % c.length, t = f - Math.floor(f);
+    const [ax, ay] = c[i], [bx, by] = c[(i + 1) % c.length];
+    e.cajas.push({
+      id: nuevoId(e),
+      x: Math.round(ax + (bx - ax) * t),
+      y: Math.round(ay + (by - ay) * t),
+      listo: 0,
+    });
+  }
+
   e.players.forEach((p, i) => {
     const fila = i >> 1, lado = i % 2 ? 1 : -1;
     p.x = clamp(mx + lx * lado * 58 + ax * fila * 90, 40, WORLD_W - 40);
@@ -421,6 +436,7 @@ function aLaLineaDeSalida(e: Estado): void {
     p.vx = 0; p.vy = 0;
     p.face = Math.cos(ang) >= 0 ? 1 : -1;
     p.carrera = { vuelta: 0, hito: 1, fin: -1 };
+    p.item = { que: null, girando: 0 };
 
     darleVehiculo(e, p, p.vehiculo || vehiculoDelSitio(e), i);
   });

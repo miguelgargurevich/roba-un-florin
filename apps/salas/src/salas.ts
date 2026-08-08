@@ -5,7 +5,8 @@
    está en @florin/engine y se prueba sin red. */
 
 import {
-  JUGADORES_MAX, avanzar, bajarse, comprarArma, crearPartida, darleVehiculo, girarRuleta, idsDeArmas,
+  JUGADORES_MAX, avanzar, bajarse, comprarArma, crearPartida, darleVehiculo, girarRuleta,
+  idsDeArmas, usarPotenciador,
   pensarBot,
   seleccionarArma, soltarCarga, usarArma, venderFlorin,
   type EntradaJugador, type Estado,
@@ -221,6 +222,7 @@ export class Sala {
   arma(a: Asiento, i: number): void { seleccionarArma(this.estado, this.estado.players[a.idx], i); }
   comprar(a: Asiento, i: number): void { comprarArma(this.estado, this.estado.players[a.idx], i); }
   usar(a: Asiento): void { usarArma(this.estado, this.estado.players[a.idx]); }
+  item(a: Asiento): void { usarPotenciador(this.estado, this.estado.players[a.idx]); }
   ruleta(a: Asiento): void { girarRuleta(this.estado, this.estado.players[a.idx], 2.2); }
   bajar(a: Asiento): void { bajarse(this.estado, this.estado.players[a.idx], true); }
   vender(a: Asiento, b: number, i: number): void { venderFlorin(this.estado, this.estado.players[a.idx], { b, i }); }
