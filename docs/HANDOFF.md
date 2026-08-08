@@ -23,6 +23,10 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Última sesión
 
+- 2026-08-07 (claude-code): primera prueba de multijugador con dos clientes
+  independientes contra producción (ver decisiones y gotchas). Salieron dos
+  fallos: el ritmo de ticks y el despliegue de salas que nunca desplegaba.
+
 - 2026-08-07 (claude-code): cuatro escenarios de juguete (Pista Naranja, El
   Tablero, El Mirador, El Circuito) con cuatro trastos nuevos, y el arreglo del
   reloj de la fauna (ver decisiones).
@@ -34,9 +38,15 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Próximos pasos
 
-- [ ] **Dos personas de verdad en una sala, con latencia real.** Todas las
-      pruebas de multijugador han sido con clientes que controlaba yo, en
-      localhost o sin latencia. Es el hueco más grande que queda.
+- [ ] **Dos personas de verdad, cada una en su aparato.** Ya hay una prueba con
+      dos clientes independientes contra producción (navegador + proceso
+      aparte, 220 ms de ida y vuelta): la sala, la lista de gente, el
+      movimiento y la caída funcionan. Lo que sigue sin probarse es dos
+      personas de carne y hueso, cada una con su teléfono y su red.
+- [ ] **Los asientos vacíos de una sala son estatuas.** Con dos jugadores, los
+      otros tres huecos son muñecos plantados en su patio: `Sala.avanzar` les
+      pasa `QUIETO` porque no hay bots que los jueguen. Se pidió que los bots
+      rellenaran los sitios libres y eso está sin hacer.
 - [ ] Resolver la pregunta de derechos sobre Invictor / Florín **antes** de
       monetizar nada. Incluye las cuatro marcas de juguete, que ahora salen con
       su nombre en el selector de escenario.
@@ -45,6 +55,10 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Decisiones recientes
 
+- 2026-08-07: el ritmo de ticks se mide, no se supone. `desdeTick` resta el
+  intervalo en vez de ponerse a cero; con el reloj a 30 Hz y ticks a 20, poner
+  a cero tiraba el sobrante y salían 15. Medido contra producción: 14,2 antes,
+  18,8 después.
 - 2026-08-07: en la fauna, `ritmo` (reloj de la animación) y `vel`
   (desplazamiento) son dos números distintos. Estaban mezclados y un delfín que
   avanza a 35 px/s agitaba el cuerpo 35 veces por segundo.
@@ -67,6 +81,14 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Gotchas
 
+- **`docker restart` NO despliega el servidor de salas.** Reinicia el contenedor
+  con la imagen con la que se creó: puedes reconstruir la imagen y seguir
+  sirviendo el código viejo. Hay que recrear el contenedor —
+  `/opt/florin-api/arrancar-salas.sh` en el VPS. El runbook llevaba el comando
+  mal y por eso un arreglo se "desplegó" sin cambiar nada (2026-08-08).
+- Para probar el multijugador hay que crear cuentas `%@florin.test`: no se puede
+  entrar como un usuario de verdad (las contraseñas están hasheadas, y tampoco
+  toca). **Bórralas de la base al terminar.**
 - **Nunca borres los assets viejos al desplegar.** Llevan hash y se acumulan sin
   pisarse; un navegador con el index anterior en caché necesita su bundle. Sin
   eso, pantalla en blanco cargando para siempre (pasó el 2026-08-08).
