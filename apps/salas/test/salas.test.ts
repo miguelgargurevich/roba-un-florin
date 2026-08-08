@@ -6,7 +6,7 @@
 import { describe, expect, it } from "vitest";
 import { JUGADORES_MAX } from "@florin/engine";
 import { Registro, type Sala } from "../src/salas.js";
-import { fotoMovil } from "../src/protocolo.js";
+import { fotoMovil, TICKS_POR_SEG } from "../src/protocolo.js";
 import type { DeLaSala } from "../src/protocolo.js";
 import { quienEs, type AjustesJwt } from "../src/jwt.js";
 import { SignJWT } from "jose";
@@ -153,10 +153,25 @@ describe("lo que la sala cuenta", () => {
     const a = cliente();
     s.sentar("ana", "Ana", a.enviar);
     avanzar(1);
-    expect(a.cuantos("tick")).toBeGreaterThanOrEqual(15);
+    /* Los 20 por segundo del protocolo, de verdad. El listón estaba en >=15 y
+       por eso pasó desapercibido que salían 15 exactos: el reloj va a 30 Hz y
+       el contador se ponía a cero en vez de restar, así que se tiraba el
+       sobrante y salía un tick de cada dos vueltas. */
+    expect(a.cuantos("tick")).toBeGreaterThanOrEqual(TICKS_POR_SEG - 1);
     expect(a.cuantos("mundo")).toBe(0);            // todavía no toca
     avanzar(3);
     expect(a.cuantos("mundo")).toBeGreaterThanOrEqual(1);
+  });
+
+  it("mantiene el ritmo de ticks aunque el reloj no case con el intervalo", () => {
+    const { r, avanzar } = registro();
+    const s = r.crear();
+    const a = cliente();
+    s.sentar("ana", "Ana", a.enviar);
+    avanzar(10);
+    const porSegundo = a.cuantos("tick") / 10;
+    expect(porSegundo).toBeGreaterThanOrEqual(TICKS_POR_SEG - 1);
+    expect(porSegundo).toBeLessThanOrEqual(TICKS_POR_SEG + 1);
   });
 
   it("los dos ven exactamente lo mismo: hay una sola verdad", () => {

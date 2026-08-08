@@ -117,14 +117,21 @@ export class Sala {
       }
     }
 
+    /* Restar el intervalo, NO poner a cero. Con el reloj a HZ=30 cada vuelta
+       trae 33 ms; poniendo a cero se tiraba el sobrante y salía un tick cada
+       dos vueltas — 15 por segundo en vez de 20 (medido: 14,2 contra
+       producción). Restando, el resto se acumula y salen dos de cada tres
+       vueltas, que son los 20 prometidos. El tope evita una ráfaga si el
+       proceso se queda pillado un rato. */
     this.desdeTick += dt;
-    if (this.desdeTick >= 1 / TICKS_POR_SEG) {
-      this.desdeTick = 0;
+    const cadaTick = 1 / TICKS_POR_SEG;
+    if (this.desdeTick >= cadaTick) {
+      this.desdeTick = Math.min(this.desdeTick - cadaTick, cadaTick);
       this.difundir({ t: "tick", n: ++this.n, movil: fotoMovil(this.estado) });
     }
     this.desdeResync += dt;
     if (this.desdeResync >= RESYNC_CADA) {
-      this.desdeResync = 0;
+      this.desdeResync = Math.min(this.desdeResync - RESYNC_CADA, RESYNC_CADA);
       this.difundir({ t: "mundo", mundo: this.estado });
     }
 
