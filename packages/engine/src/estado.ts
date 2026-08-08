@@ -3,7 +3,7 @@
 
 import type {
   Base, DesfileItem, Estado, Evento, Florin, Jugador, Laser, Pedestal, RefObjetivo,
-  RefPed, Sonido, Trasto, Variante,
+  RefPed, Reglas, Sonido, Trasto, Variante,
 } from "./tipos.js";
 import {
   ESCENARIOS, FLORES, GOAL, LASER_CARGA, PATIOS_PRECIO, TIERS, TRASTOS_ESCENARIO,
@@ -195,34 +195,71 @@ function mkJugador(idx: number, base: Base, shirt: string, ammoIds: string[]): J
     grab: { ped: null, t: 0 },
     apunta: { on: false, wx: 0, wy: 0 },
     stats: { steals: 0, hits: 0, lost: 0, froze: 0 },
+    hito: GOAL, hitoN: 0, fiesta: 0,
   };
 }
 
+const clampEntero = (v: number, a: number, b: number) =>
+  Math.max(a, Math.min(b, Math.round(v) || a));
+
+/* ---- los sitios de los jugadores ----
+   El mapa no cambia: hay un patio y cuatro casas de vecinos. El primer jugador
+   toma el patio; **cada jugador de más ocupa una casa vecina, y el bot que
+   vivía ahí deja de existir**. Así una sala llena son 5 humanos y ningún bot,
+   y jugar solo son 4 bots, sin mover una piedra del escenario.
+
+   Los Marcianos van primeros a propósito: es el sitio que ya usaba el J2 del
+   duelo de sofá, así que dos jugadores siguen empezando donde empezaban. */
+const SLOTS: { casa: number | null; shirt: string }[] = [
+  { casa: null, shirt: "#3DDC97" },
+  { casa: 3,    shirt: "#FFB020" },
+  { casa: 0,    shirt: "#FF5C86" },
+  { casa: 1,    shirt: "#37D6E0" },
+  { casa: 2,    shirt: "#B57BE0" },
+];
+export const JUGADORES_MAX = SLOTS.length;
+
 export interface OpcionesPartida {
-  modo?: 1 | 2;
+  /** cuántos humanos, de 1 a 5. Cada uno de más reemplaza a un bot. */
+  jugadores?: number;
   escenario?: string;
   semilla?: number;
   armas: string[];
+  /** Lo que no se diga, se rellena con lo de siempre (ver `reglasPara`). */
+  reglas?: Partial<Reglas>;
+}
+
+/** Los valores por defecto dependen de cuántos sean: solo o acompañado. */
+export function reglasPara(jugadores: number): Reglas {
+  const solo = jugadores <= 1;
+  return {
+    // Los dos patios comprables están pegados al del primer jugador: con
+    // compañía le darían una ventaja de salida que nadie más puede igualar.
+    patiosExtra: solo,
+    todasLasArmas: true,
+    puestos: true,
+    duelo: false,
+  };
 }
 
 export function crearPartida(op: OpcionesPartida): Estado {
-  const mode: 1 | 2 = op.modo === 2 ? 2 : 1;
+  const n = clampEntero(op.jugadores ?? 1, 1, JUGADORES_MAX);
+  const reglas: Reglas = { ...reglasPara(n), ...(op.reglas || {}) };
   const esc = ESCENARIOS.find(x => x.id === op.escenario) || ESCENARIOS[0];
   const semilla = op.semilla ?? 1;
   const C = esc.casas, P = esc.patios;
 
+  /* Las bases se montan siempre igual y en el mismo orden: `baseDe` indexa por
+     id, así que estos índices son un contrato y no se pueden reordenar. */
   const bases: Base[] = [
-    makeBase(0, mode === 2 ? "Patio del J1" : "Tu patio", P[0][0], P[0][1], true, "#3DDC97"),
+    makeBase(0, n > 1 ? "Patio del J1" : "Tu patio", P[0][0], P[0][1], true, "#3DDC97"),
     makeBase(1, "Casa de Mayo", C[0][0], C[0][1], false, "#FFD84D", "mayo"),
     makeBase(2, "Doña Chancla", C[1][0], C[1][1], false, "#FF9EC4", "sobri"),
     makeBase(3, "Casa de la Prima Yuli", C[2][0], C[2][1], false, "#FF5C86", "yuli"),
-    mode === 2
-      ? makeBase(4, "Patio del J2", C[3][0], C[3][1], true, "#FFB020")
-      : makeBase(4, "Nave de los Marcianos", C[3][0], C[3][1], false, "#8B6BEE", "marcia"),
+    makeBase(4, "Nave de los Marcianos", C[3][0], C[3][1], false, "#8B6BEE", "marcia"),
   ];
-  const patioJ2 = bases[4];
 
-  if (mode === 1) {
+  if (reglas.patiosExtra) {
     PATIOS_PRECIO.forEach((precio, k) => {
       const b = makeBase(5 + k, "Patio " + (k + 2), P[k + 1][0], P[k + 1][1], true, "#3DDC97");
       b.locked = true; b.price = precio;
@@ -230,21 +267,34 @@ export function crearPartida(op: OpcionesPartida): Estado {
     });
   }
 
+  /* Cada jugador de más se queda con su casa: deja de ser de un vecino (`who`
+     a null, que es lo que mira spawnThief para saber de dónde salen ladrones) y
+     pasa a ser un patio con su color. */
+  const jugadores: Jugador[] = [];
+  for (let i = 0; i < n; i++) {
+    const slot = SLOTS[i];
+    const base = slot.casa == null ? bases[0] : bases[slot.casa + 1];
+    if (slot.casa != null) {
+      base.name = "Patio del J" + (i + 1);
+      base.isPlayer = true;
+      base.who = null;
+      base.color = slot.shirt;
+    }
+    jugadores.push(mkJugador(i, base, slot.shirt, op.armas));
+  }
+  for (const p of jugadores) for (const id of p.patios) { bases[id].owner = p.idx; ponerLaser(bases[id]); }
+
   const armeria = { x: WORLD_W / 2 - 150, y: 750, w: 300, h: 150 };
   const ruleta = { x: WORLD_W / 2 - 150, y: 1350, w: 300, h: 130 };
   const portal = { x: WORLD_W / 2, y: 240, r: 34, timer: 2.5, desfile: [] };
 
-  const jugadores = [mkJugador(0, bases[0], "#3DDC97", op.armas)];
-  if (mode === 2) jugadores.push(mkJugador(1, patioJ2, "#FFB020", op.armas));
-  for (const p of jugadores) for (const id of p.patios) { bases[id].owner = p.idx; ponerLaser(bases[id]); }
-
   const e: Estado = {
-    t: 0, mode, esc, semilla, rngEstado: semilla | 0,
+    t: 0, reglas, esc, semilla, rngEstado: semilla | 0,
     bases, players: jugadores, armeria, ruleta, portal,
     bolts: [], blasts: [], cascaras: [], trastos: [], perros: [], slowmo: 0,
     thieves: [], ground: [], thiefTimer: 14,
     girando: null, ultimoPremio: null,
-    hito: GOAL, hitoN: 0, fiesta: 0, alarma: null,
+    alarma: null,
     over: false, winnerIdx: null, proximoId: 0,
     eventos: [],
   };

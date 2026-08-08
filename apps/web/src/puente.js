@@ -73,7 +73,8 @@ let semillaSiguiente = (Date.now() % 2147483647) | 0;
    como atajos del jugador 1. El motor no los tiene (allí un jugador es un
    jugador), así que se reponen aquí encima del estado. Es un puente de
    compatibilidad: cuando el cliente se reescriba, esto se cae. */
-const ATAJOS = ["money", "ammo", "wsel", "cd", "chancla", "grab", "apunta", "stats", "inShop", "inRuleta"];
+const ATAJOS = ["money", "ammo", "wsel", "cd", "chancla", "grab", "apunta", "stats",
+                "inShop", "inRuleta", "hito", "hitoN", "fiesta"];
 function conAtajos(G) {
   Object.defineProperty(G, "player", {
     get: () => G.players[0], configurable: true, enumerable: false,
@@ -88,11 +89,22 @@ function conAtajos(G) {
   return G;
 }
 
+/* `local2` es el duelo de sofá: dos personas en un teclado. Es una decisión del
+   cliente, no del motor — para el motor son dos jugadores y unas reglas. Vive
+   como bandera del cliente al lado de `started` y `paused`. */
 export function nuevaPartidaMotor(modo, escenarioId) {
-  return conAtajos(crearPartida({
-    modo, escenario: escenarioId, armas: idsDeArmas(),
+  const local2 = modo === 2;
+  const G = conAtajos(crearPartida({
+    jugadores: local2 ? 2 : 1,
+    escenario: escenarioId,
+    armas: idsDeArmas(),
+    reglas: local2
+      ? { patiosExtra: false, todasLasArmas: false, puestos: false, duelo: true }
+      : undefined,
     semilla: (semillaSiguiente = (semillaSiguiente * 48271) % 2147483647),
   }));
+  G.local2 = local2;
+  return G;
 }
 
 /** Envuelve girarRuleta del motor para que el cliente sepa si arrancó. */
@@ -116,7 +128,13 @@ export function revivirPartida(texto){
     for (const p of G.players){
       if (p.montado === undefined) p.montado = null;
       if (p.trastoUsado === undefined) p.trastoUsado = null;
+      // los hitos eran del estado; en los guardados viejos están ahí
+      if (p.hito === undefined) p.hito = G.hito ?? GOAL;
+      if (p.hitoN === undefined) p.hitoN = G.hitoN ?? 0;
+      if (p.fiesta === undefined) p.fiesta = 0;
     }
+    if (!G.reglas) G.reglas = { patiosExtra: true, todasLasArmas: true, puestos: true, duelo: false };
+    G.local2 = false;              // nunca se guardó una partida de sofá
     return conAtajos(G);
   } catch (_){ return null; }
 }

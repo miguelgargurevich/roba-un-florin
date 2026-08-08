@@ -230,7 +230,7 @@ export function comprarArma(e: Estado, p: Jugador, i: number): boolean {
 
 export function seleccionarArma(e: Estado, p: Jugador, i: number) {
   if (i < 0 || i >= WEAPONS.length) return;
-  if (e.mode === 2) return;              // en dos jugadores solo se usa la chancla
+  if (!e.reglas.todasLasArmas) return;   // en el duelo de sofá solo hay chancla
   p.wsel = i;
 }
 
@@ -788,7 +788,7 @@ export function avanzar(e: Estado, entradas: Record<number, EntradaJugador>, dt:
   }
 
   /* ---- la meta ---- */
-  if (e.mode === 2) {
+  if (e.reglas.duelo) {
     for (const p of e.players) if (p.money >= GOAL) {
       e.over = true; e.winnerIdx = p.idx;
       e.eventos.push({ t: "fin", ganador: p.idx });
@@ -797,17 +797,21 @@ export function avanzar(e: Estado, entradas: Record<number, EntradaJugador>, dt:
     }
     return e;
   }
-  const p1 = e.players[0];
-  if (p1.money >= e.hito) {
-    e.hitoN++;
-    e.hito = GOAL * (e.hitoN + 1);
-    texto(e, p1.x, p1.y - 92, "¡Hito " + e.hitoN + "! " + money(GOAL * e.hitoN), "#FFC53D");
-    polvo(e, p1.x, p1.y - 20, "#FFC53D", 26);
-    e.eventos.push({ t: "hito", n: e.hitoN, monto: GOAL * e.hitoN });
-    e.fiesta = 2.2;
-    sonar(e, "win");
+  /* Sin fin: cada jugador encadena SUS hitos. Antes esto miraba solo al
+     jugador 1, que estaba bien cuando el resto eran bots pero en una sala
+     dejaría a los demás sin celebrar nunca nada. */
+  for (const p1 of e.players) {
+    if (p1.money >= p1.hito) {
+      p1.hitoN++;
+      p1.hito = GOAL * (p1.hitoN + 1);
+      texto(e, p1.x, p1.y - 92, "¡Hito " + p1.hitoN + "! " + money(GOAL * p1.hitoN), "#FFC53D");
+      polvo(e, p1.x, p1.y - 20, "#FFC53D", 26);
+      e.eventos.push({ t: "hito", n: p1.hitoN, monto: GOAL * p1.hitoN, jugador: p1.idx });
+      p1.fiesta = 2.2;
+      sonar(e, "win");
+    }
+    if (p1.fiesta > 0) p1.fiesta -= dt;
   }
-  if (e.fiesta > 0) e.fiesta -= dt;
   return e;
 }
 
@@ -1106,7 +1110,7 @@ function avanzarJugador(e: Estado, p: Jugador, ent: EntradaJugador | undefined, 
   } else c.spin = 0;
 
   /* ---- estar en los puestos: solo marca la cercanía, el panel lo abre el host ---- */
-  if (e.mode === 1) {
+  if (e.reglas.puestos) {
     p.inShop = inRect(p.x, p.y, e.armeria, 30);
     p.inRuleta = inRect(p.x, p.y, e.ruleta, 30);
   }

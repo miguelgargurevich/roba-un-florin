@@ -119,6 +119,12 @@ export interface Jugador {
   grab: { ped: RefObjetivo | null; t: number };
   apunta: { on: boolean; wx: number; wy: number };
   stats: Stats;
+  /* Los hitos son de cada uno. Eran del estado y solo los contaba el jugador 1;
+     en una sala sin fin eso dejaría a los demás sin celebrar nunca el suyo. */
+  hito: number;
+  hitoN: number;
+  /** cuenta atrás de la fiesta del último hito, para que el HUD la enseñe */
+  fiesta: number;
 }
 
 export interface Ladron {
@@ -213,7 +219,7 @@ export type Evento =
   | { t: "polvo"; x: number; y: number; color: string; n: number }
   | { t: "sonido"; cual: Sonido }
   | { t: "album"; tier: number; variant: Variante }
-  | { t: "hito"; n: number; monto: number }
+  | { t: "hito"; n: number; monto: number; jugador: number }
   | { t: "fin"; ganador: number | null };
 
 export type Sonido =
@@ -237,9 +243,24 @@ export interface Escenario {
   mar?: number;
 }
 
+/* Lo que antes decidía `mode: 1 | 2`. Separado, porque eran cuatro reglas
+   distintas metidas en un número: una sala de amigos quiere todas las armas y
+   los puestos abiertos (como el modo solo) pero sin patios comprables (como el
+   duelo), y con `mode` esa combinación no se podía expresar. */
+export interface Reglas {
+  /** los 2 patios comprables del suroeste */
+  patiosExtra: boolean;
+  /** todas las armas, o solo la chancla */
+  todasLasArmas: boolean;
+  /** Armería y Ruleta abiertas */
+  puestos: boolean;
+  /** termina cuando alguien llega a la meta, en vez de encadenar hitos sin fin */
+  duelo: boolean;
+}
+
 export interface Estado {
   t: number;
-  mode: 1 | 2;
+  reglas: Reglas;
   esc: Escenario;
   semilla: number;
   rngEstado: number;
@@ -263,9 +284,6 @@ export interface Estado {
   girando: Girando | null;
   ultimoPremio: Premio | null;
 
-  hito: number;
-  hitoN: number;
-  fiesta: number;
   alarma: Alarma | null;
 
   over: boolean;

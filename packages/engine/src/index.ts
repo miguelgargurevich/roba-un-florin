@@ -16,7 +16,8 @@ export {
   clamp, lerp, dist2, inRect, azar, rnd, pick, tiraDeTabla, money,
 } from "./util.js";
 export {
-  crearPartida, freePed, freePedDe, occupied, occupiedDe, esMiPatio,
+  crearPartida, reglasPara, JUGADORES_MAX,
+  freePed, freePedDe, occupied, occupiedDe, esMiPatio,
   playerIncome, florinIncome, mismoFlorin, nuevoFlorin, laserActivo,
   bloqueadoPorLaser, orbitaDelCentro, puntoDelDesfile, ponerLaser,
   PORTAL_BAJADA, PORTAL_ORBITA,

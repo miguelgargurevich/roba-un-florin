@@ -104,6 +104,35 @@ Los dos compran en el Vivero con su propio dinero, roban en las casas vecinas **
 
 La cámara se abre sola para que los dos quepan en pantalla. En este modo solo se usa la chancla: la armería, la ruleta y los patios extra quedan cerrados para que la pelea sea pareja. El desfile del portal y los láseres sí funcionan, así que los dos pueden salir corriendo a por el mismo Florín.
 
+### Salas de amigos (en construcción)
+
+El motor ya reparte los sitios para **hasta 5 jugadores**, que es el paso previo
+a las salas online. El mapa no cambia: hay un patio y cuatro casas de vecinos, y
+**cada jugador de más ocupa una casa y el bot que vivía ahí deja de existir**.
+
+| En la partida | Humanos | Bots robando |
+|---|---|---|
+| Solo | 1 | 4 |
+| Con un amigo | 2 | 3 |
+| Con dos | 3 | 2 |
+| Con tres | 4 | 1 |
+| Llena | 5 | 0 |
+
+Así el juego es literalmente lo que promete: los vecinos que te roban son tus
+amigos. Con compañía los dos patios comprables quedan cerrados — están pegados
+al del primer jugador y le darían una ventaja de salida que nadie puede igualar.
+
+Los **hitos son de cada jugador**: antes eran del estado y solo los contaba el
+jugador 1, lo que en una sala habría dejado a los demás sin celebrar nunca nada.
+
+Lo que gobierna una partida ya no es un "modo 1 o 2" sino cuatro reglas sueltas
+(`patiosExtra`, `todasLasArmas`, `puestos`, `duelo`), porque una sala quiere
+todas las armas y los puestos abiertos —como el modo solo— pero sin patios
+comprables —como el duelo—, y con un número esa combinación no se podía decir.
+
+Falta el servidor de salas, el lobby y el modo en red. El duelo de sofá se
+retira cuando eso funcione, no antes.
+
 ### Modo zurdo
 
 El botón **✋** de la barra superior voltea todos los controles: el botón de arma pasa a la izquierda, y las armas, el minimapa y el joystick al lado contrario. Queda guardado para la próxima vez que entres.

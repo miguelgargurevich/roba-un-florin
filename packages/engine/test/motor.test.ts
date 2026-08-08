@@ -5,7 +5,8 @@
 
 import { describe, expect, it } from "vitest";
 import {
-  ESCENARIOS, FLORES, GOAL, LASER_DUR, LASER_PRECIO, PORTAL_RAREZAS, RAR_COLOR,
+  ESCENARIOS, FLORES, GOAL, JUGADORES_MAX, LASER_DUR, LASER_PRECIO, PORTAL_RAREZAS, RAR_COLOR,
+  reglasPara,
   RULETA, RULETA_INCOGNITA, RULETA_PRECIO, TIERS, WEAPONS, varMult,
   avanzar, bajarse, cargar, crearPartida, girarRuleta, idsDeArmas, inRect,
   occupiedDe, playerIncome, spawnThief, usarArma, comprarArma, seleccionarArma,
@@ -17,7 +18,14 @@ const QUIETO: EntradaJugador = { mover: { x: 0, y: 0 }, apunta: null };
 const nada = (n = 1) => Object.fromEntries(Array.from({ length: n }, (_, i) => [i, QUIETO]));
 
 function partida(op: Partial<Parameters<typeof crearPartida>[0]> = {}) {
-  return crearPartida({ modo: 1, escenario: "barrio", semilla: 7, armas: idsDeArmas(), ...op });
+  return crearPartida({ jugadores: 1, escenario: "barrio", semilla: 7, armas: idsDeArmas(), ...op });
+}
+/** El duelo de sofá: dos jugadores, solo chancla, sin puestos ni patios extra. */
+function duelo() {
+  return partida({
+    jugadores: 2,
+    reglas: { patiosExtra: false, todasLasArmas: false, puestos: false, duelo: true },
+  });
 }
 /** Corre `segs` segundos a 60 fps. */
 function correr(e: Estado, segs: number, ent = nada(e.players.length)) {
@@ -65,7 +73,7 @@ describe("el mundo se monta bien", () => {
   });
 
   it("dos jugadores: sin patios comprables y con patio para el J2", () => {
-    const e = partida({ modo: 2 });
+    const e = duelo();
     expect(e.bases.filter(b => b.locked).length).toBe(0);
     expect(e.players.length).toBe(2);
     expect(baseDe(e, e.players[1].baseId).name).toBe("Patio del J2");
@@ -86,6 +94,118 @@ describe("el mundo se monta bien", () => {
       else { expect(b.guard).not.toBeNull(); expect(occupied(b)).toBeGreaterThan(0); }
     }
     function occupied(b: (typeof e.bases)[number]) { return b.peds.filter(p => p.florin).length; }
+  });
+});
+
+describe("cada jugador de más reemplaza a un bot", () => {
+  const botsDe = (e: Estado) => e.bases.filter(b => !b.isPlayer && b.who).length;
+  const patiosDe_ = (e: Estado) => e.bases.filter(b => b.isPlayer && !b.locked).length;
+
+  it("de 1 a 5 jugadores, los bots bajan uno a uno", () => {
+    const esperado = [[1, 4], [2, 3], [3, 2], [4, 1], [5, 0]];
+    for (const [n, bots] of esperado) {
+      const e = partida({ jugadores: n });
+      expect(e.players.length, `${n} jugadores`).toBe(n);
+      expect(botsDe(e), `${n} jugadores → ${bots} bots`).toBe(bots);
+      expect(patiosDe_(e)).toBe(n);
+    }
+  });
+
+  it("la sala llena son 5 y no se puede pedir más", () => {
+    expect(JUGADORES_MAX).toBe(5);
+    expect(partida({ jugadores: 99 }).players.length).toBe(5);
+    expect(partida({ jugadores: 0 }).players.length).toBe(1);
+  });
+
+  it("cada uno tiene su patio, su color y nadie comparte", () => {
+    const e = partida({ jugadores: 5 });
+    const casas = e.players.map(p => p.baseId);
+    expect(new Set(casas).size).toBe(5);
+    expect(new Set(e.players.map(p => p.shirt)).size).toBe(5);
+    for (const p of e.players) {
+      const b = baseDe(e, p.baseId);
+      expect(b.owner).toBe(p.idx);
+      expect(b.isPlayer).toBe(true);
+      expect(b.who).toBeNull();       // ya no vive ahí ningún vecino
+      expect(b.laser).not.toBeNull(); // y tiene su placa de láseres
+    }
+  });
+
+  it("el bot cuya casa ocupó alguien deja de mandar ladrones", () => {
+    const e = partida({ jugadores: 5 });
+    for (const p of e.players) baseDe(e, p.baseId).peds[0].florin = nuevoFlorin(e, 0);
+    for (let i = 0; i < 60; i++) spawnThief(e);
+    expect(e.thieves.length).toBe(0);   // no queda ni una casa de vecino
+  });
+
+  it("con 2 jugadores siguen robando 3 vecinos, y ninguno es el que se fue", () => {
+    const e = partida({ jugadores: 2 });
+    expect(baseDe(e, e.players[1].baseId).name).toBe("Patio del J2");
+    for (const p of e.players) baseDe(e, p.baseId).peds[0].florin = nuevoFlorin(e, 0);
+    for (let i = 0; i < 60; i++) spawnThief(e);
+    const quienes = new Set(e.thieves.map(t => t.who));
+    expect(quienes.has("marcia")).toBe(false);   // su casa es del J2
+    expect(quienes.size).toBeGreaterThan(1);
+  });
+
+  it("solo se juega igual que siempre: 4 bots y los 2 patios en venta", () => {
+    const e = partida();
+    expect(botsDe(e)).toBe(4);
+    expect(e.bases.length).toBe(7);
+    expect(e.bases.filter(b => b.locked).length).toBe(2);
+    expect(baseDe(e, 0).name).toBe("Tu patio");
+  });
+
+  it("con compañía no hay patios comprables: están pegados al del J1", () => {
+    for (const n of [2, 3, 4, 5]) {
+      const e = partida({ jugadores: n });
+      expect(e.bases.filter(b => b.locked).length, `${n} jugadores`).toBe(0);
+      expect(e.bases.length).toBe(5);
+    }
+  });
+
+  it("las reglas se pueden pedir a mano por encima de las de serie", () => {
+    const e = partida({ jugadores: 3, reglas: { patiosExtra: true } });
+    expect(e.bases.filter(b => b.locked).length).toBe(2);
+    expect(e.reglas.todasLasArmas).toBe(true);   // lo no dicho queda como toca
+    expect(reglasPara(1).patiosExtra).toBe(true);
+    expect(reglasPara(4).patiosExtra).toBe(false);
+  });
+
+  it("los hitos son de cada uno, no del jugador 1", () => {
+    const e = partida({ jugadores: 3 });
+    e.players[2].money = GOAL + 1;
+    avanzar(e, nada(3), 1 / 60);
+    expect(e.players[2].hitoN).toBe(1);
+    expect(e.players[0].hitoN).toBe(0);
+    expect(e.players[1].hitoN).toBe(0);
+    const ev = e.eventos.find(x => x.t === "hito");
+    expect(ev && (ev as any).jugador).toBe(2);
+    expect(e.over).toBe(false);                  // una sala no se acaba
+  });
+
+  it("todos pueden cambiar de arma y usar los puestos", () => {
+    const e = partida({ jugadores: 4 });
+    for (const p of e.players){
+      seleccionarArma(e, p, 3);
+      expect(p.wsel).toBe(3);
+      p.x = e.armeria.x + e.armeria.w / 2; p.y = e.armeria.y + e.armeria.h / 2;
+    }
+    avanzar(e, nada(4), 1 / 60);
+    expect(e.players.every(p => p.inShop)).toBe(true);
+  });
+
+  it("en el duelo de sofá sigue habiendo solo chancla", () => {
+    const e = duelo();
+    seleccionarArma(e, e.players[0], 3);
+    expect(e.players[0].wsel).toBe(0);
+  });
+
+  it("una partida de 5 sobrevive al viaje por JSON", () => {
+    const a = correr(partida({ jugadores: 5, semilla: 21 }), 20, nada(5));
+    const b = correr(JSON.parse(JSON.stringify(partida({ jugadores: 5, semilla: 21 }))), 20, nada(5));
+    const foto = (e: Estado) => JSON.stringify(e.players.map(p => [p.idx, p.baseId, p.x.toFixed(3), p.hitoN]));
+    expect(foto(b)).toBe(foto(a));
   });
 });
 
@@ -121,8 +241,8 @@ describe("la partida de un jugador no se corta", () => {
     e.players[0].money = GOAL + 1;
     avanzar(e, nada(), 1 / 60);
     expect(e.over).toBe(false);
-    expect(e.hitoN).toBe(1);
-    expect(e.hito).toBe(GOAL * 2);
+    expect(e.players[0].hitoN).toBe(1);
+    expect(e.players[0].hito).toBe(GOAL * 2);
     expect(e.eventos.some(ev => ev.t === "hito")).toBe(true);
   });
 
@@ -132,12 +252,12 @@ describe("la partida de un jugador no se corta", () => {
       e.players[0].money = GOAL * k + 1;
       avanzar(e, nada(), 1 / 60);
     }
-    expect(e.hitoN).toBe(5);
+    expect(e.players[0].hitoN).toBe(5);
     expect(e.over).toBe(false);
   });
 
-  it("en dos jugadores sí gana el primero que llega", () => {
-    const e = partida({ modo: 2 });
+  it("en el duelo sí gana el primero que llega", () => {
+    const e = duelo();
     e.players[1].money = GOAL + 1;
     avanzar(e, nada(2), 1 / 60);
     expect(e.over).toBe(true);

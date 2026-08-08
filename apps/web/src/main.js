@@ -57,7 +57,7 @@ function consumirEventos(){
 function entradas(){
   const out = {};
   for (const p of G.players){
-    const T = p.idx === 0 ? (G.mode === 2 ? TECLAS_J1 : TECLAS_1P) : TECLAS_J2;
+    const T = p.idx === 0 ? (G.local2 ? TECLAS_J1 : TECLAS_1P) : TECLAS_J2;
     let x = 0, y = 0;
     if (T.left.some(k => keys.has(k)))  x -= 1;
     if (T.right.some(k => keys.has(k))) x += 1;
@@ -311,7 +311,10 @@ window.addEventListener("keydown", e => {
   const k = e.key.toLowerCase();
   keys.add(k);
   if (k === " ") usarArma(G, G.players[0]);
-  if (G.mode === 2 && G.players[1] && G.players[1].teclas.fire.includes(k)) usarArma(G, G.players[1]);
+  // Ojo: el mapa de teclas es del CLIENTE. Antes esto leía `players[1].teclas`,
+  // un campo del prototipo que el motor nunca tuvo: en cuanto se extrajo el
+  // motor, cualquier tecla en el duelo reventaba y el modo quedó injugable.
+  if (G.local2 && G.players[1] && TECLAS_J2.fire.includes(k)) usarArma(G, G.players[1]);
   if (k === "p") togglePause();
   if (k === "m") toggleSound();
   // La N sirve para dos cosas según el momento: si vas montado te bajas, y si
@@ -325,7 +328,7 @@ window.addEventListener("keydown", e => {
   if (k === "0") seleccionarArma(G, G.player, 9); renderWbar();
   if (k === "q") seleccionarArma(G, G.player, (G.wsel + WEAPONS.length - 1) % WEAPONS.length); renderWbar();
   if (k === "e") seleccionarArma(G, G.player, (G.wsel + 1) % WEAPONS.length); renderWbar();
-  if (k === "enter" && G.mode !== 2){
+  if (k === "enter" && !G.local2){
     if (!G.started || G.over) startGame(1);
   }
 });
@@ -490,7 +493,7 @@ el.sound.addEventListener("click", toggleSound);
 el.hand.addEventListener("click", () => { toggleZurdo(); empujarPreferencias(); });
 /* ---- paneles de Armería y Ruleta: se abren con su botón, no al pasar ---- */
 function panelDisponible(cual){
-  if (!G || !G.started || G.over || G.mode === 2) return false;
+  if (!G || !G.started || G.over || G.local2) return false;
   return cual === "arm" ? !!G.players[0].inShop : !!G.players[0].inRuleta;
 }
 function cerrarPanel(cual){
@@ -499,7 +502,7 @@ function cerrarPanel(cual){
 }
 function togglePanel(cual){
   if (!panelDisponible(cual)){
-    if (G && G.started && !G.over && G.mode === 1){
+    if (G && G.started && !G.over && !G.local2){
       const p = G.players[0];
       const donde = cual === "arm" ? "la Armería" : "la Ruleta";
       pop(p.x, p.y-62, "Tienes que estar en " + donde, "#FF6B90");
@@ -701,7 +704,7 @@ const GUARDA_CADA = 15;
 let guardaEn = GUARDA_CADA;
 
 function guardarSiTocaEn(dt){
-  if (!nube.hayCuenta || G.mode !== 1) return;
+  if (!nube.hayCuenta || G.local2) return;
   guardaEn -= dt;
   if (guardaEn > 0) return;
   guardaEn = GUARDA_CADA;
@@ -709,7 +712,7 @@ function guardarSiTocaEn(dt){
 }
 
 function guardarPartidaAhora(){
-  if (!nube.hayCuenta || G.mode !== 1 || !G.started) return;
+  if (!nube.hayCuenta || G.local2 || !G.started) return;
   nube.guardarPartida({
     escenario: G.esc.id,
     dinero: Math.round(G.player.money),
@@ -2342,7 +2345,7 @@ function drawArmeria(){
   ctx.fillText("ARMERÍA DE LA CUADRA", a.x+a.w/2, a.y+26);
   ctx.fillStyle = "rgba(255,239,226,.6)";
   ctx.font = "600 12px system-ui, sans-serif";
-  ctx.fillText(G.mode === 2 ? "cerrada en modo dos jugadores"
+  ctx.fillText(G.local2 ? "cerrada en modo dos jugadores"
                : !G.inShop ? "entra y toca 🧰 arriba"
                : el.arm.hidden ? "toca 🧰 arriba (tecla T)" : "elige tu arma abajo ↓",
                a.x+a.w/2, a.y+46);
@@ -2606,7 +2609,7 @@ function drawRuleta(){
   ctx.fillText("RULETA DE FLORINES", r.x+r.w/2, r.y+26);
   ctx.fillStyle = "rgba(255,239,226,.6)";
   ctx.font = "600 12px system-ui, sans-serif";
-  ctx.fillText(G.mode === 2 ? "cerrada en modo dos jugadores"
+  ctx.fillText(G.local2 ? "cerrada en modo dos jugadores"
                : !G.player.inRuleta ? "entra y toca 🎰 arriba · " + money(RULETA_PRECIO)
                : el.rul.hidden ? "toca 🎰 arriba (tecla R)" : "gira abajo ↓",
                r.x+r.w/2, r.y+46);
@@ -2759,7 +2762,7 @@ function drawAimDe(p){
   const d = rumboDeTiro(p), ox = p.x, oy = p.y - 12;
   ctx.save();
   ctx.globalAlpha = .8;
-  ctx.strokeStyle = (G.mode === 2 && w.id === "chancla") ? p.shirt : w.color;
+  ctx.strokeStyle = (G.local2 && w.id === "chancla") ? p.shirt : w.color;
   if (w.id === "taser"){                                   // radio de la descarga
     ctx.lineWidth = 2.5; ctx.setLineDash([9,7]);
     ctx.beginPath(); ctx.arc(ox, oy, 140, 0, 6.283); ctx.stroke();
@@ -2789,13 +2792,13 @@ function draw(){
   ctx.fillRect(0,0,VW,VH);
 
   // Con dos jugadores el zoom se abre lo necesario para que ambos quepan
-  if (G.mode === 2 && G.players.length > 1){
+  if (G.local2 && G.players.length > 1){
     const a = G.players[0], b = G.players[1];
     const ancho = Math.abs(a.x-b.x) + 420, alto = Math.abs(a.y-b.y) + 380;
     ZOOM = clamp(Math.min(VW/ancho, VH/alto), .34, 1.05);
   }
   const visW = VW/ZOOM, visH = VH/ZOOM;
-  const foco = G.mode === 2 && G.players.length > 1
+  const foco = G.local2 && G.players.length > 1
     ? { x:(G.players[0].x+G.players[1].x)/2, y:(G.players[0].y+G.players[1].y)/2 }
     : G.player;
   cam.x = visW >= WORLD_W ? (WORLD_W-visW)/2 : clamp(foco.x-visW/2, 0, WORLD_W-visW);
@@ -2808,7 +2811,7 @@ function draw(){
   for (const b of G.bases) drawBase(b);
   drawArmeria();
   drawPortal();
-  if (G.mode === 1) drawRuleta();
+  if (!G.local2) drawRuleta();
   drawCascaras();
   drawTrastos();
   for (const b of G.bases) drawLaser(b);
@@ -2889,7 +2892,7 @@ function draw(){
     skin:"#F0C08A", shirt:p.shirt, hair:"#3A1B33", stun:p.stun, carry:p.carry,
     alpha: p.invis > 0 ? (p.invis < 2 ? .3 + Math.sin(G.t*14)*.15 : .34) : 1
   });
-  if (G.mode === 2){                            // etiqueta J1 / J2
+  if (G.local2){                            // etiqueta J1 / J2
     ctx.font = "800 12px system-ui, sans-serif";
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
     ctx.lineWidth = 3.5; ctx.strokeStyle = "rgba(15,7,14,.85)";
@@ -3027,7 +3030,7 @@ function drawMinimap(){
   const P = G.portal;
   mctx.strokeStyle = "#FF5C86"; mctx.lineWidth = 3;
   mctx.beginPath(); mctx.arc(P.x*sx, P.y*sy, 6, 0, 6.283); mctx.stroke();
-  if (G.mode === 1){
+  if (!G.local2){
     const ru = G.ruleta;
     mctx.strokeStyle = "#FFC53D"; mctx.lineWidth = 3;
     mctx.strokeRect(ru.x*sx, ru.y*sy, ru.w*sx, ru.h*sy);
@@ -3164,7 +3167,7 @@ function renderRack(){
    HUD
    ============================================================ */
 function hud(){
-  if (G.mode === 2){
+  if (G.local2){
     const a = G.players[0], b = G.players[1];
     el.j2.hidden = false;
     el.money.textContent = money(a.money);
@@ -3211,7 +3214,7 @@ function hud(){
    Flujo del juego
    ============================================================ */
 function startGame(modo){
-  const m = modo === 2 ? 2 : (modo === 1 ? 1 : (G && G.mode) || 1);
+  const m = modo === 2 ? 2 : (modo === 1 ? 1 : (G && G.local2 ? 2 : 1));
   G = nuevaPartida(m);
   G.started = true;
   aLaCancha();
@@ -3219,12 +3222,11 @@ function startGame(modo){
 
 /** Deja la pantalla lista para jugar con el G que sea: nuevo o revivido. */
 function aLaCancha(){
-  const m = G.mode;
   G.paused = false;
   G.over = false;
   guardaEn = GUARDA_CADA;
   pops = []; puffs = [];
-  document.getElementById("app").classList.toggle("dos", m === 2);
+  document.getElementById("app").classList.toggle("dos", !!G.local2);
   el.title.hidden = true;
   el.end.hidden = true;
   el.arm.hidden = true;
@@ -3241,7 +3243,7 @@ function aLaCancha(){
 function endGame(ganador){
   G.over = true;
   const won = !!ganador;
-  if (G.mode === 2 && ganador){
+  if (G.local2 && ganador){
     const perdedor = G.players.find(p => p !== ganador);
     document.getElementById("endEyebrow").textContent = "Duelo terminado";
     document.getElementById("endTitle").innerHTML =
