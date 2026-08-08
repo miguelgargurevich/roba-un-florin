@@ -11,7 +11,7 @@ import {
   avanzar, bajarse, cargar, crearPartida, girarRuleta, idsDeArmas, inRect,
   occupiedDe, playerIncome, spawnThief, usarArma, comprarArma, seleccionarArma,
   nuevoFlorin, baseDe, patiosDe, zap, multDeMontura, puntoDelDesfile, puntoDelOcho,
-  nivelDeVitrina, nombreDeHito, HITOS_MAX, vitrinaDe, venderFlorin, precioDeVenta,
+  nivelDeVitrina, nombreDeHito, HITOS_MAX, vitrinaDe, venderFlorin, precioDeVenta, soltarCarga,
   type EntradaJugador, type Estado,
 } from "../src/index.js";
 
@@ -1008,6 +1008,33 @@ describe("armas", () => {
     p.x = abuela.x + 10; p.y = abuela.y;
     avanzar(e, nada(), 1 / 60);
     expect(p.stun).toBeGreaterThan(0);
+  });
+});
+
+describe("soltar lo que llevas", () => {
+  it("lo deja en el suelo y no te lo devuelve en el acto", () => {
+    const e = partida();
+    const p = e.players[0];
+    /* Fuera del patio: dentro, recogerlo lo coloca solo en la vitrina y no se
+       vería si la espera funciona. */
+    p.x = 1000; p.y = 500;
+    cargar(e, p, nuevoFlorin(e, 3));
+    expect(soltarCarga(e, p)).toBe(true);
+    expect(p.carry).toBeNull();
+    expect(e.ground.length).toBe(1);
+    // medio segundo pegado a él: sigue en el suelo
+    for (let i = 0; i < 30; i++) avanzar(e, nada(), 1 / 60);
+    expect(p.carry, "se lo comió antes de tiempo").toBeNull();
+    expect(e.ground.length).toBe(1);
+    // pasada la espera, se recoge como siempre
+    for (let i = 0; i < 60; i++) avanzar(e, nada(), 1 / 60);
+    expect(p.carry).not.toBeNull();
+    expect(e.ground.length).toBe(0);
+  });
+
+  it("sin nada en brazos no hace nada", () => {
+    const e = partida();
+    expect(soltarCarga(e, e.players[0])).toBe(false);
   });
 });
 

@@ -6,7 +6,7 @@
 import { describe, expect, it } from "vitest";
 import { JUGADORES_MAX } from "@florin/engine";
 import { Registro, type Sala } from "../src/salas.js";
-import { fotoMovil, TICKS_POR_SEG } from "../src/protocolo.js";
+import { ESPERA_VUELTA, fotoMovil, TICKS_POR_SEG } from "../src/protocolo.js";
 import type { DeLaSala } from "../src/protocolo.js";
 import { quienEs, type AjustesJwt } from "../src/jwt.js";
 import { SignJWT } from "jose";
@@ -143,6 +143,69 @@ describe("irse y volver", () => {
     saltar(90);
     avanzar(1);
     expect(r.buscar(s.codigo)).toBeUndefined();
+  });
+});
+
+describe("los bots de los asientos libres", () => {
+  it("se mueven, y el sitio de quien sí está sentado lo manda su entrada", () => {
+    const { r, avanzar } = registro();
+    const s = r.crear();
+    const a = cliente();
+    const asiento = s.sentar("ana", "Ana", a.enviar)!;
+    const quieto = { x: s.estado.players[asiento.idx].x, y: s.estado.players[asiento.idx].y };
+    const antes = s.estado.players.map(p => ({ x: p.x, y: p.y }));
+    avanzar(4);
+    /* Ana no ha tocado una tecla: sigue clavada. Los otros cuatro asientos los
+       juega la máquina y tienen que haberse movido. */
+    expect(s.estado.players[asiento.idx].x).toBe(quieto.x);
+    expect(s.estado.players[asiento.idx].y).toBe(quieto.y);
+    const movidos = s.estado.players.filter(
+      (p, i) => i !== asiento.idx &&
+        (Math.abs(p.x - antes[i].x) > 20 || Math.abs(p.y - antes[i].y) > 20)).length;
+    expect(movidos, "los asientos libres siguen siendo estatuas").toBe(4);
+  });
+
+  it("el bot deja de jugar el asiento en cuanto llega alguien", () => {
+    const { r, avanzar } = registro();
+    const s = r.crear();
+    const a = cliente(), b = cliente();
+    s.sentar("ana", "Ana", a.enviar);
+    avanzar(2);
+    const seg = s.sentar("beto", "Beto", b.enviar)!;
+    avanzar(1);                       // que se le vaya la inercia del bot
+    const donde = { x: s.estado.players[seg.idx].x, y: s.estado.players[seg.idx].y };
+    avanzar(3);
+    /* Beto no ha mandado ninguna entrada: su muñeco tiene que estar parado.
+       Antes lo seguía moviendo el bot. */
+    expect(Math.abs(s.estado.players[seg.idx].x - donde.x)).toBeLessThan(1);
+    expect(Math.abs(s.estado.players[seg.idx].y - donde.y)).toBeLessThan(1);
+  });
+
+  it("a quien se cae se le guarda el sitio quieto antes de que lo juegue un bot", () => {
+    const { r, avanzar, saltar } = registro();
+    const s = r.crear();
+    const asiento = s.sentar("ana", "Ana", cliente().enviar)!;
+    s.soltar("ana");
+    avanzar(3);
+    const parado = { x: s.estado.players[asiento.idx].x, y: s.estado.players[asiento.idx].y };
+    avanzar(4);
+    expect(Math.abs(s.estado.players[asiento.idx].x - parado.x)).toBeLessThan(1);
+    // pasada la espera, el bot se hace cargo del asiento
+    saltar(ESPERA_VUELTA + 5);
+    avanzar(4);
+    const movio = Math.hypot(s.estado.players[asiento.idx].x - parado.x,
+                             s.estado.players[asiento.idx].y - parado.y);
+    expect(movio, "el bot no recogió el asiento abandonado").toBeGreaterThan(20);
+  });
+
+  it("la partida sigue siendo la misma para dos relojes iguales", () => {
+    const uno = registro(), dos = registro();
+    const sa = uno.r.crear("barrio"), sb = dos.r.crear("barrio");
+    sa.sentar("ana", "Ana", cliente().enviar);
+    sb.sentar("ana", "Ana", cliente().enviar);
+    uno.avanzar(5); dos.avanzar(5);
+    expect(sa.estado.players.map(p => [Math.round(p.x), Math.round(p.y)]))
+      .toEqual(sb.estado.players.map(p => [Math.round(p.x), Math.round(p.y)]));
   });
 });
 

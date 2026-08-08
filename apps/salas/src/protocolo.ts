@@ -25,6 +25,10 @@ export const TICKS_POR_SEG = 20;
 export const RESYNC_CADA = 3;
 /** Si no llega nada de un cliente en este tiempo, se le da por ido. */
 export const SIN_SEÑALES = 20;
+/** Cuánto se le guarda el sitio a quien se cae antes de que lo juegue un bot.
+    Mientras tanto su muñeco no se mueve: sus Florines son suyos y volver de
+    un túnel no debería costarte la vitrina. */
+export const ESPERA_VUELTA = 45;
 
 /* ---- lo que manda el cliente ---- */
 export type DelCliente =
@@ -32,6 +36,7 @@ export type DelCliente =
       modo?: "aventura" | "versus" }
   | { t: "entrada"; mover: { x: number; y: number }; apunta: { x: number; y: number } | null }
   | { t: "arma"; i: number }
+  | { t: "comprar"; i: number }
   | { t: "usar" }
   | { t: "ruleta" }
   | { t: "bajarse" }

@@ -26,6 +26,8 @@ export {
   trastoDe, hayMar, enElMar, enElPuente, puedeMojarse,
 } from "./estado.js";
 export type { OpcionesPartida } from "./estado.js";
+export { pensarBot } from "./bot.js";
+export type { PlanBot } from "./bot.js";
 export {
   avanzar, usarArma, comprarArma, seleccionarArma, girarRuleta, premioDeRuleta,
   textoDePremio, spawnThief, sacarDelPortal, comprarPatio, rumboDeTiro,

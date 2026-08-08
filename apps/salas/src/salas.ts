@@ -5,16 +5,16 @@
    está en @florin/engine y se prueba sin red. */
 
 import {
-  JUGADORES_MAX, avanzar, bajarse, crearPartida, girarRuleta, idsDeArmas,
+  JUGADORES_MAX, avanzar, bajarse, comprarArma, crearPartida, girarRuleta, idsDeArmas,
+  pensarBot,
   seleccionarArma, soltarCarga, usarArma, venderFlorin,
   type EntradaJugador, type Estado,
 } from "@florin/engine";
 import {
-  HZ, RESYNC_CADA, SIN_SEÑALES, TICKS_POR_SEG,
+  ESPERA_VUELTA, HZ, RESYNC_CADA, SIN_SEÑALES, TICKS_POR_SEG,
   fotoMovil, type DeLaSala, type Presencia,
 } from "./protocolo.js";
 
-const QUIETO: EntradaJugador = { mover: { x: 0, y: 0 }, apunta: null };
 
 /* Sin vocales: así el azar no escribe palabrotas ni códigos que se confundan al
    dictarlos por teléfono, que es exactamente para lo que sirve un código. */
@@ -28,6 +28,8 @@ export interface Asiento {
   enviar: ((m: DeLaSala) => void) | null;
   entrada: EntradaJugador;
   ultimaSeñal: number;
+  /** cuándo se cayó, para saber desde cuándo le guardamos el sitio */
+  seFue: number;
 }
 
 export class Sala {
@@ -81,6 +83,7 @@ export class Sala {
     const asiento: Asiento = {
       idx: this.asientos.length, userId, apodo, enviar,
       entrada: { mover: { x: 0, y: 0 }, apunta: null }, ultimaSeñal: this.reloj(),
+      seFue: 0,
     };
     this.asientos.push(asiento);
     return asiento;
@@ -88,7 +91,11 @@ export class Sala {
 
   soltar(userId: string): void {
     const a = this.asientos.find(x => x.userId === userId);
-    if (a) { a.enviar = null; a.entrada = { mover: { x: 0, y: 0 }, apunta: null }; }
+    if (a) {
+      a.enviar = null;
+      a.entrada = { mover: { x: 0, y: 0 }, apunta: null };
+      a.seFue = this.reloj();
+    }
   }
 
   difundir(m: DeLaSala): void {
@@ -105,11 +112,24 @@ export class Sala {
       this.acumulado -= paso;
       vueltas++;
       const entradas: Record<number, EntradaJugador> = {};
+      const tiran: number[] = [];
       for (let i = 0; i < this.estado.players.length; i++) {
         const a = this.asientos[i];
-        // los sitios sin nadie se quedan quietos: no hay bots que los jueguen
-        entradas[i] = a && a.enviar ? a.entrada : QUIETO;
+        if (a && a.enviar) { entradas[i] = a.entrada; continue; }
+        /* A quien se acaba de caer se le guarda el sitio quieto un rato: sus
+           Florines son suyos y volver de un túnel no debería costarle la
+           vitrina. Pasado ESPERA_VUELTA, o si nunca se sentó nadie, lo juega
+           un bot — antes esos asientos eran muñecos plantados en su patio y el
+           mapa parecía un museo. */
+        if (a && ahora - a.seFue < ESPERA_VUELTA * 1000) {
+          entradas[i] = a.entrada;
+          continue;
+        }
+        const plan = pensarBot(this.estado, this.estado.players[i], paso);
+        entradas[i] = plan.entrada;
+        if (plan.usar) tiran.push(i);
       }
+      for (const i of tiran) usarArma(this.estado, this.estado.players[i]);
       avanzar(this.estado, entradas, paso);
       if (this.estado.eventos.length) {
         this.difundir({ t: "eventos", eventos: this.estado.eventos.slice() });
@@ -142,6 +162,7 @@ export class Sala {
 
   /* ---- acciones sueltas ---- */
   arma(a: Asiento, i: number): void { seleccionarArma(this.estado, this.estado.players[a.idx], i); }
+  comprar(a: Asiento, i: number): void { comprarArma(this.estado, this.estado.players[a.idx], i); }
   usar(a: Asiento): void { usarArma(this.estado, this.estado.players[a.idx]); }
   ruleta(a: Asiento): void { girarRuleta(this.estado, this.estado.players[a.idx], 2.2); }
   bajar(a: Asiento): void { bajarse(this.estado, this.estado.players[a.idx], true); }

@@ -37,9 +37,16 @@ export function rollTier(e: Estado): number {
   return clamp(t, 0, TIERS.length - 1);
 }
 
-export function dropCarried(e: Estado, who: { carry: Florin | null }, x: number, y: number) {
+/** `espera` son segundos en los que nadie puede recogerlo. Sirve para soltar a
+    mano: el radio de recogida es de 40 px y sueltas a 16, así que sin esta
+    pausa el mismo frame te lo devuelve a los brazos y parece que el botón no
+    hace nada. Cuando lo sueltas de un chanclazo va a cero, que ahí lo que
+    quieres es poder correr a por él. */
+export function dropCarried(
+  e: Estado, who: { carry: Florin | null }, x: number, y: number, espera = 0,
+) {
   if (!who.carry) return;
-  e.ground.push(mismoFlorin(who.carry, { x, y, bob: rnd(e, 0, 6.28), t: 0 }));
+  e.ground.push(mismoFlorin(who.carry, { x, y, bob: rnd(e, 0, 6.28), t: 0, espera }));
   who.carry = null;
 }
 
@@ -159,7 +166,7 @@ export function spawnThief(e: Estado) {
 export function soltarCarga(e: Estado, p: Jugador): boolean {
   if (!p.carry) return false;
   const f = p.carry;
-  dropCarried(e, p, p.x, p.y + 16);
+  dropCarried(e, p, p.x + p.face * 26, p.y + 18, 1.1);
   texto(e, p.x, p.y - 48, "Soltaste " + TIERS[f.tier].name, "#D8BCB0");
   sonar(e, "place");
   return true;
@@ -1123,8 +1130,8 @@ function avanzarJugador(e: Estado, p: Jugador, ent: EntradaJugador | undefined, 
   /* ---- florines en el suelo ---- */
   for (let i = e.ground.length - 1; i >= 0; i--) {
     const g = e.ground[i];
-    if (p.idx === 0) { g.bob += dt * 3; g.t += dt; }
-    if (!p.carry && p.stun <= 0 && dist2(p.x, p.y, g.x, g.y) < 40 * 40) {
+    if (p.idx === 0) { g.bob += dt * 3; g.t += dt; if (g.espera! > 0) g.espera! -= dt; }
+    if (!p.carry && p.stun <= 0 && !(g.espera! > 0) && dist2(p.x, p.y, g.x, g.y) < 40 * 40) {
       cargar(e, p, mismoFlorin(g));
       texto(e, g.x, g.y - 50, g.nombre ? "¡" + g.nombre + " volvió!" : "¡Recogido!", "#3DDC97");
       e.ground.splice(i, 1);

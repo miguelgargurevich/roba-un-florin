@@ -62,6 +62,7 @@ wss.on("connection", ws => {
     if (m.t === "entrada") {
       s.asiento.entrada = { mover: m.mover, apunta: m.apunta };
     } else if (m.t === "arma")    s.sala.arma(s.asiento, m.i);
+    else if (m.t === "comprar")   s.sala.comprar(s.asiento, m.i);
     else if (m.t === "usar")      s.sala.usar(s.asiento);
     else if (m.t === "ruleta")    s.sala.ruleta(s.asiento);
     else if (m.t === "bajarse")   s.sala.bajar(s.asiento);

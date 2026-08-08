@@ -102,10 +102,15 @@ function nuevaPartida(modo){
   return G2;
 }
 
-/* Gira la ruleta y, si arrancó, monta la animación de la tira. */
+/* Gira la ruleta y, si arrancó, monta la animación de la tira.
+
+   En una sala esto NO decide nada: se le pide al servidor y la tira se monta
+   cuando el `girando` llega de vuelta en el estado. Girar aquí gastaría tu
+   dinero en un mundo que el siguiente resync tira a la basura. */
 function girarRuleta(){
-  const p = G.players.find(q => q.inRuleta);
-  if (!p || G.girando) return;
+  const p = G.player;
+  if (!p || !p.inRuleta || G.girando) return;
+  if (sala){ sala.ruleta(); return; }
   const premio = (() => {
     const antes = G.girando;
     const ok = girarEnMotor(G, p, REDUCED ? .35 : 2.2);
@@ -282,8 +287,7 @@ const el = {
   j2rate:  document.getElementById("uiJ2Rate"),
   j2bar:   document.getElementById("uiJ2Bar"),
   wSvg:   document.getElementById("wSvg"),
-  btnArm:  document.getElementById("btnArm"),
-  btnRul:  document.getElementById("btnRul"),
+  btnInicio: document.getElementById("btnInicio"),
   rul:     document.getElementById("ruleta"),
   rulStrip:document.getElementById("rulStrip"),
   rulMon:  document.getElementById("rulMoney"),
@@ -578,18 +582,14 @@ function pintarAccion(){
   elAccion.hidden = false;
 }
 
-function renderBotonesPanel(){
-  for (const [cual, boton, caja] of [["arm", el.btnArm, el.arm], ["rul", el.btnRul, el.rul]]){
-    const listo = panelDisponible(cual);
-    boton.classList.toggle("lejos", !listo);
-    boton.classList.toggle("on", !caja.hidden);
-    boton.setAttribute("aria-pressed", String(!caja.hidden));
-  }
-}
+/* Quedó sin botones que repintar: la Armería y la Ruleta ya solo se abren
+   desde el cartel que sale encima del personaje. Se deja la función porque la
+   llaman desde varios sitios y así el día que vuelva a haber botones no hay
+   que buscarlos. */
+function renderBotonesPanel(){}
 
-el.btnArm.addEventListener("click", () => togglePanel("arm"));
-el.btnRul.addEventListener("click", () => togglePanel("rul"));
 el.rulBtn.addEventListener("click", girarRuleta);
+el.btnInicio.addEventListener("click", volverAlInicio);
 document.getElementById("btnAlbum").addEventListener("click", abrirAlbum);
 document.getElementById("albumCerrar").addEventListener("click", cerrarAlbum);
 aplicarZurdo();
@@ -906,6 +906,20 @@ function conectar(opciones){
       }
     },
   });
+}
+
+/* Volver al inicio. Desde una sala te devuelve al lobby; jugando solo, guarda
+   antes de salir para que "Seguir donde quedaste" tenga qué seguir. */
+function volverAlInicio(){
+  if (sala){ salirDeLaSala(); return; }
+  if (G && G.started && !G.over) guardarPartidaAhora();
+  el.arm.hidden = true; el.rul.hidden = true;
+  abrirArmas(false);
+  cerrarBautizo();
+  document.getElementById("album").hidden = true;
+  if (!G.paused) togglePause();
+  el.title.hidden = false;
+  buscarPartidaGuardada();
 }
 
 function salirDeLaSala(){
@@ -5120,7 +5134,10 @@ const rackBtns = WEAPONS.slice(1).map((w,k) => {
                 '<span class="nm">'+w.name+'</span><br>'+
                 '<span class="pr">'+money(w.price)+' · +'+w.uses+' usos</span><br>'+
                 '<span class="ds">'+w.desc+'</span></span>';
-  b.addEventListener("click", () => { comprarArma(G, G.player, i); renderWbar(); renderRack(); });
+  b.addEventListener("click", () => {
+    if (sala) sala.comprar(i); else comprarArma(G, G.player, i);
+    renderWbar(); renderRack();
+  });
   el.rack.appendChild(b);
   return b;
 });
@@ -5211,6 +5228,11 @@ function hud(){
   el.throwB.classList.toggle("cool", notReady);
 
   pintarAccion();
+  /* Los paneles abiertos se repintan cada frame. La tira de la ruleta se movía
+     solo al abrir y al pulsar: se quedaba en "Girando…" para siempre porque
+     nadie volvía a mirar `G.girando`. */
+  if (!el.rul.hidden) renderRuleta();
+  if (!el.arm.hidden) renderRack();
 }
 
 /* ============================================================
@@ -5312,6 +5334,29 @@ function frame(now){
 
 
 
+
+/* Enganche de pruebas. Vive SOLO en desarrollo: Vite evalúa
+   `import.meta.env.DEV` a false al construir y borra el bloque entero, así que
+   no llega a producción. Está aquí porque probar la Ruleta o ir montado exige
+   colocar al jugador en un sitio concreto, y hacerlo a base de flechas es
+   irrepetible. */
+if (import.meta.env.DEV) {
+  window.prueba = {
+    estado: () => G,
+    ir: (x, y) => { G.player.x = x; G.player.y = y; },
+    aLaRuleta: () => { G.player.x = G.ruleta.x; G.player.y = G.ruleta.y; },
+    aLaArmeria: () => { const a = G.armeria; G.player.x = a.x + a.w/2; G.player.y = a.y + a.h/2; },
+    montar: tipo => { const v = G.trastos.find(t => t.tipo === tipo); if (!v) return null;
+                      G.player.x = v.x; G.player.y = v.y; return v.tipo; },
+    dinero: n => { G.player.money = n; },
+    cargar: tier => { G.player.carry = nuevoFlorin(G, tier ?? 3); },
+    yo: () => ({ x: Math.round(G.player.x), y: Math.round(G.player.y),
+                 dinero: Math.round(G.player.money), carry: !!G.player.carry,
+                 suelo: G.ground.length, montado: G.player.montado,
+                 inShop: G.player.inShop, inRuleta: G.player.inRuleta,
+                 girando: !!G.girando }),
+  };
+}
 
 resize();
 G = nuevaPartida(1);

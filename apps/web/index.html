@@ -605,7 +605,6 @@
   }
   #ruleta[hidden]{display:none}
   #app.dos #ruleta{display:none}
-  #app.dos #btnArm,#app.dos #btnRul{display:none}   /* cerrados en el duelo */
   #ruleta h2{
     padding-right:38px;
     font-family:var(--display);font-size:16px;letter-spacing:.06em;text-transform:uppercase;
@@ -775,8 +774,10 @@
       </div>
       <div class="spacer"></div>
       <div class="btns">
-        <button class="iconbtn" id="btnArm" title="Armería (tecla T)" aria-label="Abrir la Armería">🧰</button>
-        <button class="iconbtn" id="btnRul" title="Ruleta (tecla R)" aria-label="Abrir la Ruleta">🎰</button>
+        <!-- La Armería y la Ruleta se abren con el botón que sale encima del
+             personaje cuando te metes: dos iconos aquí arriba para lo mismo
+             solo hacían dudar. -->
+        <button class="iconbtn" id="btnInicio" title="Volver al inicio" aria-label="Volver al inicio">🏠</button>
         <button class="iconbtn" id="btnAlbum" title="Álbum de Florines" aria-label="Abrir el álbum de Florines">📖</button>
         <button class="iconbtn" id="btnHand" title="Diestro / zurdo" aria-label="Cambiar a modo zurdo">✋</button>
         <button class="iconbtn" id="btnSound" title="Silenciar" aria-label="Silenciar sonido">🔊</button>

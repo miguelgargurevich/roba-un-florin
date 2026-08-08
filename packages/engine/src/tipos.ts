@@ -7,6 +7,8 @@ export type Variante = "brillante" | "arcoiris" | "fantasma" | "dorado" | null;
 
 /** Un Florín. `flor` es la especie (forma), `tier` la rareza (colores y valor). */
 export interface Florin {
+  /** solo en los del suelo: segundos que faltan para poder recogerlo */
+  espera?: number;
   tier: number;
   variant: Variante;
   nombre: string | null;
@@ -103,6 +105,8 @@ export interface Jugador {
   carry: Florin | null;
   stun: number; boost: number; invis: number;
   escudo: number; inmune: number;
+  /** solo los asientos que juega la máquina: a dónde iba y cuándo repensarlo */
+  bot?: { x: number; y: number; repensar: number };
   money: number;
   ammo: Record<string, number>;
   wsel: number;
