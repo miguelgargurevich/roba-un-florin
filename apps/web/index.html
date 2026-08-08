@@ -35,7 +35,15 @@
     overflow:hidden;
     -webkit-user-select:none;user-select:none;
     -webkit-tap-highlight-color:transparent;
+    -webkit-touch-callout:none;
+    /* Jugando con dos pulgares el iPad interpretaba los toques a la vez como
+       pinza y hacía zoom, o el segundo toque rápido como doble toque. Con
+       `none` no queda ningún gesto del navegador que robar. */
+    touch-action:none;
+    overscroll-behavior:none;
   }
+  /* Los botones sí aceptan el toque, pero sin doble-toque-zoom. */
+  button, .escBtn, .modoBtn, .buy, .chip{ touch-action:manipulation }
 
   #app{position:fixed;inset:0;overflow:hidden}
   #game{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
@@ -350,8 +358,21 @@
   #itemSlot.listo:hover{background:var(--gold);color:#2A1226}
   @keyframes itemGira{ 50%{transform:translateX(-50%) scale(1.06)} }
   @media (prefers-reduced-motion:reduce){ #itemSlot.girando{animation:none} }
-  @media (max-width:560px){ #itemSlot{top:auto;bottom:96px;left:24px;transform:none;width:78px}
-    #itemSlot .ic{font-size:28px} @keyframes itemGira{ 50%{transform:scale(1.06)} } }
+  /* En táctil va al lado del botón de tirar, no al del joystick: con el pulgar
+     izquierdo conduciendo, el derecho tiene que llegar sin soltar. Antes caía
+     justo encima del joystick y había que dejar de correr para usarlo. */
+  @media (pointer:coarse){
+    #itemSlot{
+      top:auto;bottom:116px;left:auto;right:96px;transform:none;width:84px;
+    }
+    #itemSlot .ic{font-size:30px}
+    @keyframes itemGira{ 50%{transform:scale(1.06)} }
+    #app.zurdo #itemSlot{right:auto;left:96px}
+  }
+  @media (pointer:coarse) and (max-width:560px){
+    #itemSlot{bottom:104px;right:86px;width:72px;padding:6px 4px 4px}
+    #itemSlot .ic{font-size:25px}
+  }
 
   /* ---------- la cuenta atrás de la salida ---------- */
   #cuentaAtras{

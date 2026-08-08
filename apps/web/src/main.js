@@ -1113,7 +1113,11 @@ function usarMiItem(){
   if (!it || !it.que || it.girando > 0) return;
   if (sala) sala.item(); else usarPotenciador(G, G.player);
 }
-elItem.addEventListener("click", usarMiItem);
+/* `pointerdown` y no `click`: con el otro pulgar apoyado en el joystick, Safari
+   se guarda el `click` hasta que sueltas el primer dedo. Así el objeto sale en
+   cuanto lo tocas, sin dejar de conducir. */
+elItem.addEventListener("pointerdown", e => { e.preventDefault(); usarMiItem(); });
+elItem.addEventListener("click", e => e.preventDefault());
 
 function pintarItem(){
   const corriendo = G.reglas?.modo === "carrera";
@@ -1154,6 +1158,19 @@ document.getElementById("btnAgain").addEventListener("click", () => startGame())
 /* El duelo de dos en un teclado se retiró al llegar las salas: jugar con gente
    es online. El motor sigue sabiendo de N jugadores, así que no se perdió nada
    — lo que se fue es el reparto de teclas de un solo teclado. */
+
+/* Safari en iPad hace zoom con la pinza aunque el viewport diga que no, y con
+   dos pulgares jugando eso pasa solo. `gesturestart` es lo único que lo para. */
+for (const g of ["gesturestart", "gesturechange", "gestureend"])
+  document.addEventListener(g, e => e.preventDefault(), { passive: false });
+/* Y el doble toque rápido, que en iOS sigue haciendo zoom pese a touch-action
+   cuando cae fuera de un botón. */
+let ultimoToque = 0;
+document.addEventListener("touchend", e => {
+  const ahora = Date.now();
+  if (ahora - ultimoToque < 320) e.preventDefault();
+  ultimoToque = ahora;
+}, { passive: false });
 
 const isTouch = matchMedia("(pointer: coarse)").matches;
 
