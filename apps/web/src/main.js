@@ -4937,7 +4937,15 @@ function pintarSuelo(){
 
 function drawFloor(){
   if (!sueloCv) pintarSuelo();
-  ctx.drawImage(sueloCv, 0, 0);
+  /* Solo el trozo que se ve, no el mapa entero. Volcando el lienzo completo, lo
+     que cuesta pintar el suelo crece con el mundo aunque en pantalla quepa lo
+     mismo; recortando, cuesta igual con un mapa de 2600 que con uno de 3600 —y
+     eso es lo que se nota en una tableta, no en un portátil. */
+  const w = VW / ZOOM, h = VH / ZOOM;
+  const x = clamp(cam.x, 0, Math.max(0, WORLD_W - w));
+  const y = clamp(cam.y, 0, Math.max(0, WORLD_H - h));
+  const sw = Math.min(w, WORLD_W - x), sh = Math.min(h, WORLD_H - y);
+  ctx.drawImage(sueloCv, x, y, sw, sh, x, y, sw, sh);
 }
 
 function roundRect(x,y,w,h,r){

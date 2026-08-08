@@ -103,11 +103,14 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Próximos pasos
 
-- [ ] **Probarlo en el iPad.** El lienzo del suelo es del tamaño del mundo:
-      pasó de 4,4 a 7,6 Mpx. Está por debajo del límite de área de canvas de iOS
-      (16,7 Mpx) y en escritorio pintarlo cuesta 5 ms, pero en un iPad no se ha
-      probado. Si diera problemas, la solución es partir el suelo en mosaicos y
-      pintar solo los visibles.
+- [ ] **Probarlo en un iPad de verdad.** No hay Xcode completo en este Mac, así
+      que el simulador de iOS no arranca (`sudo xcode-select -s
+      /Applications/Xcode.app/Contents/Developer` tras instalar Xcode). Lo
+      comprobado como sustituto: WebKit (Safari del Mac) crea lienzos de hasta
+      48 Mpx sin despeinarse, y el del suelo (7,6 Mpx) tarda 2 ms; y la interfaz
+      táctil a proporción de iPad tiene el joystick, el botón de tirar y la
+      casilla del potenciador donde toca. Lo que sigue sin probarse es el
+      RENDIMIENTO en el aparato, que es lo que no se puede simular.
 - [ ] **Los bots corren mucho más que un jugador en red.** Medido: 3 vueltas
       contra 1 en el mismo tiempo. Parte es la latencia (220 ms) y parte que el
       bot traza perfecto. Si va a jugarse en serio, hay que frenarlos en
@@ -168,6 +171,11 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
   ocho hay las dos cosas. Se sortea al salir del portal, no en el cruce: así el
   recorrido entero sigue siendo una función de `k` y dos clientes con la misma
   semilla ven lo mismo.
+- 2026-08-08: el suelo se vuelca por trozos, no entero. `drawFloor` dibuja solo
+  el rectángulo visible del lienzo cacheado; volcándolo completo, lo que cuesta
+  pintar el suelo crecía con el mundo aunque en pantalla quepa lo mismo. Medido
+  en escritorio: 0,105 ms contra 0,153 por volcado — irrelevante aquí, pero es
+  el tipo de coste que se nota en una tableta.
 - 2026-08-08: el reparto del mapa va en FRACCIONES del mundo, no en píxeles.
   Para mover una casa se toca su `sitio(fx, fy)`: 0 la pega al borde de arriba o
   de la izquierda y 1 al de abajo o de la derecha. Los decimales feos salen de
