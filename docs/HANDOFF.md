@@ -24,6 +24,11 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Última sesión
 
+- 2026-08-08 (claude-code): pistas de carrera **entre 10 % y 62 % más largas**
+  (6 000–9 000 px por vuelta; las tres vueltas pasan de 32–51 s a 42–63 s), sin
+  agrandar el mundo: rectas serpenteadas, más panzas en el anillo, seis dientes
+  en el zigzag y un poco más de mapa aprovechado.
+
 - 2026-08-08 (claude-code): promovido todo a producción. Arreglos de iPad
   —el potenciador al lado del botón de tirar para no soltar el joystick, y
   `touch-action`/`gesturestart` para que deje de hacer zoom con dos pulgares— y
@@ -84,7 +89,11 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 - [ ] Los trazados de carrera son seis para dieciséis mapas. Se repiten (con
       media vuelta de diferencia). Si cansan, tocar `HORQUILLA`, `RINON`,
       `CHICANA`, `HERRADURA`, `TREBOL` y `ZIGZAG` en `datos.ts`: al cambiar uno
-      cambian todos los mapas que lo usan.
+      cambian todos los mapas que lo usan. Ojo con dos cosas al retocarlos: que
+      las `onda` empiecen y acaben EXACTAMENTE donde acaba y empieza cada arco
+      (si no, queda un vértice y los bots se clavan ahí), y que ningún punto se
+      pase de ±1 (los escenarios con mar tienen la caja recortada). Hay pruebas
+      de las dos cosas.
 - [ ] **Promover a producción.** Todo lo de esta última tanda —bots, Ruleta,
       soltar, botón de inicio— está en staging (`nuevo.florin.gargurevich.dev`),
       no en `florin.gargurevich.dev`.

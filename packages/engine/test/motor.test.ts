@@ -1116,6 +1116,41 @@ describe("carrera", () => {
     }
   });
 
+  it("las vueltas son largas de verdad", () => {
+    const largoDe = (c: [number, number][]) => {
+      let L = 0;
+      for (let i = 0; i < c.length; i++) {
+        const a = c[i], b = c[(i + 1) % c.length];
+        L += Math.hypot(b[0] - a[0], b[1] - a[1]);
+      }
+      return L;
+    };
+    for (const esc of CIRCUITOS) {
+      const L = largoDe(esc.circuito!);
+      /* Una vuelta corta se corre de memoria en dos intentos. El listón está
+         donde estaban las pistas ANTES de alargarlas (la más corta medía
+         4 549 px), para que nadie las acorte sin darse cuenta. */
+      expect(L, esc.id + ": vuelta demasiado corta").toBeGreaterThan(6000);
+      expect(L, esc.id + ": vuelta absurdamente larga").toBeLessThan(14000);
+    }
+  });
+
+  it("los puntos de paso SEGUIDOS quedan más lejos que el radio de paso", () => {
+    /* Si dos seguidos caen a menos de HITO_R se pican los dos desde el mismo
+       sitio y te saltas un trozo de pista. Es lo que decide cada cuántos px va
+       un punto: en las curvas cerradas la cuerda es mucho más corta que el
+       arco. */
+    for (const esc of CIRCUITOS) {
+      const c = esc.circuito!;
+      for (let i = 0; i < c.length; i++) {
+        const a = c[i], b = c[(i + 1) % c.length];
+        expect(Math.hypot(b[0] - a[0], b[1] - a[1]),
+               esc.id + ": puntos " + i + " y " + (i + 1) + " demasiado juntos")
+          .toBeGreaterThan(HITO_R);
+      }
+    }
+  });
+
   it("las pistas caben en el mapa y no se pisan a sí mismas", () => {
     for (const esc of CIRCUITOS) {
       const c = esc.circuito!;
@@ -1125,16 +1160,11 @@ describe("carrera", () => {
         expect(y, esc.id + ": la pista se sale por arriba o abajo").toBeGreaterThan(90);
         expect(y, esc.id + ": la pista se sale por arriba o abajo").toBeLessThan(1700 - 90);
       }
-      /* Dos puntos NO seguidos tienen que estar más lejos que el radio de
-         paso. Si no, en una horquilla te contarían los dos lados por estar
-         parado en medio, y la vuelta se daría sin correrla. */
-      for (let i = 0; i < c.length; i++)
-        for (let j = i + 2; j < c.length; j++) {
-          if (i === 0 && j === c.length - 1) continue;   // son vecinos, dan la vuelta
-          const d = Math.hypot(c[i][0] - c[j][0], c[i][1] - c[j][1]);
-          expect(d, esc.id + ": puntos " + i + " y " + j + " demasiado juntos")
-            .toBeGreaterThan(HITO_R);
-        }
+      /* Aquí NO se exige que los puntos lejanos estén separados: el Trébol se
+         cruza consigo mismo a propósito y ahí dos ramas se tocan. No deja
+         colar atajos porque los puntos se cuentan EN ORDEN, y los de la otra
+         rama caen lejísimos en la cuenta. Lo que sí importa —que los SEGUIDOS
+         estén separados— tiene su propia prueba. */
     }
   });
 

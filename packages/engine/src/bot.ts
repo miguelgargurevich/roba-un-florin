@@ -14,7 +14,8 @@
 
 import type { Estado, Jugador, EntradaJugador } from "./tipos.js";
 import { dist2 } from "./util.js";
-import { centroDelMapa, esMiPatio, freePedDe, patiosDe } from "./estado.js";
+import { ANCHO_PISTA } from "./datos.js";
+import { centroDelMapa, enLaPista, esMiPatio, freePedDe, patiosDe } from "./estado.js";
 
 /** Lo que decide el bot en un paso: hacia dónde va y si tira la chancla. */
 export interface PlanBot {
@@ -53,15 +54,31 @@ function aQuienLeTiro(e: Estado, p: Jugador): { x: number; y: number } | null {
 
 /** A dónde va: lo que lleva pesa más que lo que podría llevarse. */
 function aDondeVoy(e: Estado, p: Jugador): { x: number; y: number } | null {
-  /* Corriendo solo existe el siguiente punto de paso. Mira uno más allá para
-     ir cortando la curva en vez de ir de baliza en baliza como un cono. */
+  /* Corriendo solo existe el siguiente punto de paso. Mira un poco más allá
+     para cortar la curva en vez de ir de baliza en baliza como un cono.
+
+     Pero el punto al que mira tiene que estar DENTRO de la pista: con los
+     trazados largos, la mezcla caía a veces al otro lado de una ese y el bot
+     se quedaba empujando el tope para siempre, sin nada de velocidad a lo
+     largo que lo despegara. Se proyecta sobre el asfalto y se acabó. */
   if (e.reglas.modo === "carrera" && e.esc.circuito?.length) {
     const c = e.esc.circuito;
     const r = p.carrera;
     const i = r ? r.hito % c.length : 0;
     const [x1, y1] = c[i];
     const [x2, y2] = c[(i + 1) % c.length];
-    return { x: x1 * 0.75 + x2 * 0.25, y: y1 * 0.75 + y2 * 0.25 };
+    /* Si viene rozando el tope, primero vuelve al asfalto y luego sigue. Sin
+       esto, en un vértice cerrado el bot empuja contra el muro, el muro le
+       quita toda la velocidad y se queda ahí hasta el fin de los tiempos. */
+    const yo = enLaPista(e, p.x, p.y);
+    if (yo.d2 > (ANCHO_PISTA * 0.40) ** 2) return { x: yo.cx, y: yo.cy };
+
+    const mx = x1 * 0.75 + x2 * 0.25, my = y1 * 0.75 + y2 * 0.25;
+    const q = enLaPista(e, mx, my);
+    const borde = ANCHO_PISTA * 0.3;
+    if (q.d2 <= borde * borde) return { x: mx, y: my };
+    const d = Math.sqrt(q.d2) || 1;
+    return { x: q.cx + (mx - q.cx) / d * borde, y: q.cy + (my - q.cy) / d * borde };
   }
 
   // 1. con las manos llenas, a casa
