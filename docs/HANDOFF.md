@@ -24,6 +24,10 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Última sesión
 
+- 2026-08-08 (claude-code): promovido a producción el dinosaurio, La Prehistoria
+  y el desfile por la pasarela. Ojo con el gotcha del build: el primer bundle
+  subido apuntaba a `localhost` (ver Gotchas).
+
 - 2026-08-08 (claude-code): el desfile **vuelve a la pasarela**. Lo aleatorio
   ahora es el camino, no el rumbo: bajan del portal de arriba, y al llegar al
   cruce del ocho tiran por uno de cuatro caminos (qué lóbulo primero y en qué
@@ -171,6 +175,15 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
   para que el servidor pueda mandar y el guardado en la nube sea el estado tal cual.
 
 ## Gotchas
+
+- **`npm run build` a secas deja el cliente apuntando a `localhost`.** Las URLs
+  de la API y de las salas entran por `VITE_API` y `VITE_SALAS` en tiempo de
+  build; sin ellas el bundle sale con los valores de desarrollo y en producción
+  el ranking y las cuentas mueren por CORS y el multijugador no conecta. Está
+  en el paso 1 del runbook y aun así se saltó (2026-08-08). El comando bueno:
+  `VITE_API=https://api.florin.gargurevich.dev VITE_SALAS=wss://salas.florin.gargurevich.dev npm run build --prefix apps/web`
+  Comprobación de un vistazo antes de subir:
+  `grep -c localhost:5181 apps/web/dist/assets/*.js` tiene que dar **0**.
 
 - **El panel del navegador congela `requestAnimationFrame` cuando no está
   componiendo**, así que el HUD se queda con lo último pintado. Leer
