@@ -84,25 +84,25 @@ export const VISUALES = {
   /* Los cuatro de juguete. El suelo del cuarto, a lo grande. */
   pista: {
     icono: "🏎️",
-    desc: "La alfombra del cuarto con la pista naranja montada encima: rizo, rampas, aceleradores y carritos a toda.",
+    desc: "La alfombra del cuarto con la pista naranja montada encima: el rizo, rampas de salto, aceleradores y bólidos a toda.",
     suelo: "#46506E", loseta: "rgba(255,255,255,.05)", mancha: "rgba(28,32,48,.3)",
     borde: "#2A3049", deco: "pista",
   },
   tablero: {
     icono: "🎲",
-    desc: "Un tablero gigante: casillas de colores por el borde, la cárcel, casitas, hoteles y los dados rodando.",
+    desc: "El tablero gigante: casillas de colores, la cárcel, el aparcamiento gratis, casitas, hoteles, los mazos y los dados rodando.",
     suelo: "#D9D2B8", loseta: "rgba(255,255,255,.14)", mancha: "rgba(150,142,115,.2)",
     borde: "#8A8266", deco: "tablero",
   },
   mirador: {
     icono: "🚂",
-    desc: "Vía de madera sobre la mesa verde, con la montaña y su mirador, el túnel, la estación y el trencito dando vueltas.",
+    desc: "Vía de madera sobre la mesa verde: la montaña con su mirador, el túnel, la estación y los trencitos dando vueltas.",
     suelo: "#5E8A4E", loseta: "rgba(255,255,255,.07)", mancha: "rgba(50,80,42,.26)",
     borde: "#3E5C34", deco: "mirador",
   },
   circuito: {
     icono: "🍄",
-    desc: "Circuito de karts: asfalto con pianitos, tuberías verdes, cajas de ítem, aceleradores y monedas.",
+    desc: "Circuito de karts: pianitos, tuberías, bloques ?, cajas de ítem, aceleradores, monedas y setas.",
     suelo: "#57893F", loseta: "rgba(255,255,255,.06)", mancha: "rgba(45,75,35,.26)",
     borde: "#31531F", deco: "circuito",
   },

@@ -3081,33 +3081,63 @@ function decoPista(c, E){
   /* Las calles: naranja con los dos muretes y la ranura del medio. Van de lado
      a lado porque es lo que hace una pista de juguete montada en el suelo. */
   for (const y of CALLES_PISTA){
-    c.fillStyle = "#D9741F";
+    c.fillStyle = "rgba(0,0,0,.18)";                       // la pista levanta un poco
+    c.fillRect(0, y + 30, WORLD_W, 10);
+    const canal = c.createLinearGradient(0, y - 24, 0, y + 24);
+    canal.addColorStop(0, "#C4661A"); canal.addColorStop(.35, "#F09A3E");
+    canal.addColorStop(.75, "#E4842A"); canal.addColorStop(1, "#B85A16");
+    c.fillStyle = canal;
     c.fillRect(0, y - 34, WORLD_W, 68);
-    c.fillStyle = "#F09A3E";                               // el canal, más claro
-    c.fillRect(0, y - 24, WORLD_W, 48);
-    c.fillStyle = "#B0561A";                               // muretes
-    c.fillRect(0, y - 34, WORLD_W, 10);
-    c.fillRect(0, y + 24, WORLD_W, 10);
-    c.strokeStyle = "rgba(255,255,255,.25)"; c.lineWidth = 3;
+    for (const my of [y - 34, y + 24]){                    // los dos muretes
+      c.fillStyle = "#A85018"; c.fillRect(0, my, WORLD_W, 10);
+      c.fillStyle = "rgba(255,255,255,.28)"; c.fillRect(0, my, WORLD_W, 3);
+    }
+    c.strokeStyle = "rgba(255,255,255,.22)"; c.lineWidth = 3;
     c.setLineDash([26, 26]);
     c.beginPath(); c.moveTo(0, y); c.lineTo(WORLD_W, y); c.stroke();
     c.setLineDash([]);
-    c.fillStyle = "rgba(0,0,0,.14)";                       // las juntas entre piezas
-    for (let x = 0; x < WORLD_W; x += 210) c.fillRect(x, y - 34, 5, 68);
+    /* Las juntas entre piezas, con su pestaña: una pista de juguete se ve que
+       está hecha de trozos que encajan. */
+    for (let x = 0; x < WORLD_W; x += 210){
+      c.fillStyle = "rgba(0,0,0,.16)"; c.fillRect(x, y - 34, 5, 68);
+      c.fillStyle = "rgba(255,255,255,.14)"; c.fillRect(x + 5, y - 34, 2, 68);
+      c.fillStyle = "#C4661A"; rr(c, x - 9, y - 8, 18, 16, 4); c.fill();
+    }
   }
 
-  /* El rizo: visto desde arriba son dos anillos y la rampa que entra. */
-  const rizo = { x: 300, y: 1020 };
-  vetoDeco.push({ x: rizo.x-190, y: rizo.y-190, w: 380, h: 380 });
-  c.strokeStyle = "#B0561A"; c.lineWidth = 62;
-  c.beginPath(); c.arc(rizo.x, rizo.y, 150, 0, 6.283); c.stroke();
-  c.strokeStyle = "#F09A3E"; c.lineWidth = 44;
-  c.beginPath(); c.arc(rizo.x, rizo.y, 150, 0, 6.283); c.stroke();
-  c.strokeStyle = "rgba(255,255,255,.22)"; c.lineWidth = 3;
-  c.setLineDash([20, 20]);
-  c.beginPath(); c.arc(rizo.x, rizo.y, 150, 0, 6.283); c.stroke();
+  /* El rizo. Se monta sobre la calle de arriba y se ve como lo que es: un aro
+     de plástico de canto, con sus dos patas y la sombra en la alfombra. */
+  const rizo = { x: 330, y: CALLES_PISTA[1], r: 150 };
+  vetoDeco.push({ x: rizo.x-200, y: rizo.y-200, w: 400, h: 400 });
+  c.fillStyle = "rgba(0,0,0,.2)";                          // la sombra en el suelo
+  c.beginPath(); c.ellipse(rizo.x + 16, rizo.y + rizo.r - 18, rizo.r*.9, 30, 0, 0, 6.283); c.fill();
+  c.fillStyle = "#8A4413";                                 // las dos patas
+  for (const dx of [-rizo.r*.72, rizo.r*.72]){
+    c.beginPath();
+    c.moveTo(rizo.x + dx - 16, rizo.y + rizo.r - 6);
+    c.lineTo(rizo.x + dx - 7,  rizo.y + rizo.r*.35);
+    c.lineTo(rizo.x + dx + 7,  rizo.y + rizo.r*.35);
+    c.lineTo(rizo.x + dx + 16, rizo.y + rizo.r - 6);
+    c.closePath(); c.fill();
+  }
+  c.strokeStyle = "#8A4413"; c.lineWidth = 68;             // el canto exterior
+  c.beginPath(); c.arc(rizo.x, rizo.y, rizo.r, 0, 6.283); c.stroke();
+  const aro = c.createLinearGradient(rizo.x - rizo.r, 0, rizo.x + rizo.r, 0);
+  aro.addColorStop(0, "#B85A16"); aro.addColorStop(.4, "#F09A3E");
+  aro.addColorStop(.62, "#FFB65C"); aro.addColorStop(1, "#C4661A");
+  c.strokeStyle = aro; c.lineWidth = 48;                   // la superficie por donde corre
+  c.beginPath(); c.arc(rizo.x, rizo.y, rizo.r, 0, 6.283); c.stroke();
+  c.strokeStyle = "rgba(0,0,0,.22)"; c.lineWidth = 9;      // el murete de dentro
+  c.beginPath(); c.arc(rizo.x, rizo.y, rizo.r - 21, 0, 6.283); c.stroke();
+  c.beginPath(); c.arc(rizo.x, rizo.y, rizo.r + 21, 0, 6.283); c.stroke();
+  c.strokeStyle = "rgba(255,255,255,.2)"; c.lineWidth = 3; // la ranura
+  c.setLineDash([18, 18]);
+  c.beginPath(); c.arc(rizo.x, rizo.y, rizo.r, 0, 6.283); c.stroke();
   c.setLineDash([]);
-  c.fillStyle = "#EBD3A2"; c.font = "800 20px system-ui, sans-serif";
+  c.fillStyle = "rgba(255,255,255,.16)";                   // el brillo del plástico
+  c.beginPath(); c.arc(rizo.x, rizo.y, rizo.r, Math.PI*1.15, Math.PI*1.45); c.lineWidth = 1;
+  c.strokeStyle = "rgba(255,255,255,.35)"; c.lineWidth = 10; c.stroke();
+  c.fillStyle = "#EBD3A2"; c.font = "800 21px system-ui, sans-serif";
   c.textAlign = "center"; c.textBaseline = "middle";
   c.fillText("EL RIZO", rizo.x, rizo.y);
 
@@ -3127,21 +3157,33 @@ function decoPista(c, E){
   }, WORLD_H-120);
 
   /* Aceleradores: la pareja de rodillos amarillos con sus flechas. */
-  sembrar(c, 6, 4201, 44, (c,x,y,i) => {
-    vetoDeco.push({ x:x-52, y:y-42, w:104, h:84 });
+  sembrar(c, 6, 4201, 46, (c,x,y,i) => {
+    vetoDeco.push({ x:x-54, y:y-46, w:108, h:96 });
     c.save(); c.translate(x, y);
-    c.fillStyle = "#2A2A30";
-    rr(c, -40, -30, 80, 60, 10); c.fill();
-    c.fillStyle = "#FFC53D";
-    rr(c, -32, -22, 64, 16, 7); c.fill();
-    rr(c, -32, 6, 64, 16, 7); c.fill();
-    c.fillStyle = "#2A2A30";
-    for (let k=0;k<3;k++){
-      c.beginPath();
-      c.moveTo(-16 + k*16, -8); c.lineTo(-6 + k*16, -1); c.lineTo(-16 + k*16, 6);
-      c.closePath(); c.fill();
+    c.fillStyle = "rgba(0,0,0,.26)";
+    c.beginPath(); c.ellipse(0, 34, 44, 12, 0, 0, 6.283); c.fill();
+    c.fillStyle = "#1C1C22"; rr(c, -42, -26, 84, 62, 10); c.fill();   // el canto
+    c.fillStyle = "#33333C"; rr(c, -42, -32, 84, 62, 10); c.fill();   // la caja
+    c.strokeStyle = "rgba(255,255,255,.16)"; c.lineWidth = 2;
+    rr(c, -42, -32, 84, 62, 10); c.stroke();
+    /* los dos rodillos amarillos, con sus estrías girando */
+    for (const ry of [-16, 12]){
+      c.fillStyle = "#C99A1F"; rr(c, -32, ry-1, 64, 16, 8); c.fill();
+      c.fillStyle = "#FFC53D"; rr(c, -32, ry-3, 64, 16, 8); c.fill();
+      c.fillStyle = "rgba(0,0,0,.22)";
+      for (let k=0;k<7;k++) c.fillRect(-27 + k*9, ry-2, 3, 14);
+      c.fillStyle = "rgba(255,255,255,.4)"; c.fillRect(-28, ry-2, 56, 3);
     }
+    c.fillStyle = "#5CE1EA";                               // el piloto de encendido
+    c.beginPath(); c.arc(33, -24, 4, 0, 6.283); c.fill();
     c.restore();
+    /* las flechas del suelo, delante de la máquina */
+    for (let k=0;k<3;k++){
+      c.fillStyle = ["rgba(255,197,61,.75)","rgba(255,197,61,.5)","rgba(255,197,61,.3)"][k];
+      c.beginPath();
+      c.moveTo(x + 46 + k*20, y - 18); c.lineTo(x + 64 + k*20, y); c.lineTo(x + 46 + k*20, y + 18);
+      c.lineTo(x + 54 + k*20, y); c.closePath(); c.fill();
+    }
   }, WORLD_H-100);
 
   /* Piezas de pista sueltas y los conectores naranjas, como las deja un niño. */
@@ -3201,23 +3243,59 @@ function decoTablero(c, E){
     casilla(A.x + A.w - b, y, b, h, COLORES_TABLERO[(k+16) % COLORES_TABLERO.length], "izq");
   }
 
-  /* Las cuatro esquinas, que son las que todo el mundo reconoce. */
-  const esquina = (x, y, texto, icono, col) => {
+  /* Las cuatro esquinas. Dibujadas a mano y no con emoji: un emoji cambia de
+     dibujo según el aparato y aquí desentonaba con todo lo demás. */
+  const esquina = (x, y, texto, col, pintar) => {
     c.fillStyle = col;
     c.fillRect(x+3, y+3, b-6, b-6);
     c.strokeStyle = "#4A4436"; c.lineWidth = 3;
     c.strokeRect(x+3, y+3, b-6, b-6);
+    c.save(); c.translate(x + b/2, y + b/2 - 12);
+    pintar(c);
+    c.restore();
     c.textAlign = "center"; c.textBaseline = "middle";
-    c.font = "30px system-ui, sans-serif";
-    c.fillStyle = "#2A1226";
-    c.fillText(icono, x + b/2, y + b/2 - 12);
     c.font = "800 12px system-ui, sans-serif";
-    c.fillText(texto, x + b/2, y + b/2 + 26);
+    c.fillStyle = "#2A1226";
+    c.fillText(texto, x + b/2, y + b/2 + 30);
   };
-  esquina(A.x, A.y + A.h - b, "SALIDA", "➡️", "#F2933C");
-  esquina(A.x, A.y, "CÁRCEL", "🚔", "#C9C2A8");
-  esquina(A.x + A.w - b, A.y, "APARCA", "🅿️", "#8FE388");
-  esquina(A.x + A.w - b, A.y + A.h - b, "A LA CÁRCEL", "👮", "#F0A0A0");
+  esquina(A.x, A.y + A.h - b, "SALIDA", "#F2933C", c => {    // la flecha gorda
+    c.fillStyle = "#E2453C";
+    c.beginPath();
+    c.moveTo(-26, -9); c.lineTo(8, -9); c.lineTo(8, -20); c.lineTo(30, 0);
+    c.lineTo(8, 20); c.lineTo(8, 9); c.lineTo(-26, 9); c.closePath(); c.fill();
+  });
+  esquina(A.x, A.y, "CÁRCEL", "#C9C2A8", c => {              // la reja con su preso
+    c.fillStyle = "#F0C08A";
+    c.beginPath(); c.arc(0, -4, 9, 0, 6.283); c.fill();
+    c.fillStyle = "#3A1B33";
+    c.beginPath(); c.arc(0, -6, 9, Math.PI*1.05, Math.PI*1.95); c.fill();
+    c.fillStyle = "#5A5A66"; rr(c, -8, 5, 16, 12, 2); c.fill();
+    c.strokeStyle = "#4A4436"; c.lineWidth = 3.5;
+    c.strokeRect(-24, -22, 48, 44);
+    for (const dx of [-12, 0, 12]){
+      c.beginPath(); c.moveTo(dx, -22); c.lineTo(dx, 22); c.stroke();
+    }
+  });
+  esquina(A.x + A.w - b, A.y, "APARCA GRATIS", "#8FE388", c => {   // el cochecito
+    c.fillStyle = "#2A1A16";
+    for (const [rx, ry] of [[-13,7],[13,7]]){ c.beginPath(); c.arc(rx, ry, 5, 0, 6.283); c.fill(); }
+    c.fillStyle = "#E2453C"; rr(c, -24, -8, 48, 16, 6); c.fill();
+    c.fillStyle = "#C0342C"; rr(c, -12, -19, 22, 14, 5); c.fill();
+    c.fillStyle = "#7FD3F0"; rr(c, -9, -17, 16, 9, 3); c.fill();
+    c.fillStyle = "#FFEFC0"; c.beginPath(); c.arc(21, -2, 3, 0, 6.283); c.fill();
+  });
+  esquina(A.x + A.w - b, A.y + A.h - b, "A LA CÁRCEL", "#F0A0A0", c => {  // el guardia
+    c.fillStyle = "#F0C08A";
+    c.beginPath(); c.arc(0, -6, 10, 0, 6.283); c.fill();
+    c.fillStyle = "#2E6FD9";
+    c.beginPath(); c.arc(0, -9, 10, Math.PI, 0); c.fill();
+    c.fillRect(-12, -10, 24, 4);
+    c.fillStyle = "#FFD84D"; c.beginPath(); c.arc(0, -14, 2.6, 0, 6.283); c.fill();
+    c.fillStyle = "#2E6FD9"; rr(c, -11, 5, 22, 16, 4); c.fill();
+    c.strokeStyle = "#F0C08A"; c.lineWidth = 5; c.lineCap = "round";
+    c.beginPath(); c.moveTo(8, 8); c.lineTo(26, -4); c.stroke();   // señalando
+    c.lineCap = "butt";
+  });
 
   /* Casitas verdes y hoteles rojos repartidos, como fichas olvidadas. */
   sembrar(c, 10, 4401, 24, (c,x,y,i) => {
@@ -3268,15 +3346,25 @@ function decoMirador(c, E){
     c.strokeStyle = color; c.lineWidth = ancho;
     c.beginPath(); c.ellipse(O.x, O.y, O.rx, O.ry, 0, 0, 6.283); c.stroke();
   };
-  via(74, "#C9A46A");                                      // la tabla
-  c.strokeStyle = "rgba(120,90,55,.5)"; c.lineWidth = 4;   // traviesas
-  c.setLineDash([6, 26]);
+  via(80, "#8A6A3C");                                      // el canto de la tabla
+  via(74, "#C9A46A");                                      // la cara de arriba
+  c.strokeStyle = "rgba(255,239,226,.14)"; c.lineWidth = 20;  // la veta clara
+  c.beginPath(); c.ellipse(O.x, O.y, O.rx - 22, O.ry - 22, 0, 0, 6.283); c.stroke();
+  c.strokeStyle = "rgba(110,80,45,.55)"; c.lineWidth = 6;  // traviesas, una a una
+  c.setLineDash([7, 24]);
   c.beginPath(); c.ellipse(O.x, O.y, O.rx, O.ry, 0, 0, 6.283); c.stroke();
   c.setLineDash([]);
-  for (const d of [-19, 19]){
-    c.strokeStyle = "#6B4A2A"; c.lineWidth = 7;
+  for (const d of [-19, 19]){                              // las dos ranuras del riel
+    c.strokeStyle = "#5A3E22"; c.lineWidth = 9;
+    c.beginPath(); c.ellipse(O.x, O.y, O.rx + d, O.ry + d*.7, 0, 0, 6.283); c.stroke();
+    c.strokeStyle = "rgba(0,0,0,.3)"; c.lineWidth = 4;
     c.beginPath(); c.ellipse(O.x, O.y, O.rx + d, O.ry + d*.7, 0, 0, 6.283); c.stroke();
   }
+  /* Las juntas donde encaja una tabla con la siguiente. */
+  c.strokeStyle = "rgba(90,62,34,.45)"; c.lineWidth = 74;
+  c.setLineDash([3, 176]);
+  c.beginPath(); c.ellipse(O.x, O.y, O.rx, O.ry, 0, 0, 6.283); c.stroke();
+  c.setLineDash([]);
 
   /* La montaña, en la esquina que el escenario deja libre a propósito. */
   const M = { x: 90, y: 110, w: 520, h: 630 };
@@ -3433,35 +3521,92 @@ function decoCircuito(c, E){
     c.restore();
   }
 
-  /* Tuberías verdes: desde arriba, el borde grueso y el agujero negro. */
-  sembrar(c, 6, 4901, 48, (c,x,y) => {
-    vetoDeco.push({ x:x-52, y:y-40, w:104, h:80 });
-    c.fillStyle = "rgba(0,0,0,.22)";
-    c.beginPath(); c.ellipse(x, y+14, 42, 13, 0, 0, 6.283); c.fill();
-    c.fillStyle = "#2E8B32";
-    c.beginPath(); c.ellipse(x, y, 40, 26, 0, 0, 6.283); c.fill();
-    c.fillStyle = "#4FB84A";
-    c.beginPath(); c.ellipse(x, y-4, 40, 26, 0, 0, 6.283); c.fill();
-    c.fillStyle = "#1B5A1F";
-    c.beginPath(); c.ellipse(x, y-4, 27, 17, 0, 0, 6.283); c.fill();
-    c.fillStyle = "rgba(255,255,255,.22)";
-    c.beginPath(); c.ellipse(x-18, y-10, 7, 4, -.4, 0, 6.283); c.fill();
+  /* Tuberías. Una tubería es un CILINDRO: tiene cuerpo, un labio que sobresale
+     y una boca por la que se ve el hueco. La versión plana de antes era una
+     mancha verde con un agujero; esto se lee como algo en lo que te metes. */
+  sembrar(c, 6, 4901, 56, (c,x,y) => {
+    vetoDeco.push({ x:x-64, y:y-72, w:128, h:130 });
+    const RX = 44, RY = 17, ALTO = 46, LABIO = 12;
+    c.fillStyle = "rgba(0,0,0,.26)";
+    c.beginPath(); c.ellipse(x + 10, y + ALTO - 2, RX, RY, 0, 0, 6.283); c.fill();
+
+    /* el cuerpo: rectángulo entre las dos elipses, más oscuro a los lados */
+    const cuerpo = c.createLinearGradient(x - RX, 0, x + RX, 0);
+    cuerpo.addColorStop(0,   "#1B5A1F");
+    cuerpo.addColorStop(.32, "#4FB84A");
+    cuerpo.addColorStop(.52, "#6FD666");
+    cuerpo.addColorStop(1,   "#256A26");
+    c.fillStyle = cuerpo;
+    c.beginPath();
+    c.moveTo(x - RX*.82, y);
+    c.lineTo(x - RX*.82, y + ALTO);
+    c.ellipse(x, y + ALTO, RX*.82, RY*.82, 0, Math.PI, 0, true);
+    c.lineTo(x + RX*.82, y);
+    c.closePath(); c.fill();
+
+    /* el labio: un anillo más ancho que el cuerpo */
+    const labio = c.createLinearGradient(x - RX, 0, x + RX, 0);
+    labio.addColorStop(0,   "#256A26");
+    labio.addColorStop(.30, "#5FC957");
+    labio.addColorStop(.50, "#7FE375");
+    labio.addColorStop(1,   "#2E8B32");
+    c.fillStyle = labio;
+    c.beginPath();
+    c.moveTo(x - RX, y - LABIO);
+    c.lineTo(x - RX, y);
+    c.ellipse(x, y, RX, RY, 0, Math.PI, 0, true);
+    c.lineTo(x + RX, y - LABIO);
+    c.closePath(); c.fill();
+    c.beginPath(); c.ellipse(x, y - LABIO, RX, RY, 0, 0, 6.283); c.fill();
+
+    /* la boca */
+    c.fillStyle = "#123F14";
+    c.beginPath(); c.ellipse(x, y - LABIO, RX - 11, RY - 5, 0, 0, 6.283); c.fill();
+    c.fillStyle = "#0B2A0D";
+    c.beginPath(); c.ellipse(x, y - LABIO + 3, RX - 14, RY - 7, 0, 0, 6.283); c.fill();
+
+    /* el brillo del plástico y la junta del labio */
+    c.fillStyle = "rgba(255,255,255,.3)";
+    c.beginPath(); c.ellipse(x - RX*.52, y - LABIO - 1, 7, 3.4, -.35, 0, 6.283); c.fill();
+    c.fillStyle = "rgba(255,255,255,.16)";
+    c.fillRect(x - RX*.55, y + 2, 7, ALTO - 6);
+    c.strokeStyle = "rgba(0,0,0,.28)"; c.lineWidth = 2;
+    c.beginPath(); c.ellipse(x, y, RX, RY, 0, Math.PI*.02, Math.PI*.98); c.stroke();
   });
 
-  /* Bloques ? de ladrillo, los que están fijos en el suelo. */
-  sembrar(c, 7, 5001, 30, (c,x,y,i) => {
-    vetoDeco.push({ x:x-34, y:y-34, w:68, h:76 });
-    c.fillStyle = "rgba(0,0,0,.22)";
-    c.beginPath(); c.ellipse(x, y+22, 26, 8, 0, 0, 6.283); c.fill();
-    c.fillStyle = "#C97A1F"; rr(c, x-24, y-24, 48, 48, 6); c.fill();
-    c.fillStyle = "#F2A93C"; rr(c, x-20, y-20, 40, 40, 5); c.fill();
-    c.fillStyle = "#8A5A18";
-    for (const [dx,dy] of [[-15,-15],[15,-15],[-15,15],[15,15]]){
-      c.beginPath(); c.arc(x+dx, y+dy, 3, 0, 6.283); c.fill();
+  /* Bloques ?: el cubo con su bisel, los cuatro remaches y el canto de abajo
+     en sombra, que es lo que hace que parezca un bloque y no una pegatina. */
+  sembrar(c, 7, 5001, 34, (c,x,y,i) => {
+    vetoDeco.push({ x:x-38, y:y-40, w:76, h:86 });
+    const R = 25;
+    c.fillStyle = "rgba(0,0,0,.24)";
+    c.beginPath(); c.ellipse(x, y+R+10, R+3, 9, 0, 0, 6.283); c.fill();
+    c.fillStyle = "#7A4A12";                                 // el canto inferior
+    rr(c, x-R, y-R+7, R*2, R*2, 6); c.fill();
+    const cara = c.createLinearGradient(0, y-R, 0, y+R);
+    cara.addColorStop(0, "#F7BE55"); cara.addColorStop(1, "#D98A1E");
+    c.fillStyle = cara; rr(c, x-R, y-R, R*2, R*2, 6); c.fill();
+    c.fillStyle = "rgba(255,255,255,.30)";                   // el bisel de arriba
+    c.beginPath();
+    c.moveTo(x-R+3, y-R+3); c.lineTo(x+R-3, y-R+3);
+    c.lineTo(x+R-9, y-R+9); c.lineTo(x-R+9, y-R+9); c.closePath(); c.fill();
+    c.fillStyle = "rgba(0,0,0,.18)";                         // y el de abajo
+    c.beginPath();
+    c.moveTo(x-R+3, y+R-3); c.lineTo(x+R-3, y+R-3);
+    c.lineTo(x+R-9, y+R-9); c.lineTo(x-R+9, y+R-9); c.closePath(); c.fill();
+    c.fillStyle = "#8A5A18";                                 // remaches
+    for (const [dx,dy] of [[-16,-16],[16,-16],[-16,16],[16,16]]){
+      c.beginPath(); c.arc(x+dx, y+dy, 3.2, 0, 6.283); c.fill();
+      c.fillStyle = "rgba(255,255,255,.35)";
+      c.beginPath(); c.arc(x+dx-1, y+dy-1, 1.3, 0, 6.283); c.fill();
+      c.fillStyle = "#8A5A18";
     }
-    c.fillStyle = "#FFEFE2"; c.font = "800 30px system-ui, sans-serif";
     c.textAlign = "center"; c.textBaseline = "middle";
-    c.fillText(i % 4 === 3 ? "!" : "?", x, y+2);
+    c.font = "800 31px system-ui, sans-serif";
+    c.fillStyle = "rgba(0,0,0,.35)";
+    c.fillText(i % 4 === 3 ? "!" : "?", x, y+4);
+    c.fillStyle = "#FFEFE2";
+    c.fillText(i % 4 === 3 ? "!" : "?", x, y+1);
   });
 
   /* Monedas y setas, el confeti del circuito. */
@@ -3477,13 +3622,18 @@ function decoCircuito(c, E){
         c.beginPath(); c.arc(x+dx, y-8, 3.6, 0, 6.283); c.fill();
       }
     } else {
-      c.fillStyle = "#C99A1F";
-      c.beginPath(); c.ellipse(x, y, 10, 13, 0, 0, 6.283); c.fill();
-      c.fillStyle = "#FFD84D";
-      c.beginPath(); c.ellipse(x, y-2, 10, 13, 0, 0, 6.283); c.fill();
-      c.fillStyle = "#C99A1F"; c.font = "800 13px system-ui, sans-serif";
-      c.textAlign = "center"; c.textBaseline = "middle";
-      c.fillText("$", x, y-1);
+      c.fillStyle = "rgba(0,0,0,.2)";                        // la sombrita
+      c.beginPath(); c.ellipse(x, y+14, 9, 3.4, 0, 0, 6.283); c.fill();
+      c.fillStyle = "#A87A12";                               // el canto
+      c.beginPath(); c.ellipse(x, y+1, 11, 14, 0, 0, 6.283); c.fill();
+      const oro = c.createLinearGradient(x-11, y-14, x+11, y+14);
+      oro.addColorStop(0, "#FFE98A"); oro.addColorStop(.5, "#FFD84D"); oro.addColorStop(1, "#D9A81E");
+      c.fillStyle = oro;
+      c.beginPath(); c.ellipse(x, y-2, 11, 14, 0, 0, 6.283); c.fill();
+      c.strokeStyle = "rgba(168,122,18,.85)"; c.lineWidth = 2;   // el aro de dentro
+      c.beginPath(); c.ellipse(x, y-2, 6.5, 9.5, 0, 0, 6.283); c.stroke();
+      c.fillStyle = "rgba(255,255,255,.55)";                 // el brillo
+      c.beginPath(); c.ellipse(x-4.5, y-8, 2.6, 3.6, -.4, 0, 6.283); c.fill();
     }
   });
 }

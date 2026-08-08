@@ -305,18 +305,18 @@ export const ESCENARIOS: Escenario[] = [
   /* Los cuatro de juguete: el suelo del cuarto convertido en cuadra. El
      reparto es el de siempre —cuatro casas, un patio y los dos comprables al
      lado— porque el sitio cambia el decorado, no las reglas. */
-  { id:"pista",    nombre:"Pista Naranja",
+  { id:"pista",    nombre:"Hot Wheels",
     casas:[[70,90],[2150,90],[2150,700],[2150,1290]],
     patios:[[70,1290],[520,1290],[70,900]] },
-  { id:"tablero",  nombre:"El Tablero",
+  { id:"tablero",  nombre:"Monopoly",
     casas:[[70,90],[560,90],[1620,90],[2130,90]],
     patios:[[70,1290],[520,1290],[70,900]] },
   /* En el Mirador las casas van todas a la derecha y arriba: la esquina
      noroeste se deja libre a propósito para que quepa la montaña. */
-  { id:"mirador",  nombre:"El Mirador",
+  { id:"mirador",  nombre:"Thomas y el Mirador",
     casas:[[2150,90],[2150,700],[2150,1290],[1620,90]],
     patios:[[70,1290],[520,1290],[70,880]] },
-  { id:"circuito", nombre:"El Circuito",
+  { id:"circuito", nombre:"Mario Kart",
     casas:[[70,90],[2150,90],[560,90],[2150,620]],
     patios:[[70,1120],[520,1120],[70,760]] },
 ];

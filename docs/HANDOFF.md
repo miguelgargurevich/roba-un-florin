@@ -38,8 +38,8 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
       pruebas de multijugador han sido con clientes que controlaba yo, en
       localhost o sin latencia. Es el hueco más grande que queda.
 - [ ] Resolver la pregunta de derechos sobre Invictor / Florín **antes** de
-      monetizar nada. Incluye ahora las marcas de juguete de los cuatro
-      escenarios nuevos: el decorado se parece aunque el nombre no lo diga.
+      monetizar nada. Incluye las cuatro marcas de juguete, que ahora salen con
+      su nombre en el selector de escenario.
 - [ ] Modo cooperativo, si se le encuentra un objetivo compartido que lo haga
       distinto de la aventura.
 
@@ -48,9 +48,12 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 - 2026-08-07: en la fauna, `ritmo` (reloj de la animación) y `vel`
   (desplazamiento) son dos números distintos. Estaban mezclados y un delfín que
   avanza a 35 px/s agitaba el cuerpo 35 veces por segundo.
-- 2026-08-07: los escenarios de juguete llevan nombres genéricos —Pista
-  Naranja, El Tablero, El Mirador, El Circuito— y no las marcas en las que se
-  inspiran. Pendiente de decidir junto con lo de Invictor / Florín.
+- 2026-08-07: los escenarios de juguete llevan los nombres de las marcas —Hot
+  Wheels, Monopoly, Thomas y el Mirador, Mario Kart— por decisión explícita del
+  dueño del repo, tras plantearle la duda de derechos. Los **ids** siguen siendo
+  genéricos (`pista`, `tablero`, `mirador`, `circuito`) porque viajan en las
+  partidas guardadas y en las salas: cambiar un nombre no rompe nada, cambiar un
+  id sí.
 - 2026-08-07: el azar del cliente (`azar2`) es solo para adornos. Gastar el del
   motor desde el navegador desincronizaría una sala.
 - 2026-08-05: `escudo` pasó de sí/no a segundos (el paraguas dura 3 minutos).
