@@ -74,13 +74,6 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Próximos pasos
 
-- [ ] **BUG abierto, intermitente:** a veces, la PRIMERA vez que le das a
-      "Correr ▸" después de cargar la página, arranca una aventura en vez de una
-      carrera. El botón dice "Correr", `#modoFila .modoBtn.sel` es `carrera` y
-      leyendo justo antes del clic también dice `carrera`, pero el juego sale en
-      modo aventura. Reproducido dos veces en producción (740×420, puntero
-      grueso) y ninguna en localhost. Workaround: 🏠 y darle otra vez. Sospecha
-      pendiente: algo asíncrono del arranque con la nube que no ocurre en local.
 - [ ] **Los bots corren mucho más que un jugador en red.** Medido: 3 vueltas
       contra 1 en el mismo tiempo. Parte es la latencia (220 ms) y parte que el
       bot traza perfecto. Si va a jugarse en serio, hay que frenarlos en
@@ -138,6 +131,13 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
   para que el servidor pueda mandar y el guardado en la nube sea el estado tal cual.
 
 ## Gotchas
+
+- **El panel del navegador congela `requestAnimationFrame` cuando no está
+  componiendo**, así que el HUD se queda con lo último pintado. Leer
+  `textContent` tras un `setTimeout` da valores VIEJOS y parece un bug del
+  juego: costó un buen rato de caza creer que "Correr" arrancaba una aventura,
+  y era esto. Para leer el HUD, fuerza antes un frame de verdad
+  (`requestAnimationFrame` anidado) o toma una captura.
 
 - El **Garaje vive en el navegador** (`florin_garaje`), como el álbum. El
   servidor de salas no comprueba que de verdad tengas el vehículo que traes:
