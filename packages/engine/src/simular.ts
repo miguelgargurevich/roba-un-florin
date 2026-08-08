@@ -10,13 +10,13 @@
 
 import type {
   Base, Bala, DesfileItem, EntradaJugador, Estado, Florin, Jugador, Ladron,
-  Pedestal, Premio, Abuela, RefObjetivo, Trasto,
+  Pedestal, Premio, Abuela, RefObjetivo, RefPed, Trasto,
 } from "./tipos.js";
 import {
   GOAL, LADRONES, LASER_CARGA, RULETA, RULETA_INCOGNITA, RULETA_PRECIO,
   PATADA, PORTAL_CADA, PORTAL_MAX, PORTAL_RAREZAS, PORTAL_VUELTA,
   LASER_DUR, LASER_PRECIO, LASER_RECARGA, RODAR_ROCE, TRASTO_ALCANCE,
-  TIERS, VARIANTES, VEHICULOS, WEAPONS, WORLD_H, WORLD_W, esVehiculo, varLabel,
+  TIERS, VARIANTES, VEHICULOS, WEAPONS, WORLD_H, WORLD_W, esVehiculo, varLabel, varMult,
 } from "./datos.js";
 import { azar, clamp, dist2, inRect, lerp, money, pick, rnd, tiraDeTabla } from "./util.js";
 import {
@@ -150,6 +150,31 @@ export function spawnThief(e: Estado) {
     who: from.who!, isGuard: false,
   });
 }
+
+/* ---- vender lo que ya tienes en la vitrina ----
+   Un Florín que no te sirve deja de ser un hueco desperdiciado: lo vendes por
+   su precio y lo cambias por uno mejor. Es lo que hace que la escalera de
+   hitos —que mide por el PEOR Florín— se pueda subir a propósito y no solo
+   por suerte. */
+export function venderFlorin(e: Estado, p: Jugador, ref: RefPed): number {
+  const ped = pedDe(e, ref);
+  if (!ped || !ped.florin) return 0;
+  const base = baseDe(e, ref.b);
+  if (base.owner !== p.idx) return 0;          // solo lo tuyo, y solo tú
+  const f = ped.florin;
+  const precio = Math.round(TIERS[f.tier].price * varMult(f.variant));
+  p.money += precio;
+  ped.florin = null;
+  ped.pop = 1;
+  texto(e, ped.x, ped.y - 46, "+" + money(precio), "#FFC53D");
+  polvo(e, ped.x, ped.y - 10, "#FFC53D", 12);
+  sonar(e, "buy");
+  return precio;
+}
+
+/** Lo que te darían por él, para poder enseñarlo antes de vender. */
+export const precioDeVenta = (f: Florin) =>
+  Math.round(TIERS[f.tier].price * varMult(f.variant));
 
 /* ---- ruleta ---- */
 export function premioDeRuleta(e: Estado): Premio {

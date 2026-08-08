@@ -35,7 +35,7 @@ Antes de jugar eliges dónde, y la elección se recuerda:
 | 🏔️ **Machu Picchu** | andenes escalonados con su muro de sillares, ruinas de piedra con puertas trapezoidales, **llamas** con su borla de lana, matas de ichu y jirones de neblina · patinetas y pelotas |
 | 🗽 **Nueva York** | la **Estatua de la Libertad** en su isla, **Central Park** con lago, arboledas y caminos serpenteando, y el **puente de Brooklyn** cruzando el puerto · dos avenidas con línea amarilla y pasos de cebra, azoteas con tanque de agua y aire acondicionado, taxis, hidrantes y alcantarillas echando vapor · patinetas y bicis |
 | 🐫 **Egipto** | dunas, **pirámides** escalonadas con su remate dorado, la **esfinge** con el nemes rayado, obeliscos con jeroglíficos, palmeras datileras y cráneos resecos · tablas de arena y matas |
-| 🐊 **El Amazonas** | la espesura, **el río al sur** (solo se cruza con tabla o flotador), árboles enormes con lianas, nenúfares gigantes en flor, **caimanes**, guacamayos, monos, ranitas y helechos |
+| 🐊 **El Amazonas** | los **delfines rosados** saltando en el río, monos columpiándose de las lianas, guacamayos volando en círculos y ranitas dando saltos · la espesura, **el río al sur** (solo se cruza con tabla o flotador), árboles enormes con lianas, nenúfares gigantes en flor, **caimanes**, guacamayos, monos, ranitas y helechos |
 
 Las **reglas son las mismas** en los cuatro, y la columna del centro (portal,
 Armería y Ruleta) no se mueve nunca: lo que cambia es el sitio y por dónde te
@@ -252,6 +252,26 @@ lo roban, llega así a la vitrina del ladrón y lo conserva cuando lo recuperas.
 | 🌈 Arcoíris | ×3 | aura que cambia de color |
 | 👻 Fantasma | ×4 | el bloque se transparenta y se le ve el pedestal detrás |
 | 👑 Dorado | ×5 | aura dorada que late, con ocho destellos de oro |
+
+### Vender lo que ya tienes
+
+Acércate a un Florín de tu vitrina, abre su panel (`N` o el botón verde ✏️) y
+dale a **Vender**: te pagan su precio —multiplicado por la variante— y el hueco
+queda libre.
+
+Es lo que hace que la escalera de hitos se pueda subir **a propósito** y no solo
+por suerte: como el nivel lo marca el peor Florín que tengas puesto, vender el
+más flojo y poner uno mejor es la jugada.
+
+### Los animales se mueven
+
+En el Amazonas los bichos no son pintura: los **delfines rosados** recorren el
+río saltando y salpicando, los monos se columpian de las lianas, los guacamayos
+vuelan en círculos batiendo las alas y las ranitas dan saltitos.
+
+Viven en el **cliente**, no en el motor: no afectan a nada del juego, así que no
+tienen por qué viajar por la red veinte veces por segundo ni ocupar sitio en la
+partida guardada.
 
 ### El álbum
 

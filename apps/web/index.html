@@ -171,6 +171,9 @@
   #bautizoInput:focus{outline:none;border-color:var(--leaf)}
   #bautizoInput::placeholder{color:#8C7080}
   .bautizoBtns{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+  .bautizoBtn.vender{
+    background:linear-gradient(180deg,#FFD066,var(--gold));color:#3A2400;border-color:transparent;
+  }
   .bautizoBtn{
     flex:1 1 auto;padding:12px 10px;border-radius:12px;cursor:pointer;border:2px solid var(--plum-600);
     background:var(--plum-700);color:var(--cream);font-family:var(--ui);font-weight:800;font-size:13px;
@@ -703,6 +706,7 @@
              autocomplete="off" spellcheck="false" aria-label="Nombre del Florín">
       <div class="bautizoBtns">
         <button class="bautizoBtn ok" id="bautizoOk">Ponerle nombre</button>
+        <button class="bautizoBtn vender" id="bautizoVender">Vender</button>
         <button class="bautizoBtn" id="bautizoQuitar">Quitar</button>
         <button class="bautizoBtn" id="bautizoCancelar">Cancelar</button>
       </div>

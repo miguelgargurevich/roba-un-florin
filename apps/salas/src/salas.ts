@@ -6,7 +6,7 @@
 
 import {
   JUGADORES_MAX, avanzar, bajarse, crearPartida, girarRuleta, idsDeArmas,
-  seleccionarArma, usarArma,
+  seleccionarArma, usarArma, venderFlorin,
   type EntradaJugador, type Estado,
 } from "@florin/engine";
 import {
@@ -138,6 +138,7 @@ export class Sala {
   usar(a: Asiento): void { usarArma(this.estado, this.estado.players[a.idx]); }
   ruleta(a: Asiento): void { girarRuleta(this.estado, this.estado.players[a.idx], 2.2); }
   bajar(a: Asiento): void { bajarse(this.estado, this.estado.players[a.idx], true); }
+  vender(a: Asiento, b: number, i: number): void { venderFlorin(this.estado, this.estado.players[a.idx], { b, i }); }
 }
 
 export class Registro {

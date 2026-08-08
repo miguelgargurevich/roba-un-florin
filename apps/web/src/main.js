@@ -16,7 +16,8 @@ import {
   florNombre, florinIncome, freePed, freePedDe, girarRuleta as girarEnMotor,
   inRect, laserActivo, lerp, money, nuevaPartidaMotor, nuevoFlorin, occupied,
   occupiedDe, orbitaDelCentro, playerIncome, puntoDelDesfile, rumboDeTiro,
-  bajarse, conAtajosDeSala as conAtajosMotor, nombreDeHito, patiosDe,
+  bajarse, conAtajosDeSala as conAtajosMotor, nombreDeHito, patiosDe, precioDeVenta,
+  venderFlorin,
   revivirPartida, seleccionarArma, textoDePremio,
   usarArma, varLabel, vitrinaDe,
   varMult, visualDe,
@@ -897,14 +898,17 @@ const bau = {
   que:    document.getElementById("bautizoQue"),
   titulo: document.getElementById("bautizoTitulo"),
   boton:  document.getElementById("nameBtn"),
-  ped: null
+  vender: document.getElementById("bautizoVender"),
+  ped: null,
 };
 
 // El pedestal de TU vitrina que tienes al lado (o null)
 function florinAlLado(){
   if (!G || !G.started || G.over) return null;
   let cerca = null, d2 = 66*66;
-  for (const p of G.players)
+  /* Solo TU vitrina: en una sala, los patios de los demás son suyos y no se
+     bautizan ni se venden desde aquí. */
+  for (const p of (G.local2 ? G.players : [G.player]))
     for (const b of patiosDe(G, p)) for (const ped of b.peds){
       if (!ped.florin) continue;
       const d = dist2(p.x, p.y, ped.x, ped.y);
@@ -922,6 +926,7 @@ function abrirBautizo(){
   bau.que.textContent = T.name + " · " + T.rar + " · " + florNombre(ped.florin) +
     (ped.florin.variant ? " " + varLabel(ped.florin.variant) : "") +
     " · " + florinIncome(ped.florin) + "/s";
+  bau.vender.textContent = "Vender por " + money(precioDeVenta(ped.florin));
   bau.input.value = ped.florin.nombre || "";
   bau.caja.hidden = false;
   if (!G.paused) togglePause();          // que no te roben mientras escribes
@@ -946,6 +951,27 @@ function guardarNombre(){
   cerrarBautizo();
 }
 
+/** Vender el Florín que tienes al lado: te lo pagan y el hueco queda libre. */
+function venderElDeAlLado(){
+  const ped = bau.ped;
+  if (!ped || !ped.florin) return;
+  const ref = refDelPedestal(ped);
+  if (!ref) return;
+  if (sala) sala.vender(ref.b, ref.i);
+  else venderFlorin(G, G.player, ref);
+  cerrarBautizo();
+}
+
+/** De un pedestal a su {b, i}, que es como lo nombra el motor. */
+function refDelPedestal(ped){
+  for (const b of G.bases){
+    const i = b.peds.indexOf(ped);
+    if (i >= 0) return { b: b.id, i };
+  }
+  return null;
+}
+
+bau.vender.addEventListener("click", venderElDeAlLado);
 document.getElementById("bautizoOk").addEventListener("click", guardarNombre);
 document.getElementById("bautizoCancelar").addEventListener("click", cerrarBautizo);
 document.getElementById("bautizoQuitar").addEventListener("click", () => {
@@ -1104,7 +1130,7 @@ const cam = { x:0, y:0 };
    estampa: así el decorado puede ser todo lo rico que quiera sin costar nada por
    frame. Se invalida al empezar partida (cambio de escenario). */
 let sueloCv = null;
-function invalidarSuelo(){ sueloCv = null; }
+function invalidarSuelo(){ sueloCv = null; sembrarFauna(G ? G.esc : ESCENARIOS[escSel]); }
 
 /* aleatorio estable: el mismo adorno cae siempre en el mismo sitio */
 const az = i => { const v = Math.sin(i*12.9898)*43758.5453; return v - Math.floor(v); };
@@ -1515,6 +1541,155 @@ function dibujarPiedra(c, x, y, giro, i){
   c.restore();
 }
 
+/* ============================================================
+   Fauna: los bichos que se mueven
+   ============================================================
+   Son adorno puro y viven en el CLIENTE, no en el motor: no afectan a nada del
+   juego, así que no tienen por qué viajar por la red veinte veces por segundo
+   ni gastar estado de partida. Por eso usan `azar2` y no el RNG del motor. */
+let fauna = [];
+
+function sembrarFauna(esc){
+  fauna = [];
+  const nuevo = (tipo, x, y, extra) => fauna.push({
+    tipo, x, y, x0: x, y0: y, t: azar2(0, 6.283), vel: azar2(.5, 1.1), ...extra,
+  });
+  if (esc.id === "amazonas"){
+    const RIO = WORLD_H - 240;
+    // los delfines rosados: salen y se meten, siguiendo el río
+    for (let i = 0; i < 4; i++)
+      nuevo("delfin", azar2(200, WORLD_W - 200), azar2(RIO + 70, WORLD_H - 90),
+            { rumbo: i % 2 ? 1 : -1, vel: azar2(26, 44) });
+    for (let i = 0; i < 5; i++) nuevo("guacamayo", azar2(150, WORLD_W - 150), azar2(120, RIO - 200), { r: azar2(60, 130) });
+    for (let i = 0; i < 4; i++) nuevo("mono", azar2(150, WORLD_W - 150), azar2(150, RIO - 160), { r: azar2(40, 90) });
+    for (let i = 0; i < 6; i++) nuevo("rana", azar2(120, WORLD_W - 120), azar2(150, RIO - 90), { salto: azar2(0, 6.283) });
+  }
+}
+
+function animarFauna(dt){
+  const RIO = WORLD_H - 240;
+  for (const a of fauna){
+    a.t += dt * a.vel;
+    if (a.tipo === "delfin"){
+      a.x += a.rumbo * a.vel * dt;
+      if (a.x < 90){ a.x = 90; a.rumbo = 1; }
+      if (a.x > WORLD_W - 90){ a.x = WORLD_W - 90; a.rumbo = -1; }
+      a.salto = Math.sin(a.t * .9);           // el arco de salir del agua
+      a.y = clamp(a.y0 - Math.max(0, a.salto) * 26, RIO + 40, WORLD_H - 60);
+    } else if (a.tipo === "guacamayo"){        // vuela en círculos amplios
+      a.x = a.x0 + Math.cos(a.t * .5) * a.r;
+      a.y = a.y0 + Math.sin(a.t * .7) * a.r * .45;
+    } else if (a.tipo === "mono"){             // se columpia de un lado a otro
+      a.x = a.x0 + Math.sin(a.t * .8) * a.r;
+      a.y = a.y0 + Math.abs(Math.cos(a.t * .8)) * 16;
+    } else if (a.tipo === "rana"){             // saltitos cortos
+      a.salto = Math.max(0, Math.sin(a.t * 1.6));
+      a.y = a.y0 - a.salto * 14;
+      a.x = a.x0 + Math.sin(a.t * .3) * 26;
+    }
+  }
+}
+
+function drawFauna(){
+  for (const a of fauna){
+    if (a.tipo === "delfin")         dibujarDelfin(ctx, a);
+    else if (a.tipo === "guacamayo") dibujarGuacamayo(ctx, a);
+    else if (a.tipo === "mono")      dibujarMono(ctx, a);
+    else                             dibujarRana(ctx, a);
+  }
+}
+
+/* ---- el delfín rosado del Amazonas ---- */
+function dibujarDelfin(c, a){
+  const fuera = Math.max(0, a.salto);          // cuánto asoma del agua
+  c.save(); c.translate(a.x, a.y); c.scale(a.rumbo, 1); c.rotate(-fuera * .5);
+  c.fillStyle = "rgba(20,50,50,.28)";          // su sombra bajo el agua
+  c.beginPath(); c.ellipse(0, 16, 34, 9, 0, 0, 6.283); c.fill();
+  c.fillStyle = "#E88AA8";                     // el cuerpo, rosado
+  c.beginPath();
+  c.moveTo(-34, 2);
+  c.quadraticCurveTo(-14, -17, 16, -13);
+  c.quadraticCurveTo(34, -10, 42, 0);          // el hocico largo, que es lo suyo
+  c.quadraticCurveTo(30, 6, 14, 8);
+  c.quadraticCurveTo(-10, 12, -34, 2);
+  c.closePath(); c.fill();
+  c.fillStyle = "#D06B8E";
+  c.beginPath();                                // la aleta dorsal, apenas una joroba
+  c.moveTo(-4, -12); c.quadraticCurveTo(2, -22, 10, -12); c.closePath(); c.fill();
+  c.beginPath();                                // la cola
+  c.moveTo(-30, 2); c.lineTo(-46, -9); c.lineTo(-42, 3); c.lineTo(-46, 12);
+  c.closePath(); c.fill();
+  c.fillStyle = "#FFC3D6";                      // la panza más clara
+  c.beginPath(); c.ellipse(-2, 5, 20, 4, .05, 0, 6.283); c.fill();
+  c.fillStyle = "#3A2416";
+  c.beginPath(); c.arc(18, -6, 1.8, 0, 6.283); c.fill();
+  c.restore();
+  if (fuera > .5){                              // salpicadura al salir
+    c.fillStyle = "rgba(255,255,255,.5)";
+    for (let k = 0; k < 4; k++){
+      const ang = -2.4 + k * .6;
+      c.beginPath();
+      c.arc(a.x + Math.cos(ang) * 26, a.y + 14 + Math.sin(ang) * 8, 2.6, 0, 6.283);
+      c.fill();
+    }
+  }
+}
+
+function dibujarGuacamayo(c, a){
+  const ala = Math.sin(a.t * 8) * 9;
+  c.save(); c.translate(a.x, a.y);
+  c.fillStyle = "rgba(0,0,0,.13)";
+  c.beginPath(); c.ellipse(0, 26, 12, 4, 0, 0, 6.283); c.fill();
+  c.fillStyle = "#E2453C";
+  c.beginPath(); c.ellipse(0, 0, 8, 11, .2, 0, 6.283); c.fill();
+  c.fillStyle = "#37D6E0";                      // las alas batiendo
+  c.beginPath(); c.ellipse(-11, -2 - ala, 10, 4, -.5 - ala * .04, 0, 6.283); c.fill();
+  c.beginPath(); c.ellipse(11, -2 - ala, 10, 4, .5 + ala * .04, 0, 6.283); c.fill();
+  c.fillStyle = "#FFD84D";
+  c.beginPath(); c.moveTo(-3, 8); c.lineTo(3, 26); c.lineTo(6, 7); c.closePath(); c.fill();
+  c.fillStyle = "#EDE3D0";
+  c.beginPath(); c.arc(1, -11, 4.5, 0, 6.283); c.fill();
+  c.fillStyle = "#3A2416";
+  c.beginPath(); c.moveTo(4, -12); c.lineTo(10, -9); c.lineTo(4, -7); c.closePath(); c.fill();
+  c.restore();
+}
+
+function dibujarMono(c, a){
+  c.save(); c.translate(a.x, a.y);
+  c.strokeStyle = "#4E7A34"; c.lineWidth = 2;   // la liana de la que cuelga
+  c.beginPath(); c.moveTo(a.x0 - a.x, -70); c.lineTo(0, -18); c.stroke();
+  c.fillStyle = "#8B6F52";
+  c.beginPath(); c.ellipse(0, 0, 11, 13, 0, 0, 6.283); c.fill();
+  c.beginPath(); c.arc(0, -15, 8, 0, 6.283); c.fill();
+  c.fillStyle = "#C9A97E";
+  c.beginPath(); c.ellipse(0, -13, 5.5, 6, 0, 0, 6.283); c.fill();
+  for (const ox of [-8, 8]){ c.fillStyle = "#8B6F52"; c.beginPath(); c.arc(ox, -17, 4, 0, 6.283); c.fill(); }
+  c.fillStyle = "#3A2416";
+  c.beginPath(); c.arc(-2.4, -14, 1.3, 0, 6.283); c.fill();
+  c.beginPath(); c.arc(2.4, -14, 1.3, 0, 6.283); c.fill();
+  c.strokeStyle = "#8B6F52"; c.lineWidth = 2.6;
+  c.beginPath(); c.moveTo(9, 6); c.quadraticCurveTo(26, 4, 22, -12); c.stroke();
+  c.restore();
+}
+
+function dibujarRana(c, a){
+  c.save(); c.translate(a.x, a.y);
+  c.fillStyle = "rgba(0,0,0,.16)";
+  c.beginPath(); c.ellipse(0, 10 + a.salto * 12, 10, 3.4, 0, 0, 6.283); c.fill();
+  c.fillStyle = "#3DDC97";
+  c.beginPath(); c.ellipse(0, 0, 10, 7.5, 0, 0, 6.283); c.fill();
+  for (const ox of [-6, 6]){ c.beginPath(); c.arc(ox, -6, 4.2, 0, 6.283); c.fill(); }
+  c.fillStyle = "#2FA875";                       // las patas, estiradas al saltar
+  for (const ox of [-9, 9]){
+    c.beginPath(); c.ellipse(ox, 5 + a.salto * 3, 4, 2.6, ox > 0 ? .6 : -.6, 0, 6.283); c.fill();
+  }
+  c.fillStyle = "#FFEFE2";
+  for (const ox of [-6, 6]){ c.beginPath(); c.arc(ox, -6.5, 2.4, 0, 6.283); c.fill(); }
+  c.fillStyle = "#1B1B20";
+  for (const ox of [-6, 6]){ c.beginPath(); c.arc(ox, -6.5, 1.2, 0, 6.283); c.fill(); }
+  c.restore();
+}
+
 /* Todo lo que se puede montar o patear. Va después de las cáscaras y antes de
    la gente: así el que va montado sale dibujado encima de su bici. */
 function drawTrastos(){
@@ -1743,45 +1918,6 @@ function decoAmazonas(c, E){
     }
   }, RIO - 90);
 
-  /* guacamayos, monos y ranitas */
-  sembrar(c, 8, 701, 26, (c,x,y,i) => {
-    if (i % 3 === 0){                                          // guacamayo
-      c.fillStyle = "#E2453C";
-      c.beginPath(); c.ellipse(x, y, 9, 12, .3, 0, 6.283); c.fill();
-      c.fillStyle = "#37D6E0";
-      c.beginPath(); c.ellipse(x-6, y+2, 5, 9, .5, 0, 6.283); c.fill();
-      c.fillStyle = "#FFD84D";
-      c.beginPath(); c.moveTo(x+4, y+8); c.lineTo(x+16, y+26); c.lineTo(x+9, y+9); c.closePath(); c.fill();
-      c.fillStyle = "#EDE3D0";
-      c.beginPath(); c.arc(x+2, y-11, 5, 0, 6.283); c.fill();
-      c.fillStyle = "#3A2416";
-      c.beginPath(); c.moveTo(x+6, y-12); c.lineTo(x+13, y-8); c.lineTo(x+6, y-6); c.closePath(); c.fill();
-      c.beginPath(); c.arc(x+1, y-13, 1.4, 0, 6.283); c.fill();
-    } else if (i % 3 === 1){                                   // mono
-      c.fillStyle = "#8B6F52";
-      c.beginPath(); c.ellipse(x, y, 11, 13, 0, 0, 6.283); c.fill();
-      c.beginPath(); c.arc(x, y-15, 8, 0, 6.283); c.fill();
-      c.fillStyle = "#C9A97E";
-      c.beginPath(); c.ellipse(x, y-13, 5.5, 6, 0, 0, 6.283); c.fill();
-      for (const ox of [-8, 8]){ c.fillStyle = "#8B6F52"; c.beginPath(); c.arc(x+ox, y-17, 4, 0, 6.283); c.fill(); }
-      c.fillStyle = "#3A2416";
-      c.beginPath(); c.arc(x-2.4, y-14, 1.3, 0, 6.283); c.fill();
-      c.beginPath(); c.arc(x+2.4, y-14, 1.3, 0, 6.283); c.fill();
-      c.strokeStyle = "#8B6F52"; c.lineWidth = 2.6;            // la cola
-      c.beginPath(); c.moveTo(x+9, y+6);
-      c.quadraticCurveTo(x+26, y+4, x+22, y-12); c.stroke();
-    } else {                                                   // ranita
-      c.fillStyle = "#3DDC97";
-      c.beginPath(); c.ellipse(x, y, 10, 7.5, 0, 0, 6.283); c.fill();
-      for (const ox of [-6, 6]){
-        c.beginPath(); c.arc(x+ox, y-6, 4.2, 0, 6.283); c.fill();
-      }
-      c.fillStyle = "#FFEFE2";
-      for (const ox of [-6, 6]){ c.beginPath(); c.arc(x+ox, y-6.5, 2.4, 0, 6.283); c.fill(); }
-      c.fillStyle = "#1B1B20";
-      for (const ox of [-6, 6]){ c.beginPath(); c.arc(x+ox, y-6.5, 1.2, 0, 6.283); c.fill(); }
-    }
-  }, RIO - 60);
 
   /* helechos del sotobosque */
   sembrar(c, 14, 1301, 20, (c,x,y,i) => {
@@ -3639,6 +3775,7 @@ function draw(){
   if (!G.local2) drawRuleta();
   drawCascaras();
   drawTrastos();
+  drawFauna();
   for (const b of G.bases) drawLaser(b);
   drawDesfile();
   drawGrabRing();
@@ -4132,10 +4269,12 @@ function frame(now){
     }
   }
   animarParticulas(dt);
+  animarFauna(dt);
   draw();
   hud();
   requestAnimationFrame(frame);
 }
+
 
 
 

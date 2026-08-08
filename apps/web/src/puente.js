@@ -14,6 +14,7 @@ import {
   occupied, occupiedDe, orbitaDelCentro, patiosDe, playerIncome, puntoDelDesfile,
   rumboDeTiro, seleccionarArma, textoDePremio, usarArma, varLabel, varMult,
   VEHICULOS, bajarse, enElMar, trastoDe, nivelDeVitrina, vitrinaDe, nombreDeHito,
+  venderFlorin, precioDeVenta,
 } from "@florin/engine";
 
 export {
@@ -26,6 +27,7 @@ export {
   patiosDe, playerIncome, puntoDelDesfile, rumboDeTiro, seleccionarArma,
   textoDePremio, usarArma, varLabel, varMult,
   VEHICULOS, bajarse, enElMar, trastoDe, nivelDeVitrina, vitrinaDe, nombreDeHito,
+  venderFlorin, precioDeVenta,
 };
 
 /* ---- escenarios: el motor pone el reparto, el cliente el aspecto ---- */

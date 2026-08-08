@@ -11,7 +11,7 @@ import {
   avanzar, bajarse, cargar, crearPartida, girarRuleta, idsDeArmas, inRect,
   occupiedDe, playerIncome, spawnThief, usarArma, comprarArma, seleccionarArma,
   nuevoFlorin, baseDe, patiosDe, zap, multDeMontura, puntoDelDesfile, puntoDelOcho,
-  nivelDeVitrina, nombreDeHito, HITOS_MAX, vitrinaDe,
+  nivelDeVitrina, nombreDeHito, HITOS_MAX, vitrinaDe, venderFlorin, precioDeVenta,
   type EntradaJugador, type Estado,
 } from "../src/index.js";
 
@@ -843,6 +843,57 @@ describe("la alarma no se calla hasta que se resuelve", () => {
     hasta(e, "que salte la alarma", () => e.alarma != null);
     hasta(e, "que llegue a su casa", () => e.alarma == null, 90);
     expect(e.alarma).toBeNull();
+  });
+});
+
+describe("vender lo que ya tienes", () => {
+  it("te pagan el precio del Florín y el hueco queda libre", () => {
+    const e = partida();
+    const p = e.players[0];
+    const base = baseDe(e, p.baseId);
+    base.peds[0].florin = nuevoFlorin(e, 6);        // un Cósmico: $31 000
+    const antes = p.money;
+    const cobrado = venderFlorin(e, p, { b: base.id, i: 0 });
+    expect(cobrado).toBe(31000);
+    expect(p.money - antes).toBe(31000);
+    expect(base.peds[0].florin).toBeNull();
+  });
+
+  it("la variante multiplica también al venderlo", () => {
+    const e = partida();
+    const p = e.players[0];
+    const base = baseDe(e, p.baseId);
+    base.peds[0].florin = { ...nuevoFlorin(e, 6), variant: "dorado" };
+    expect(venderFlorin(e, p, { b: base.id, i: 0 })).toBe(31000 * 5);
+    expect(precioDeVenta({ ...nuevoFlorin(e, 0), variant: "arcoiris" })).toBe(300);
+  });
+
+  it("no puedes vender lo de otro ni un hueco vacío", () => {
+    const e = partida({ jugadores: 2 });
+    const yo = e.players[0], otro = e.players[1];
+    const suya = baseDe(e, otro.baseId);
+    suya.peds[0].florin = nuevoFlorin(e, 6);
+    const antes = yo.money;
+    expect(venderFlorin(e, yo, { b: suya.id, i: 0 })).toBe(0);
+    expect(yo.money).toBe(antes);
+    expect(suya.peds[0].florin).not.toBeNull();
+
+    const mia = baseDe(e, yo.baseId);
+    expect(venderFlorin(e, yo, { b: mia.id, i: 0 })).toBe(0);   // vacío
+  });
+
+  it("vender el peor Florín es como se sube de hito", () => {
+    const e = partida();
+    const p = e.players[0];
+    const base = baseDe(e, p.baseId);
+    for (const q of base.peds) q.florin = nuevoFlorin(e, 6);
+    base.peds[2].florin = nuevoFlorin(e, 0);        // uno flojo estropea el nivel
+    avanzar(e, nada(), 1 / 60);
+    expect(nivelDeVitrina(e, p)).toBe(1);
+
+    venderFlorin(e, p, { b: base.id, i: 2 });
+    base.peds[2].florin = nuevoFlorin(e, 6);        // y lo cambias por uno bueno
+    expect(nivelDeVitrina(e, p)).toBe(7);
   });
 });
 
