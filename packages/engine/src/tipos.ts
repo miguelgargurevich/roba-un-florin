@@ -199,11 +199,13 @@ export type TipoTrasto =
   | "bici" | "patineta" | "tabla" | "flotador" | "tablaArena"
   | "balsa" | "llama" | "camello" | "carrito" | "vagoneta" | "dino"
   | "caballo" | "carroRomano" | "carabela"
+  | "motonieve" | "elefante" | "chocon" | "hoverboard"
   // los especiales: no se encuentran tirados, se ganan o se compran
   | "ovni" | "chancla" | "condor" | "amaru" | "dragon" | "monster" | "grua"
   // se patean
   | "pelota" | "mata" | "coco" | "piedra" | "dado" | "caparazon"
-  | "ladrillo" | "barril" | "anfora" | "cofre";
+  | "ladrillo" | "barril" | "anfora" | "cofre"
+  | "bolaNieve" | "banano" | "algodon" | "tuerca";
 
 export interface Trasto {
   id: number;

@@ -38,7 +38,7 @@ function enLaArmeria(e: Estado, p: any) {
 const nada = (n = 1) => Object.fromEntries(Array.from({ length: n }, (_, i) => [i, QUIETO]));
 
 function partida(op: Partial<Parameters<typeof crearPartida>[0]> = {}) {
-  return crearPartida({ jugadores: 1, escenario: "barrio", semilla: 7, armas: idsDeArmas(), ...op });
+  return crearPartida({ jugadores: 1, escenario: "catarata", semilla: 7, armas: idsDeArmas(), ...op });
 }
 /** El duelo de sofá: dos jugadores, solo chancla, sin puestos ni patios extra. */
 function duelo() {
@@ -99,8 +99,8 @@ describe("el mundo se monta bien", () => {
     expect(baseDe(e, e.players[1].baseId).name).toBe("Patio del J2");
   });
 
-  it("todos los escenarios se pueden montar, y son veinte", () => {
-    expect(ESCENARIOS.length).toBe(20);
+  it("todos los escenarios se pueden montar, y son veinticuatro", () => {
+    expect(ESCENARIOS.length).toBe(24);
     for (const esc of ESCENARIOS) {
       const e = partida({ escenario: esc.id });
       expect(e.esc.id, esc.id).toBe(esc.id);
@@ -515,8 +515,8 @@ describe("trastos: bicis, tablas y pelotas", () => {
         for (const b of e.bases)
           expect(inRect(v.x, v.y, b.rect, 0)).toBe(false);
     }
-    expect(partida({ escenario: "barrio" }).trastos.some(v => v.tipo === "bici")).toBe(true);
-    expect(partida({ escenario: "barrio" }).trastos.some(v => v.tipo === "patineta")).toBe(true);
+    expect(partida({ escenario: "catarata" }).trastos.some(v => v.tipo === "bici")).toBe(true);
+    expect(partida({ escenario: "catarata" }).trastos.some(v => v.tipo === "llama")).toBe(true);
     expect(partida({ escenario: "playa" }).trastos.some(v => v.tipo === "tabla")).toBe(true);
     expect(partida({ escenario: "desierto" }).trastos.some(v => v.tipo === "tablaArena")).toBe(true);
     expect(partida({ escenario: "pista" }).trastos.some(v => v.tipo === "carrito")).toBe(true);
@@ -602,7 +602,8 @@ describe("trastos: bicis, tablas y pelotas", () => {
   });
 
   it("patear una pelota la manda a rodar, y frena sola", () => {
-    const e = partida();
+    // en el colegio, que es donde hay pelotas: la Catarata reparte piedras
+    const e = partida({ escenario: "colegio" });
     const p = e.players[0];
     const bola = e.trastos.find(v => v.tipo === "pelota")!;
     p.x = bola.x - 26; p.y = bola.y;
@@ -617,7 +618,7 @@ describe("trastos: bicis, tablas y pelotas", () => {
   });
 
   it("un pelotazo con fuerza tumba a un ladrón", () => {
-    const e = partida();
+    const e = partida({ escenario: "colegio" });
     const bola = e.trastos.find(v => v.tipo === "pelota")!;
     baseDe(e, e.players[0].baseId).peds[0].florin = nuevoFlorin(e, 0);  // si no, no viene nadie
     for (let i = 0; i < 30; i++) spawnThief(e);
@@ -631,7 +632,7 @@ describe("trastos: bicis, tablas y pelotas", () => {
   });
 
   it("una pelota que apenas rueda no tumba a nadie", () => {
-    const e = partida();
+    const e = partida({ escenario: "colegio" });
     const bola = e.trastos.find(v => v.tipo === "pelota")!;
     baseDe(e, e.players[0].baseId).peds[0].florin = nuevoFlorin(e, 0);
     for (let i = 0; i < 30; i++) spawnThief(e);
@@ -643,7 +644,7 @@ describe("trastos: bicis, tablas y pelotas", () => {
   });
 
   it("el pelotazo también tumba a las abuelas", () => {
-    const e = partida();
+    const e = partida({ escenario: "colegio" });
     const bola = e.trastos.find(v => v.tipo === "pelota")!;
     const abuela = e.bases.find(b => b.guard)!.guard!;
     bola.x = abuela.x - 20; bola.y = abuela.y;
@@ -742,7 +743,7 @@ describe("el mar de la playa", () => {
   });
 
   it("los otros escenarios no tienen mar y se puede llegar al borde sur", () => {
-    for (const id of ["barrio", "colegio", "desierto", "machupicchu", "egipto"]) {
+    for (const id of ["catarata", "colegio", "desierto", "machupicchu", "egipto"]) {
       const e = partida({ escenario: id });
       expect(e.esc.mar).toBeUndefined();
       const p = e.players[0];
@@ -1238,7 +1239,7 @@ describe("el reparto del mapa", () => {
 describe("lo brava que es la carrera", () => {
   const corrida = (dificultad: any) => {
     let hitos = 0;
-    for (const esc of ["barrio", "prehistoria", "egipto", "colegio"]) {
+    for (const esc of ["catarata", "prehistoria", "egipto", "colegio"]) {
       const e = crearPartida({ jugadores: 5, escenario: esc, semilla: 7, armas: ["chancla"],
                                reglas: { modo: "carrera", vecinos: false, dificultad } as any });
       for (let i = 0; i < 60 * 40; i++) {
@@ -1262,7 +1263,7 @@ describe("lo brava que es la carrera", () => {
 
   it("en fácil no hay topes y de la pista se sale", () => {
     for (const [dif, seSale] of [["facil", true], ["normal", false], ["dificil", false]] as const) {
-      const e = crearPartida({ jugadores: 1, escenario: "barrio", semilla: 7, armas: ["chancla"],
+      const e = crearPartida({ jugadores: 1, escenario: "catarata", semilla: 7, armas: ["chancla"],
                                reglas: { modo: "carrera", vecinos: false, dificultad: dif } as any });
       const p = e.players[0], c = e.esc.circuito!;
       p.x = c[0][0]; p.y = c[0][1]; p.vx = p.vy = 0;
@@ -1278,7 +1279,7 @@ describe("lo brava que es la carrera", () => {
     /* Sin nada que penalice, en fácil sale a cuenta cortar por el césped en
        cada curva y el trazado deja de importar. */
     const rec = (dentro: boolean) => {
-      const e = crearPartida({ jugadores: 1, escenario: "barrio", semilla: 7, armas: ["chancla"],
+      const e = crearPartida({ jugadores: 1, escenario: "catarata", semilla: 7, armas: ["chancla"],
                                reglas: { modo: "carrera", vecinos: false, dificultad: "facil" } as any });
       const p = e.players[0], c = e.esc.circuito!;
       p.x = c[0][0]; p.y = c[0][1] + (dentro ? 0 : ANCHO_PISTA * 2.5); p.vx = p.vy = 0;
@@ -1733,7 +1734,7 @@ describe("el estado viaja por la red", () => {
    mapa grande: mundo 2600x1700, `armeria`/`ruleta` en singular, cuatro casas. */
 function guardadoViejo() {
   const e: any = JSON.parse(JSON.stringify(
-    crearPartida({ jugadores: 1, escenario: "barrio", semilla: 7, armas: ["chancla"] })));
+    crearPartida({ jugadores: 1, escenario: "catarata", semilla: 7, armas: ["chancla"] })));
   e.armeria = { x: 850, y: 775, w: 300, h: 150 };
   e.ruleta = { x: 1600, y: 850, r: 92 };
   delete e.armerias; delete e.ruletas;

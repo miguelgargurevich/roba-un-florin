@@ -39,11 +39,11 @@ export {
 
 /* ---- escenarios: el motor pone el reparto, el cliente el aspecto ---- */
 export const VISUALES = {
-  barrio: {
-    icono: "🏘️",
-    desc: "La cuadra de tierra de siempre. Tus patios juntos al suroeste.",
-    suelo: "#B45E38", loseta: "rgba(255,239,226,.07)", mancha: "rgba(120,58,32,.22)",
-    borde: "#5C2A18", deco: "manchas", topes: "llantas",
+  catarata: {
+    icono: "💦",
+    desc: "El paseo al cerro: camino inca de piedra, vegetación, y la caída de agua sobre la poza donde se meten los chicos y se sientan alrededor.",
+    suelo: "#8E9A66", loseta: "rgba(255,255,255,.05)", mancha: "rgba(60,72,40,.24)",
+    borde: "#4A5432", deco: "catarata", topes: "cantos",
   },
   colegio: {
     icono: "🏫",
@@ -148,6 +148,30 @@ export const VISUALES = {
     desc: "La costa del Descubrimiento: las tres carabelas fondeadas, las chozas de los nativos, hogueras, tótems y palmeras.",
     suelo: "#B8A272", loseta: "rgba(255,255,255,.06)", mancha: "rgba(110,94,58,.24)",
     borde: "#7A6640", deco: "america", topes: "totems",
+  },
+  nevado: {
+    icono: "🎿",
+    desc: "El cerro nevado: pinos con nieve, el telesilla, las pistas balizadas y los muñecos de nieve. Se baja en moto de nieve.",
+    suelo: "#E8EEF4", loseta: "rgba(140,170,200,.10)", mancha: "rgba(180,200,220,.5)",
+    borde: "#9AB0C4", deco: "nevado", topes: "nieve",
+  },
+  zoo: {
+    icono: "🦁",
+    desc: "El zoológico: los recintos con sus rejas, la jirafa, el león, los monos, la laguna de los flamencos y los carteles.",
+    suelo: "#9AA86A", loseta: "rgba(255,255,255,.06)", mancha: "rgba(66,78,44,.24)",
+    borde: "#56643A", deco: "zoo", topes: "rejas",
+  },
+  feria: {
+    icono: "🎡",
+    desc: "El parque de diversiones: la rueda de la fortuna, la montaña rusa, el carrusel, las carpas de rayas y los puestos de algodón.",
+    suelo: "#7A5E8A", loseta: "rgba(255,255,255,.07)", mancha: "rgba(48,34,58,.26)",
+    borde: "#4A3358", deco: "feria", topes: "bombillas",
+  },
+  nave: {
+    icono: "🚀",
+    desc: "Dentro de la nave: pasillos de chapa, ventanas al espacio, consolas, rejillas de ventilación y tripulantes de colores.",
+    suelo: "#3E4A5C", loseta: "rgba(150,190,230,.07)", mancha: "rgba(24,30,40,.34)",
+    borde: "#26303E", deco: "nave", topes: "bidones",
   },
   luna: {
     icono: "🌕",

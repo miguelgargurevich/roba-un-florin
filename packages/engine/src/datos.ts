@@ -158,6 +158,11 @@ export const VEHICULOS: Record<string, Vehiculo> = {
   /* La carabela es de agua, como la balsa: en El Descubrimiento el mar es
      medio mapa y cruzarlo es la gracia. */
   carabela:   { mult:1.7,  agua:true,  label:"carabela",      icon:"⛵" },
+  motonieve:  { mult:1.85, agua:false, label:"moto de nieve", icon:"🛷" },
+  elefante:   { mult:1.5,  agua:false, label:"elefante",      icon:"🐘" },
+  chocon:     { mult:1.6,  agua:false, label:"auto chocón",   icon:"🎡" },
+  /* La patineta flotante de la nave: flota, así que cruza cualquier cosa. */
+  hoverboard: { mult:1.85, agua:true,  label:"patineta flotante", icon:"🛸" },
 
   /* ---- los especiales ----
      No se encuentran tirados por el mapa: se ganan en la Ruleta o se compran
@@ -231,6 +236,14 @@ export const TRASTOS_ESCENARIO: Record<string, { tipo: string; n: number }[]> = 
   costaverde:  [{ tipo:"bici", n:5 },       { tipo:"patineta", n:4 }, { tipo:"pelota", n:5 }],
   prehistoria: [{ tipo:"dino", n:4 },       { tipo:"piedra", n:8 },   { tipo:"coco", n:5 }],
   construccion:[{ tipo:"grua", n:2 },       { tipo:"monster", n:2 },  { tipo:"ladrillo", n:9 }, { tipo:"barril", n:5 }],
+  /* La bici va aquí: era la del Barrio y sin esto se quedaba sin ningún sitio
+     donde encontrarla. En un camino de cerro, una de montaña pega. */
+  catarata:    [{ tipo:"bici", n:3 },       { tipo:"llama", n:3 },
+                { tipo:"balsa", n:2 },      { tipo:"piedra", n:8 }],
+  nevado:      [{ tipo:"motonieve", n:3 },  { tipo:"tablaArena", n:3 },{ tipo:"bolaNieve", n:9 }],
+  zoo:         [{ tipo:"elefante", n:3 },   { tipo:"carrito", n:3 },  { tipo:"banano", n:8 }],
+  feria:       [{ tipo:"chocon", n:4 },     { tipo:"patineta", n:3 }, { tipo:"algodon", n:8 }],
+  nave:        [{ tipo:"hoverboard", n:4 }, { tipo:"carrito", n:2 },  { tipo:"tuerca", n:8 }],
   medieval:    [{ tipo:"caballo", n:4 },    { tipo:"dragon", n:2 },   { tipo:"barril", n:7 }],
   italia:      [{ tipo:"carroRomano", n:3 },{ tipo:"caballo", n:3 },  { tipo:"anfora", n:8 }],
   america:     [{ tipo:"carabela", n:3 },   { tipo:"caballo", n:3 },  { tipo:"cofre", n:6 }],
@@ -453,6 +466,11 @@ export const ESPECIAL_NIVEL: Record<string, Potenciador> = {
   costaverde:  { id:"parapente",   icon:"🪂", nombre:"Parapente",           efecto:"fantasma" },
   prehistoria: { id:"meteorito",   icon:"☄️", nombre:"Meteorito",           efecto:"rayo" },
   construccion:{ id:"viga",        icon:"🏗️", nombre:"Viga de acero",       efecto:"rayo" },
+  catarata:    { id:"chorro",      icon:"💦", nombre:"Chorro de la poza",   efecto:"turbo" },
+  nevado:      { id:"ventisca",    icon:"❄️", nombre:"Ventisca",            efecto:"rayo" },
+  zoo:         { id:"estampida",   icon:"🐘", nombre:"Estampida",           efecto:"cascara" },
+  feria:       { id:"algodonazo",  icon:"🍭", nombre:"Algodonazo",          efecto:"fantasma" },
+  nave:        { id:"gravedadCero",icon:"🌌", nombre:"Gravedad cero",       efecto:"fantasma" },
   medieval:    { id:"llamarada",   icon:"🔥", nombre:"Llamarada",           efecto:"cascara" },
   italia:      { id:"pizza",       icon:"🍕", nombre:"Pizza voladora",      efecto:"turbo" },
   america:     { id:"vientoPopa",  icon:"🌬️", nombre:"Viento en popa",      efecto:"turbo" },
@@ -717,7 +735,10 @@ function completar(e: Escenario): Escenario {
 }
 
 export const ESCENARIOS: Escenario[] = ([
-  { id:"barrio",   nombre:"El Barrio",
+  /* La Catarata ocupa el sitio de El Barrio: es el escenario de partida, el
+     primero de la lista y el que sale por defecto. Cerros a los lados, camino
+     inca de piedra y la caída sobre la poza donde se bañan los chicos. */
+  { id:"catarata", nombre:"La Catarata",
     casas:[sitio(0,0.008),sitio(1,0.008),sitio(1,0.508),sitio(1,0.992)],
     patios:[sitio(0,0.992),sitio(0.216,0.992),sitio(0,0.672)],
     circuito: trazar(CHICANA, medioX(), alto(0.5), ancho(0.885), alto(0.8)) },
@@ -835,6 +856,24 @@ export const ESCENARIOS: Escenario[] = ([
     patios:[sitio(0,0.361),sitio(0.15,0.361),sitio(0,0.656)],
     mar: alto(0.855),
     circuito: trazar(HERRADURA, medioX(), alto(0.415), ancho(0.885), alto(0.68)) },
+
+  /* Los cuatro de paseo: el cerro nevado, el zoológico, la feria y la nave. */
+  { id:"nevado",   nombre:"Farellones",
+    casas:[sitio(0,0.008),sitio(1,0.008),sitio(1,0.508),sitio(0,0.992)],
+    patios:[sitio(0.236,0.008),sitio(0.236,0.992),sitio(1,0.992)],
+    circuito: trazar(HORQUILLA, medioX(), alto(0.5), ancho(0.885), alto(0.8), true) },
+  { id:"zoo",      nombre:"El Zoológico",
+    casas:[sitio(0,0.008),sitio(0.236,0.008),sitio(1,0.008),sitio(1,0.992)],
+    patios:[sitio(0,0.508),sitio(0,0.992),sitio(0.784,0.992)],
+    circuito: trazar(CHICANA, medioX(), alto(0.5), ancho(0.885), alto(0.8)) },
+  { id:"feria",    nombre:"El Parque de Diversiones",
+    casas:[sitio(0,0.008),sitio(1,0.008),sitio(0,0.992),sitio(1,0.992)],
+    patios:[sitio(0.236,0.008),sitio(0,0.5),sitio(0.784,0.008)],
+    circuito: trazar(ZIGZAG, medioX(), alto(0.5), ancho(0.885), alto(0.8), true) },
+  { id:"nave",     nombre:"La Nave Espacial",
+    casas:[sitio(0,0.008),sitio(1,0.008),sitio(1,0.508),sitio(1,0.992)],
+    patios:[sitio(0,0.992),sitio(0.236,0.992),sitio(0,0.508)],
+    circuito: trazar(TREBOL, medioX(), alto(0.5), ancho(0.885), alto(0.8)) },
 
   { id:"luna",       nombre:"La Luna",
     casas:[sitio(0,0.008),sitio(1,0.008),sitio(1,0.508),sitio(1,0.992)],

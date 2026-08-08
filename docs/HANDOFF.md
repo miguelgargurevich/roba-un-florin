@@ -8,13 +8,13 @@ Monorepo con workspaces npm:
 
 | Paquete | Qué es |
 |---|---|
-| `packages/engine` | el juego sin navegador: determinista, JSON serializable, 111 pruebas |
+| `packages/engine` | el juego sin navegador: determinista, JSON serializable, 127 pruebas |
 | `apps/web` | el cliente (Vite + canvas 2D). Solo dibuja y escucha teclas |
 | `apps/api` | cuentas, álbum y guardado (.NET 9, Clean Arch + CQRS), 32 pruebas |
 | `apps/salas` | servidor de salas autoritativo (Node + `ws`), 32 pruebas |
 
 Funciona: un jugador, salas online hasta 5 (aventura, versus y carrera) con
-bots en los asientos libres, 16 escenarios —todos con circuito—, cuentas con
+bots en los asientos libres, 24 escenarios —todos con circuito—, cuentas con
 guardado en la nube, álbum y ranking. Se publica en
 GitHub Pages y en el VPS (ver `/opt/florin-api/LEEME.md` en el servidor: es el
 runbook de despliegue, con los cuatro contenedores y el rollback).
@@ -23,6 +23,12 @@ A medias / sin hacer: el modo cooperativo (aplazado a propósito — una sala en
 aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Última sesión
+
+- 2026-08-08 (claude-code): **La Catarata sustituye a El Barrio** (paseo al
+  cerro, camino inca, la caída sobre la poza con gente sentada alrededor) y
+  cuatro sitios más: Farellones, El Zoológico, El Parque de Diversiones y La
+  Nave Espacial. Con moto de nieve, elefante, auto chocón y patineta flotante.
+  Son **24 escenarios**.
 
 - 2026-08-08 (claude-code): **dificultad en las carreras** (fácil, normal,
   difícil). En fácil no hay topes —de la pista se sale y se vuelve— y lo que
@@ -199,6 +205,11 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
   pintar el suelo crecía con el mundo aunque en pantalla quepa lo mismo. Medido
   en escritorio: 0,105 ms contra 0,153 por volcado — irrelevante aquí, pero es
   el tipo de coste que se nota en una tableta.
+- 2026-08-08: los adornos GRANDES (volcanes, castillo, Coliseo, recintos del
+  zoo, rueda de la fortuna) van con `huecoGrande`, no con `sembrar`. `sembrar`
+  reparte en bandas y se rinde a los 26 intentos: con algo más grande que una
+  casa, casi ninguno encuentra sitio y el escenario sale sin su seña de
+  identidad. Pasó con los volcanes y volvió a pasar con los recintos del zoo.
 - 2026-08-08: el reparto del mapa va en FRACCIONES del mundo, no en píxeles.
   Para mover una casa se toca su `sitio(fx, fy)`: 0 la pega al borde de arriba o
   de la izquierda y 1 al de abajo o de la derecha. Los decimales feos salen de

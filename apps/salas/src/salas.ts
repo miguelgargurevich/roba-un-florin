@@ -240,7 +240,7 @@ export class Registro {
   get tamaño(): number { return this.salas.size; }
   buscar(codigo: string): Sala | undefined { return this.salas.get(codigo.toUpperCase()); }
 
-  crear(escenario = "barrio", modo: "aventura" | "versus" | "carrera" = "aventura"): Sala {
+  crear(escenario = "catarata", modo: "aventura" | "versus" | "carrera" = "aventura"): Sala {
     let codigo = "";
     do {
       codigo = Array.from({ length: 4 }, () =>

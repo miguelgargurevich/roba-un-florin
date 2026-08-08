@@ -2,7 +2,7 @@
 
    Se usa así:
 
-     const e = crearPartida({ modo: 1, escenario: "barrio", semilla: 7, armas: idsDeArmas() });
+     const e = crearPartida({ modo: 1, escenario: "catarata", semilla: 7, armas: idsDeArmas() });
      avanzar(e, { 0: { mover: { x: 1, y: 0 }, apunta: null } }, 1/60);
      for (const ev of e.eventos) { ... pintar / sonar ... }
 
