@@ -24,6 +24,11 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Última sesión
 
+- 2026-08-08 (claude-code): el desfile **vuelve a la pasarela**. Lo aleatorio
+  ahora es el camino, no el rumbo: bajan del portal de arriba, y al llegar al
+  cruce del ocho tiran por uno de cuatro caminos (qué lóbulo primero y en qué
+  sentido). Los cuatro dan la vuelta entera al ∞ y salen por el portal de abajo.
+
 - 2026-08-08 (claude-code): **el dinosaurio** (montable, el más rápido de los
   que se encuentran tirados) y **La Prehistoria en lugar de Nazca**: volcanes
   humeando, helechos y cícadas, pozos de brea, esqueletos a medio enterrar,
@@ -49,8 +54,9 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
   juego, no solo los del escenario) y cuatro especiales de Garaje —chancla
   voladora, cóndor, ovni, Amaru— que se compran con dinero de aventura o salen
   en la Ruleta. Topes en la pista según el escenario (de la ruta no se sale),
-  los Florines del desfile ahora pasean a rumbo libre en vez de dar la misma
-  vuelta, y las líneas de Nazca redibujadas con las figuras de verdad.
+  los Florines del desfile pasaron a rumbo libre (revertido el 2026-08-08: se
+  perdía la pasarela) y las líneas de Nazca redibujadas con las figuras de
+  verdad (el escenario se sustituyó por la Prehistoria el 2026-08-08).
 
 - 2026-08-08 (claude-code): probada una **carrera en sala con dos clientes**
   contra producción. Salieron dos fallos, los dos arreglados: la carrera
@@ -139,6 +145,12 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
   genéricos (`pista`, `tablero`, `mirador`, `circuito`) porque viajan en las
   partidas guardadas y en las salas: cambiar un nombre no rompe nada, cambiar un
   id sí.
+- 2026-08-08: el desfile va por la pasarela y lo que se echa a suertes es el
+  CAMINO, no el rumbo. Sueltos por el mapa se perdía la pasarela entera; todos
+  por la misma vuelta y te aprendías el recorrido. Con cuatro caminos por el
+  ocho hay las dos cosas. Se sortea al salir del portal, no en el cruce: así el
+  recorrido entero sigue siendo una función de `k` y dos clientes con la misma
+  semilla ven lo mismo.
 - 2026-08-08: el dinosaurio es un trasto **normal**, no un especial de Garaje.
   Los especiales cuestan cientos de miles y vuelan; el dino se encuentra tirado
   en la Prehistoria como la llama en Machu Picchu. Hay prueba de que sigue por

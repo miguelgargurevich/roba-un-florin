@@ -164,9 +164,11 @@ export interface DesfileItem {
   /** cuánto le queda de paseo, de 0 a 1; al llegar a 1 se vuelve al portal */
   k: number;
   x: number; y: number;
-  /** hacia dónde va ahora mismo, en radianes, y cuándo le toca cambiar */
-  rumbo: number;
-  vira: number;
+  /** Por dónde tira al llegar al cruce del ocho. `lado` elige el lóbulo con el
+      que empieza y `giro` el sentido en que lo recorre: cuatro caminos, y todos
+      dan la vuelta entera al ∞ y salen por el portal de abajo. */
+  lado: 0 | 1;
+  giro: 1 | -1;
   face: number;
   pop: number;
   esDesfile: true;

@@ -135,7 +135,11 @@ export function sacarDelPortal(e: Estado) {
     id: nuevoId(e),
     florin: nuevoFlorin(e, fila.tier, { bob: rnd(e, 0, 6.28) }),
     k: 0, x: p0.x, y: p0.y,
-    rumbo: rnd(e, 0, 6.283), vira: rnd(e, 0.5, 1.6),
+    /* El camino se echa a suertes AQUÍ, al salir del portal, no en el cruce:
+       el resultado es el mismo y así el recorrido entero es una función de `k`,
+       que es lo que hace que dos clientes con la misma semilla vean lo mismo. */
+    lado: (azar(e) < 0.5 ? 0 : 1) as 0 | 1,
+    giro: (azar(e) < 0.5 ? 1 : -1) as 1 | -1,
     face: 1, pop: 1, esDesfile: true,
   });
   polvo(e, P.x, P.y, "#FF9EC4", 12);
@@ -962,27 +966,15 @@ export function avanzar(e: Estado, entradas: Record<number, EntradaJugador>, dt:
     d.k += dt / PORTAL_VUELTA;
     if (d.k >= 1) { polvo(e, P.x, P.y, "#8B6BEE", 10); P.desfile.splice(i, 1); continue; }
 
-    /* Antes daban todos la misma vuelta al ocho, así que te aprendías el
-       recorrido y esperabas sentado. Ahora cada uno se va por donde quiere:
-       elige un rumbo, lo mantiene un rato y cambia. Hay que ir a buscarlos.
-
-       El azar sale del motor, no de `Math.random`: dos clientes con la misma
-       semilla tienen que ver el mismo paseo. */
-    d.vira -= dt;
-    if (d.vira <= 0) {
-      d.rumbo += rnd(e, -1.4, 1.4);
-      d.vira = rnd(e, 0.5, 1.6);
-    }
-    const vel = PORTAL_VEL;
-    let nx = d.x + Math.cos(d.rumbo) * vel * dt;
-    let ny = d.y + Math.sin(d.rumbo) * vel * dt;
-    /* Rebota en los bordes del mundo y en la orilla: un Florín flotando mar
-       adentro no lo alcanza nadie. */
-    const suelo = e.esc.mar != null ? e.esc.mar - 40 : WORLD_H - 60;
-    if (nx < 60 || nx > WORLD_W - 60) { d.rumbo = Math.PI - d.rumbo; nx = clamp(nx, 60, WORLD_W - 60); }
-    if (ny < 60 || ny > suelo)        { d.rumbo = -d.rumbo;          ny = clamp(ny, 60, suelo); }
-    d.face = nx >= d.x ? 1 : -1;
-    d.x = nx; d.y = ny;
+    /* Van por la pasarela, no sueltos por el mapa: bajan del portal de arriba,
+       dan una vuelta entera al ocho y salen por el de abajo. Lo que cambia de
+       uno a otro es POR DÓNDE tiran al llegar al cruce — cuatro caminos, echados
+       a suertes al salir. Yendo sueltos se perdía la pasarela entera; dando
+       todos exactamente la misma vuelta te aprendías el recorrido y esperabas
+       sentado en un punto. */
+    const q = puntoDelDesfile(e, d.k, d.lado, d.giro);
+    d.face = q.x >= d.x ? 1 : -1;
+    d.x = q.x; d.y = q.y;
     d.florin.bob += dt * 4.2;
   }
   }

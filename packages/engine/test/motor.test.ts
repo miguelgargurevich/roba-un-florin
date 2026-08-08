@@ -15,6 +15,7 @@ import {
   avanzar, bajarse, cargar, crearPartida, girarRuleta, idsDeArmas, inRect,
   occupiedDe, playerIncome, spawnThief, usarArma, comprarArma, seleccionarArma,
   nuevoFlorin, baseDe, patiosDe, zap, multDeMontura, puntoDelDesfile, puntoDelOcho,
+  centroDelMapa, OCHO_A,
   nivelDeVitrina, nombreDeHito, HITOS_MAX, vitrinaDe, venderFlorin, precioDeVenta, soltarCarga,
   type EntradaJugador, type Estado,
 } from "../src/index.js";
@@ -1058,12 +1059,36 @@ describe("soltar lo que llevas", () => {
 });
 
 describe("los Florines del desfile", () => {
-  it("cada uno se va por su lado y no repiten recorrido", () => {
+  it("en el cruce cada uno tira por donde quiere", () => {
     const e = partida();
-    for (let i = 0; i < 60 * 40; i++) avanzar(e, nada(), 1 / 60);
-    expect(e.portal.desfile.length).toBeGreaterThan(1);
-    const rumbos = new Set(e.portal.desfile.map(d => Math.round(d.rumbo * 10)));
-    expect(rumbos.size, "van todos en fila, como antes").toBeGreaterThan(1);
+    /* Un rato largo: los caminos se echan a suertes, y con pocos Florines a la
+       vez podrían coincidir por casualidad. */
+    const vistos = new Set<string>();
+    for (let i = 0; i < 60 * 300; i++) {
+      avanzar(e, nada(), 1 / 60);
+      for (const d of e.portal.desfile) vistos.add(d.lado + "/" + d.giro);
+    }
+    expect(vistos.size, "van todos por el mismo sitio, en fila").toBeGreaterThan(1);
+  });
+
+  it("todos dan la vuelta entera al ∞ y salen por el otro portal", () => {
+    const e = partida();
+    const { cx } = centroDelMapa();
+    for (const lado of [0, 1] as const) for (const giro of [1, -1] as const) {
+      let izq = false, der = false;
+      for (let k = 0; k <= 1; k += 0.002) {
+        const q = puntoDelDesfile(e, k, lado, giro);
+        if (q.x < cx - OCHO_A * .8) izq = true;
+        if (q.x > cx + OCHO_A * .8) der = true;
+      }
+      const camino = "camino " + lado + "/" + giro;
+      expect(izq, camino + ": no pisó el lóbulo izquierdo").toBe(true);
+      expect(der, camino + ": no pisó el lóbulo derecho").toBe(true);
+      // y acaba en el portal de abajo, no en el de arriba
+      const fin = puntoDelDesfile(e, 1, lado, giro);
+      expect(Math.hypot(fin.x - e.portal.salida.x, fin.y - e.portal.salida.y),
+             camino + ": no salió por el portal de abajo").toBeLessThan(2);
+    }
   });
 
   it("no se salen del mundo ni se meten al mar", () => {

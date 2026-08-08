@@ -160,10 +160,16 @@ export function centroDelMapa() {
   return { cx: WORLD_W / 2, cy: WORLD_H / 2 };
 }
 
-/** Un punto del ocho, con f de 0 a 1. Empieza y acaba en el cruce del centro. */
-export function puntoDelOcho(f: number) {
+/** Un punto del ocho, con f de 0 a 1. Empieza y acaba en el cruce del centro.
+
+   La lemniscata pasa por el cruce dos veces, en t = π/2 y en t = 3π/2, y las dos
+   son el mismo punto del mapa. Así que arrancar en una o en otra sale por un
+   lóbulo o por el otro, y el signo de `giro` decide en qué sentido se recorre:
+   cuatro caminos distintos, los cuatro dando la vuelta entera y volviendo al
+   cruce en f = 1. Eso es lo que se elige al entrar. */
+export function puntoDelOcho(f: number, lado: 0 | 1 = 0, giro: 1 | -1 = 1) {
   const { cx, cy } = centroDelMapa();
-  const t = Math.PI / 2 + f * Math.PI * 2;
+  const t = Math.PI / 2 + lado * Math.PI + giro * f * Math.PI * 2;
   return { x: cx + OCHO_A * Math.cos(t), y: cy + (OCHO_B / 2) * Math.sin(2 * t) };
 }
 
@@ -172,14 +178,14 @@ export function puntoDelOcho(f: number) {
 export const PORTAL_BAJADA = 0.16, PORTAL_OCHO = 0.68;
 
 /** Dónde está un Florín del desfile según lo avanzado de su recorrido (0 a 1). */
-export function puntoDelDesfile(e: Estado, k: number) {
+export function puntoDelDesfile(e: Estado, k: number, lado: 0 | 1 = 0, giro: 1 | -1 = 1) {
   const P = e.portal, S = P.salida, { cx, cy } = centroDelMapa();
   if (k < PORTAL_BAJADA) {                       // bajada desde el portal de arriba
     const f = k / PORTAL_BAJADA;
     return { x: P.x + (cx - P.x) * f, y: P.y + (cy - P.y) * f };
   }
   if (k < PORTAL_BAJADA + PORTAL_OCHO) {         // el ocho
-    return puntoDelOcho((k - PORTAL_BAJADA) / PORTAL_OCHO);
+    return puntoDelOcho((k - PORTAL_BAJADA) / PORTAL_OCHO, lado, giro);
   }
   const f = (k - PORTAL_BAJADA - PORTAL_OCHO) / (1 - PORTAL_BAJADA - PORTAL_OCHO);
   return { x: cx + (S.x - cx) * f, y: cy + (S.y - cy) * f };   // salida por abajo
