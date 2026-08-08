@@ -474,6 +474,13 @@ cv.addEventListener("pointermove", e => {
 });
 cv.addEventListener("pointerup", joyEnd);
 cv.addEventListener("pointercancel", joyEnd);
+/* Red de seguridad. El `pointerup` puede no llegar nunca al canvas: si la
+   captura falló, si el dedo sale de la ventana, o si el sistema se lleva el
+   gesto (una llamada, una notificación, el gesto de volver atrás). Cuando eso
+   pasa, `joy.on` se queda en true y el muñeco camina solo hasta que tocas otra
+   vez. Escuchar también en la ventana no cuesta nada y cierra ese agujero. */
+for (const t of ["pointerup", "pointercancel"]) window.addEventListener(t, joyEnd);
+window.addEventListener("blur", () => joyEnd({ pointerId: joy.id }));
 
 /* Botón de arma: un toque lanza hacia donde caminas; si arrastras, apuntas */
 const tiro = { id:null, ox:0, oy:0, apuntando:false };
@@ -930,6 +937,24 @@ document.getElementById("btnAgain").addEventListener("click", () => startGame())
    — lo que se fue es el reparto de teclas de un solo teclado. */
 
 const isTouch = matchMedia("(pointer: coarse)").matches;
+
+/* Si el celular se pone vertical, además del cartel de "gira el teléfono" hay
+   que PARAR la partida: si no, te siguen robando mientras giras el aparato. */
+{
+  const vertical = matchMedia("(pointer:coarse) and (orientation:portrait) and (max-width:560px)");
+  const mirar = () => {
+    if (vertical.matches && G && G.started && !G.over && !G.paused) togglePause();
+  };
+  vertical.addEventListener?.("change", mirar);
+  addEventListener("orientationchange", () => setTimeout(mirar, 120));
+}
+
+/* Las reglas van abiertas en pantalla grande y plegadas en el celular: ahí
+   ocupaban tres pantallas de scroll por delante del botón de jugar. */
+{
+  const como = document.getElementById("comoSeJuega");
+  if (como) como.open = !isTouch && innerWidth >= 900;
+}
 if (isTouch){
   el.touch.classList.add("on");
   document.getElementById("app").classList.add("touch");
@@ -2061,8 +2086,9 @@ function drawTrastos(){
       ctx.fill();
       ctx.translate(p.x, p.y + M.baja);
       ctx.rotate(Math.sin(G.t * 9) * .035 * anda);      // el vaivén de ir rodando
+      if (p.face < 0) ctx.scale(-1, 1);                 // mirar a la izquierda es un espejo
       ctx.translate(-p.x, -(p.y + M.baja));
-      dibujarTrasto(v, p.x, p.y + M.baja, p.face > 0 ? 0 : Math.PI, anda);
+      dibujarTrasto(v, p.x, p.y + M.baja, 0, anda);
       ctx.restore();
       continue;
     }

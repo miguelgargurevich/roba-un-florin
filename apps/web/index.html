@@ -333,6 +333,54 @@
     background:linear-gradient(180deg,#FF6B90,var(--chancla));color:#2A0512;
     box-shadow:0 8px 0 #8E1338;
   }
+  /* ---------- "gira el teléfono" ----------
+     En el celular el juego es de horizontal y punto: en vertical el mapa se ve
+     por una rendija y el HUD se come un quinto de la pantalla. Se pide girar y
+     no se deja jugar hasta entonces. El corte por ancho deja fuera a las
+     tabletas, donde en vertical se juega bien. */
+  #gira{display:none}
+  @media (pointer:coarse) and (orientation:portrait) and (max-width:560px){
+    #gira{
+      position:fixed;inset:0;z-index:999;display:grid;place-items:center;
+      padding:26px;text-align:center;
+      background:linear-gradient(180deg,var(--plum-800),var(--plum-900));
+    }
+  }
+  .giraCaja{max-width:320px}
+  .giraIco{
+    display:block;font-size:74px;line-height:1;margin-bottom:14px;
+    animation:giraGira 2.2s ease-in-out infinite;
+  }
+  @keyframes giraGira{
+    0%,38%{transform:rotate(0)}
+    62%,100%{transform:rotate(-90deg)}
+  }
+  @media (prefers-reduced-motion:reduce){ .giraIco{animation:none;transform:rotate(-90deg)} }
+  .giraCaja h3{
+    font-family:var(--display);font-size:28px;text-transform:uppercase;letter-spacing:.02em;
+    margin:0 0 8px;color:var(--cream);
+  }
+  .giraCaja p{margin:0;font-size:14px;line-height:1.5;color:var(--cream-dim)}
+
+  /* ---------- "cómo se juega", plegable ----------
+     En el celular las reglas medían 1 600 px: había que hacer tres pantallas
+     de scroll para llegar al botón de jugar. Plegadas, el botón entra casi de
+     primeras y quien quiera leerlas las abre. */
+  .comoSeJuega{margin:12px 0 0;border-top:1px solid rgba(255,239,226,.14)}
+  .comoSeJuega summary{
+    list-style:none;cursor:pointer;padding:12px 2px;
+    font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--cream-dim);font-weight:800;
+    display:flex;align-items:center;gap:8px;
+  }
+  .comoSeJuega summary::-webkit-details-marker{display:none}
+  .comoSeJuega summary::after{
+    content:"▾";margin-left:auto;font-size:14px;transition:transform .15s
+  }
+  .comoSeJuega[open] summary::after{transform:rotate(180deg)}
+  .comoSeJuega summary:hover{color:var(--cream)}
+  .comoSeJuega summary:focus-visible{outline:3px solid var(--cosmo);outline-offset:2px}
+
   /* ---------- selector de escenario (portada) ---------- */
   .escTitulo{
     margin:14px 0 7px;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;
@@ -592,6 +640,19 @@
   #throwBtn .wicon[hidden]{display:none}
 
   @media (max-width:560px){
+    /* En vertical el HUD se comía 159 px de 812 —una quinta parte de la
+       pantalla— repartidos en tres filas de tarjetas a tamaño de escritorio.
+       Compactado ronda los 115. */
+    .hud{padding:8px;gap:6px}
+    .topbar{gap:6px}
+    .card{padding:4px 9px;border-radius:11px;box-shadow:0 4px 0 rgba(0,0,0,.35)}
+    .label{font-size:8px;letter-spacing:.1em;margin-bottom:2px}
+    .val{font-size:14px}
+    .money .val{font-size:16px}
+    .goalrow .val{font-size:11px}
+    .bar{height:6px;margin-top:4px}
+    .goal{flex:1 1 100%}
+    .iconbtn{width:34px;height:34px;font-size:15px;border-radius:10px;box-shadow:0 3px 0 rgba(0,0,0,.35)}
     #minimap{width:112px;height:76px}
     .rack{grid-template-columns:repeat(2,1fr)}
     #app.zurdo #throwBtn{left:14px;right:auto}
@@ -672,6 +733,16 @@
 <script type="module" src="/src/main.js"></script>
 </head>
 <body>
+<!-- En el celular solo se juega en horizontal. Fuera de #app para que tape
+     también la portada y el fin de partida. -->
+<div id="gira">
+  <div class="giraCaja">
+    <span class="giraIco" aria-hidden="true">📱</span>
+    <h3>Gira el teléfono</h3>
+    <p>Roba un Florín se juega <b>de lado</b>: así ves el patio entero y los botones no te tapan el mapa.</p>
+  </div>
+</div>
+
 <div id="app">
   <canvas id="game"></canvas>
 
@@ -819,6 +890,8 @@
       <p class="eyebrow">Patio · Portal · Chancletazo</p>
       <h1>Roba un<br><em>Florín</em></h1>
       <p class="sub">Un <b>Florín</b> es un bloquecito de tierra con su flor y su carita, y cada uno suelta dinero por segundo. Los vecinos tienen los suyos en la vitrina: róbatelos, llévalos a tu patio y defiéndelos a puro <b style="color:var(--chancla)">chancletazo</b>.</p>
+      <details class="comoSeJuega" id="comoSeJuega">
+        <summary>📖 Cómo se juega</summary>
       <ul class="rules">
         <li><span class="pip">🌷</span><span>Cada Florín en tu vitrina paga por segundo, y solo si está en tu patio. Hay <b>15 rarezas</b>, del bloque de tierra <b>Común</b> al <b>Amaru</b>, pasando por el Cebichero, el Chasqui, la Momia y el Inca de Oro. Y cuatro variantes: ✨ <b>Brillante</b> (×2), 🌈 <b>Arcoíris</b> (×3), 👻 <b>Fantasma</b> (×4) y 👑 <b>Dorado</b> (×5).</span></li>
         <li><span class="pip">🏃</span><span>Métete a las bases vecinas y <b>quédate junto a un Florín</b> hasta llenar el aro para llevártelo.</span></li>
@@ -833,12 +906,18 @@
         <li><span class="pip">🧰</span><span>La <b>Armería</b> está en el centro, rodeada por el desfile, y vende doce gadgets: 🧊 congeladora, 💨 secadora, ⚡ chicharra, 🥤 refresco, 👻 capa, 🍌 cáscaras, 🐕 chihuahua, ⏱️ reloj, 🧲 imán, 🛸 rayo alien, 🕸️ red y ☂️ paraguas.</span></li>
         <li><span class="pip">📖</span><span>El <b>álbum</b> (botón 📖 o tecla <span class="k">B</span>) lleva la cuenta de las <b>75 láminas</b> (15 rarezas × 5 variantes) que has llegado a tener.</span></li>
         <li><span class="pip">🚨</span><span>Si un vecino te está robando salta una <b>alarma</b>: te dice quién y de qué patio, y una <b>flecha</b> en el borde te marca por dónde correr.</span></li>
-        <li><span class="pip">🗺️</span><span>Hay <b>ocho escenarios</b> con su propio suelo y su reparto de casas: el <b>Barrio</b>, el colegio <b>Santa Teresita</b>, la <b>Playa</b>, el <b>Desierto</b>, <b>Machu Picchu</b>, <b>Nueva York</b>, <b>Egipto</b> y <b>el Amazonas</b>. Elígelo abajo.</span></li>
-        <li><span class="pip">💰</span><span>La partida <b>no se acaba</b>: cada <b>$60 000</b> celebras un hito y sigues. Lo divertido es coleccionar, así que juega hasta que te aburras.</span></li>
+        <li><span class="pip">🗺️</span><span>Hay <b>doce escenarios</b> con su propio suelo y su reparto de casas: el <b>Barrio</b>, el colegio <b>Santa Teresita</b>, la <b>Playa</b>, el <b>Desierto</b>, <b>Machu Picchu</b>, <b>Nueva York</b>, <b>Egipto</b>, <b>el Amazonas</b>, y los cuatro de juguete: <b>Hot Wheels</b>, <b>Monopoly</b>, <b>Thomas y el Mirador</b> y <b>Mario Kart</b>. Elígelo abajo.</span></li>
+        <li><span class="pip">🏆</span><span>La partida <b>no se acaba</b>: los hitos son por <b>vitrina llena</b>. Cuando todos tus huecos tengan Florines subes de nivel, y cuanto más raro sea el peor de ellos, más alto llegas. Lo divertido es coleccionar, así que juega hasta que te aburras.</span></li>
       </ul>
+      </details>
       <p class="escTitulo">Escenario</p>
       <div class="escFila" id="escFila"></div>
       <p class="escDesc" id="escDesc"></p>
+
+      <div class="modos">
+        <button class="play seguir" id="btnSeguir" hidden>Seguir donde quedaste ▸</button>
+        <button class="play" id="btnStart">Jugar solo ▸</button>
+      </div>
 
       <p class="escTitulo">Tu cuenta <span style="text-transform:none;letter-spacing:0;font-weight:600">— opcional: sirve para no perder el álbum</span></p>
       <div class="cuenta" id="cuenta" hidden>
@@ -864,11 +943,6 @@
         </div>
         <p class="cuentaMsg" id="cuentaMsg"></p>
         <ol class="rankLista" id="rankLista" hidden></ol>
-      </div>
-
-      <div class="modos">
-        <button class="play seguir" id="btnSeguir" hidden>Seguir donde quedaste ▸</button>
-        <button class="play" id="btnStart">Jugar solo ▸</button>
       </div>
 
       <p class="escTitulo">Con amigos <span id="salaAviso" style="text-transform:none;letter-spacing:0;font-weight:600"></span></p>

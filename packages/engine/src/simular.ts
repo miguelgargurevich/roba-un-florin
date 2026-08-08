@@ -1022,7 +1022,12 @@ function avanzarJugador(e: Estado, p: Jugador, ent: EntradaJugador | undefined, 
   const montura = trastoDe(e, p.montado);
   if (montura) {
     montura.x = p.x; montura.y = p.y;
-    montura.giro = p.face > 0 ? 0 : Math.PI;
+    /* Nada de meter el "mira a la izquierda" en el giro. Girar media vuelta un
+       dibujo de perfil lo pone BOCA ABAJO —la bici acababa con las ruedas
+       arriba— y además el giro se queda guardado, así que la dejabas del revés
+       en el suelo al bajarte. Mirar a un lado es un espejo, y de eso se encarga
+       quien dibuja: aquí la montura simplemente no gira. */
+    montura.giro = 0;
   }
   if (Math.abs(ix) + Math.abs(iy) > 0.1) { p.dirx = ix; p.diry = iy; if (ix) p.face = ix > 0 ? 1 : -1; }
   p.walk += Math.hypot(p.vx, p.vy) * dt * 0.055;
