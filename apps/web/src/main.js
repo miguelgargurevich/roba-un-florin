@@ -1202,11 +1202,20 @@ document.getElementById("btnMenu").addEventListener("click", volverAlInicio);
 for (const g of ["gesturestart", "gesturechange", "gestureend"])
   document.addEventListener(g, e => e.preventDefault(), { passive: false });
 /* Y el doble toque rápido, que en iOS sigue haciendo zoom pese a touch-action
-   cuando cae fuera de un botón. */
+   cuando cae FUERA de un botón.
+
+   Lo de "fuera de un botón" estaba en el comentario y no en el código, y eso
+   rompía la Armería en tableta: cancelar un `touchend` se lleva por delante el
+   `click` que iOS genera después, así que la segunda arma que tocabas no se
+   compraba. Y bastaba con venir del joystick o del botón de entrar para que la
+   PRIMERA ya cayera dentro de los 320 ms. Sobre un control no se cancela nunca:
+   ahí el doble toque no hace zoom, hace lo que dice el botón. */
 let ultimoToque = 0;
+const CONTROLES = 'button, a, input, select, textarea, label, [role="button"]';
 document.addEventListener("touchend", e => {
   const ahora = Date.now();
-  if (ahora - ultimoToque < 320) e.preventDefault();
+  const enUnControl = e.target instanceof Element && e.target.closest(CONTROLES);
+  if (!enUnControl && ahora - ultimoToque < 320) e.preventDefault();
   ultimoToque = ahora;
 }, { passive: false });
 

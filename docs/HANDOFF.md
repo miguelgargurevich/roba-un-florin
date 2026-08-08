@@ -24,6 +24,10 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Última sesión
 
+- 2026-08-08 (claude-code): en tableta **no se podían comprar armas**: el
+  guardián del doble toque cancelaba el `touchend`, y con él el `click` que iOS
+  genera después. Ahora no se cancela nunca sobre un control (ver gotchas).
+
 - 2026-08-08 (claude-code): **La Catarata sustituye a El Barrio** (paseo al
   cerro, camino inca, la caída sobre la poza con gente sentada alrededor) y
   cuatro sitios más: Farellones, El Zoológico, El Parque de Diversiones y La
@@ -251,6 +255,13 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
   `VITE_API=https://api.florin.gargurevich.dev VITE_SALAS=wss://salas.florin.gargurevich.dev npm run build --prefix apps/web`
   Comprobación de un vistazo antes de subir:
   `grep -c localhost:5181 apps/web/dist/assets/*.js` tiene que dar **0**.
+
+- **`preventDefault()` en `touchend` mata el `click` de iOS.** El guardián
+  contra el zoom por doble toque cancelaba cualquier par de toques a menos de
+  320 ms, incluido el de una card de la Armería viniendo del joystick o del
+  botón de entrar: la compra no llegaba nunca. El comentario ya decía "cuando
+  cae fuera de un botón" y el código no lo comprobaba. Si hay que cancelar un
+  `touchend`, comprobar antes `e.target.closest(CONTROLES)`.
 
 - **El panel del navegador congela `requestAnimationFrame` cuando no está
   componiendo**, así que el HUD se queda con lo último pintado. Leer
