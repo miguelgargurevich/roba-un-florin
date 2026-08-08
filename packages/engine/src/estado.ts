@@ -154,7 +154,11 @@ export function bloqueadoPorLaser(e: Estado, x: number, y: number, quien: Jugado
    La curva es una lemniscata de Gerono, que es la forma más simple de un ocho
    tumbado: x = A·cos t, y = (B/2)·sin 2t. Pasa por el origen en t = π/2 y en
    t = 3π/2, que es exactamente el cruce que se quiere. */
-export const OCHO_A = 620, OCHO_B = 560;
+/* La pasarela crece con el mapa, pero a la mitad de su ritmo: proporcional se
+   comía el centro entero, y fija se quedaba en una pista de baile perdida en un
+   descampado. Con esto ocupa el 41 % del ancho (antes el 48 %), y el sitio que
+   sobra alrededor es justo donde caben las casas nuevas. */
+export const OCHO_A = Math.round(WORLD_W * 0.206), OCHO_B = Math.round(WORLD_H * 0.32);
 
 export function centroDelMapa() {
   return { cx: WORLD_W / 2, cy: WORLD_H / 2 };
@@ -364,9 +368,14 @@ export function crearPartida(op: OpcionesPartida): Estado {
   const { cx, cy } = centroDelMapa();
   const armeria = { x: cx - 450, y: cy - 75, w: 300, h: 150 };
   const ruleta = { x: cx + 300, y: cy, r: 92 };
+  /* El portal de salida se aparta de la orilla. Con el margen fijo de siempre
+     medido desde abajo acababa dentro del agua en cuanto el mapa creció —el mar
+     va en fracción del alto y el margen no—, y los Florines del desfile salían
+     nadando mar adentro, donde no los alcanza nadie. */
+  const finca = esc.mar != null ? esc.mar - 90 : WORLD_H - 240;
   const portal = {
     x: cx, y: 240, r: 34, timer: 2.5, desfile: [],
-    salida: { x: cx, y: WORLD_H - 240, r: 34 },
+    salida: { x: cx, y: Math.min(WORLD_H - 240, finca), r: 34 },
   };
 
   const e: Estado = {
@@ -493,9 +502,19 @@ export function dentroDeLaPista(e: Estado, p: { x: number; y: number; vx: number
   return false;
 }
 
-/** Con qué se corre aquí si nadie eligió: lo primero montable del escenario. */
-export const vehiculoDelSitio = (e: Estado): string =>
-  (TRASTOS_ESCENARIO[e.esc.id] || []).map(t => t.tipo).find(esVehiculo) || "bici";
+/** Con qué se corre aquí si nadie eligió: lo primero montable del escenario,
+    pero nunca uno de agua.
+
+    Los circuitos van todos por tierra —los de costa se recortan por encima de
+    la orilla—, y un vehículo de agua fuera del agua no te lleva, lo llevas tú:
+    penaliza a 0,9×, más lento que ir a pie. En La Playa salía por defecto la
+    tabla de surf y en El Amazonas la balsa, así que las dos carreras se corrían
+    con el trasto a cuestas: 118 s y 109 s frente a los 48-87 s del resto, con
+    la misma vuelta que Machu Picchu, que tarda 74 s. */
+export const vehiculoDelSitio = (e: Estado): string => {
+  const hay = (TRASTOS_ESCENARIO[e.esc.id] || []).map(t => t.tipo).filter(esVehiculo);
+  return hay.find(t => !VEHICULOS[t]?.agua) || "bici";
+};
 
 /** Le pone (o le cambia) el vehículo a alguien, ahí donde esté.
 

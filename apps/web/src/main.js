@@ -3653,9 +3653,12 @@ function decoDesierto(c, E){
    ============================================================
    Geometría compartida: el decorado la pinta y lo que se mueve encima la
    recorre. Si cambian aquí, cambian en los dos sitios a la vez. */
-const CALLES_PISTA = [250, 700, 1150, 1560];             // las calles de la pista naranja
-const OVALO_TREN   = { x: 1300, y: 850, rx: 1090, ry: 700 };
-const OVALO_KART   = { x: 1300, y: 850, rx: 1110, ry: 720, ancho: 150 };
+/* En fracciones del mundo, como las casas en el motor: si el mapa crece, las
+   calles y los óvalos crecen con él en vez de quedarse en una esquina. */
+const CALLES_PISTA = [.147, .412, .676, .918].map(f => Math.round(WORLD_H * f));
+const OVALO_TREN   = { x: WORLD_W/2, y: WORLD_H/2, rx: WORLD_W*.419, ry: WORLD_H*.412 };
+const OVALO_KART   = { x: WORLD_W/2, y: WORLD_H/2, rx: WORLD_W*.427, ry: WORLD_H*.424,
+                       ancho: Math.round(WORLD_W*.058) };
 const ANILLO_TABLERO = { x: 120, y: 110, w: WORLD_W - 240, h: WORLD_H - 220, banda: 120 };
 /** Punto de un óvalo por fracción de vuelta (0..1). */
 const puntoOvalo = (o, f) => ({

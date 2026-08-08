@@ -15,7 +15,7 @@ import {
   avanzar, bajarse, cargar, crearPartida, girarRuleta, idsDeArmas, inRect,
   occupiedDe, playerIncome, spawnThief, usarArma, comprarArma, seleccionarArma,
   nuevoFlorin, baseDe, patiosDe, zap, multDeMontura, puntoDelDesfile, puntoDelOcho,
-  centroDelMapa, OCHO_A,
+  centroDelMapa, WORLD_W, WORLD_H, OCHO_A,
   nivelDeVitrina, nombreDeHito, HITOS_MAX, vitrinaDe, venderFlorin, precioDeVenta, soltarCarga,
   type EntradaJugador, type Estado,
 } from "../src/index.js";
@@ -108,8 +108,8 @@ describe("el mundo se monta bien", () => {
       for (const b of e.bases) {
         expect(b.rect.x, esc.id + " " + b.name).toBeGreaterThanOrEqual(0);
         expect(b.rect.y, esc.id + " " + b.name).toBeGreaterThanOrEqual(0);
-        expect(b.rect.x + b.rect.w, esc.id + " " + b.name).toBeLessThanOrEqual(2600);
-        expect(b.rect.y + b.rect.h, esc.id + " " + b.name).toBeLessThanOrEqual(1700);
+        expect(b.rect.x + b.rect.w, esc.id + " " + b.name).toBeLessThanOrEqual(WORLD_W);
+        expect(b.rect.y + b.rect.h, esc.id + " " + b.name).toBeLessThanOrEqual(WORLD_H);
       }
     }
   });
@@ -527,7 +527,7 @@ describe("trastos: bicis, tablas y pelotas", () => {
     conBici.players[0].x = bici.x; conBici.players[0].y = bici.y;
     correr(conBici, 2, haciaLaDerecha);
     const aPie = partida();
-    aPie.players[0].x = 1300; aPie.players[0].y = 900;      // lejos de todo trasto
+    aPie.players[0].x = centroDelMapa().cx; aPie.players[0].y = centroDelMapa().cy + 50;      // lejos de todo trasto
     const x0 = aPie.players[0].x;
     correr(aPie, 2, haciaLaDerecha);
     const recorridoAPie = aPie.players[0].x - x0;
@@ -649,7 +649,7 @@ describe("el mar de la playa", () => {
     const e = partida({ escenario: "playa" });
     const p = e.players[0];
     const mar = e.esc.mar!;
-    p.x = 1300; p.y = mar - 60;
+    p.x = centroDelMapa().cx; p.y = mar - 60;
     correr(e, 4, haciaAbajo);
     expect(p.y).toBeLessThanOrEqual(mar + 0.001);
   });
@@ -686,7 +686,7 @@ describe("el mar de la playa", () => {
     const e = partida({ escenario: "playa" });
     const p = e.players[0];
     const falsaBici = {
-      id: 9999, tipo: "bici" as const, x: 1300, y: e.esc.mar! - 20,
+      id: 9999, tipo: "bici" as const, x: centroDelMapa().cx, y: e.esc.mar! - 20,
       vx: 0, vy: 0, montadoPor: null, pateadoPor: null, giro: 0, variante: 0,
     };
     e.trastos.push(falsaBici);
@@ -701,7 +701,7 @@ describe("el mar de la playa", () => {
     const e = partida({ escenario: "amazonas" });
     const p = e.players[0];
     expect(e.esc.mar).toBeDefined();
-    p.x = 1300; p.y = e.esc.mar! - 60;
+    p.x = centroDelMapa().cx; p.y = e.esc.mar! - 60;
     correr(e, 4, haciaAbajo);
     expect(p.y).toBeLessThanOrEqual(e.esc.mar! + 0.001);
 
@@ -735,7 +735,7 @@ describe("el mar de la playa", () => {
       const e = partida({ escenario: id });
       expect(e.esc.mar).toBeUndefined();
       const p = e.players[0];
-      p.x = 1300; p.y = 1400;
+      p.x = centroDelMapa().cx; p.y = WORLD_H - 300;
       correr(e, 6, haciaAbajo);
       expect(p.y).toBeGreaterThan(1600);
     }
@@ -743,7 +743,7 @@ describe("el mar de la playa", () => {
 });
 
 describe("el recorrido del desfile", () => {
-  const centro = () => ({ cx: 1300, cy: 850 });
+  const centro = () => centroDelMapa();
 
   it("empieza en el portal de arriba y acaba en el de abajo", () => {
     const e = partida();
@@ -764,8 +764,8 @@ describe("el recorrido del desfile", () => {
       const cerca = Math.hypot(q.x - cx, q.y - cy) < 40;
       if (cerca && !dentroDelCruce) cruces++;
       dentroDelCruce = cerca;
-      if (q.x < cx - 300) izq++;
-      if (q.x > cx + 300) der++;
+      if (q.x < cx - OCHO_A * .45) izq++;
+      if (q.x > cx + OCHO_A * .45) der++;
     }
     expect(cruces).toBeGreaterThanOrEqual(2);   // el cruce del ocho
     expect(izq).toBeGreaterThan(30);            // el lóbulo de la Armería
@@ -1097,7 +1097,7 @@ describe("los Florines del desfile", () => {
       avanzar(e, nada(), 1 / 60);
       for (const d of e.portal.desfile) {
         expect(d.x).toBeGreaterThan(40);
-        expect(d.x).toBeLessThan(2600 - 40);
+        expect(d.x).toBeLessThan(WORLD_W - 40);
         expect(d.y).toBeGreaterThan(40);
         expect(d.y, "un Florín se fue nadando").toBeLessThan(e.esc.mar! - 20);
       }
@@ -1111,6 +1111,84 @@ describe("los Florines del desfile", () => {
       return e.portal.desfile.map(d => [Math.round(d.x), Math.round(d.y)]);
     };
     expect(foto()).toEqual(foto());
+  });
+});
+
+/* El reparto del mapa está en fracciones del mundo, así que estas pruebas valen
+   a cualquier tamaño: son las que impiden que agrandar el mapa deje una casa
+   fuera del borde o dos encima. */
+describe("el reparto del mapa", () => {
+  const CASA_W = 380, CASA_H = 330;
+  const solapan = (a: number[], b: number[]) =>
+    a[0] < b[0] + CASA_W && a[0] + CASA_W > b[0] &&
+    a[1] < b[1] + CASA_H && a[1] + CASA_H > b[1];
+
+  it("ninguna casa ni patio se sale del mundo", () => {
+    for (const esc of ESCENARIOS) for (const [x, y] of [...esc.casas, ...esc.patios]) {
+      const donde = esc.id + " en " + x + "," + y;
+      expect(x, donde).toBeGreaterThanOrEqual(0);
+      expect(y, donde).toBeGreaterThanOrEqual(0);
+      expect(x + CASA_W, donde + " se sale por la derecha").toBeLessThanOrEqual(WORLD_W);
+      expect(y + CASA_H, donde + " se sale por abajo").toBeLessThanOrEqual(WORLD_H);
+    }
+  });
+
+  it("no hay dos encima", () => {
+    for (const esc of ESCENARIOS) {
+      const todas = [...esc.casas, ...esc.patios];
+      for (let i = 0; i < todas.length; i++) for (let j = i + 1; j < todas.length; j++)
+        expect(solapan(todas[i], todas[j]),
+               esc.id + ": " + todas[i] + " pisa a " + todas[j]).toBe(false);
+    }
+  });
+
+  it("el desfile no cruza por encima de ninguna casa", () => {
+    /* Contra la CURVA, no contra su caja: el ocho no llena su rectángulo ni de
+       lejos, y medir la caja daba por malos sitios que están perfectamente.
+       Esto encontró siete escenarios en los que el desfile pasaba por dentro de
+       un patio — los Florines se veían atravesando la casa. */
+    for (const esc of ESCENARIOS) {
+      const e = partida({ escenario: esc.id });
+      for (const base of e.bases) {
+        const r = base.rect;
+        let cerca = Infinity;
+        for (const lado of [0, 1] as const) for (const giro of [1, -1] as const)
+          for (let k = 0; k <= 1; k += 0.002) {
+            const q = puntoDelDesfile(e, k, lado, giro);
+            const dx = Math.max(r.x - q.x, 0, q.x - (r.x + r.w));
+            const dy = Math.max(r.y - q.y, 0, q.y - (r.y + r.h));
+            cerca = Math.min(cerca, Math.hypot(dx, dy));
+          }
+        expect(cerca, esc.id + ": el desfile pasa a " + Math.round(cerca) +
+               "px de la base " + base.id).toBeGreaterThan(30);
+      }
+    }
+  });
+
+  it("no se corre con un trasto de agua a cuestas", () => {
+    /* Los circuitos van por tierra, también los de costa. Un vehículo de agua
+       fuera del agua penaliza a 0,9× —más lento que a pie—, así que darlo por
+       defecto convertía la carrera en un paseo cargando la tabla: La Playa
+       tardaba 118 s y El Amazonas 109, contra los 48-87 s del resto. */
+    for (const esc of CIRCUITOS) {
+      const v = vehiculoDelSitio(partida({ escenario: esc.id }));
+      expect(VEHICULOS[v]?.agua, esc.id + " sale a correr en " + v).toBeFalsy();
+    }
+  });
+
+  it("los circuitos caben en el mundo", () => {
+    for (const esc of ESCENARIOS) {
+      for (const [x, y] of esc.circuito!) {
+        const donde = esc.id + " en " + x + "," + y;
+        expect(x, donde).toBeGreaterThan(ANCHO_PISTA / 2);
+        expect(x, donde).toBeLessThan(WORLD_W - ANCHO_PISTA / 2);
+        expect(y, donde).toBeGreaterThan(ANCHO_PISTA / 2);
+        expect(y, donde).toBeLessThan(WORLD_H - ANCHO_PISTA / 2);
+      }
+      // y los de costa no cruzan la orilla
+      if (esc.mar != null) for (const [, y] of esc.circuito!)
+        expect(y, esc.id + ": la pista se mete en el agua").toBeLessThan(esc.mar - ANCHO_PISTA / 2);
+    }
   });
 });
 
@@ -1181,9 +1259,9 @@ describe("carrera", () => {
       const c = esc.circuito!;
       for (const [x, y] of c) {
         expect(x, esc.id + ": la pista se sale por los lados").toBeGreaterThan(90);
-        expect(x, esc.id + ": la pista se sale por los lados").toBeLessThan(2600 - 90);
+        expect(x, esc.id + ": la pista se sale por los lados").toBeLessThan(WORLD_W - 90);
         expect(y, esc.id + ": la pista se sale por arriba o abajo").toBeGreaterThan(90);
-        expect(y, esc.id + ": la pista se sale por arriba o abajo").toBeLessThan(1700 - 90);
+        expect(y, esc.id + ": la pista se sale por arriba o abajo").toBeLessThan(WORLD_H - 90);
       }
       /* Aquí NO se exige que los puntos lejanos estén separados: el Trébol se
          cruza consigo mismo a propósito y ahí dos ramas se tocan. No deja

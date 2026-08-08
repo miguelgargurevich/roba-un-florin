@@ -7,7 +7,7 @@
 
 import type { Escenario } from "./tipos.js";
 
-export const WORLD_W = 2600, WORLD_H = 1700;
+export const WORLD_W = 3600, WORLD_H = 2100;
 export const GOAL = 60000;
 export const PATIOS_PRECIO = [4000, 12000];
 
@@ -528,104 +528,135 @@ function trazar(base: P[], cx: number, cy: number, w: number, h: number, alReves
     [Math.round(cx + nx * k * w / 2), Math.round(cy + ny * k * h / 2)] as [number, number]));
 }
 
+/* ---- dónde va cada cosa, en fracciones del mundo ----
+
+   Antes esto eran ~70 números absolutos calibrados a mano para un mundo de
+   2600 × 1700: las casas, los patios, la caja de cada circuito, el mar y el
+   puente. Cambiar el tamaño del mapa obligaba a recalcularlos todos, y por eso
+   no se cambiaba nunca.
+
+   Ahora se guarda la FRACCIÓN y el número sale de `WORLD_W`/`WORLD_H`. Agrandar
+   el mundo vuelve a ser lo que parecía: cambiar dos números.
+
+   `sitio(fx, fy)` coloca una base de 380 × 330: 0 la pega al borde de arriba o
+   de la izquierda y 1 al de abajo o de la derecha, dejando siempre el margen.
+   `ancho`/`alto` son fracciones sueltas del mapa, para el mar y las cajas de
+   circuito. Los decimales salen de convertir las coordenadas viejas, así que
+   con el mundo de siempre el reparto es el de siempre (hay prueba). */
+const BASE_W = 380, BASE_H = 330;
+const MARGEN = 70, MARGEN_ARRIBA = 80;
+
+export const ancho = (f: number) => Math.round(WORLD_W * f);
+export const alto  = (f: number) => Math.round(WORLD_H * f);
+export const medioX = () => Math.round(WORLD_W / 2);
+
+function sitio(fx: number, fy: number): [number, number] {
+  return [
+    Math.round(MARGEN + fx * (WORLD_W - 2 * MARGEN - BASE_W)),
+    Math.round(MARGEN_ARRIBA + fy * (WORLD_H - MARGEN_ARRIBA - MARGEN - BASE_H)),
+  ];
+}
+
 export const ESCENARIOS: Escenario[] = [
   { id:"barrio",   nombre:"El Barrio",
-    casas:[[70,90],[2150,90],[2150,700],[2150,1290]],
-    patios:[[70,1290],[520,1290],[70,900]],
-    circuito: trazar(CHICANA, 1300, 850, 2300, 1360) },
+    casas:[sitio(0,0.008),sitio(1,0.008),sitio(1,0.508),sitio(1,0.992)],
+    patios:[sitio(0,0.992),sitio(0.216,0.992),sitio(0,0.672)],
+    circuito: trazar(CHICANA, medioX(), alto(0.5), ancho(0.885), alto(0.8)) },
   { id:"colegio",  nombre:"Sta. Teresita",
-    casas:[[70,90],[560,90],[70,660],[70,1290]],
-    patios:[[2150,1290],[1700,1290],[2150,860]],
+    casas:[sitio(0,0.008),sitio(0.236,0.008),sitio(0,0.475),sitio(0,0.992)],
+    patios:[sitio(1,0.992),sitio(0.784,0.992),sitio(1,0.639)],
     // en el colegio se corre alrededor de la cancha, en rectángulo
-    circuito: trazar(ZIGZAG, 1300, 850, 2300, 1360) },
+    circuito: trazar(ZIGZAG, medioX(), alto(0.5), ancho(0.885), alto(0.8)) },
   { id:"playa",    nombre:"La Playa",
-    casas:[[2150,90],[2150,620],[2150,1100],[560,1100]],
-    patios:[[70,90],[70,450],[70,810]],
-    mar: WORLD_H - 210,
+    casas:[sitio(1,0.008),sitio(1,0.443),sitio(1,0.836),sitio(0.236,0.836)],
+    patios:[sitio(0,0.008),sitio(0,0.303),sitio(0,0.598)],
+    mar: alto(0.876),
     // pegado a la orilla pero sin meterse: en la arena mojada se corre mejor
     // la herradura, con la caja recortada por el mar, se quedaba corta
-    circuito: trazar(HORQUILLA, 1300, 745, 2300, 1240) },
+    circuito: trazar(HORQUILLA, medioX(), alto(0.438), ancho(0.885), alto(0.729)) },
   { id:"desierto", nombre:"El Desierto",
-    casas:[[70,90],[2150,90],[2150,1290],[1750,700]],
-    patios:[[70,1290],[70,900],[70,510]],
-    circuito: trazar(RINON, 1300, 850, 2300, 1360) },
+    // la cuarta rozaba el lóbulo derecho de la pasarela: apartada a la derecha
+    casas:[sitio(0,0.008),sitio(1,0.008),sitio(1,0.992),sitio(0.87,0.508)],
+    patios:[sitio(0,0.992),sitio(0,0.672),sitio(0,0.352)],
+    circuito: trazar(RINON, medioX(), alto(0.5), ancho(0.885), alto(0.8)) },
 
   /* Los cuatro de viaje. Mismo reparto de siempre —un patio, cuatro casas y
      los dos comprables al lado— porque las reglas no cambian con el sitio. */
   { id:"machupicchu", nombre:"Machu Picchu",
-    casas:[[70,90],[2150,90],[2150,700],[2150,1290]],
-    patios:[[70,1290],[520,1290],[70,900]],
+    casas:[sitio(0,0.008),sitio(1,0.008),sitio(1,0.508),sitio(1,0.992)],
+    patios:[sitio(0,0.992),sitio(0.216,0.992),sitio(0,0.672)],
     // el circuito sigue los andenes, que ya son bandas horizontales
-    circuito: trazar(HORQUILLA, 1300, 850, 2300, 1360) },
+    circuito: trazar(HORQUILLA, medioX(), alto(0.5), ancho(0.885), alto(0.8)) },
   /* Nueva York se reparte a propósito: las casas arriba, los patios a la
      izquierda, Central Park ocupando toda la derecha y el puerto abajo. El
      puente de Brooklyn es el único paso a pie sobre el agua. */
   { id:"nuevayork",   nombre:"Nueva York",
-    casas:[[70,80],[560,80],[1620,80],[2130,80]],
-    patios:[[70,540],[70,910],[480,1060]],
-    mar: 1430,
-    puente: { x: 1880, w: 340 },
+    casas:[sitio(0,0),sitio(0.236,0),sitio(0.745,0),sitio(0.99,0)],
+    patios:[sitio(0,0.377),sitio(0,0.68),sitio(0.197,0.803)],
+    mar: alto(0.841),
+    puente: { x: ancho(0.723), w: ancho(0.131) },
     // por las cuadras, y sin bajar al puerto: el puente es de a pie
-    circuito: trazar(ZIGZAG, 1300, 715, 2300, 1180) },
+    circuito: trazar(ZIGZAG, medioX(), alto(0.421), ancho(0.885), alto(0.694)) },
   { id:"egipto",      nombre:"Egipto",
-    casas:[[2150,90],[2150,700],[2150,1290],[70,90]],
-    patios:[[70,1290],[520,1290],[70,880]],
-    circuito: trazar(HERRADURA, 1300, 850, 2300, 1360, true) },
+    casas:[sitio(1,0.008),sitio(1,0.508),sitio(1,0.992),sitio(0,0.008)],
+    patios:[sitio(0,0.992),sitio(0.216,0.992),sitio(0,0.656)],
+    circuito: trazar(HERRADURA, medioX(), alto(0.5), ancho(0.885), alto(0.8), true) },
   { id:"amazonas",    nombre:"El Amazonas",
-    casas:[[70,90],[2150,90],[560,90],[2150,620]],
-    patios:[[70,1120],[520,1120],[70,760]],
+    casas:[sitio(0,0.008),sitio(1,0.008),sitio(0.236,0.008),sitio(1,0.443)],
+    patios:[sitio(0,0.852),sitio(0.216,0.852),sitio(0,0.557)],
     // el río corre por el sur: sin balsa te frena en la ribera
-    mar: WORLD_H - 240,
+    mar: alto(0.859),
     // la pista se queda en tierra firme, al norte del río
     // el riñón en una caja baja se queda corto: la chicana cunde más
-    circuito: trazar(CHICANA, 1300, 715, 2300, 1180, true) },
+    circuito: trazar(CHICANA, medioX(), alto(0.421), ancho(0.885), alto(0.694), true) },
 
   /* Los cuatro de juguete: el suelo del cuarto convertido en cuadra. El
      reparto es el de siempre —cuatro casas, un patio y los dos comprables al
      lado— porque el sitio cambia el decorado, no las reglas. */
   { id:"pista",    nombre:"Hot Wheels",
-    casas:[[70,90],[2150,90],[2150,700],[2150,1290]],
-    patios:[[70,1290],[520,1290],[70,900]],
+    casas:[sitio(0,0.008),sitio(1,0.008),sitio(1,0.508),sitio(1,0.992)],
+    patios:[sitio(0,0.992),sitio(0.216,0.992),sitio(0,0.672)],
     // la pista de plástico ya era un circuito: solo faltaba decirlo
-    circuito: trazar(HORQUILLA, 1300, 850, 2300, 1360, true) },
+    circuito: trazar(HORQUILLA, medioX(), alto(0.5), ancho(0.885), alto(0.8), true) },
   { id:"tablero",  nombre:"Monopoly",
-    casas:[[70,90],[560,90],[1620,90],[2130,90]],
-    patios:[[70,1290],[520,1290],[70,900]],
+    casas:[sitio(0,0.008),sitio(0.236,0.008),sitio(0.745,0.008),sitio(0.99,0.008)],
+    patios:[sitio(0,0.992),sitio(0.216,0.992),sitio(0,0.672)],
     // por el anillo de casillas: el tablero ya era una pista, con sus esquinas
-    circuito: trazar(ZIGZAG, 1300, 850, 2300, 1360, true) },
+    circuito: trazar(ZIGZAG, medioX(), alto(0.5), ancho(0.885), alto(0.8), true) },
   /* En el Mirador las casas van todas a la derecha y arriba: la esquina
      noroeste se deja libre a propósito para que quepa la montaña. */
   { id:"mirador",  nombre:"Thomas y el Mirador",
-    casas:[[2150,90],[2150,700],[2150,1290],[1620,90]],
-    patios:[[70,1290],[520,1290],[70,880]],
-    circuito: trazar(TREBOL, 1300, 850, 2300, 1360, true) },
+    casas:[sitio(1,0.008),sitio(1,0.508),sitio(1,0.992),sitio(0.745,0.008)],
+    patios:[sitio(0,0.992),sitio(0.216,0.992),sitio(0,0.656)],
+    circuito: trazar(TREBOL, medioX(), alto(0.5), ancho(0.885), alto(0.8), true) },
   { id:"circuito", nombre:"Mario Kart",
-    casas:[[70,90],[2150,90],[560,90],[2150,620]],
-    patios:[[70,1120],[520,1120],[70,760]],
-    circuito: trazar(CHICANA, 1300, 850, 2300, 1360, true) },
+    casas:[sitio(0,0.008),sitio(1,0.008),sitio(0.236,0.008),sitio(1,0.443)],
+    patios:[sitio(0,0.852),sitio(0.216,0.852),sitio(0,0.557)],
+    circuito: trazar(CHICANA, medioX(), alto(0.5), ancho(0.885), alto(0.8), true) },
 
   /* ---- los cuatro de correr ----
      Nacieron como circuitos: el reparto de casas es el de siempre porque en
      aventura también se juegan, pero la forma del sitio la manda la pista. */
   { id:"costaverde", nombre:"La Costa Verde",
-    casas:[[70,80],[560,80],[1620,80],[2130,80]],
-    patios:[[70,520],[520,520],[70,880]],
+    casas:[sitio(0,0),sitio(0.236,0),sitio(0.745,0),sitio(0.99,0)],
+    patios:[sitio(0,0.361),sitio(0.15,0.361),sitio(0,0.656)],
     // el mar al sur; el acantilado y la pista van pegados a la orilla
-    mar: 1480,
-    circuito: trazar(HORQUILLA, 1300, 725, 2300, 1220) },
+    mar: alto(0.871),
+    circuito: trazar(HORQUILLA, medioX(), alto(0.426), ancho(0.885), alto(0.718)) },
   { id:"prehistoria", nombre:"La Prehistoria",
-    casas:[[70,90],[2150,90],[2150,1290],[70,1290]],
-    patios:[[560,90],[1050,90],[560,1290]],
+    casas:[sitio(0,0.008),sitio(1,0.008),sitio(1,0.992),sitio(0,0.992)],
+    // el de en medio arriba estaba justo donde baja el desfile del portal
+    patios:[sitio(0.236,0.008),sitio(0,0.5),sitio(0.236,0.992)],
     // las líneas son la pista: por eso se corre en ocho, cruzando por el medio
-    circuito: trazar(TREBOL, 1300, 850, 2300, 1360) },
+    circuito: trazar(TREBOL, medioX(), alto(0.5), ancho(0.885), alto(0.8)) },
   { id:"volcan",     nombre:"El Volcán",
-    casas:[[70,90],[2150,90],[2150,1290],[560,1290]],
-    patios:[[70,1290],[70,880],[70,480]],
-    circuito: trazar(RINON, 1300, 850, 2300, 1360, true) },
+    casas:[sitio(0,0.008),sitio(1,0.008),sitio(1,0.992),sitio(0.236,0.992)],
+    patios:[sitio(0,0.992),sitio(0,0.656),sitio(0,0.328)],
+    circuito: trazar(RINON, medioX(), alto(0.5), ancho(0.885), alto(0.8), true) },
   { id:"luna",       nombre:"La Luna",
-    casas:[[70,90],[2150,90],[2150,700],[2150,1290]],
-    patios:[[70,1290],[520,1290],[70,900]],
-    circuito: trazar(HERRADURA, 1300, 850, 2300, 1360) },
+    casas:[sitio(0,0.008),sitio(1,0.008),sitio(1,0.508),sitio(1,0.992)],
+    patios:[sitio(0,0.992),sitio(0.216,0.992),sitio(0,0.672)],
+    circuito: trazar(HERRADURA, medioX(), alto(0.5), ancho(0.885), alto(0.8)) },
 ];
 
 /** Los escenarios donde se puede correr, para el selector del lobby. */
