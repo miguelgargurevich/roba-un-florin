@@ -664,6 +664,15 @@
     background:linear-gradient(180deg,color-mix(in srgb,var(--plum-800) 96%,transparent),var(--plum-900));
     border:3px solid var(--gold);border-radius:18px;padding:12px;
     box-shadow:0 12px 0 rgba(0,0,0,.4);
+    /* Que quepa SIEMPRE, y si no cabe que se pueda desplazar con el dedo.
+       En un iPad en horizontal la pantalla son 575 px y este panel llegó a
+       medir 899: se salía 451 px y el Garaje entero quedaba fuera, sin forma
+       de llegar a él. `touch-action` hace falta explícito porque el `body` lo
+       tiene en `none` para que el juego no haga zoom con dos pulgares, y eso
+       se hereda a todo lo de dentro. */
+    max-height:calc(100vh - 120px);
+    overflow-y:auto;overscroll-behavior:contain;
+    touch-action:pan-y;-webkit-overflow-scrolling:touch;
   }
   #armeria[hidden]{display:none}
   #armeria h2{
@@ -694,6 +703,15 @@
     background:linear-gradient(180deg,color-mix(in srgb,var(--plum-800) 96%,transparent),var(--plum-900));
     border:3px solid var(--chancla);border-radius:18px;padding:12px;
     box-shadow:0 12px 0 rgba(0,0,0,.4);
+    /* Que quepa SIEMPRE, y si no cabe que se pueda desplazar con el dedo.
+       En un iPad en horizontal la pantalla son 575 px y este panel llegó a
+       medir 899: se salía 451 px y el Garaje entero quedaba fuera, sin forma
+       de llegar a él. `touch-action` hace falta explícito porque el `body` lo
+       tiene en `none` para que el juego no haga zoom con dos pulgares, y eso
+       se hereda a todo lo de dentro. */
+    max-height:calc(100vh - 120px);
+    overflow-y:auto;overscroll-behavior:contain;
+    touch-action:pan-y;-webkit-overflow-scrolling:touch;
   }
   #ruleta[hidden]{display:none}
   #app.dos #ruleta{display:none}
