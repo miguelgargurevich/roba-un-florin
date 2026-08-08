@@ -366,7 +366,7 @@ window.addEventListener("keydown", e => {
   // no, bautizas. Nunca coinciden — montado no puedes cargar un Florín.
   if (k === "n"){ if (G.player.montado != null) bajarseDelTrasto(); else abrirBautizo(); }
   if (k === "f") soltarLoQueLlevo();
-  if (k === "e") usarMiItem();
+  if (k === "x") usarMiItem();       // la E ya cambia de arma
   if (k === "b") { if (document.getElementById("album").hidden) abrirAlbum(); else cerrarAlbum(); }
   if (k === "t") togglePanel("arm");
   if (k === "r") togglePanel("rul");
