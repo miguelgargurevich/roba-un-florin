@@ -8,14 +8,14 @@ Monorepo con workspaces npm:
 
 | Paquete | Qué es |
 |---|---|
-| `packages/engine` | el juego sin navegador: determinista, JSON serializable, 93 pruebas |
+| `packages/engine` | el juego sin navegador: determinista, JSON serializable, 100 pruebas |
 | `apps/web` | el cliente (Vite + canvas 2D). Solo dibuja y escucha teclas |
 | `apps/api` | cuentas, álbum y guardado (.NET 9, Clean Arch + CQRS), 32 pruebas |
 | `apps/salas` | servidor de salas autoritativo (Node + `ws`), 27 pruebas |
 
-Funciona: un jugador, salas online hasta 5 (modo aventura y versus) con bots
-en los asientos libres, 12 escenarios, cuentas con guardado en la nube, álbum
-y ranking. Se publica en
+Funciona: un jugador, salas online hasta 5 (aventura, versus y carrera) con
+bots en los asientos libres, 16 escenarios —todos con circuito—, cuentas con
+guardado en la nube, álbum y ranking. Se publica en
 GitHub Pages y en el VPS (ver `/opt/florin-api/LEEME.md` en el servidor: es el
 runbook de despliegue, con los cuatro contenedores y el rollback).
 
@@ -23,6 +23,11 @@ A medias / sin hacer: el modo cooperativo (aplazado a propósito — una sala en
 aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Última sesión
+
+- 2026-08-07 (claude-code): **modo carrera** (tres vueltas, montado, gana el
+  primero) y cuatro escenarios más: La Costa Verde, Nazca, El Volcán y La Luna.
+  Los dieciséis escenarios tienen circuito, con seis trazados al estilo Top
+  Gear: horquilla, riñón, chicana, herradura, trébol y zigzag.
 
 - 2026-08-07 (claude-code): bots en los asientos libres de una sala; la Ruleta
   no rodaba (nadie repintaba el panel), ni la Ruleta ni la Armería llegaban al
@@ -46,6 +51,11 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Próximos pasos
 
+- [ ] **Promover a producción** todo esto: sigue solo en staging.
+- [ ] Los trazados de carrera son seis para dieciséis mapas. Se repiten (con
+      media vuelta de diferencia). Si cansan, tocar `HORQUILLA`, `RINON`,
+      `CHICANA`, `HERRADURA`, `TREBOL` y `ZIGZAG` en `datos.ts`: al cambiar uno
+      cambian todos los mapas que lo usan.
 - [ ] **Promover a producción.** Todo lo de esta última tanda —bots, Ruleta,
       soltar, botón de inicio— está en staging (`nuevo.florin.gargurevich.dev`),
       no en `florin.gargurevich.dev`.

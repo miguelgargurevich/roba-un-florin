@@ -279,66 +279,130 @@ export const VARIANTES = {
 export const VUELTAS = 3;
 /** A qué distancia cuenta que pasaste por un punto. Generoso a propósito: esto
     no es un simulador, y un niño no debería perder por pasar a 20 px. */
-export const HITO_R = 170;
+export const HITO_R = 140;
 
-/** Un óvalo de `n` puntos. La mayoría de los circuitos son esto, deformado. */
-function ovalo(cx: number, cy: number, rx: number, ry: number, n = 16, giro = 0):
+/* ---- el vocabulario de una pista ----
+   Inspirado en los circuitos del Top Gear de Super Nintendo, que es lo que
+   hace que una vuelta se recuerde: rectas largas donde te lanzas, horquillas
+   donde hay que frenar de verdad, y chicanas que te descolocan. Un óvalo se
+   corre igual con los ojos cerrados.
+
+   Cada trazado se dibuja una sola vez en un cuadrado de -1 a 1 y luego se
+   estira al escenario. Así los seis trazados sirven para los dieciséis sitios
+   sin repetir sensación, y cambiar uno los cambia a todos los que lo usan. */
+type P = [number, number];
+
+const recta = (a: P, b: P, n: number): P[] =>
+  Array.from({ length: n }, (_, i) =>
+    [a[0] + (b[0] - a[0]) * (i / n), a[1] + (b[1] - a[1]) * (i / n)] as P);
+
+const arco = (cx: number, cy: number, rx: number, ry: number,
+              a0: number, a1: number, n: number): P[] =>
+  Array.from({ length: n }, (_, i) => {
+    const a = a0 + (a1 - a0) * (i / n);
+    return [cx + Math.cos(a) * rx, cy + Math.sin(a) * ry] as P;
+  });
+
+const TAU = Math.PI * 2;
+
+/** Clip: dos rectas larguísimas y una horquilla en cada punta. La vuelta más
+    rápida y la que más castiga frenar tarde. */
+const HORQUILLA: P[] = [
+  ...recta([-0.55, -0.82], [0.55, -0.82], 6),
+  ...arco(0.55, 0, 0.45, 0.82, -Math.PI / 2, Math.PI / 2, 7),
+  ...recta([0.55, 0.82], [-0.55, 0.82], 6),
+  ...arco(-0.55, 0, 0.45, 0.82, Math.PI / 2, Math.PI * 1.5, 7),
+];
+
+/** Riñón: un anillo rápido con la panza hundida hacia dentro. Se entra largo y
+    se sale corto, que es donde se adelanta. */
+const RINON: P[] = Array.from({ length: 20 }, (_, i) => {
+  const a = (i / 20) * TAU;
+  const dentro = 1 - 0.34 * Math.max(0, Math.cos(a));   // el hundido, a la derecha
+  return [Math.cos(a) * dentro * 0.94, Math.sin(a) * 0.9] as P;
+});
+
+/** Chicana: anillo con una ese metida en la recta de arriba. */
+const CHICANA: P[] = [
+  ...recta([-0.60, -0.86], [-0.30, -0.86], 3),
+  /* La ese, con la panza marcada. Antes los dos codos quedaban a 130 px y el
+     arco de después arrancaba encima de la recta: pasando por el medio te
+     contaban los tres puntos de una vez y la chicana se cortaba sola. */
+  [-0.04, -0.50], [0.20, -0.88],
+  ...arco(0.40, 0, 0.56, 0.86, -Math.PI / 2 + 0.30, Math.PI / 2 - 0.12, 6),
+  ...recta([0.52, 0.86], [-0.52, 0.86], 5),
+  ...arco(-0.52, 0, 0.42, 0.86, Math.PI / 2, Math.PI * 1.5, 6),
+];
+
+/** Herradura: una recta enorme de vuelta y dos curvas anchas. */
+const HERRADURA: P[] = [
+  ...arco(0.1, 0, 0.88, 0.86, -Math.PI * 0.42, Math.PI * 0.42, 10),
+  ...recta([0.42, 0.86], [-0.72, 0.5], 5),
+  ...arco(-0.6, 0.05, 0.34, 0.5, Math.PI * 0.62, Math.PI * 1.38, 5),
+  ...recta([-0.72, -0.5], [0.42, -0.86], 5),
+];
+
+/** Trébol: se cruza consigo mismo en el medio. El cruce es donde se arma.
+
+    Los puntos se toman a MEDIO paso para que ninguno caiga justo en el cruce:
+    si cayeran, al pasar por el medio tendrías a la vez en el radio el punto de
+    ida y el de vuelta, y se daría media vuelta sin correrla. Con 18 puntos los
+    dos vecinos del cruce quedan a ~350 px, bastante más que HITO_R. */
+const TREBOL: P[] = Array.from({ length: 18 }, (_, i) => {
+  const t = ((i + 0.5) / 18) * TAU;
+  return [Math.sin(t) * 0.92, Math.sin(t * 2) * 0.72] as P;
+});
+
+/** Zigzag: manzanas de ciudad. Rectas cortas y esquinas de noventa grados. */
+const ZIGZAG: P[] = [
+  ...recta([-0.86, -0.86], [-0.2, -0.86], 3),
+  ...recta([-0.2, -0.86], [-0.2, -0.3], 2),
+  ...recta([-0.2, -0.3], [0.5, -0.3], 3),
+  ...recta([0.5, -0.3], [0.5, -0.86], 2),
+  ...recta([0.5, -0.86], [0.86, -0.86], 2),
+  ...recta([0.86, -0.86], [0.86, 0.86], 5),
+  ...recta([0.86, 0.86], [0.2, 0.86], 3),
+  ...recta([0.2, 0.86], [0.2, 0.3], 2),
+  ...recta([0.2, 0.3], [-0.5, 0.3], 3),
+  ...recta([-0.5, 0.3], [-0.5, 0.86], 2),
+  ...recta([-0.5, 0.86], [-0.86, 0.86], 2),
+  ...recta([-0.86, 0.86], [-0.86, -0.86], 5),
+];
+
+/** Estira un trazado al sitio. `alReves` le da media vuelta, para que la meta
+    y las curvas no caigan siempre en el mismo lado del mapa.
+
+    Media vuelta y no un cuarto: el mundo es mucho más ancho que alto (2600 ×
+    1700), así que girar 90° aplastaría la pista contra el lado corto — una
+    recta de 330 px se quedaba en 124, más cerca que el radio de paso, y la
+    vuelta se daba sin correrla. */
+function trazar(base: P[], cx: number, cy: number, w: number, h: number, alReves = false):
     [number, number][] {
-  return Array.from({ length: n }, (_, i) => {
-    const a = giro + (i / n) * Math.PI * 2;
-    return [Math.round(cx + Math.cos(a) * rx), Math.round(cy + Math.sin(a) * ry)];
-  }) as [number, number][];
-}
-
-/** Un rectángulo con las esquinas comidas: para las cuadras y los tableros,
-    donde un óvalo se ve fuera de sitio. */
-function rectangulo(cx: number, cy: number, w: number, h: number, n = 20): [number, number][] {
-  const x0 = cx - w / 2, x1 = cx + w / 2, y0 = cy - h / 2, y1 = cy + h / 2;
-  const r = Math.min(w, h) * 0.22;
-  const lados: [number, number][][] = [
-    [[x0 + r, y0], [x1 - r, y0]],
-    [[x1, y0 + r], [x1, y1 - r]],
-    [[x1 - r, y1], [x0 + r, y1]],
-    [[x0, y1 - r], [x0, y0 + r]],
-  ];
-  const pts: [number, number][] = [];
-  const porLado = Math.max(2, Math.round(n / 4));
-  for (const [[ax, ay], [bx, by]] of lados)
-    for (let k = 0; k < porLado; k++) {
-      const f = k / porLado;
-      pts.push([Math.round(ax + (bx - ax) * f), Math.round(ay + (by - ay) * f)]);
-    }
-  return pts;
-}
-
-/** Un ocho echado: se cruza en el medio, que es donde se arma el lío. */
-function ocho(cx: number, cy: number, rx: number, ry: number, n = 20): [number, number][] {
-  return Array.from({ length: n }, (_, i) => {
-    const t = (i / n) * Math.PI * 2;
-    return [Math.round(cx + Math.sin(t) * rx), Math.round(cy + Math.sin(t * 2) * ry / 2)];
-  }) as [number, number][];
+  const k = alReves ? -1 : 1;
+  return base.map(([nx, ny]) =>
+    [Math.round(cx + nx * k * w / 2), Math.round(cy + ny * k * h / 2)] as [number, number]);
 }
 
 export const ESCENARIOS: Escenario[] = [
   { id:"barrio",   nombre:"El Barrio",
     casas:[[70,90],[2150,90],[2150,700],[2150,1290]],
     patios:[[70,1290],[520,1290],[70,900]],
-    circuito: ovalo(1300, 850, 1060, 620, 18) },
+    circuito: trazar(CHICANA, 1300, 850, 2180, 1240) },
   { id:"colegio",  nombre:"Sta. Teresita",
     casas:[[70,90],[560,90],[70,660],[70,1290]],
     patios:[[2150,1290],[1700,1290],[2150,860]],
     // en el colegio se corre alrededor de la cancha, en rectángulo
-    circuito: rectangulo(1300, 850, 2020, 1120, 20) },
+    circuito: trazar(ZIGZAG, 1300, 850, 2180, 1240) },
   { id:"playa",    nombre:"La Playa",
     casas:[[2150,90],[2150,620],[2150,1100],[560,1100]],
     patios:[[70,90],[70,450],[70,810]],
     mar: WORLD_H - 210,
     // pegado a la orilla pero sin meterse: en la arena mojada se corre mejor
-    circuito: ovalo(1300, 740, 1080, 520, 18) },
+    circuito: trazar(HERRADURA, 1300, 730, 2180, 1010) },
   { id:"desierto", nombre:"El Desierto",
     casas:[[70,90],[2150,90],[2150,1290],[1750,700]],
     patios:[[70,1290],[70,900],[70,510]],
-    circuito: ocho(1300, 850, 1040, 1150, 22) },
+    circuito: trazar(RINON, 1300, 850, 2180, 1240) },
 
   /* Los cuatro de viaje. Mismo reparto de siempre —un patio, cuatro casas y
      los dos comprables al lado— porque las reglas no cambian con el sitio. */
@@ -346,7 +410,7 @@ export const ESCENARIOS: Escenario[] = [
     casas:[[70,90],[2150,90],[2150,700],[2150,1290]],
     patios:[[70,1290],[520,1290],[70,900]],
     // el circuito sigue los andenes, que ya son bandas horizontales
-    circuito: ovalo(1300, 850, 1080, 600, 18) },
+    circuito: trazar(HORQUILLA, 1300, 850, 2180, 1240) },
   /* Nueva York se reparte a propósito: las casas arriba, los patios a la
      izquierda, Central Park ocupando toda la derecha y el puerto abajo. El
      puente de Brooklyn es el único paso a pie sobre el agua. */
@@ -356,18 +420,18 @@ export const ESCENARIOS: Escenario[] = [
     mar: 1430,
     puente: { x: 1880, w: 340 },
     // por las cuadras, y sin bajar al puerto: el puente es de a pie
-    circuito: rectangulo(1290, 700, 2000, 940, 20) },
+    circuito: trazar(ZIGZAG, 1300, 690, 2180, 940) },
   { id:"egipto",      nombre:"Egipto",
     casas:[[2150,90],[2150,700],[2150,1290],[70,90]],
     patios:[[70,1290],[520,1290],[70,880]],
-    circuito: ovalo(1300, 850, 1070, 630, 18, 0.3) },
+    circuito: trazar(HERRADURA, 1300, 850, 2180, 1240, true) },
   { id:"amazonas",    nombre:"El Amazonas",
     casas:[[70,90],[2150,90],[560,90],[2150,620]],
     patios:[[70,1120],[520,1120],[70,760]],
     // el río corre por el sur: sin balsa te frena en la ribera
     mar: WORLD_H - 240,
     // la pista se queda en tierra firme, al norte del río
-    circuito: ovalo(1300, 700, 1080, 480, 18) },
+    circuito: trazar(RINON, 1300, 690, 2180, 940, true) },
 
   /* Los cuatro de juguete: el suelo del cuarto convertido en cuadra. El
      reparto es el de siempre —cuatro casas, un patio y los dos comprables al
@@ -376,22 +440,22 @@ export const ESCENARIOS: Escenario[] = [
     casas:[[70,90],[2150,90],[2150,700],[2150,1290]],
     patios:[[70,1290],[520,1290],[70,900]],
     // la pista de plástico ya era un circuito: solo faltaba decirlo
-    circuito: ovalo(1300, 850, 1080, 560, 18) },
+    circuito: trazar(HORQUILLA, 1300, 850, 2180, 1240, true) },
   { id:"tablero",  nombre:"Monopoly",
     casas:[[70,90],[560,90],[1620,90],[2130,90]],
     patios:[[70,1290],[520,1290],[70,900]],
     // por el anillo de casillas: el tablero ya era una pista, con sus esquinas
-    circuito: rectangulo(1300, 850, 2120, 1300, 24) },
+    circuito: trazar(ZIGZAG, 1300, 850, 2180, 1240, true) },
   /* En el Mirador las casas van todas a la derecha y arriba: la esquina
      noroeste se deja libre a propósito para que quepa la montaña. */
   { id:"mirador",  nombre:"Thomas y el Mirador",
     casas:[[2150,90],[2150,700],[2150,1290],[1620,90]],
     patios:[[70,1290],[520,1290],[70,880]],
-    circuito: ovalo(1300, 850, 1090, 700, 18) },
+    circuito: trazar(TREBOL, 1300, 850, 2180, 1240, true) },
   { id:"circuito", nombre:"Mario Kart",
     casas:[[70,90],[2150,90],[560,90],[2150,620]],
     patios:[[70,1120],[520,1120],[70,760]],
-    circuito: ovalo(1300, 850, 1110, 720, 18) },
+    circuito: trazar(CHICANA, 1300, 850, 2180, 1240, true) },
 
   /* ---- los cuatro de correr ----
      Nacieron como circuitos: el reparto de casas es el de siempre porque en
@@ -401,20 +465,20 @@ export const ESCENARIOS: Escenario[] = [
     patios:[[70,520],[520,520],[70,880]],
     // el mar al sur; el acantilado y la pista van pegados a la orilla
     mar: 1480,
-    circuito: ovalo(1300, 800, 1120, 560, 18) },
+    circuito: trazar(HORQUILLA, 1300, 780, 2180, 1120) },
   { id:"nazca",      nombre:"Nazca",
     casas:[[70,90],[2150,90],[2150,1290],[70,1290]],
     patios:[[560,90],[1050,90],[560,1290]],
     // las líneas son la pista: por eso se corre en ocho, cruzando por el medio
-    circuito: ocho(1300, 850, 1050, 1180, 22) },
+    circuito: trazar(TREBOL, 1300, 850, 2180, 1240) },
   { id:"volcan",     nombre:"El Volcán",
     casas:[[70,90],[2150,90],[2150,1290],[560,1290]],
     patios:[[70,1290],[70,880],[70,480]],
-    circuito: ovalo(1300, 850, 1060, 620, 18, 0.4) },
+    circuito: trazar(RINON, 1300, 850, 2180, 1240, true) },
   { id:"luna",       nombre:"La Luna",
     casas:[[70,90],[2150,90],[2150,700],[2150,1290]],
     patios:[[70,1290],[520,1290],[70,900]],
-    circuito: ovalo(1300, 850, 1100, 650, 20, 0.2) },
+    circuito: trazar(HERRADURA, 1300, 850, 2180, 1240) },
 ];
 
 /** Los escenarios donde se puede correr, para el selector del lobby. */

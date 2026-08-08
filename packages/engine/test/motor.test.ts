@@ -5,7 +5,7 @@
 
 import { describe, expect, it } from "vitest";
 import {
-  CIRCUITOS, ESCENARIOS, ESCUDO_DUR, FLORES, GOAL, JUGADORES_MAX, VUELTAS,
+  CIRCUITOS, ESCENARIOS, ESCUDO_DUR, FLORES, GOAL, HITO_R, JUGADORES_MAX, VUELTAS,
   puestosDeCarrera, puestoDe, pensarBot, LASER_DUR, LASER_PRECIO, PORTAL_RAREZAS, RAR_COLOR,
   reglasPara,
   RULETA, RULETA_INCOGNITA, RULETA_PRECIO, TIERS, WEAPONS, varMult,
@@ -1078,6 +1078,28 @@ describe("carrera", () => {
       if (e.esc.mar != null)
         for (const [, cy] of esc.circuito!)
           expect(cy, esc.id + ": la pista se mete al agua").toBeLessThan(e.esc.mar - 60);
+    }
+  });
+
+  it("las pistas caben en el mapa y no se pisan a sí mismas", () => {
+    for (const esc of CIRCUITOS) {
+      const c = esc.circuito!;
+      for (const [x, y] of c) {
+        expect(x, esc.id + ": la pista se sale por los lados").toBeGreaterThan(90);
+        expect(x, esc.id + ": la pista se sale por los lados").toBeLessThan(2600 - 90);
+        expect(y, esc.id + ": la pista se sale por arriba o abajo").toBeGreaterThan(90);
+        expect(y, esc.id + ": la pista se sale por arriba o abajo").toBeLessThan(1700 - 90);
+      }
+      /* Dos puntos NO seguidos tienen que estar más lejos que el radio de
+         paso. Si no, en una horquilla te contarían los dos lados por estar
+         parado en medio, y la vuelta se daría sin correrla. */
+      for (let i = 0; i < c.length; i++)
+        for (let j = i + 2; j < c.length; j++) {
+          if (i === 0 && j === c.length - 1) continue;   // son vecinos, dan la vuelta
+          const d = Math.hypot(c[i][0] - c[j][0], c[i][1] - c[j][1]);
+          expect(d, esc.id + ": puntos " + i + " y " + j + " demasiado juntos")
+            .toBeGreaterThan(HITO_R);
+        }
     }
   });
 
