@@ -398,6 +398,28 @@ elemento el trasto no acelera: la tabla en la arena la llevas a cuestas (×0.9).
 
 Los ladrones y las abuelas tampoco entran al agua, ni siquiera de un chancletazo.
 
+## Jugar con amigos
+
+Desde la portada, con cuenta: **Crear una sala** te da un código de cuatro
+letras que le dictas a tus amigos, o **entras con el código** de otro. La sala
+es un proceso en el servidor que corre el mismo motor y **manda**: los clientes
+solo mandan teclas y dibujan lo que llega.
+
+- **Aventura** — sin fin, cada uno con su patio y sus hitos.
+- **Versus** — gana el primero que llena todos sus patios.
+
+Cada amigo que entra ocupa la casa de un vecino y ese bot deja de existir: solo
+son 4 bots, la sala llena son 5 humanos y ninguno. Si se te cae la conexión, **tu
+patio y tu dinero te esperan**: al volver con la misma cuenta recuperas tu sitio.
+
+El dibujo va a 60 fps y el servidor manda 20 fotos por segundo, así que el
+cliente **interpola** a los demás y **se adelanta** con el tuyo — tu muñeco se
+mueve al instante con la tecla y luego se acerca a donde dice el servidor. Si
+hay discrepancia gana el servidor, solo que sin tirón.
+
+El duelo de dos en un teclado **se retiró**: jugar con gente es online. El motor
+sigue sabiendo de N jugadores, así que no se perdió nada.
+
 ## Cuenta en la nube (opcional)
 
 En la portada hay un bloque de **cuenta**. No hace falta para jugar: sirve para

@@ -16,11 +16,13 @@ import {
   florNombre, florinIncome, freePed, freePedDe, girarRuleta as girarEnMotor,
   inRect, laserActivo, lerp, money, nuevaPartidaMotor, nuevoFlorin, occupied,
   occupiedDe, orbitaDelCentro, playerIncome, puntoDelDesfile, rumboDeTiro,
-  bajarse, nombreDeHito, patiosDe, revivirPartida, seleccionarArma, textoDePremio,
+  bajarse, conAtajosDeSala as conAtajosMotor, nombreDeHito, patiosDe,
+  revivirPartida, seleccionarArma, textoDePremio,
   usarArma, varLabel, vitrinaDe,
   varMult, visualDe,
 } from "./puente.js";
 import { nube } from "./nube.js";
+import { conectarSala } from "./sala.js";
 
 /* ---- lo que antes vivía dentro del estado del juego y ahora es del cliente ----
    Las partículas y los avisos flotantes son adorno: el motor no sabe de ellos,
@@ -79,7 +81,7 @@ const mira = { on:false, wx:0, wy:0 };
 /** Bajarse a mano de lo que lleves debajo. */
 function bajarseDelTrasto(){
   if (!G || !G.started || G.over || G.player.montado == null) return;
-  bajarse(G, G.player, true);
+  if (sala) sala.bajarse(); else bajarse(G, G.player, true);
   renderWbar();
 }
 
@@ -311,7 +313,7 @@ window.addEventListener("keydown", e => {
   if (["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"," "].includes(e.key)) e.preventDefault();
   const k = e.key.toLowerCase();
   keys.add(k);
-  if (k === " ") usarArma(G, G.players[0]);
+  if (k === " ") { if (sala) sala.usar(); else usarArma(G, G.players[0]); }
   // Ojo: el mapa de teclas es del CLIENTE. Antes esto leía `players[1].teclas`,
   // un campo del prototipo que el motor nunca tuvo: en cuanto se extrajo el
   // motor, cualquier tecla en el duelo reventaba y el modo quedó injugable.
@@ -325,10 +327,10 @@ window.addEventListener("keydown", e => {
   if (k === "t") togglePanel("arm");
   if (k === "r") togglePanel("rul");
   if (k === "escape" && !document.getElementById("album").hidden) cerrarAlbum();
-  if (k >= "1" && k <= "9") seleccionarArma(G, G.player, +k - 1); renderWbar();
-  if (k === "0") seleccionarArma(G, G.player, 9); renderWbar();
-  if (k === "q") seleccionarArma(G, G.player, (G.wsel + WEAPONS.length - 1) % WEAPONS.length); renderWbar();
-  if (k === "e") seleccionarArma(G, G.player, (G.wsel + 1) % WEAPONS.length); renderWbar();
+  if (k >= "1" && k <= "9") elegirArma(+k - 1);
+  if (k === "0") elegirArma(9);
+  if (k === "q") elegirArma((G.wsel + WEAPONS.length - 1) % WEAPONS.length);
+  if (k === "e") elegirArma((G.wsel + 1) % WEAPONS.length);
   if (k === "enter" && !G.local2){
     if (!G.started || G.over) startGame(1);
   }
@@ -645,18 +647,20 @@ const empujarPreferencias = () => {
 async function alEntrarOSalir(jugador){
   elCuenta.entrar.hidden = !!jugador;
   elCuenta.hola.hidden = !jugador;
-  if (!jugador){ btnSeguir.hidden = true; btnUno.textContent = "1 jugador ▸"; return; }
+  if (!jugador){ btnSeguir.hidden = true; btnUno.textContent = "Jugar solo ▸"; refrescarOnline(); return; }
   elCuenta.nombre.textContent = jugador.apodo;
   if (nube.desconectado){
     decir("El servidor no responde. Puedes jugar igual: tu progreso queda en este navegador.", "mal");
     btnSeguir.hidden = true;
-    btnUno.textContent = "1 jugador ▸";
+    btnUno.textContent = "Jugar solo ▸";
+    refrescarOnline();
     return;
   }
   await traerPreferencias();
   const nuevas = await sincronizarAlbum();
   if (nuevas) decir("Recuperamos " + nuevas + " lámina(s) de tu álbum.", "bien");
   await buscarPartidaGuardada();
+  refrescarOnline();
   pintarRanking(await nube.ranking());
 }
 
@@ -757,13 +761,126 @@ btnSeguir.addEventListener("click", () => {
   Snd.unlock();
 });
 
+/** Elegir arma: en una sala lo decide el servidor, aquí solo se pide. */
+function elegirArma(i){
+  if (sala) sala.arma(i); else seleccionarArma(G, G.player, i);
+  renderWbar();
+}
+
+/* ============================================================
+   Salas con amigos
+   ============================================================
+   El servidor manda; aquí solo se manda lo que tocas y se dibuja lo que llega.
+   El mundo de una sala NO se simula en el cliente: si lo hiciera, cada uno
+   vería un juego distinto en cuanto hubiera un milisegundo de diferencia. */
+let sala = null;
+
+const URL_SALAS = (import.meta.env?.VITE_SALAS
+  || location.origin.replace(/^http/, "ws").replace(":5180", ":5182"));
+
+const elSala = {
+  caja:   document.getElementById("online"),
+  aviso:  document.getElementById("salaAviso"),
+  sinCuenta: document.getElementById("salaSinCuenta"),
+  modo:   document.getElementById("salaModo"),
+  codigo: document.getElementById("salaCodigo"),
+  crear:  document.getElementById("btnCrearSala"),
+  entrar: document.getElementById("btnEntrarSala"),
+  msg:    document.getElementById("salaMsg"),
+  panel:  document.getElementById("sala"),
+  cod:    document.getElementById("salaCod"),
+  modoTxt:document.getElementById("salaModoTxt"),
+  gente:  document.getElementById("salaGente"),
+  estado: document.getElementById("salaEstado"),
+  salir:  document.getElementById("salaSalir"),
+};
+
+const decirSala = (t, mal) => {
+  elSala.msg.textContent = t || "";
+  elSala.msg.className = "cuentaMsg" + (mal ? " mal" : "");
+};
+
+/** Solo se puede entrar a una sala con cuenta: la sala guarda tu patio. */
+function refrescarOnline(){
+  const hay = nube.hayCuenta && !nube.desconectado;
+  elSala.caja.hidden = !hay;
+  elSala.sinCuenta.hidden = hay;
+  elSala.aviso.textContent = hay ? "" : "— hazte una cuenta arriba";
+}
+
+function pintarGente(){
+  const g = sala?.estado.gente || [];
+  elSala.gente.innerHTML = g.map(x =>
+    '<li class="' + (x.conectado ? "" : "ido") + '"><span class="pip"></span>' +
+    x.apodo.replace(/[<>&]/g, "") + (x.idx === sala.estado.idx ? " (tú)" : "") +
+    (x.conectado ? "" : " · se cayó") + '</li>').join("");
+}
+
+function conectar(opciones){
+  if (sala) sala.cerrar();
+  decirSala("Conectando…");
+  sala = conectarSala({
+    url: URL_SALAS,
+    token: JSON.parse(localStorage.getItem("florin_sesion") || "{}").accessToken,
+    apodo: nube.jugador?.apodo,
+    ...opciones,
+    al: ev => {
+      if (ev.tipo === "entrado"){
+        decirSala("");
+        G = conAtajosMotor(sala.estado.mundo, sala.estado.idx);
+        G.started = true;
+        aLaCancha();
+        invalidarSuelo();
+        elSala.panel.hidden = false;
+        elSala.cod.textContent = sala.estado.codigo;
+        elSala.modoTxt.textContent = sala.estado.modo;
+        elSala.estado.textContent = "";
+        pintarGente();
+        Snd.unlock();
+      } else if (ev.tipo === "gente"){
+        pintarGente();
+      } else if (ev.tipo === "eventos"){
+        // los eventos del motor llegan por la red: se pintan y suenan igual
+        G.eventos = ev.eventos;
+        consumirEventos();
+        G.eventos = [];
+      } else if (ev.tipo === "caido"){
+        elSala.estado.textContent = "Se cortó… reconectando";
+      } else if (ev.tipo === "error"){
+        decirSala(ev.motivo, true);
+        salirDeLaSala();
+      }
+    },
+  });
+}
+
+function salirDeLaSala(){
+  sala?.cerrar();
+  sala = null;
+  elSala.panel.hidden = true;
+  el.title.hidden = false;
+}
+
+elSala.crear.addEventListener("click", () => {
+  conectar({ modo: elSala.modo.value, escenario: ESCENARIOS[escSel].id });
+});
+elSala.entrar.addEventListener("click", () => {
+  const c = elSala.codigo.value.trim().toUpperCase();
+  if (c.length !== 4) return decirSala("El código son 4 letras.", true);
+  conectar({ codigo: c });
+});
+elSala.codigo.addEventListener("keydown", e => { if (e.key === "Enter") elSala.entrar.click(); });
+elSala.salir.addEventListener("click", salirDeLaSala);
+
 /* Recién acá, con todo el formulario montado, se enchufa la cuenta. */
 nube.alCambiar(alEntrarOSalir);
 despertarCuenta();
 
 document.getElementById("btnStart").addEventListener("click", () => startGame(1));
-document.getElementById("btnStart2").addEventListener("click", () => startGame(2));
-document.getElementById("btnAgain").addEventListener("click", () => startGame());   // repite el modo
+document.getElementById("btnAgain").addEventListener("click", () => startGame());
+/* El duelo de dos en un teclado se retiró al llegar las salas: jugar con gente
+   es online. El motor sigue sabiendo de N jugadores, así que no se perdió nada
+   — lo que se fue es el reparto de teclas de un solo teclado. */
 
 const isTouch = matchMedia("(pointer: coarse)").matches;
 if (isTouch){
@@ -3654,8 +3771,7 @@ const chips = WEAPONS.map((w,i) => {
   b.setAttribute("aria-label", w.name + (tecla ? " — tecla " + tecla : " — usa Q o E"));
   b.addEventListener("click", () => {
     Snd.unlock();
-    seleccionarArma(G, G.player, i);
-    renderWbar();
+    elegirArma(i);
     abrirArmas(false);
   });
   el.wmenu.appendChild(b);
@@ -3781,6 +3897,7 @@ function hud(){
    Flujo del juego
    ============================================================ */
 function startGame(modo){
+  if (sala) salirDeLaSala();
   const m = modo === 2 ? 2 : (modo === 1 ? 1 : (G && G.local2 ? 2 : 1));
   G = nuevaPartida(m);
   G.started = true;
@@ -3849,9 +3966,19 @@ function frame(now){
   const dt = Math.min(.05, (now-last)/1000);
   last = now;
   if (G.started && !G.paused && !G.over){
-    avanzar(G, entradas(), dt);
-    consumirEventos();
-    guardarSiTocaEn(dt);
+    if (sala){
+      /* En una sala el mundo lo lleva el servidor: aquí solo se mandan las
+         teclas y se acomoda lo que llega. Nada de `avanzar`: si el cliente
+         simulara, cada uno vería un juego distinto. */
+      const ent = entradas()[0];
+      sala.entrada(ent.mover, ent.apunta);
+      sala.aplicar(dt, ent);
+      G = conAtajosMotor(sala.estado.mundo, sala.estado.idx);
+    } else {
+      avanzar(G, entradas(), dt);
+      consumirEventos();
+      guardarSiTocaEn(dt);
+    }
   }
   animarParticulas(dt);
   draw();

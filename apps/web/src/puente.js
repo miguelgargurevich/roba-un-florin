@@ -131,6 +131,27 @@ export function nuevaPartidaMotor(modo, escenarioId) {
   return G;
 }
 
+/* El mundo que llega de una sala es JSON pelado: hay que devolverle los atajos
+   que el código de dibujo espera, y decirle quién eres tú. En una sala «tú» no
+   siempre eres el jugador 0, así que `player` apunta a tu sitio. */
+export function conAtajosDeSala(mundo, idx){
+  if (!mundo) return mundo;
+  if (mundo.__conAtajos === idx) return mundo;
+  Object.defineProperty(mundo, "player", {
+    get: () => mundo.players[idx] || mundo.players[0], configurable: true, enumerable: false,
+  });
+  for (const k of ATAJOS) {
+    Object.defineProperty(mundo, k, {
+      get: () => (mundo.players[idx] || mundo.players[0])[k],
+      set: v => { (mundo.players[idx] || mundo.players[0])[k] = v; },
+      configurable: true, enumerable: false,
+    });
+  }
+  Object.defineProperty(mundo, "__conAtajos", { value: idx, configurable: true, enumerable: false });
+  mundo.started = true; mundo.paused = false; mundo.local2 = false;
+  return mundo;
+}
+
 /** Envuelve girarRuleta del motor para que el cliente sepa si arrancó. */
 export const girarRuleta = (G, p, dur) => girarEnMotor(G, p, dur);
 
