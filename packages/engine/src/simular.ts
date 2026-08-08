@@ -768,23 +768,34 @@ export function avanzar(e: Estado, entradas: Record<number, EntradaJugador>, dt:
     if (ped.florin) ped.florin.bob += dt * 2.4;
   }
 
-  /* ---- alarma de robo ---- */
-  const enPleno = e.thieves.find(t =>
-    t.state === "grab" && t.stun <= 0 && !(t.abducido > 0) &&
-    pedDe(e, t.target)?.florin && baseDe(e, t.victimId).owner === 0);
-  if (enPleno) {
+  /* ---- alarma de robo ----
+     Suena mientras el ladrón esté forcejeando con tu vitrina Y TAMBIÉN mientras
+     se lo lleva a su casa. Antes se apagaba a los 0.8 s de que agarrara el
+     Florín, que es justo cuando de verdad hay que salir corriendo: se avisaba
+     del amago y se callaba durante el robo. Se apaga sola cuando ya no hay nada
+     que hacer — porque llegó a su casa, o porque lo soltó y lo puedes recoger. */
+  const robando = e.thieves.find(t => {
+    if (t.stun > 0 || t.abducido > 0) return false;
+    const victima = baseDe(e, t.victimId);
+    if (victima.owner == null) return false;
+    if (t.state === "grab") return !!pedDe(e, t.target)?.florin;
+    return t.state === "back" && !!t.carry;      // ya lo tiene y va camino a casa
+  });
+  if (robando) {
+    const victima = baseDe(e, robando.victimId);
     if (!e.alarma) sonar(e, "alarma");
     else if (e.alarma.pip <= 0) { sonar(e, "alarma"); e.alarma.pip = 0.9; }
     e.alarma = {
-      quien: LADRONES[enPleno.who].label,
-      color: LADRONES[enPleno.who].shirt,
-      patio: baseDe(e, enPleno.victimId).name,
-      x: enPleno.x, y: enPleno.y,
+      quien: LADRONES[robando.who].label,
+      color: LADRONES[robando.who].shirt,
+      patio: victima.name,
+      x: robando.x, y: robando.y,
       pip: e.alarma ? e.alarma.pip - dt : 0.9,
+      victimaIdx: victima.owner!,
+      llevandose: robando.state === "back",
     };
-  } else if (e.alarma) {
-    e.alarma.resto = (e.alarma.resto == null ? 0.8 : e.alarma.resto) - dt;
-    if (e.alarma.resto <= 0) e.alarma = null;
+  } else {
+    e.alarma = null;
   }
 
   /* ---- la meta ---- */
@@ -879,6 +890,7 @@ function tocarTrastos(e: Estado, p: Jugador): void {
       if (vel < 40) continue;
       v.vx = (p.vx / vel) * vel * PATADA;
       v.vy = (p.vy / vel) * vel * PATADA;
+      v.pateadoPor = p.idx;
       p.trastoUsado = v.id;
       sigueCerca = v.id;
       polvo(e, v.x, v.y, "#FFEFE2", 5);
@@ -890,7 +902,13 @@ function tocarTrastos(e: Estado, p: Jugador): void {
   if (p.trastoUsado != null && sigueCerca !== p.trastoUsado) p.trastoUsado = null;
 }
 
-/** Lo que rueda: rozamiento, rebote en los bordes y nada más. No hace daño. */
+/* Lo que rueda: rozamiento, rebote en los bordes y, si va con fuerza, un
+   pelotazo. Noquea menos que la chancla (1.6 s contra 3.6) y hay que calcular
+   el rebote, así que es un arma gratis pero torpe — no deja la chancla de
+   sobra. Solo golpea si va rápido: rozarla al caminar no tumba a nadie. */
+const PELOTAZO_MIN = 260;      // por debajo de esto, la pelota solo rueda
+const PELOTAZO_STUN = 1.6;
+
 function avanzarTrastos(e: Estado, dt: number): void {
   for (const v of e.trastos) {
     if (v.montadoPor != null) continue;
@@ -900,9 +918,26 @@ function avanzarTrastos(e: Estado, dt: number): void {
     v.giro += Math.hypot(v.vx, v.vy) * dt * 0.06;
     if (v.x < 20 || v.x > WORLD_W - 20) { v.vx *= -0.7; v.x = clamp(v.x, 20, WORLD_W - 20); }
     if (v.y < 20 || v.y > WORLD_H - 20) { v.vy *= -0.7; v.y = clamp(v.y, 20, WORLD_H - 20); }
+
+    const rapidez = Math.hypot(v.vx, v.vy);
+    if (rapidez >= PELOTAZO_MIN) {
+      const quien = jugadorDe(e, v.pateadoPor);
+      for (const b of blancosDe(e, quien)) {
+        if ((b as any).stun > 0) continue;
+        if (dist2(v.x, v.y, b.x, b.y) > 30 * 30) continue;
+        zap(e, b, PELOTAZO_STUN, false);
+        knock(b as any, b.x - v.x, b.y - v.y, rapidez * 0.5);
+        v.vx *= -0.45; v.vy *= -0.45;          // la pelota rebota en quien golpea
+        if (quien) quien.stats.hits++;
+        texto(e, b.x, b.y - 52, "¡Pelotazo!", "#FFC53D");
+        sonar(e, "whack");
+        break;
+      }
+    }
+
     const roce = Math.pow(RODAR_ROCE, dt);
     v.vx *= roce; v.vy *= roce;
-    if (Math.hypot(v.vx, v.vy) < 6) { v.vx = 0; v.vy = 0; }
+    if (Math.hypot(v.vx, v.vy) < 6) { v.vx = 0; v.vy = 0; v.pateadoPor = null; }
   }
 }
 
@@ -1112,6 +1147,6 @@ function avanzarJugador(e: Estado, p: Jugador, ent: EntradaJugador | undefined, 
   /* ---- estar en los puestos: solo marca la cercanía, el panel lo abre el host ---- */
   if (e.reglas.puestos) {
     p.inShop = inRect(p.x, p.y, e.armeria, 30);
-    p.inRuleta = inRect(p.x, p.y, e.ruleta, 30);
+    p.inRuleta = dist2(p.x, p.y, e.ruleta.x, e.ruleta.y) < (e.ruleta.r + 30) ** 2;
   }
 }

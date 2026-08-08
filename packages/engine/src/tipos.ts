@@ -156,10 +156,16 @@ export interface DesfileItem {
 }
 
 export interface Portal {
+  /** el de arriba: por aquí salen */
   x: number; y: number; r: number;
   timer: number;
   desfile: DesfileItem[];
+  /** el de abajo: por aquí se van, tras hacer el ocho */
+  salida: { x: number; y: number; r: number };
 }
+
+/** La Ruleta es un círculo de verdad, no una caja. */
+export interface Circulo { x: number; y: number; r: number }
 
 /* ---- trastos: lo del escenario con lo que se puede jugar ----
    Antes las bicis y las pelotas eran pintura sobre el suelo cacheado. En cuanto
@@ -167,8 +173,11 @@ export interface Portal {
    al juego (velocidad) y porque en dos jugadores los dos tienen que ver la
    misma pelota rodar. */
 export type TipoTrasto =
-  | "bici" | "patineta" | "tabla" | "flotador" | "tablaArena"   // se montan
-  | "pelota" | "mata";                                          // se patean
+  // se montan
+  | "bici" | "patineta" | "tabla" | "flotador" | "tablaArena"
+  | "balsa" | "llama" | "camello"
+  // se patean
+  | "pelota" | "mata" | "coco" | "piedra";
 
 export interface Trasto {
   id: number;
@@ -178,6 +187,8 @@ export interface Trasto {
   vx: number; vy: number;
   /** idx del jugador que va encima, o null */
   montadoPor: number | null;
+  /** quién le dio la última patada, para apuntarle el golpe */
+  pateadoPor: number | null;
   /** para dibujarlo ladeado, o rodando */
   giro: number;
   /** color/aspecto, sorteado al nacer */
@@ -210,7 +221,10 @@ export interface Alarma {
   quien: string; color: string; patio: string;
   x: number; y: number;
   pip: number;
-  resto?: number;
+  /** idx del jugador al que le están robando */
+  victimaIdx: number;
+  /** false mientras forcejea con la vitrina, true cuando ya se lo lleva */
+  llevandose: boolean;
 }
 
 /* ---- Eventos: lo único que el motor le cuenta al mundo de afuera ---- */
@@ -268,7 +282,7 @@ export interface Estado {
   bases: Base[];
   players: Jugador[];
   armeria: Rect;
-  ruleta: Rect;
+  ruleta: Circulo;
   portal: Portal;
 
   bolts: Bala[];

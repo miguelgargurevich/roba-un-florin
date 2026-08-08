@@ -20,7 +20,7 @@ export {
   freePed, freePedDe, occupied, occupiedDe, esMiPatio,
   playerIncome, florinIncome, mismoFlorin, nuevoFlorin, laserActivo,
   bloqueadoPorLaser, orbitaDelCentro, puntoDelDesfile, ponerLaser,
-  PORTAL_BAJADA, PORTAL_ORBITA,
+  PORTAL_BAJADA, PORTAL_OCHO, OCHO_A, OCHO_B, centroDelMapa, puntoDelOcho,
   baseDe, jugadorDe, pedDe, desfileDe, patiosDe, objetivoDe,
   trastoDe, hayMar, enElMar, puedeMojarse,
 } from "./estado.js";

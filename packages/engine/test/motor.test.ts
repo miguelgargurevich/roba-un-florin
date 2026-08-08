@@ -10,7 +10,7 @@ import {
   RULETA, RULETA_INCOGNITA, RULETA_PRECIO, TIERS, WEAPONS, varMult,
   avanzar, bajarse, cargar, crearPartida, girarRuleta, idsDeArmas, inRect,
   occupiedDe, playerIncome, spawnThief, usarArma, comprarArma, seleccionarArma,
-  nuevoFlorin, baseDe, patiosDe, zap, multDeMontura,
+  nuevoFlorin, baseDe, patiosDe, zap, multDeMontura, puntoDelDesfile, puntoDelOcho,
   type EntradaJugador, type Estado,
 } from "../src/index.js";
 
@@ -503,16 +503,40 @@ describe("trastos: bicis, tablas y pelotas", () => {
     expect(bola.vy).toBe(0);
   });
 
-  it("la pelota no hace daño a nadie: es un juguete", () => {
+  it("un pelotazo con fuerza tumba a un ladrón", () => {
     const e = partida();
     const bola = e.trastos.find(v => v.tipo === "pelota")!;
     baseDe(e, e.players[0].baseId).peds[0].florin = nuevoFlorin(e, 0);  // si no, no viene nadie
     for (let i = 0; i < 30; i++) spawnThief(e);
     const t = e.thieves[0];
-    bola.x = t.x; bola.y = t.y;
+    bola.x = t.x - 20; bola.y = t.y;
     bola.vx = 900; bola.vy = 0;
-    correr(e, 1, nada());
+    bola.pateadoPor = 0;
+    avanzar(e, nada(), 1 / 60);
+    expect(t.stun).toBeGreaterThan(0);
+    expect(e.players[0].stats.hits).toBe(1);      // el golpe se le apunta a quien pateó
+  });
+
+  it("una pelota que apenas rueda no tumba a nadie", () => {
+    const e = partida();
+    const bola = e.trastos.find(v => v.tipo === "pelota")!;
+    baseDe(e, e.players[0].baseId).peds[0].florin = nuevoFlorin(e, 0);
+    for (let i = 0; i < 30; i++) spawnThief(e);
+    const t = e.thieves[0];
+    bola.x = t.x - 5; bola.y = t.y;
+    bola.vx = 90; bola.vy = 0;                    // por debajo del mínimo
+    avanzar(e, nada(), 1 / 60);
     expect(t.stun).toBe(0);
+  });
+
+  it("el pelotazo también tumba a las abuelas", () => {
+    const e = partida();
+    const bola = e.trastos.find(v => v.tipo === "pelota")!;
+    const abuela = e.bases.find(b => b.guard)!.guard!;
+    bola.x = abuela.x - 20; bola.y = abuela.y;
+    bola.vx = 900; bola.vy = 0;
+    avanzar(e, nada(), 1 / 60);
+    expect(abuela.stun).toBeGreaterThan(0);
   });
 });
 
@@ -561,7 +585,7 @@ describe("el mar de la playa", () => {
     const p = e.players[0];
     const falsaBici = {
       id: 9999, tipo: "bici" as const, x: 1300, y: e.esc.mar! - 20,
-      vx: 0, vy: 0, montadoPor: null, giro: 0, variante: 0,
+      vx: 0, vy: 0, montadoPor: null, pateadoPor: null, giro: 0, variante: 0,
     };
     e.trastos.push(falsaBici);
     p.x = falsaBici.x; p.y = falsaBici.y;
@@ -579,10 +603,10 @@ describe("el mar de la playa", () => {
     correr(e, 4, haciaAbajo);
     expect(p.y).toBeLessThanOrEqual(e.esc.mar! + 0.001);
 
-    const tabla = e.trastos.find(v => v.tipo === "tabla")!;
-    p.x = tabla.x; p.y = tabla.y;
+    const balsa = e.trastos.find(v => v.tipo === "balsa")!;   // en la selva es balsa, no tabla
+    p.x = balsa.x; p.y = balsa.y;
     avanzar(e, nada(), 1 / 60);
-    expect(p.montado).toBe(tabla.id);
+    expect(p.montado).toBe(balsa.id);
     correr(e, 4, haciaAbajo);
     expect(p.y).toBeGreaterThan(e.esc.mar! + 40);
   });
@@ -596,6 +620,132 @@ describe("el mar de la playa", () => {
       correr(e, 6, haciaAbajo);
       expect(p.y).toBeGreaterThan(1600);
     }
+  });
+});
+
+describe("el recorrido del desfile", () => {
+  const centro = () => ({ cx: 1300, cy: 850 });
+
+  it("empieza en el portal de arriba y acaba en el de abajo", () => {
+    const e = partida();
+    const a = puntoDelDesfile(e, 0), z = puntoDelDesfile(e, 1);
+    expect(a.x).toBeCloseTo(e.portal.x, 1);
+    expect(a.y).toBeCloseTo(e.portal.y, 1);
+    expect(z.x).toBeCloseTo(e.portal.salida.x, 1);
+    expect(z.y).toBeCloseTo(e.portal.salida.y, 1);
+    expect(e.portal.salida.y).toBeGreaterThan(e.portal.y);   // el de salida está abajo
+  });
+
+  it("es un ocho: pasa dos veces por el centro y tiene un lóbulo a cada lado", () => {
+    const { cx, cy } = centro();
+    let cruces = 0, izq = 0, der = 0;
+    let dentroDelCruce = false;
+    for (let i = 0; i <= 400; i++){
+      const q = puntoDelOcho(i / 400);
+      const cerca = Math.hypot(q.x - cx, q.y - cy) < 40;
+      if (cerca && !dentroDelCruce) cruces++;
+      dentroDelCruce = cerca;
+      if (q.x < cx - 300) izq++;
+      if (q.x > cx + 300) der++;
+    }
+    expect(cruces).toBeGreaterThanOrEqual(2);   // el cruce del ocho
+    expect(izq).toBeGreaterThan(30);            // el lóbulo de la Armería
+    expect(der).toBeGreaterThan(30);            // el de la Ruleta
+  });
+
+  it("cada lóbulo rodea su puesto: la Armería a la izquierda, la Ruleta a la derecha", () => {
+    const e = partida();
+    const { cx } = centro();
+    expect(e.armeria.x + e.armeria.w / 2).toBeLessThan(cx);
+    expect(e.ruleta.x).toBeGreaterThan(cx);
+    // los dos a media altura, no uno encima del otro
+    expect(Math.abs((e.armeria.y + e.armeria.h / 2) - e.ruleta.y)).toBeLessThan(10);
+
+    // el ocho pasa por fuera de los dos, no por encima
+    let rodeaArmeria = false, rodeaRuleta = false;
+    for (let i = 0; i <= 400; i++){
+      const q = puntoDelOcho(i / 400);
+      if (q.x < e.armeria.x - 20) rodeaArmeria = true;
+      if (q.x > e.ruleta.x + e.ruleta.r + 20) rodeaRuleta = true;
+    }
+    expect(rodeaArmeria).toBe(true);
+    expect(rodeaRuleta).toBe(true);
+  });
+
+  it("la Ruleta es un círculo, y se entra por cercanía", () => {
+    const e = partida();
+    expect(e.ruleta.r).toBeGreaterThan(0);
+    expect((e.ruleta as any).w).toBeUndefined();
+    const p = e.players[0];
+    p.x = e.ruleta.x; p.y = e.ruleta.y;
+    avanzar(e, nada(), 1 / 60);
+    expect(p.inRuleta).toBe(true);
+    p.x = e.ruleta.x + e.ruleta.r + 200;
+    avanzar(e, nada(), 1 / 60);
+    expect(p.inRuleta).toBe(false);
+  });
+
+  it("un Florín recorre el circuito entero y se va por abajo", () => {
+    const e = partida();
+    correr(e, 3);
+    const d = e.portal.desfile[0];
+    expect(d).toBeTruthy();
+    correr(e, 8);
+    expect(d.y).toBeGreaterThan(400);          // ya bajó del portal
+    correr(e, 30);
+    expect(e.portal.desfile.includes(d)).toBe(false);   // se fue por la salida
+  });
+});
+
+describe("la alarma no se calla hasta que se resuelve", () => {
+  /** Corre hasta que la condición se cumpla, o falla diciendo qué esperaba. */
+  function hasta(e: Estado, que: string, cond: () => boolean, segs = 40) {
+    for (let i = 0; i < 60 * segs; i++) {
+      avanzar(e, nada(), 1 / 60);
+      if (cond()) return;
+    }
+    throw new Error("nunca pasó: " + que);
+  }
+
+  /** Un ladrón camino del patio del jugador, con un Florín que llevarse. */
+  function montarRobo() {
+    const e = partida();
+    const p = e.players[0];
+    p.x = 60; p.y = 60;                                    // lejos, que no estorbe
+    baseDe(e, p.baseId).peds[0].florin = nuevoFlorin(e, 3);
+    for (let i = 0; i < 40 && !e.thieves.length; i++) spawnThief(e);
+    return e;
+  }
+
+  it("suena en cuanto empieza a forcejear con la vitrina", () => {
+    const e = montarRobo();
+    hasta(e, "que salte la alarma", () => e.alarma != null);
+    expect(e.alarma!.victimaIdx).toBe(0);
+    expect(e.alarma!.llevandose).toBe(false);   // todavía no lo tiene
+  });
+
+  it("SIGUE sonando mientras se lo lleva, que es cuando hay que correr", () => {
+    const e = montarRobo();
+    hasta(e, "que se lo lleve", () => !!e.thieves.find(x => x.state === "back" && x.carry));
+    expect(e.alarma, "antes se apagaba a los 0.8 s de agarrarlo").not.toBeNull();
+    expect(e.alarma!.llevandose).toBe(true);
+  });
+
+  it("se calla en cuanto le quitas el Florín de las manos", () => {
+    const e = montarRobo();
+    hasta(e, "que se lo lleve", () => !!e.thieves.find(x => x.state === "back" && x.carry));
+    const t = e.thieves.find(x => x.state === "back" && x.carry)!;
+    zap(e, t, 2, false);                    // un chancletazo: suelta lo que carga
+    avanzar(e, nada(), 1 / 60);
+    expect(t.carry).toBeNull();
+    expect(e.alarma).toBeNull();
+  });
+
+  it("se calla cuando de verdad se lo robó", () => {
+    const e = montarRobo();
+    hasta(e, "que salte la alarma", () => e.alarma != null);
+    hasta(e, "que llegue a su casa", () => e.alarma == null, 90);
+    expect(e.alarma).toBeNull();
   });
 });
 

@@ -59,6 +59,13 @@ qué patio, sonido de sirena, el patio parpadeando en el minimapa y —lo más �
 con un mapa tan grande— una **flecha en el borde de la pantalla** apuntando al
 robo, con la distancia en píxeles, cuando te pilla lejos.
 
+La alarma **no se apaga hasta que la cosa se resuelve**: suena mientras forcejea
+con la vitrina y **sigue sonando mientras se lo lleva a su casa**, que es justo
+cuando hay que salir corriendo detrás. Se calla solo cuando llega a su casa (te
+lo robó de verdad) o cuando le quitas el Florín de las manos. El aviso cambia:
+*"te está robando"* mientras forcejea, *"se lleva tu Florín · ¡a por él!"*
+cuando ya lo tiene.
+
 Un Florín tirado en el suelo lo puede recoger cualquiera: si le pegas a un ladrón que huye, se te cae ahí y puedes recuperarlo.
 
 ## Controles
@@ -225,12 +232,18 @@ partidas. Un Florín entra al álbum cuando lo dejas en tu vitrina.
 
 ## La pasarela
 
-Arriba, en el centro exacto del mapa, hay un **portal**. Cada **6 segundos** sale
-de ahí un Florín que baja en línea recta, le da **una vuelta completa a la
-Armería** y se vuelve a meter por donde salió.
+Arriba, en el centro del mapa, hay un **portal**. Cada **6 segundos** sale de ahí
+un Florín que baja al centro, hace un **ocho echado** —un ∞— rodeando la
+**Armería** por la izquierda y la **Ruleta** por la derecha, y se va por un
+**segundo portal, abajo**. Si llega ahí, se te fue.
 
-El portal, la Armería y la Ruleta comparten la columna del centro
-(`x = WORLD_W/2`), así que el eje del mapa es esa vertical.
+El cruce del ocho cae en el centro exacto del mapa, entre los dos puestos. La
+curva es una lemniscata de Gerono, que es la forma más simple de un ocho
+tumbado; el cliente dibuja la alfombra muestreando el mismo recorrido que siguen
+los Florines, así que si cambia en el motor cambia sola y no hay dos verdades.
+
+La **Ruleta es un círculo de verdad**: una rueda de doce gajos que gira, con su
+eje y su aguja arriba. Antes era una caja con la foto de una ruleta dentro.
 
 Esos Florines **no son de nadie**: si quieres uno, tienes que **atraparlo al pasar**
 igual que robas de una vitrina — te pegas a él y aguantas hasta llenar el aro,
@@ -304,12 +317,19 @@ te desvalijan, aflojan y te dan tregua para recuperarte.
 Cada escenario tiene cosas con las que se juega, y no son decorado: viven en el
 motor, así que en dos jugadores los dos ven la misma pelota rodar.
 
+Cada sitio con lo suyo: una patineta en Machu Picchu o una pelota de fútbol en
+la selva rompen el escenario.
+
 | Escenario | Qué hay |
 |---|---|
 | 🏘️ **El Barrio** | 4 bicicletas, 3 patinetas y 8 pelotas |
 | 🏫 **Sta. Teresita** | 4 patinetas y 7 pelotas por el patio del recreo |
 | 🏖️ **La Playa** | 3 tablas de surf y 2 flotadores en la orilla, y 6 pelotas |
 | 🌵 **El Desierto** | 3 tablas de arena y 7 matas rodadoras |
+| 🏔️ **Machu Picchu** | 4 **llamas** que se montan y 7 piedras que ruedan |
+| 🗽 **Nueva York** | 5 patinetas, 3 bicis y 6 pelotas |
+| 🐫 **Egipto** | 3 **camellos**, 3 tablas de arena y 6 piedras |
+| 🐊 **El Amazonas** | 4 **balsas** para el río y 8 cocos |
 
 **Montarse** es automático: pisas la bici y ya vas encima. Te bajas al **agarrar
 un Florín**, al recibir **cualquier golpe** (queda tirada donde caíste, y la
@@ -318,17 +338,26 @@ recoge quien pase) o pulsando `N`.
 | Vehículo | Velocidad |
 |---|---|
 | 🚲 Bicicleta | ×1.6 |
+| 🐫 Camello | ×1.55 |
+| 🦙 Llama | ×1.5 |
 | 🏂 Tabla de arena | ×1.5 |
 | 🛹 Patineta | ×1.45 |
 | 🏄 Tabla de surf | ×1.7, **solo en el agua** |
+| 🛶 Balsa | ×1.6, **solo en el agua** |
 | 🛟 Flotador | ×1.15, **solo en el agua** |
 
 Como agarrar un Florín te baja, el vehículo es **puro transporte**: sirve para
 llegar, no para escapar con el botín. Por eso no hay nada que reequilibrar.
 
-**Patear**: pasa por encima de una pelota o una mata rodadora y sale disparada
-en la dirección en la que ibas, con la fuerza de lo rápido que corrías. Rebota
-en los bordes y se frena sola. **No hace daño a nadie**: es un juguete.
+**Patear**: pasa por encima de lo que rueda y sale disparado en la dirección en
+la que ibas, con la fuerza de lo rápido que corrías. Rebota en los bordes y se
+frena solo.
+
+Y **el pelotazo tumba**: si va con fuerza y alcanza a un ladrón o a una abuela,
+los noquea **1.6 s** (la chancla noquea 3.6) y el golpe se le apunta a quien
+pateó. Es un arma gratis pero torpe — hay que tener la pelota cerca, correr y
+calcular el rebote — así que no deja la chancla de sobra. Rozarla al caminar no
+tumba a nadie: por debajo de cierta velocidad solo rueda.
 
 ### El mar
 

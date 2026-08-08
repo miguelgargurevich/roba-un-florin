@@ -126,7 +126,10 @@ export const VEHICULOS: Record<string, Vehiculo> = {
   bici:       { mult:1.6,  agua:false, label:"bicicleta",     icon:"🚲" },
   patineta:   { mult:1.45, agua:false, label:"patineta",      icon:"🛹" },
   tablaArena: { mult:1.5,  agua:false, label:"tabla de arena",icon:"🏂" },
+  llama:      { mult:1.5,  agua:false, label:"llama",         icon:"🦙" },
+  camello:    { mult:1.55, agua:false, label:"camello",       icon:"🐫" },
   tabla:      { mult:1.7,  agua:true,  label:"tabla de surf", icon:"🏄" },
+  balsa:      { mult:1.6,  agua:true,  label:"balsa",         icon:"🛶" },
   flotador:   { mult:1.15, agua:true,  label:"flotador",      icon:"🛟" },
 };
 export const esVehiculo = (tipo: string) => tipo in VEHICULOS;
@@ -138,15 +141,18 @@ export const PATADA = 2.6;
 /** Rozamiento de lo que rueda: 1 = no frena nunca. */
 export const RODAR_ROCE = 0.12;
 
+/* Cada sitio con lo suyo. Una patineta en Machu Picchu o una pelota de fútbol
+   en la selva rompen el escenario: lo que se monta y lo que rueda tiene que
+   poder estar ahí. */
 export const TRASTOS_ESCENARIO: Record<string, { tipo: string; n: number }[]> = {
-  barrio:   [{ tipo:"bici", n:4 }, { tipo:"patineta", n:3 }, { tipo:"pelota", n:8 }],
-  colegio:  [{ tipo:"patineta", n:4 }, { tipo:"pelota", n:7 }],
-  playa:    [{ tipo:"tabla", n:3 }, { tipo:"flotador", n:2 }, { tipo:"pelota", n:6 }],
-  desierto: [{ tipo:"tablaArena", n:3 }, { tipo:"mata", n:7 }],
-  machupicchu: [{ tipo:"patineta", n:3 }, { tipo:"pelota", n:7 }],
-  nuevayork:   [{ tipo:"patineta", n:5 }, { tipo:"bici", n:3 }, { tipo:"pelota", n:6 }],
-  egipto:      [{ tipo:"tablaArena", n:4 }, { tipo:"mata", n:6 }],
-  amazonas:    [{ tipo:"tabla", n:3 }, { tipo:"flotador", n:2 }, { tipo:"pelota", n:6 }],
+  barrio:      [{ tipo:"bici", n:4 },       { tipo:"patineta", n:3 }, { tipo:"pelota", n:8 }],
+  colegio:     [{ tipo:"patineta", n:4 },   { tipo:"pelota", n:7 }],
+  playa:       [{ tipo:"tabla", n:3 },      { tipo:"flotador", n:2 }, { tipo:"pelota", n:6 }],
+  desierto:    [{ tipo:"tablaArena", n:3 }, { tipo:"mata", n:7 }],
+  machupicchu: [{ tipo:"llama", n:4 },      { tipo:"piedra", n:7 }],
+  nuevayork:   [{ tipo:"patineta", n:5 },   { tipo:"bici", n:3 },     { tipo:"pelota", n:6 }],
+  egipto:      [{ tipo:"camello", n:3 },    { tipo:"tablaArena", n:3 }, { tipo:"piedra", n:6 }],
+  amazonas:    [{ tipo:"balsa", n:4 },      { tipo:"coco", n:8 }],
 };
 
 export const RULETA_PRECIO = 1200;

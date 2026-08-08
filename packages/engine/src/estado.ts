@@ -104,28 +104,52 @@ export function bloqueadoPorLaser(e: Estado, x: number, y: number, quien: Jugado
   return null;
 }
 
-/* ---- el circuito del desfile ---- */
-export function orbitaDelCentro(e: Estado) {
-  const a = e.armeria;
-  return { cx: a.x + a.w / 2, cy: a.y + a.h / 2, rx: 300, ry: 200 };
+/* ---- el circuito del desfile ----
+
+   Los Florines salen del portal de arriba, bajan al centro, hacen un ocho
+   echado —un ∞— rodeando la Armería por la izquierda y la Ruleta por la
+   derecha, y se van por el portal de abajo. El cruce del ocho cae justo en el
+   centro del mapa, entre los dos puestos.
+
+   La curva es una lemniscata de Gerono, que es la forma más simple de un ocho
+   tumbado: x = A·cos t, y = (B/2)·sin 2t. Pasa por el origen en t = π/2 y en
+   t = 3π/2, que es exactamente el cruce que se quiere. */
+export const OCHO_A = 620, OCHO_B = 560;
+
+export function centroDelMapa() {
+  return { cx: WORLD_W / 2, cy: WORLD_H / 2 };
 }
-export const PORTAL_BAJADA = 0.26, PORTAL_ORBITA = 0.48;
+
+/** Un punto del ocho, con f de 0 a 1. Empieza y acaba en el cruce del centro. */
+export function puntoDelOcho(f: number) {
+  const { cx, cy } = centroDelMapa();
+  const t = Math.PI / 2 + f * Math.PI * 2;
+  return { x: cx + OCHO_A * Math.cos(t), y: cy + (OCHO_B / 2) * Math.sin(2 * t) };
+}
+
+/* Lo que se lleva cada tramo del recorrido. La vuelta al ocho es lo que se
+   quiere mirar, así que se lleva la mayor parte del tiempo. */
+export const PORTAL_BAJADA = 0.16, PORTAL_OCHO = 0.68;
 
 /** Dónde está un Florín del desfile según lo avanzado de su recorrido (0 a 1). */
 export function puntoDelDesfile(e: Estado, k: number) {
-  const P = e.portal, o = orbitaDelCentro(e);
-  const entrada = { x: o.cx, y: o.cy - o.ry };
-  if (k < PORTAL_BAJADA) {
+  const P = e.portal, S = P.salida, { cx, cy } = centroDelMapa();
+  if (k < PORTAL_BAJADA) {                       // bajada desde el portal de arriba
     const f = k / PORTAL_BAJADA;
-    return { x: P.x + (entrada.x - P.x) * f, y: P.y + (entrada.y - P.y) * f };
+    return { x: P.x + (cx - P.x) * f, y: P.y + (cy - P.y) * f };
   }
-  if (k < PORTAL_BAJADA + PORTAL_ORBITA) {
-    const f = (k - PORTAL_BAJADA) / PORTAL_ORBITA;
-    const a = -1.5708 + f * 6.283;
-    return { x: o.cx + Math.cos(a) * o.rx, y: o.cy + Math.sin(a) * o.ry };
+  if (k < PORTAL_BAJADA + PORTAL_OCHO) {         // el ocho
+    return puntoDelOcho((k - PORTAL_BAJADA) / PORTAL_OCHO);
   }
-  const f = (k - PORTAL_BAJADA - PORTAL_ORBITA) / (1 - PORTAL_BAJADA - PORTAL_ORBITA);
-  return { x: entrada.x + (P.x - entrada.x) * f, y: entrada.y + (P.y - entrada.y) * f };
+  const f = (k - PORTAL_BAJADA - PORTAL_OCHO) / (1 - PORTAL_BAJADA - PORTAL_OCHO);
+  return { x: cx + (S.x - cx) * f, y: cy + (S.y - cy) * f };   // salida por abajo
+}
+
+/* Se mantiene el nombre viejo porque el cliente lo usa para no sembrar decorado
+   encima de la alfombra del desfile: ahora devuelve la caja que ocupa el ocho. */
+export function orbitaDelCentro(e: Estado) {
+  const { cx, cy } = centroDelMapa();
+  return { cx, cy, rx: OCHO_A, ry: OCHO_B / 2 };
 }
 
 /* ---- reparto de trastos ----
@@ -138,8 +162,10 @@ function sitioLibreTrasto(e: Estado, x: number, y: number, m: number): boolean {
     x - m < r.x + r.w && x + m > r.x && y - m < r.y + r.h && y + m > r.y;
   for (const b of e.bases) if (choca({ x: b.rect.x - 20, y: b.rect.y - 20, w: b.rect.w + 40, h: b.rect.h + 40 })) return false;
   if (choca({ x: e.armeria.x - 30, y: e.armeria.y - 30, w: e.armeria.w + 60, h: e.armeria.h + 60 })) return false;
-  if (choca({ x: e.ruleta.x - 30, y: e.ruleta.y - 30, w: e.ruleta.w + 60, h: e.ruleta.h + 60 })) return false;
-  if (choca({ x: e.portal.x - 80, y: e.portal.y - 80, w: 160, h: 160 })) return false;
+  if (choca({ x: e.ruleta.x - e.ruleta.r - 30, y: e.ruleta.y - e.ruleta.r - 30,
+              w: (e.ruleta.r + 30) * 2, h: (e.ruleta.r + 30) * 2 })) return false;
+  for (const P of [e.portal, e.portal.salida])
+    if (choca({ x: P.x - 80, y: P.y - 80, w: 160, h: 160 })) return false;
   for (const otro of e.trastos) if (dist2(x, y, otro.x, otro.y) < 60 * 60) return false;
   return true;
 }
@@ -160,7 +186,8 @@ function sembrarTrastos(e: Estado): void {
         if (!sitioLibreTrasto(e, x, y, 34)) continue;
         e.trastos.push({
           id: nuevoId(e), tipo: tipo as Trasto["tipo"], x, y, vx: 0, vy: 0,
-          montadoPor: null, giro: rnd(e, -0.6, 0.6), variante: (azar(e) * 5) | 0,
+          montadoPor: null, pateadoPor: null,
+          giro: rnd(e, -0.6, 0.6), variante: (azar(e) * 5) | 0,
         });
         break;
       }
@@ -284,9 +311,16 @@ export function crearPartida(op: OpcionesPartida): Estado {
   }
   for (const p of jugadores) for (const id of p.patios) { bases[id].owner = p.idx; ponerLaser(bases[id]); }
 
-  const armeria = { x: WORLD_W / 2 - 150, y: 750, w: 300, h: 150 };
-  const ruleta = { x: WORLD_W / 2 - 150, y: 1350, w: 300, h: 130 };
-  const portal = { x: WORLD_W / 2, y: 240, r: 34, timer: 2.5, desfile: [] };
+  /* Los dos puestos van al centro, uno a cada lado del cruce del ocho: la
+     Armería a la izquierda y la Ruleta a la derecha. El desfile les da la
+     vuelta a los dos, así que el centro del mapa es de verdad el centro. */
+  const { cx, cy } = centroDelMapa();
+  const armeria = { x: cx - 450, y: cy - 75, w: 300, h: 150 };
+  const ruleta = { x: cx + 300, y: cy, r: 92 };
+  const portal = {
+    x: cx, y: 240, r: 34, timer: 2.5, desfile: [],
+    salida: { x: cx, y: WORLD_H - 240, r: 34 },
+  };
 
   const e: Estado = {
     t: 0, reglas, esc, semilla, rngEstado: semilla | 0,

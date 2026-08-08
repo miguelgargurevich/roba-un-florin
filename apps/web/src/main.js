@@ -1014,12 +1014,16 @@ function libreDeco(x, y, m){
   for (const r of vetoDeco) if (choca(r)) return false;
   for (const b of G.bases) if (choca({ x:b.rect.x-24, y:b.rect.y-46, w:b.rect.w+48, h:b.rect.h+70 })) return false;
   if (choca({ x:G.armeria.x-30, y:G.armeria.y-30, w:G.armeria.w+60, h:G.armeria.h+60 })) return false;
-  if (choca({ x:G.ruleta.x-30,  y:G.ruleta.y-30,  w:G.ruleta.w+60,  h:G.ruleta.h+60  })) return false;
-  if (choca({ x:G.portal.x-90,  y:G.portal.y-90,  w:180, h:180 })) return false;
-  // la alfombra del desfile: bajada y órbita
+  const ru = G.ruleta;
+  if (choca({ x:ru.x-ru.r-30, y:ru.y-ru.r-30, w:(ru.r+30)*2, h:(ru.r+30)*2 })) return false;
+  for (const P of [G.portal, G.portal.salida])
+    if (choca({ x:P.x-90, y:P.y-90, w:180, h:180 })) return false;
+  /* La alfombra del desfile: la caja que ocupa el ocho más las dos rectas de
+     entrada y salida. Se reserva de más a propósito — un cactus en medio del
+     desfile se ve peor que un hueco de decorado. */
   const o = orbitaDelCentro(G);
   if (choca({ x:o.cx-o.rx-26, y:o.cy-o.ry-26, w:(o.rx+26)*2, h:(o.ry+26)*2 })) return false;
-  if (choca({ x:G.portal.x-24, y:G.portal.y, w:48, h:o.cy-o.ry-G.portal.y })) return false;
+  if (choca({ x:G.portal.x-24, y:G.portal.y, w:48, h:G.portal.salida.y-G.portal.y })) return false;
   return true;
 }
 
@@ -1309,6 +1313,90 @@ function dibujarMata(c, x, y, giro, i){
   c.restore();
 }
 
+/* ---- balsa de troncos ---- */
+function dibujarBalsa(c, x, y, giro, i){
+  c.save(); c.translate(x, y); c.rotate(giro);
+  c.fillStyle = "rgba(0,0,0,.18)";
+  c.beginPath(); c.ellipse(0, 7, 30, 9, 0, 0, 6.283); c.fill();
+  for (let k=0;k<5;k++){                                 // los troncos atados
+    c.fillStyle = k%2 ? "#8B6F52" : "#7A5F44";
+    rr(c, -28, -13 + k*5.6, 56, 5.4, 2.7); c.fill();
+  }
+  c.strokeStyle = "#4E3A26"; c.lineWidth = 2;            // la soga
+  for (const lx of [-16, 16]){
+    c.beginPath(); c.moveTo(lx, -14); c.lineTo(lx, 15); c.stroke();
+  }
+  c.fillStyle = TABLA_COLOR[i % TABLA_COLOR.length];     // la pértiga
+  rr(c, 20, -30, 4, 44, 2); c.fill();
+  c.restore();
+}
+
+/* ---- llama y camello: los dos se montan, y los dos son un bicho de perfil ---- */
+function dibujarBestia(c, x, y, giro, i, cual){
+  const esCamello = cual === "camello";
+  const mira = Math.cos(giro) >= 0 ? 1 : -1;
+  const pelo = esCamello ? "#C9A46A" : ["#EDE3D0","#C9B79A","#8B6F52"][i % 3];
+  c.save(); c.translate(x, y);
+  c.fillStyle = "rgba(0,0,0,.2)";
+  c.beginPath(); c.ellipse(0, 11, 26, 8, 0, 0, 6.283); c.fill();
+  c.fillStyle = esCamello ? "#A8854E" : "#6E5A44";       // patas
+  for (const px of [-14,-8,8,14]) c.fillRect(px, -6, 4, 18);
+  c.fillStyle = pelo;                                    // cuerpo
+  rr(c, -20, -30, 40, 26, 12); c.fill();
+  if (esCamello){                                        // las jorobas
+    c.beginPath(); c.arc(-6, -32, 11, Math.PI, 0); c.fill();
+    c.beginPath(); c.arc(9, -33, 10, Math.PI, 0); c.fill();
+  }
+  c.fillRect(mira*15 - 2, -50, 6, 24);                   // cuello
+  c.beginPath(); c.ellipse(mira*19, -55, 9, 7, 0, 0, 6.283); c.fill();
+  c.fillStyle = "#3A2416";
+  c.beginPath();                                          // oreja
+  c.moveTo(mira*15, -61); c.lineTo(mira*16, -69); c.lineTo(mira*20, -61); c.closePath(); c.fill();
+  c.beginPath(); c.arc(mira*22, -56, 1.6, 0, 6.283); c.fill();
+  if (!esCamello){                                        // la borla de la llama
+    c.fillStyle = "#E2453C";
+    c.beginPath(); c.arc(mira*15, -67, 2.8, 0, 6.283); c.fill();
+  }
+  c.fillStyle = esCamello ? "#8A6A3C" : "#B5A088";        // manta de montar
+  rr(c, -14, -34, 24, 9, 3); c.fill();
+  c.restore();
+}
+
+/* ---- coco y piedra: lo que rueda en la selva y en la montaña ---- */
+function dibujarCoco(c, x, y, giro){
+  c.fillStyle = "rgba(0,0,0,.2)";
+  c.beginPath(); c.ellipse(x, y+9, 12, 4.5, 0, 0, 6.283); c.fill();
+  c.save(); c.translate(x, y); c.rotate(giro);
+  c.fillStyle = "#6B4A2A";
+  c.beginPath(); c.arc(0, 0, 12, 0, 6.283); c.fill();
+  c.strokeStyle = "rgba(60,40,20,.7)"; c.lineWidth = 1.6;  // las fibras
+  for (let k=0;k<4;k++){
+    c.beginPath(); c.ellipse(0, 0, 12, 5 + k*2, k*.8, 0, 6.283); c.stroke();
+  }
+  c.fillStyle = "#3A2416";                                 // los tres ojos
+  for (const [ox,oy] of [[-3.5,-3],[3.5,-3],[0,3]]){
+    c.beginPath(); c.arc(ox, oy, 1.9, 0, 6.283); c.fill();
+  }
+  c.restore();
+}
+
+function dibujarPiedra(c, x, y, giro, i){
+  c.fillStyle = "rgba(0,0,0,.22)";
+  c.beginPath(); c.ellipse(x, y+9, 14, 5, 0, 0, 6.283); c.fill();
+  c.save(); c.translate(x, y); c.rotate(giro);
+  c.fillStyle = ["#8A8478","#9A9182","#736D62"][i % 3];
+  c.beginPath();
+  for (let k=0;k<7;k++){                                   // canto rodado, no un círculo
+    const a = k*.897, r = 11 + az(i*5+k)*4;
+    const px = Math.cos(a)*r, py = Math.sin(a)*r;
+    k ? c.lineTo(px, py) : c.moveTo(px, py);
+  }
+  c.closePath(); c.fill();
+  c.fillStyle = "rgba(255,255,255,.16)";
+  c.beginPath(); c.ellipse(-3.5, -4, 4.5, 3, -.5, 0, 6.283); c.fill();
+  c.restore();
+}
+
 /* Todo lo que se puede montar o patear. Va después de las cáscaras y antes de
    la gente: así el que va montado sale dibujado encima de su bici. */
 function drawTrastos(){
@@ -1319,7 +1407,12 @@ function drawTrastos(){
     else if (v.tipo === "tabla")      dibujarTabla(ctx, v.x, v.y, v.giro, i);
     else if (v.tipo === "flotador")   dibujarFlotador(ctx, v.x, v.y, v.giro, i);
     else if (v.tipo === "tablaArena") dibujarTablaArena(ctx, v.x, v.y, v.giro, i);
+    else if (v.tipo === "balsa")      dibujarBalsa(ctx, v.x, v.y, v.giro, i);
+    else if (v.tipo === "llama")      dibujarBestia(ctx, v.x, v.y, v.giro, i, "llama");
+    else if (v.tipo === "camello")    dibujarBestia(ctx, v.x, v.y, v.giro, i, "camello");
     else if (v.tipo === "mata")       dibujarMata(ctx, v.x, v.y, v.giro, i);
+    else if (v.tipo === "coco")       dibujarCoco(ctx, v.x, v.y, v.giro);
+    else if (v.tipo === "piedra")     dibujarPiedra(ctx, v.x, v.y, v.giro, i);
     else                              pelotaBarrio(ctx, v.x, v.y, i, v.giro);
   }
 }
@@ -2951,32 +3044,36 @@ function drawPerros(){
 /* La alfombra del recorrido: se dibuja debajo de todo para que se vea por dónde
    va a pasar el desfile, y de paso explica sola la mecánica. */
 function drawRuta(){
-  const P = G.portal, o = orbitaDelCentro(G);
-  const entrada = { x: o.cx, y: o.cy - o.ry };
+  /* La alfombra sigue el mismo recorrido que los Florines: bajada, ocho y
+     salida. Se dibuja muestreando `puntoDelDesfile`, así que si el recorrido
+     cambia en el motor la alfombra cambia sola y no hay dos verdades. */
+  const trazar = () => {
+    ctx.beginPath();
+    for (let i = 0; i <= 220; i++){
+      const q = puntoDelDesfile(G, i / 220);
+      i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y);
+    }
+    ctx.stroke();
+  };
   ctx.save();
+  ctx.lineCap = "round"; ctx.lineJoin = "round";
   ctx.strokeStyle = "rgba(255,92,134,.20)";
-  ctx.lineWidth = 26; ctx.lineCap = "round";
-  ctx.beginPath();
-  ctx.moveTo(P.x, P.y); ctx.lineTo(entrada.x, entrada.y);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.ellipse(o.cx, o.cy, o.rx, o.ry, 0, 0, 6.283);
-  ctx.stroke();
-  // la línea punteada del centro de la alfombra
+  ctx.lineWidth = 26;
+  trazar();
   ctx.strokeStyle = "rgba(255,158,196,.34)";
   ctx.lineWidth = 3; ctx.setLineDash([12,14]);
-  ctx.beginPath();
-  ctx.moveTo(P.x, P.y); ctx.lineTo(entrada.x, entrada.y);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.ellipse(o.cx, o.cy, o.rx, o.ry, 0, 0, 6.283);
-  ctx.stroke();
+  trazar();
   ctx.setLineDash([]);
   ctx.restore();
 }
 
 function drawPortal(){
-  const P = G.portal;
+  dibujarUnPortal(G.portal, true);
+  dibujarUnPortal(G.portal.salida, false);
+}
+
+/* `entrada` decide el letrero: por arriba salen y por abajo se van. */
+function dibujarUnPortal(P, entrada){
   ctx.save();
   // remolino: dos anillos girando en sentidos opuestos
   const gir = REDUCED ? 0 : G.t;
@@ -3008,10 +3105,11 @@ function drawPortal(){
   roundRect(P.x-lw/2, P.y-P.r-46, lw, 34, 12); ctx.stroke();
   ctx.fillStyle = "#FF9EC4";
   ctx.font = "700 15px system-ui, sans-serif";
-  ctx.fillText("PASARELA DE FLORINES", P.x, P.y-P.r-29);
+  ctx.fillText(entrada ? "PASARELA DE FLORINES" : "SALIDA DE LA PASARELA", P.x, P.y-P.r-29);
   ctx.fillStyle = "rgba(255,239,226,.6)";
   ctx.font = "600 11px system-ui, sans-serif";
-  ctx.fillText("atrápalos cuando pasen", P.x, P.y+P.r+16);
+  ctx.fillText(entrada ? "de aquí salen · atrápalos al pasar" : "si llegan aquí, se te fueron",
+               P.x, P.y+P.r+16);
   ctx.restore();
 }
 
@@ -3042,37 +3140,50 @@ function drawDesfile(){
 function drawRuleta(){
   const r = G.ruleta;
   ctx.save();
+  /* Es una ruleta: un círculo. Antes era una caja con una ruedita dibujada
+     dentro, que es como poner la foto de una cosa en vez de la cosa. */
   ctx.fillStyle = "rgba(42,18,38,.62)";
-  roundRect(r.x, r.y, r.w, r.h, 20); ctx.fill();
+  ctx.beginPath(); ctx.arc(r.x, r.y, r.r, 0, 6.283); ctx.fill();
+
+  const ang = G.girando ? G.t*9 : G.t*.5;
+  const R = r.r - 16;
+  for (let i=0;i<12;i++){                       // los gajos de la rueda
+    const a0 = ang + i*(6.283/12);
+    ctx.fillStyle = i%3 === 0 ? "#FFC53D" : i%3 === 1 ? "#FF3D6E" : "#37D6E0";
+    ctx.beginPath(); ctx.moveTo(r.x, r.y);
+    ctx.arc(r.x, r.y, R, a0, a0 + 6.283/12); ctx.closePath(); ctx.fill();
+  }
+  ctx.strokeStyle = "rgba(42,18,38,.75)"; ctx.lineWidth = 2;
+  for (let i=0;i<12;i++){                       // los radios
+    const a0 = ang + i*(6.283/12);
+    ctx.beginPath(); ctx.moveTo(r.x, r.y);
+    ctx.lineTo(r.x + Math.cos(a0)*R, r.y + Math.sin(a0)*R); ctx.stroke();
+  }
+  ctx.fillStyle = "#2A1226";                    // el eje
+  ctx.beginPath(); ctx.arc(r.x, r.y, 11, 0, 6.283); ctx.fill();
+  ctx.fillStyle = "#FFEFE2";
+  ctx.beginPath(); ctx.arc(r.x, r.y, 5, 0, 6.283); ctx.fill();
+
   ctx.strokeStyle = G.player.inRuleta ? "#FFEFE2" : "#FF3D6E";
-  ctx.lineWidth = 5; ctx.setLineDash([12,9]);
-  roundRect(r.x, r.y, r.w, r.h, 20); ctx.stroke(); ctx.setLineDash([]);
+  ctx.lineWidth = 6; ctx.setLineDash([14,10]);  // el aro de fuera
+  ctx.beginPath(); ctx.arc(r.x, r.y, r.r, 0, 6.283); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = "#FFEFE2";                    // la aguja, arriba
+  ctx.beginPath();
+  ctx.moveTo(r.x, r.y - r.r + 20); ctx.lineTo(r.x - 9, r.y - r.r - 2);
+  ctx.lineTo(r.x + 9, r.y - r.r - 2);
+  ctx.closePath(); ctx.fill();
 
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
   ctx.fillStyle = "#FF3D6E";
-  ctx.font = "700 17px system-ui, sans-serif";
-  ctx.fillText("RULETA DE FLORINES", r.x+r.w/2, r.y+26);
+  ctx.font = "700 16px system-ui, sans-serif";
+  ctx.fillText("RULETA DE FLORINES", r.x, r.y + r.r + 20);
   ctx.fillStyle = "rgba(255,239,226,.6)";
   ctx.font = "600 12px system-ui, sans-serif";
   ctx.fillText(G.local2 ? "cerrada en modo dos jugadores"
                : !G.player.inRuleta ? "entra y toca 🎰 arriba · " + money(RULETA_PRECIO)
                : el.rul.hidden ? "toca 🎰 arriba (tecla R)" : "gira abajo ↓",
-               r.x+r.w/2, r.y+46);
-
-  // la rueda, girando mientras hay tirada en curso
-  const cx = r.x+r.w/2, cy = r.y+94, R = 26;
-  const ang = G.girando ? G.t*9 : G.t*.8;
-  for (let i=0;i<8;i++){
-    const a0 = ang + i*(6.283/8);
-    ctx.fillStyle = i%2 ? "#FF3D6E" : "#FFC53D";
-    ctx.beginPath(); ctx.moveTo(cx,cy);
-    ctx.arc(cx, cy, R, a0, a0 + 6.283/8); ctx.closePath(); ctx.fill();
-  }
-  ctx.strokeStyle = "#2A1226"; ctx.lineWidth = 3;
-  ctx.beginPath(); ctx.arc(cx, cy, R, 0, 6.283); ctx.stroke();
-  ctx.fillStyle = "#FFEFE2";
-  ctx.beginPath(); ctx.moveTo(cx, cy-R-9); ctx.lineTo(cx-6, cy-R-1); ctx.lineTo(cx+6, cy-R-1);
-  ctx.closePath(); ctx.fill();
+               r.x, r.y + r.r + 38);
   ctx.restore();
 }
 
@@ -3409,7 +3520,7 @@ function draw(){
   /* ---- flecha al borde: por dónde te están robando ----
      draw() deja puesta la transformación del mundo, así que hay que volver a
      coordenadas de pantalla antes de pegar la flecha en el borde. */
-  if (G.alarma && !G.over){
+  if (G.alarma && G.alarma.victimaIdx === 0 && !G.over){
     ctx.setTransform(DPR,0,0,DPR,0,0);
     const a = G.alarma;
     const sx = (a.x - cam.x) * ZOOM, sy = (a.y - cam.y) * ZOOM;
@@ -3472,13 +3583,14 @@ function drawMinimap(){
   const a = G.armeria;
   mctx.strokeStyle = "#FF3D6E"; mctx.lineWidth = 3;
   mctx.strokeRect(a.x*sx, a.y*sy, a.w*sx, a.h*sy);
-  const P = G.portal;
   mctx.strokeStyle = "#FF5C86"; mctx.lineWidth = 3;
-  mctx.beginPath(); mctx.arc(P.x*sx, P.y*sy, 6, 0, 6.283); mctx.stroke();
+  for (const P of [G.portal, G.portal.salida]){
+    mctx.beginPath(); mctx.arc(P.x*sx, P.y*sy, 6, 0, 6.283); mctx.stroke();
+  }
   if (!G.local2){
     const ru = G.ruleta;
     mctx.strokeStyle = "#FFC53D"; mctx.lineWidth = 3;
-    mctx.strokeRect(ru.x*sx, ru.y*sy, ru.w*sx, ru.h*sy);
+    mctx.beginPath(); mctx.arc(ru.x*sx, ru.y*sy, ru.r*sx, 0, 6.283); mctx.stroke();
   }
   // los Florines del desfile, con el color de su rareza: se ve si vale la pena correr
   for (const d of G.portal.desfile){
@@ -3638,11 +3750,15 @@ function hud(){
   el.goalCard.classList.toggle("fiesta", G.fiesta > 0);
   el.lost.textContent = G.stats.lost;
 
-  // banda de alarma: quién te roba y de qué patio
-  if (G.alarma){
+  // banda de alarma: quién te roba y de qué patio (solo si la víctima eres tú)
+  if (G.alarma && G.alarma.victimaIdx === 0){
     el.alarma.hidden = false;
-    el.alarmaTxt.innerHTML = "<b>" + G.alarma.quien + "</b> te está robando en <b>" +
-      G.alarma.patio + "</b>";
+    /* Dos avisos distintos: forcejeando todavía se puede evitar; llevándoselo
+       hay que salir corriendo detrás. La alarma ya no se apaga sola a los 0.8 s
+       — sigue hasta que llegue a su casa o le quites el Florín. */
+    el.alarmaTxt.innerHTML = G.alarma.llevandose
+      ? "<b>" + G.alarma.quien + "</b> se lleva tu Florín de <b>" + G.alarma.patio + "</b> · ¡a por él!"
+      : "<b>" + G.alarma.quien + "</b> te está robando en <b>" + G.alarma.patio + "</b>";
   } else el.alarma.hidden = true;
 
   const alLado = florinAlLado();
