@@ -33,7 +33,7 @@ Antes de jugar eliges dónde, y la elección se recuerda:
 | 🏖️ **La Playa** | **mar con orilla y espuma** (solo se entra con tabla), **castillos de arena** con banderitas y palita, sombrillas, toallas, conchas y estrellas de mar · y **tablas de surf, flotadores y pelotas** |
 | 🌵 **El Desierto** | tierra rajada, saguaros (algunos con flor), rocas, calaveras de vaca, letreros de "NI AGUA" · y **tablas de arena y matas rodadoras** que se patean |
 | 🏔️ **Machu Picchu** | andenes escalonados con su muro de sillares, ruinas de piedra con puertas trapezoidales, **llamas** con su borla de lana, matas de ichu y jirones de neblina · patinetas y pelotas |
-| 🗽 **Nueva York** | asfalto, dos avenidas con línea amarilla y pasos de cebra, azoteas de rascacielos con tanque de agua y aire acondicionado, **taxis amarillos**, hidrantes y alcantarillas echando vapor · patinetas y bicis |
+| 🗽 **Nueva York** | la **Estatua de la Libertad** en su isla, **Central Park** con lago, arboledas y caminos serpenteando, y el **puente de Brooklyn** cruzando el puerto · dos avenidas con línea amarilla y pasos de cebra, azoteas con tanque de agua y aire acondicionado, taxis, hidrantes y alcantarillas echando vapor · patinetas y bicis |
 | 🐫 **Egipto** | dunas, **pirámides** escalonadas con su remate dorado, la **esfinge** con el nemes rayado, obeliscos con jeroglíficos, palmeras datileras y cráneos resecos · tablas de arena y matas |
 | 🐊 **El Amazonas** | la espesura, **el río al sur** (solo se cruza con tabla o flotador), árboles enormes con lianas, nenúfares gigantes en flor, **caimanes**, guacamayos, monos, ranitas y helechos |
 
@@ -388,15 +388,20 @@ pateó. Es un arma gratis pero torpe — hay que tener la pelota cerca, correr y
 calcular el rebote — así que no deja la chancla de sobra. Rozarla al caminar no
 tumba a nadie: por debajo de cierta velocidad solo rueda.
 
-### El mar
+### El agua
 
-En la playa el agua **no se pisa**: a pie te frena en la orilla. Con una tabla o
+Hay agua en tres sitios: el mar de la playa, el río del Amazonas y el puerto de
+Nueva York. **No se pisa**: a pie te frena en la orilla. Con una tabla o
 un flotador sí se entra, y el mar pasa a ser un carril rápido por el sur del
 mapa. Las tablas nacen en la arena, no mar adentro — si nacieran dentro serían
 inalcanzables, porque el tope de la orilla te para antes de llegar. Fuera de su
 elemento el trasto no acelera: la tabla en la arena la llevas a cuestas (×0.9).
 
 Los ladrones y las abuelas tampoco entran al agua, ni siquiera de un chancletazo.
+
+En Nueva York no hay tablas: el **puente de Brooklyn** es el único paso, y se
+cruza andando. Es un paso franco de verdad en el motor, no un dibujo — si fuera
+solo pintura, sería un puente por el que no se puede pasar.
 
 ## Jugar con amigos
 

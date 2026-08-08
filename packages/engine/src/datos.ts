@@ -274,9 +274,14 @@ export const ESCENARIOS: Escenario[] = [
   { id:"machupicchu", nombre:"Machu Picchu",
     casas:[[70,90],[2150,90],[2150,700],[2150,1290]],
     patios:[[70,1290],[520,1290],[70,900]] },
+  /* Nueva York se reparte a propósito: las casas arriba, los patios a la
+     izquierda, Central Park ocupando toda la derecha y el puerto abajo. El
+     puente de Brooklyn es el único paso a pie sobre el agua. */
   { id:"nuevayork",   nombre:"Nueva York",
-    casas:[[70,90],[2150,90],[2150,1290],[560,90]],
-    patios:[[70,1290],[520,1290],[70,860]] },
+    casas:[[70,80],[560,80],[1620,80],[2130,80]],
+    patios:[[70,540],[70,910],[480,1060]],
+    mar: 1430,
+    puente: { x: 1880, w: 340 } },
   { id:"egipto",      nombre:"Egipto",
     casas:[[2150,90],[2150,700],[2150,1290],[70,90]],
     patios:[[70,1290],[520,1290],[70,880]] },

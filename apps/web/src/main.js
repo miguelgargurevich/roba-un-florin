@@ -1881,13 +1881,164 @@ function decoMachuPicchu(c, E){
   }
 }
 
-/* ---------- Nueva York: asfalto, taxis, rascacielos y vapor ---------- */
+/* ---------- Nueva York: Central Park, el puerto, la Estatua y el puente ---------- */
 function decoNuevaYork(c, E){
+  const PUERTO = 1430;                       // tiene que casar con `mar` del escenario
+  const PUENTE = { x: 1880, w: 340 };        // y con `puente`
+
   c.fillStyle = E.mancha;
   for (let i=0;i<20;i++){
-    const x = azEntre(i,0,WORLD_W), y = azEntre(i+31,0,WORLD_H), r = 34+az(i+3)*50;
+    const x = azEntre(i,0,WORLD_W), y = azEntre(i+31,0,PUERTO), r = 34+az(i+3)*50;
     c.beginPath(); c.ellipse(x,y,r,r*.55,i,0,6.283); c.fill();
   }
+
+  /* ---- Central Park: toda la banda derecha ---- */
+  const PK = { x: 1960, y: 500, w: 600, h: 900 };
+  vetoDeco.push({ x:PK.x-20, y:PK.y-20, w:PK.w+40, h:PK.h+40 });
+  c.fillStyle = "#3E7A3A";
+  rr(c, PK.x, PK.y, PK.w, PK.h, 26); c.fill();
+  c.fillStyle = "rgba(255,255,255,.05)";     // claros de césped
+  for (let i=0;i<14;i++){
+    const x = azEntre(i+900, PK.x+40, PK.x+PK.w-40), y = azEntre(i+940, PK.y+40, PK.y+PK.h-40);
+    c.beginPath(); c.ellipse(x, y, 50+az(i)*40, 30+az(i+2)*24, 0, 0, 6.283); c.fill();
+  }
+  c.strokeStyle = "#B8A98A"; c.lineWidth = 13; c.lineCap = "round";
+  c.beginPath();                              // los caminos serpenteando
+  c.moveTo(PK.x+50, PK.y+40);
+  c.bezierCurveTo(PK.x+PK.w-80, PK.y+240, PK.x+70, PK.y+560, PK.x+PK.w-60, PK.y+PK.h-40);
+  c.stroke();
+  c.beginPath();
+  c.moveTo(PK.x+PK.w-40, PK.y+90); c.bezierCurveTo(PK.x+90, PK.y+330, PK.x+PK.w-90, PK.y+700, PK.x+60, PK.y+PK.h-60);
+  c.stroke();
+  c.lineCap = "butt";
+  const LAGO = { x: PK.x+120, y: PK.y+300, rx: 170, ry: 105 };
+  c.fillStyle = "#2F6F86";                    // el lago
+  c.beginPath(); c.ellipse(LAGO.x+60, LAGO.y, LAGO.rx, LAGO.ry, .2, 0, 6.283); c.fill();
+  c.strokeStyle = "rgba(255,255,255,.3)"; c.lineWidth = 3;
+  c.beginPath(); c.ellipse(LAGO.x+60, LAGO.y, LAGO.rx-14, LAGO.ry-10, .2, 0, 6.283); c.stroke();
+  for (let i=0;i<26;i++){                     // los árboles
+    const x = azEntre(i+700, PK.x+40, PK.x+PK.w-40), y = azEntre(i+760, PK.y+40, PK.y+PK.h-40);
+    if (Math.hypot((x-LAGO.x-60)/LAGO.rx, (y-LAGO.y)/LAGO.ry) < 1.15) continue;
+    c.fillStyle = "rgba(0,0,0,.2)";
+    c.beginPath(); c.ellipse(x, y+16, 20, 7, 0, 0, 6.283); c.fill();
+    c.fillStyle = "#6B4A2A";
+    c.fillRect(x-4, y-4, 8, 20);
+    for (const [dx,dy,r] of [[0,-22,22],[-14,-10,15],[14,-12,16]]){
+      c.fillStyle = ["#2F6B2A","#3E8434","#265C22"][(i+Math.abs(dx))%3];
+      c.beginPath(); c.arc(x+dx, y+dy, r, 0, 6.283); c.fill();
+    }
+  }
+  c.fillStyle = "rgba(255,239,226,.75)";      // el letrero
+  c.font = "800 26px system-ui, sans-serif"; c.textAlign = "center";
+  c.fillText("CENTRAL PARK", PK.x+PK.w/2, PK.y+PK.h-26);
+
+  /* ---- el puerto ---- */
+  const muelle = c.createLinearGradient(0, PUERTO-70, 0, PUERTO+6);
+  muelle.addColorStop(0, "rgba(30,30,36,0)");
+  muelle.addColorStop(1, "rgba(35,35,42,.8)");
+  c.fillStyle = muelle; c.fillRect(0, PUERTO-70, WORLD_W, 76);
+  const agua = c.createLinearGradient(0, PUERTO, 0, WORLD_H);
+  agua.addColorStop(0, "#3E6E86");
+  agua.addColorStop(.5, "#2A526E");
+  agua.addColorStop(1, "#1B3A54");
+  c.fillStyle = agua;
+  c.beginPath();
+  c.moveTo(0, PUERTO);
+  for (let x=0;x<=WORLD_W;x+=30) c.lineTo(x, PUERTO + Math.sin(x*.01)*12 + Math.sin(x*.004)*7);
+  c.lineTo(WORLD_W, WORLD_H); c.lineTo(0, WORLD_H);
+  c.closePath(); c.fill();
+  c.strokeStyle = "rgba(210,230,245,.28)"; c.lineWidth = 3; c.lineCap = "round";
+  for (let k=0;k<4;k++){
+    c.beginPath();
+    for (let x=0;x<=WORLD_W;x+=40){
+      const y = PUERTO + 55 + k*45 + Math.sin(x*.014 + k)*6;
+      x === 0 ? c.moveTo(x,y) : c.lineTo(x,y);
+    }
+    c.stroke();
+  }
+  c.lineCap = "butt";
+
+  /* ---- la Estatua de la Libertad, en su isla ---- */
+  const LX = 620, LY = PUERTO + 130;
+  c.fillStyle = "#6E6A58";                    // la isla
+  c.beginPath(); c.ellipse(LX, LY+34, 96, 34, 0, 0, 6.283); c.fill();
+  c.fillStyle = "#8A8674";
+  c.beginPath(); c.ellipse(LX, LY+28, 82, 26, 0, 0, 6.283); c.fill();
+  c.fillStyle = "#9A8F70";                    // el pedestal
+  rr(c, LX-38, LY-34, 76, 62, 4); c.fill();
+  c.fillStyle = "#B0A585";
+  rr(c, LX-30, LY-52, 60, 20, 3); c.fill();
+  const V = "#5FBFA8", VS = "#4A9E8A";        // el verdín del cobre
+  c.fillStyle = V;                            // la túnica
+  c.beginPath();
+  c.moveTo(LX-22, LY-52); c.lineTo(LX-12, LY-128);
+  c.lineTo(LX+14, LY-128); c.lineTo(LX+24, LY-52);
+  c.closePath(); c.fill();
+  c.fillStyle = VS;
+  for (let k=0;k<4;k++){                      // los pliegues
+    c.fillRect(LX-18+k*10, LY-124, 2.6, 70);
+  }
+  c.fillStyle = V;
+  c.beginPath(); c.arc(LX+1, LY-140, 13, 0, 6.283); c.fill();   // la cabeza
+  c.fillStyle = VS;                           // la corona de siete puntas
+  for (let k=0;k<7;k++){
+    const a = -2.6 + k*.53;
+    c.beginPath();
+    c.moveTo(LX+1 + Math.cos(a)*11, LY-140 + Math.sin(a)*11);
+    c.lineTo(LX+1 + Math.cos(a)*24, LY-140 + Math.sin(a)*24);
+    c.lineTo(LX+1 + Math.cos(a+.16)*11, LY-140 + Math.sin(a+.16)*11);
+    c.closePath(); c.fill();
+  }
+  c.fillStyle = V;                            // el brazo de la antorcha
+  c.save(); c.translate(LX+12, LY-126); c.rotate(-.75);
+  rr(c, 0, -7, 58, 13, 6); c.fill();
+  c.restore();
+  c.fillStyle = V;                            // la tablilla
+  c.save(); c.translate(LX-20, LY-108); c.rotate(.35);
+  rr(c, -16, -12, 26, 34, 3); c.fill();
+  c.restore();
+  const tx = LX+52, ty = LY-165;              // la antorcha encendida
+  c.fillStyle = "#B0A585"; rr(c, tx-5, ty, 10, 16, 3); c.fill();
+  c.fillStyle = "#FFC53D";
+  c.beginPath(); c.moveTo(tx, ty-26); c.lineTo(tx-9, ty-2); c.lineTo(tx+9, ty-2); c.closePath(); c.fill();
+  c.fillStyle = "#FFEFA0";
+  c.beginPath(); c.moveTo(tx, ty-17); c.lineTo(tx-4.5, ty-3); c.lineTo(tx+4.5, ty-3); c.closePath(); c.fill();
+
+  /* ---- el puente de Brooklyn: el único paso a pie sobre el agua ---- */
+  const PB = PUENTE;
+  c.fillStyle = "#8A8478";                    // la calzada
+  c.fillRect(PB.x, PUERTO - 40, PB.w, WORLD_H - PUERTO + 40);
+  c.fillStyle = "rgba(0,0,0,.22)";
+  c.fillRect(PB.x, PUERTO - 40, 12, WORLD_H - PUERTO + 40);
+  c.fillRect(PB.x + PB.w - 12, PUERTO - 40, 12, WORLD_H - PUERTO + 40);
+  c.fillStyle = "#FFD84D";                    // la línea del medio
+  for (let y = PUERTO - 20; y < WORLD_H; y += 70) c.fillRect(PB.x + PB.w/2 - 3, y, 6, 34);
+  for (const ty2 of [PUERTO + 40, PUERTO + 210]){   // las dos torres de piedra
+    c.fillStyle = "#9A8F80";
+    rr(c, PB.x - 26, ty2 - 26, 30, 52, 4); c.fill();
+    rr(c, PB.x + PB.w - 4, ty2 - 26, 30, 52, 4); c.fill();
+    c.fillStyle = "#6E6558";                  // los dos arcos ojivales de cada torre
+    for (const ax of [PB.x - 18, PB.x + PB.w + 4]){
+      c.beginPath(); c.moveTo(ax, ty2+16); c.lineTo(ax, ty2-2);
+      c.quadraticCurveTo(ax+7, ty2-16, ax+14, ty2-2); c.lineTo(ax+14, ty2+16);
+      c.closePath(); c.fill();
+    }
+    c.strokeStyle = "rgba(255,239,226,.5)"; c.lineWidth = 2;   // los tirantes
+    for (let k=1;k<7;k++){
+      c.beginPath();
+      c.moveTo(PB.x - 11, ty2 - 22);
+      c.lineTo(PB.x + (PB.w/7)*k, ty2 + 60);
+      c.moveTo(PB.x + PB.w + 11, ty2 - 22);
+      c.lineTo(PB.x + PB.w - (PB.w/7)*k, ty2 + 60);
+      c.stroke();
+    }
+  }
+  c.fillStyle = "rgba(255,239,226,.7)";
+  c.font = "800 17px system-ui, sans-serif"; c.textAlign = "center";
+  c.save(); c.translate(PB.x + PB.w/2, PUERTO + 130); c.rotate(-1.5708);
+  c.fillText("BROOKLYN BRIDGE", 0, 0);
+  c.restore();
+  c.textAlign = "left";
 
   /* la avenida: dos calzadas con su línea discontinua y los pasos de cebra */
   const calles = [520, 1180];
@@ -1925,7 +2076,7 @@ function decoNuevaYork(c, E){
     for (let k=0;k<4;k++){
       c.beginPath(); c.moveTo(x+w/2-52+k*8, y-38); c.lineTo(x+w/2-52+k*8, y-18); c.stroke();
     }
-  });
+  }, PUERTO - 120);
 
   /* taxis amarillos aparcados */
   sembrar(c, 8, 801, 40, (c,x,y,i) => {
@@ -1942,7 +2093,7 @@ function decoNuevaYork(c, E){
     c.fillStyle = "#FFEFE2";                                  // el cartel de TAXI
     rr(c, -6, -20, 12, 6, 2); c.fill();
     c.restore();
-  });
+  }, PUERTO - 90);
 
   /* hidrantes, tapas de alcantarilla con vapor y bolsas de basura */
   sembrar(c, 10, 1401, 22, (c,x,y,i) => {
@@ -1973,7 +2124,7 @@ function decoNuevaYork(c, E){
       c.fillStyle = "rgba(255,255,255,.07)";
       c.beginPath(); c.ellipse(x-4, y-4, 5, 4, 0, 0, 6.283); c.fill();
     }
-  });
+  }, PUERTO - 90);
 }
 
 /* ---------- El Barrio: casas, postes, tendederos, bicis, pelotas y rayuela ---------- */
@@ -3985,6 +4136,7 @@ function frame(now){
   hud();
   requestAnimationFrame(frame);
 }
+
 
 
 

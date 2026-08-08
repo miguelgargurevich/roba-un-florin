@@ -60,6 +60,12 @@ export const trastoDe = (e: Estado, id: number | null): Trasto | null =>
 export const hayMar = (e: Estado) => e.esc.mar != null;
 export const enElMar = (e: Estado, y: number) => e.esc.mar != null && y > e.esc.mar;
 
+/** ¿Está sobre el puente? Ahí se pasa a pie, aunque debajo haya agua. */
+export const enElPuente = (e: Estado, x: number) => {
+  const p = e.esc.puente;
+  return !!p && x > p.x && x < p.x + p.w;
+};
+
 /** ¿Puede este jugador estar en esa `y`, o el agua se lo impide? */
 export function puedeMojarse(e: Estado, p: Jugador): boolean {
   const v = trastoDe(e, p.montado);

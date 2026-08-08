@@ -691,8 +691,25 @@ describe("el mar de la playa", () => {
     expect(p.y).toBeGreaterThan(e.esc.mar! + 40);
   });
 
+  it("el puerto de Nueva York se cruza por el puente y solo por ahí", () => {
+    const e = partida({ escenario: "nuevayork" });
+    const p = e.players[0];
+    const mar = e.esc.mar!, pu = e.esc.puente!;
+
+    // por fuera del puente, el agua para
+    p.x = 400; p.y = mar - 60;
+    correr(e, 4, haciaAbajo);
+    expect(p.y).toBeLessThanOrEqual(mar + 0.001);
+
+    // por el puente se pasa andando, sin tabla ni nada
+    p.x = pu.x + pu.w / 2; p.y = mar - 60;
+    correr(e, 4, haciaAbajo);
+    expect(p.y).toBeGreaterThan(mar + 60);
+    expect(p.montado).toBeNull();
+  });
+
   it("los otros escenarios no tienen mar y se puede llegar al borde sur", () => {
-    for (const id of ["barrio", "colegio", "desierto", "machupicchu", "nuevayork", "egipto"]) {
+    for (const id of ["barrio", "colegio", "desierto", "machupicchu", "egipto"]) {
       const e = partida({ escenario: id });
       expect(e.esc.mar).toBeUndefined();
       const p = e.players[0];

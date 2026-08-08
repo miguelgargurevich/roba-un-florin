@@ -20,7 +20,7 @@ import {
 } from "./datos.js";
 import { azar, clamp, dist2, inRect, lerp, money, pick, rnd, tiraDeTabla } from "./util.js";
 import {
-  baseDe, bloqueadoPorLaser, desfileDe, enElMar, esMiPatio, florinIncome, freePed,
+  baseDe, bloqueadoPorLaser, desfileDe, enElMar, enElPuente, esMiPatio, florinIncome, freePed,
   freePedDe, jugadorDe, laserActivo, mismoFlorin, nivelDeVitrina, nombreDeHito,
   nuevoFlorin, nuevoId, occupied, occupiedDe, patiosDe, pedDe, playerIncome,
   polvo, ponerLaser, puedeMojarse, puntoDelDesfile, sonar, texto, trastoDe,
@@ -494,7 +494,7 @@ export function avanzar(e: Estado, entradas: Record<number, EntradaJugador>, dt:
     const casa = baseDe(e, t.homeId), victima = baseDe(e, t.victimId);
     let objetivo = pedDe(e, t.target);
     applyKnock(t, dt);
-    if (e.esc.mar != null && t.y > e.esc.mar) t.y = e.esc.mar;
+    if (e.esc.mar != null && !enElPuente(e, t.x) && t.y > e.esc.mar) t.y = e.esc.mar;
     if (t.abducido > 0) {
       t.abducido -= dt;
       if (t.abducido <= 0) {
@@ -612,7 +612,7 @@ export function avanzar(e: Estado, entradas: Record<number, EntradaJugador>, dt:
   for (const b of e.bases) {
     const g = b.guard; if (!g) continue;
     applyKnock(g, dt);
-    if (e.esc.mar != null && g.y > e.esc.mar) g.y = e.esc.mar;
+    if (e.esc.mar != null && !enElPuente(e, g.x) && g.y > e.esc.mar) g.y = e.esc.mar;
     if (g.abducido > 0) {
       g.abducido -= dt;
       if (g.abducido <= 0) {
@@ -970,7 +970,7 @@ function avanzarJugador(e: Estado, p: Jugador, ent: EntradaJugador | undefined, 
   /* ---- la orilla ----
      A pie el agua te para en seco; con tabla o flotador se entra. Si te bajas
      estando dentro, el mismo tope te devuelve a la arena. */
-  if (e.esc.mar != null && !puedeMojarse(e, p) && p.y > e.esc.mar) {
+  if (e.esc.mar != null && !puedeMojarse(e, p) && !enElPuente(e, p.x) && p.y > e.esc.mar) {
     p.y = e.esc.mar;
     if (p.vy > 0) p.vy = 0;
   }

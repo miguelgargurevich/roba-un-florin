@@ -253,9 +253,13 @@ export interface Escenario {
   nombre: string;
   casas: [number, number][];
   patios: [number, number][];
-  /** y desde la que empieza el mar. Solo la playa lo tiene: a pie te frena en
-      la orilla, y con tabla o flotador se puede entrar. */
+  /** y desde la que empieza el agua: a pie te frena en la orilla, y con tabla
+      o flotador se puede entrar. La playa, el río del Amazonas, el puerto de
+      Nueva York. */
   mar?: number;
+  /** un paso franco sobre el agua, entre x y x+w. El puente de Brooklyn se
+      cruza andando: si no, sería un dibujo bonito y nada más. */
+  puente?: { x: number; w: number };
 }
 
 /* Lo que antes decidía `mode: 1 | 2`. Separado, porque eran cuatro reglas
