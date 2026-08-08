@@ -1572,6 +1572,94 @@ function dibujarBestia(c, x, y, giro, i, cual, trote){
   c.restore();
 }
 
+/* ---- los de juguete: carrito, vagoneta, dado y caparazón ---- */
+const CARRITO_COLOR = ["#E2453C","#FFC53D","#5CE1EA","#8FE388","#FF6B90"];
+
+/* Visto desde arriba: techo, capó, dos franjas y las cuatro ruedas asomando. */
+function dibujarCarrito(c, x, y, giro, i, trote){
+  c.save(); c.translate(x, y); c.rotate(giro);
+  c.fillStyle = "rgba(0,0,0,.22)";
+  c.beginPath(); c.ellipse(0, 7, 22, 8, 0, 0, 6.283); c.fill();
+  c.fillStyle = "#2A1A16";                                  // ruedas
+  for (const [rx, ry] of [[-11,-9],[11,-9],[-11,9],[11,9]]){
+    const bote = trote ? Math.sin(G.t*22 + rx) * .8 * trote : 0;
+    rr(c, rx-4, ry-3.5+bote, 8, 7, 2.5); c.fill();
+  }
+  const col = CARRITO_COLOR[i % CARRITO_COLOR.length];
+  c.fillStyle = col;                                        // la carrocería
+  rr(c, -19, -11, 38, 22, 7); c.fill();
+  c.strokeStyle = "rgba(0,0,0,.22)"; c.lineWidth = 2;
+  rr(c, -19, -11, 38, 22, 7); c.stroke();
+  c.fillStyle = "#2A3A4A";                                  // el parabrisas
+  rr(c, 1, -8, 9, 16, 3); c.fill();
+  c.fillStyle = "rgba(255,255,255,.55)";                    // la franja de carreras
+  c.fillRect(-16, -2.2, 12, 4.4);
+  c.fillStyle = "#FFEFC0";                                  // faros
+  c.beginPath(); c.arc(18, -6, 2.4, 0, 6.283); c.fill();
+  c.beginPath(); c.arc(18, 6, 2.4, 0, 6.283); c.fill();
+  c.restore();
+}
+
+/* La vagoneta de madera del tren de juguete: cubo, ruedas y el imán delante. */
+function dibujarVagoneta(c, x, y, giro, i, trote){
+  const col = ["#C0452F","#3B7BC4","#F2B33D","#5FA85A"][i % 4];
+  c.save(); c.translate(x, y); c.rotate(giro);
+  c.fillStyle = "rgba(0,0,0,.22)";
+  c.beginPath(); c.ellipse(0, 8, 24, 8, 0, 0, 6.283); c.fill();
+  c.fillStyle = "#3A2A1E";                                  // ruedas de madera
+  for (const rx of [-12, 12]){
+    const bote = trote ? Math.sin(G.t*20 + rx) * .7 * trote : 0;
+    c.beginPath(); c.arc(rx, 8+bote, 5.5, 0, 6.283); c.fill();
+    c.fillStyle = "#C9A46A"; c.beginPath(); c.arc(rx, 8+bote, 2.2, 0, 6.283); c.fill();
+    c.fillStyle = "#3A2A1E";
+  }
+  c.fillStyle = col;                                        // el cajón
+  rr(c, -20, -13, 40, 22, 4); c.fill();
+  c.fillStyle = "rgba(0,0,0,.22)";                          // el hueco de la carga
+  rr(c, -16, -10, 32, 13, 3); c.fill();
+  c.fillStyle = "#8A8478";                                  // el imán del enganche
+  c.fillRect(20, -3, 7, 6);
+  c.restore();
+}
+
+/* El dado del Tablero. Los puntos van según la cara que quedó arriba. */
+const CARAS_DADO = [[[0,0]],[[-1,-1],[1,1]],[[-1,-1],[0,0],[1,1]],
+                    [[-1,-1],[1,-1],[-1,1],[1,1]],[[-1,-1],[1,-1],[0,0],[-1,1],[1,1]],
+                    [[-1,-1],[1,-1],[-1,0],[1,0],[-1,1],[1,1]]];
+function dibujarDado(c, x, y, giro, i){
+  c.fillStyle = "rgba(0,0,0,.22)";
+  c.beginPath(); c.ellipse(x, y+10, 13, 5, 0, 0, 6.283); c.fill();
+  c.save(); c.translate(x, y); c.rotate(giro);
+  c.fillStyle = "#FFEFE2";
+  rr(c, -12, -12, 24, 24, 6); c.fill();
+  c.strokeStyle = "rgba(0,0,0,.2)"; c.lineWidth = 1.6;
+  rr(c, -12, -12, 24, 24, 6); c.stroke();
+  c.fillStyle = "#2A1226";
+  for (const [px, py] of CARAS_DADO[i % 6]){
+    c.beginPath(); c.arc(px*6, py*6, 2.4, 0, 6.283); c.fill();
+  }
+  c.restore();
+}
+
+/* El caparazón del Circuito: verde el común, rojo el que persigue. */
+function dibujarCaparazon(c, x, y, giro, i){
+  const rojo = i % 4 === 0;
+  c.fillStyle = "rgba(0,0,0,.22)";
+  c.beginPath(); c.ellipse(x, y+9, 13, 5, 0, 0, 6.283); c.fill();
+  c.save(); c.translate(x, y); c.rotate(giro);
+  c.fillStyle = "#F2E3C0";                                  // la panza
+  c.beginPath(); c.ellipse(0, 4, 13, 7, 0, 0, 6.283); c.fill();
+  c.fillStyle = rojo ? "#E2453C" : "#4FB84A";               // el caparazón
+  c.beginPath(); c.arc(0, 1, 13, Math.PI, 0); c.fill();
+  c.fillStyle = "rgba(255,255,255,.75)";                    // sus manchas
+  for (const px of [-6.5, 0, 6.5]){
+    c.beginPath(); c.ellipse(px, -4, 3, 2.6, 0, 0, 6.283); c.fill();
+  }
+  c.strokeStyle = "rgba(0,0,0,.25)"; c.lineWidth = 1.6;
+  c.beginPath(); c.arc(0, 1, 13, Math.PI, 0); c.stroke();
+  c.restore();
+}
+
 /* ---- coco y piedra: lo que rueda en la selva y en la montaña ---- */
 function dibujarCoco(c, x, y, giro){
   c.fillStyle = "rgba(0,0,0,.2)";
@@ -1617,41 +1705,114 @@ let fauna = [];
 
 function sembrarFauna(esc){
   fauna = [];
+  /* `ritmo` es el reloj del bicho (a qué velocidad respira, aletea o salta) y
+     `vel` es a qué velocidad se DESPLAZA. Son dos cosas distintas: mezclarlas
+     hacía que un delfín, que avanza a 35 px/s, agitara la cola treinta veces
+     por segundo. */
   const nuevo = (tipo, x, y, extra) => fauna.push({
-    tipo, x, y, x0: x, y0: y, t: azar2(0, 6.283), vel: azar2(.5, 1.1), ...extra,
+    tipo, x, y, x0: x, y0: y,
+    t: azar2(0, 6.283), ritmo: azar2(.5, 1.1), vel: 1, mirada: 1,
+    ...extra,
   });
   if (esc.id === "amazonas"){
     const RIO = WORLD_H - 240;
     // los delfines rosados: salen y se meten, siguiendo el río
     for (let i = 0; i < 4; i++)
       nuevo("delfin", azar2(200, WORLD_W - 200), azar2(RIO + 70, WORLD_H - 90),
-            { rumbo: i % 2 ? 1 : -1, vel: azar2(26, 44) });
-    for (let i = 0; i < 5; i++) nuevo("guacamayo", azar2(150, WORLD_W - 150), azar2(120, RIO - 200), { r: azar2(60, 130) });
-    for (let i = 0; i < 4; i++) nuevo("mono", azar2(150, WORLD_W - 150), azar2(150, RIO - 160), { r: azar2(40, 90) });
-    for (let i = 0; i < 6; i++) nuevo("rana", azar2(120, WORLD_W - 120), azar2(150, RIO - 90), { salto: azar2(0, 6.283) });
+            { rumbo: i % 2 ? 1 : -1, mirada: i % 2 ? 1 : -1,
+              vel: azar2(26, 44), ritmo: azar2(.34, .5) });
+    for (let i = 0; i < 5; i++) nuevo("guacamayo", azar2(150, WORLD_W - 150), azar2(120, RIO - 200), { r: azar2(60, 130), ritmo: azar2(.4, .65) });
+    for (let i = 0; i < 4; i++) nuevo("mono", azar2(150, WORLD_W - 150), azar2(150, RIO - 160), { r: azar2(40, 90), ritmo: azar2(.45, .7) });
+    for (let i = 0; i < 6; i++) nuevo("rana", azar2(120, WORLD_W - 120), azar2(150, RIO - 90), { salto: 0, ritmo: azar2(.5, .8) });
   }
+  /* Los de juguete también tienen quien se mueva: sin eso el decorado es una
+     foto y la pista o el circuito se ven muertos. */
+  if (esc.id === "pista"){
+    CALLES_PISTA.forEach((y, k) => {
+      for (let i = 0; i < 2; i++)
+        nuevo("bolido", azar2(200, WORLD_W - 200), y, {
+          rumbo: (k + i) % 2 ? 1 : -1, mirada: (k + i) % 2 ? 1 : -1,
+          vel: azar2(190, 330), carril: y, color: (k*2+i) % 5, ritmo: azar2(.7, 1.1) });
+    });
+  }
+  if (esc.id === "tablero"){
+    for (let i = 0; i < 4; i++)
+      nuevo("ficha", 0, 0, { f: i / 4, vel: azar2(.014, .026), color: i, ritmo: 1 });
+  }
+  if (esc.id === "mirador"){
+    for (let i = 0; i < 2; i++)
+      nuevo("trencito", 0, 0, { f: i / 2, vel: azar2(.020, .030), color: i, ritmo: 1 });
+  }
+  if (esc.id === "circuito"){
+    for (let i = 0; i < 3; i++)
+      nuevo("kart", 0, 0, { f: i / 3, vel: azar2(.030, .046), color: i, ritmo: 1 });
+    for (let i = 0; i < 6; i++)
+      nuevo("cajaItem", 0, 0, { f: (i + .5) / 6, vel: 0, giro: azar2(0, 6.283), ritmo: azar2(.5, .8) });
+  }
+}
+
+/* Coloca a `a` sobre el óvalo `O` según su fracción de vuelta y le deja el
+   ángulo de la tangente en `a.ang`, que es hacia donde mira. */
+function sobreOvalo(a, O, dt){
+  a.f = (a.f + a.vel * dt) % 1;
+  const p = puntoOvalo(O, a.f);
+  a.x = p.x; a.y = p.y;
+  a.ang = Math.atan2(Math.cos(a.f * 6.283) * O.ry, -Math.sin(a.f * 6.283) * O.rx);
 }
 
 function animarFauna(dt){
   const RIO = WORLD_H - 240;
+  /* Lo que se gira no salta de mirar a la izquierda a mirar a la derecha: se
+     da la vuelta. `mirada` va de -1 a 1 y el dibujo la usa de escala, así que
+     al pasar por 0 el bicho queda de canto, que es lo que hace de verdad. */
+  const girar = (a, dt) => {
+    a.mirada += (a.rumbo - a.mirada) * (1 - Math.pow(.001, dt * .9));
+  };
   for (const a of fauna){
-    a.t += dt * a.vel;
+    a.t += dt * a.ritmo;
     if (a.tipo === "delfin"){
       a.x += a.rumbo * a.vel * dt;
-      if (a.x < 90){ a.x = 90; a.rumbo = 1; }
-      if (a.x > WORLD_W - 90){ a.x = WORLD_W - 90; a.rumbo = -1; }
-      a.salto = Math.sin(a.t * .9);           // el arco de salir del agua
+      if (a.x < 140) a.rumbo = 1;
+      if (a.x > WORLD_W - 140) a.rumbo = -1;
+      a.x = clamp(a.x, 90, WORLD_W - 90);
+      girar(a, dt);
+      a.salto = Math.sin(a.t);                 // el arco de salir del agua
       a.y = clamp(a.y0 - Math.max(0, a.salto) * 26, RIO + 40, WORLD_H - 60);
     } else if (a.tipo === "guacamayo"){        // vuela en círculos amplios
       a.x = a.x0 + Math.cos(a.t * .5) * a.r;
       a.y = a.y0 + Math.sin(a.t * .7) * a.r * .45;
+    } else if (a.tipo === "bolido"){           // corre por su calle de la pista
+      a.x += a.rumbo * a.vel * dt;
+      if (a.x < 130) a.rumbo = 1;
+      if (a.x > WORLD_W - 130) a.rumbo = -1;
+      a.x = clamp(a.x, 80, WORLD_W - 80);
+      girar(a, dt);
+      a.y = a.carril + Math.sin(a.t * 1.4) * 4;
+    } else if (a.tipo === "ficha"){            // da la vuelta al tablero a saltitos
+      const A = ANILLO_TABLERO, b = A.banda / 2;
+      a.f = (a.f + a.vel * dt) % 1;
+      const per = (A.w + A.h) * 2, d = a.f * per;
+      if (d < A.w)                    { a.x = A.x + d;                  a.y = A.y + b; }
+      else if (d < A.w + A.h)         { a.x = A.x + A.w - b;            a.y = A.y + (d - A.w); }
+      else if (d < A.w*2 + A.h)       { a.x = A.x + A.w - (d - A.w - A.h); a.y = A.y + A.h - b; }
+      else                            { a.x = A.x + b;                  a.y = A.y + A.h - (d - A.w*2 - A.h); }
+    } else if (a.tipo === "trencito"){
+      sobreOvalo(a, OVALO_TREN, dt);
+    } else if (a.tipo === "kart"){
+      sobreOvalo(a, OVALO_KART, dt);
+    } else if (a.tipo === "cajaItem"){         // flota quieta en su sitio del circuito
+      const p = puntoOvalo(OVALO_KART, a.f);
+      a.x = p.x; a.y = p.y;
     } else if (a.tipo === "mono"){             // se columpia de un lado a otro
       a.x = a.x0 + Math.sin(a.t * .8) * a.r;
       a.y = a.y0 + Math.abs(Math.cos(a.t * .8)) * 16;
-    } else if (a.tipo === "rana"){             // saltitos cortos
-      a.salto = Math.max(0, Math.sin(a.t * 1.6));
-      a.y = a.y0 - a.salto * 14;
-      a.x = a.x0 + Math.sin(a.t * .3) * 26;
+    } else if (a.tipo === "rana"){             // saltitos cortos y un descanso
+      /* Salta y espera. El seno pelado la tenía botando sin parar, que no es
+         lo que hace una rana. */
+      const ciclo = (a.t * .5) % 1;
+      a.salto = ciclo < .32 ? Math.sin(ciclo / .32 * Math.PI) : 0;
+      a.y = a.y0 - a.salto * 16;
+      a.x = a.x0 + Math.sin(a.t * .22) * 26;
     }
   }
 }
@@ -1661,14 +1822,116 @@ function drawFauna(){
     if (a.tipo === "delfin")         dibujarDelfin(ctx, a);
     else if (a.tipo === "guacamayo") dibujarGuacamayo(ctx, a);
     else if (a.tipo === "mono")      dibujarMono(ctx, a);
+    else if (a.tipo === "bolido")    dibujarBolido(ctx, a);
+    else if (a.tipo === "ficha")     dibujarFicha(ctx, a);
+    else if (a.tipo === "trencito")  dibujarTrencito(ctx, a);
+    else if (a.tipo === "kart")      dibujarKart(ctx, a);
+    else if (a.tipo === "cajaItem")  dibujarCajaItem(ctx, a);
     else                             dibujarRana(ctx, a);
   }
+}
+
+/* ---- lo que corre por los escenarios de juguete ---- */
+/* Son adorno: no chocan, no se pueden coger y el motor no sabe que existen. */
+function dibujarBolido(c, a){
+  c.save(); c.translate(a.x, a.y); c.scale(a.mirada || .01, 1);
+  c.fillStyle = "rgba(0,0,0,.25)";
+  c.beginPath(); c.ellipse(0, 8, 24, 7, 0, 0, 6.283); c.fill();
+  c.fillStyle = "rgba(255,255,255,.18)";                 // la estela
+  c.beginPath(); c.moveTo(-24, -6); c.lineTo(-64, -2); c.lineTo(-64, 2); c.lineTo(-24, 6); c.closePath(); c.fill();
+  c.fillStyle = "#2A1A16";
+  for (const [rx, ry] of [[-12,-9],[12,-9],[-12,9],[12,9]]){ rr(c, rx-4, ry-3.5, 8, 7, 2.5); c.fill(); }
+  c.fillStyle = CARRITO_COLOR[a.color % CARRITO_COLOR.length];
+  rr(c, -20, -11, 40, 22, 7); c.fill();
+  c.fillStyle = "#2A3A4A"; rr(c, 2, -8, 9, 16, 3); c.fill();
+  c.fillStyle = "rgba(255,255,255,.5)"; c.fillRect(-17, -2.2, 12, 4.4);
+  c.restore();
+}
+
+function dibujarFicha(c, a){
+  const salto = Math.abs(Math.sin(a.f * 82)) * 11;        // un brinco por casilla
+  const col = ["#C9C2A8","#E2453C","#5CE1EA","#FFD84D"][a.color % 4];
+  c.fillStyle = "rgba(0,0,0,.22)";
+  c.beginPath(); c.ellipse(a.x, a.y + 12, 13 - salto*.3, 5, 0, 0, 6.283); c.fill();
+  c.save(); c.translate(a.x, a.y - salto);
+  c.fillStyle = col;
+  c.beginPath(); c.ellipse(0, 8, 13, 5, 0, 0, 6.283); c.fill();   // la peana
+  c.beginPath();
+  c.moveTo(-8, 8); c.quadraticCurveTo(-3, -6, -5, -14);
+  c.lineTo(5, -14); c.quadraticCurveTo(3, -6, 8, 8);
+  c.closePath(); c.fill();
+  c.beginPath(); c.arc(0, -19, 7, 0, 6.283); c.fill();
+  c.strokeStyle = "rgba(0,0,0,.25)"; c.lineWidth = 1.6;
+  c.beginPath(); c.arc(0, -19, 7, 0, 6.283); c.stroke();
+  c.restore();
+}
+
+function dibujarTrencito(c, a){
+  const col = a.color % 2 ? "#3B7BC4" : "#C0452F";
+  c.save(); c.translate(a.x, a.y); c.rotate(a.ang);
+  c.fillStyle = "rgba(0,0,0,.24)";
+  c.beginPath(); c.ellipse(0, 10, 34, 10, 0, 0, 6.283); c.fill();
+  /* dos vagones detrás de la locomotora */
+  for (const dx of [-52, -26]){
+    c.fillStyle = "#C9A46A"; rr(c, dx-11, -12, 22, 24, 4); c.fill();
+    c.fillStyle = "rgba(0,0,0,.22)"; rr(c, dx-8, -9, 16, 18, 3); c.fill();
+  }
+  c.fillStyle = col; rr(c, -12, -14, 34, 28, 6); c.fill();       // la caldera
+  c.fillStyle = "#2A2A30"; rr(c, 18, -10, 9, 20, 3); c.fill();   // la trompa
+  c.fillStyle = "#3A2A1E";                                        // la chimenea
+  c.beginPath(); c.arc(10, 0, 6, 0, 6.283); c.fill();
+  c.fillStyle = "rgba(255,255,255,.5)";                           // el humo
+  for (let k=0;k<3;k++){
+    const f = (G.t * .9 + k/3) % 1;
+    c.globalAlpha = (1 - f) * .5;
+    c.beginPath(); c.arc(10 + f*26, -6 - f*16, 4 + f*7, 0, 6.283); c.fill();
+  }
+  c.globalAlpha = 1;
+  c.fillStyle = "#F2E3C0";
+  c.beginPath(); c.arc(0, 0, 6, 0, 6.283); c.fill();              // la cara
+  c.fillStyle = "#2A1226";
+  c.beginPath(); c.arc(-2, -2, 1.6, 0, 6.283); c.fill();
+  c.beginPath(); c.arc(3, -2, 1.6, 0, 6.283); c.fill();
+  c.restore();
+}
+
+function dibujarKart(c, a){
+  c.save(); c.translate(a.x, a.y); c.rotate(a.ang);
+  c.fillStyle = "rgba(0,0,0,.25)";
+  c.beginPath(); c.ellipse(0, 9, 22, 8, 0, 0, 6.283); c.fill();
+  c.fillStyle = "#2A1A16";
+  for (const [rx, ry] of [[-11,-11],[12,-10],[-11,11],[12,10]]){ rr(c, rx-5, ry-4, 10, 8, 3); c.fill(); }
+  c.fillStyle = ["#E2453C","#4FB84A","#2E6FD9"][a.color % 3];
+  rr(c, -16, -10, 32, 20, 6); c.fill();
+  c.fillStyle = "#2A2A30"; rr(c, -4, -6, 9, 12, 3); c.fill();     // el asiento
+  c.fillStyle = "#F0C08A";                                         // el piloto
+  c.beginPath(); c.arc(-1, 0, 6.5, 0, 6.283); c.fill();
+  c.fillStyle = ["#E2453C","#4FB84A","#2E6FD9"][a.color % 3];      // su gorra
+  c.beginPath(); c.arc(-1, -1, 6.5, Math.PI*1.05, Math.PI*1.95); c.fill();
+  c.restore();
+}
+
+function dibujarCajaItem(c, a){
+  const flota = Math.sin(a.t * 2) * 7;
+  const gira = Math.cos(a.giro + G.t * 1.6);               // el balanceo de la caja
+  c.fillStyle = "rgba(0,0,0,.2)";
+  c.beginPath(); c.ellipse(a.x, a.y + 26, 20, 7, 0, 0, 6.283); c.fill();
+  c.save(); c.translate(a.x, a.y + flota); c.scale(gira < 0 ? -1 : 1, 1);
+  c.globalAlpha = .85;
+  c.fillStyle = "#FFEFE2"; rr(c, -22, -22, 44, 44, 8); c.fill();
+  c.strokeStyle = "#FFC53D"; c.lineWidth = 5;
+  rr(c, -22, -22, 44, 44, 8); c.stroke();
+  c.globalAlpha = 1;
+  c.fillStyle = "#E2453C"; c.font = "800 26px system-ui, sans-serif";
+  c.textAlign = "center"; c.textBaseline = "middle";
+  c.fillText("?", 0, 1);
+  c.restore();
 }
 
 /* ---- el delfín rosado del Amazonas ---- */
 function dibujarDelfin(c, a){
   const fuera = Math.max(0, a.salto);          // cuánto asoma del agua
-  c.save(); c.translate(a.x, a.y); c.scale(a.rumbo, 1); c.rotate(-fuera * .5);
+  c.save(); c.translate(a.x, a.y); c.scale(a.mirada || .01, 1); c.rotate(-fuera * .5);
   c.fillStyle = "rgba(20,50,50,.28)";          // su sombra bajo el agua
   c.beginPath(); c.ellipse(0, 16, 34, 9, 0, 0, 6.283); c.fill();
   c.fillStyle = "#E88AA8";                     // el cuerpo, rosado
@@ -1772,6 +2035,10 @@ const MONTURA = {
      queda tapada por la del jugador y la llama se ve como un bulto blanco. */
   llama:      { baja: 4,  sube: 28, sombra: 28, atras: 11 },
   camello:    { baja: 4,  sube: 32, sombra: 30, atras: 12 },
+  /* En el carrito y en la vagoneta vas metido dentro: subes poco y te sientas
+     atrás, que es donde está el hueco. */
+  carrito:    { baja: 5,  sube: 12, sombra: 26, atras: 6 },
+  vagoneta:   { baja: 5,  sube: 14, sombra: 27, atras: 4 },
 };
 const monturaDe = p => (p.montado != null ? MONTURA[trastoDe(G, p.montado)?.tipo] : null) || null;
 
@@ -1815,6 +2082,10 @@ function dibujarTrasto(v, x, y, giro, trote){
     else if (v.tipo === "llama")      dibujarBestia(ctx, x, y, giro, i, "llama", trote);
     else if (v.tipo === "camello")    dibujarBestia(ctx, x, y, giro, i, "camello", trote);
     else if (v.tipo === "mata")       dibujarMata(ctx, x, y, giro, i);
+    else if (v.tipo === "carrito")    dibujarCarrito(ctx, x, y, giro, i, trote);
+    else if (v.tipo === "vagoneta")   dibujarVagoneta(ctx, x, y, giro, i, trote);
+    else if (v.tipo === "dado")       dibujarDado(ctx, x, y, giro, i);
+    else if (v.tipo === "caparazon")  dibujarCaparazon(ctx, x, y, giro, i);
     else if (v.tipo === "coco")       dibujarCoco(ctx, x, y, giro);
     else if (v.tipo === "piedra")     dibujarPiedra(ctx, x, y, giro, i);
     else                              pelotaBarrio(ctx, x, y, i, giro);
@@ -2784,6 +3055,439 @@ function decoDesierto(c, E){
   });
 }
 
+/* ============================================================
+   Los cuatro escenarios de juguete
+   ============================================================
+   Geometría compartida: el decorado la pinta y lo que se mueve encima la
+   recorre. Si cambian aquí, cambian en los dos sitios a la vez. */
+const CALLES_PISTA = [250, 700, 1150, 1560];             // las calles de la pista naranja
+const OVALO_TREN   = { x: 1300, y: 850, rx: 1090, ry: 700 };
+const OVALO_KART   = { x: 1300, y: 850, rx: 1110, ry: 720, ancho: 150 };
+const ANILLO_TABLERO = { x: 120, y: 110, w: WORLD_W - 240, h: WORLD_H - 220, banda: 120 };
+/** Punto de un óvalo por fracción de vuelta (0..1). */
+const puntoOvalo = (o, f) => ({
+  x: o.x + Math.cos(f * 6.283) * o.rx,
+  y: o.y + Math.sin(f * 6.283) * o.ry,
+});
+
+/* ---------- la pista naranja: rizo, rampas y aceleradores ---------- */
+function decoPista(c, E){
+  c.fillStyle = E.mancha;                                  // pelusa de la alfombra
+  for (let i=0;i<26;i++){
+    const x = azEntre(i,0,WORLD_W), y = azEntre(i+53,0,WORLD_H), r = 26+az(i+3)*44;
+    c.beginPath(); c.ellipse(x,y,r,r*.5,i,0,6.283); c.fill();
+  }
+
+  /* Las calles: naranja con los dos muretes y la ranura del medio. Van de lado
+     a lado porque es lo que hace una pista de juguete montada en el suelo. */
+  for (const y of CALLES_PISTA){
+    c.fillStyle = "#D9741F";
+    c.fillRect(0, y - 34, WORLD_W, 68);
+    c.fillStyle = "#F09A3E";                               // el canal, más claro
+    c.fillRect(0, y - 24, WORLD_W, 48);
+    c.fillStyle = "#B0561A";                               // muretes
+    c.fillRect(0, y - 34, WORLD_W, 10);
+    c.fillRect(0, y + 24, WORLD_W, 10);
+    c.strokeStyle = "rgba(255,255,255,.25)"; c.lineWidth = 3;
+    c.setLineDash([26, 26]);
+    c.beginPath(); c.moveTo(0, y); c.lineTo(WORLD_W, y); c.stroke();
+    c.setLineDash([]);
+    c.fillStyle = "rgba(0,0,0,.14)";                       // las juntas entre piezas
+    for (let x = 0; x < WORLD_W; x += 210) c.fillRect(x, y - 34, 5, 68);
+  }
+
+  /* El rizo: visto desde arriba son dos anillos y la rampa que entra. */
+  const rizo = { x: 300, y: 1020 };
+  vetoDeco.push({ x: rizo.x-190, y: rizo.y-190, w: 380, h: 380 });
+  c.strokeStyle = "#B0561A"; c.lineWidth = 62;
+  c.beginPath(); c.arc(rizo.x, rizo.y, 150, 0, 6.283); c.stroke();
+  c.strokeStyle = "#F09A3E"; c.lineWidth = 44;
+  c.beginPath(); c.arc(rizo.x, rizo.y, 150, 0, 6.283); c.stroke();
+  c.strokeStyle = "rgba(255,255,255,.22)"; c.lineWidth = 3;
+  c.setLineDash([20, 20]);
+  c.beginPath(); c.arc(rizo.x, rizo.y, 150, 0, 6.283); c.stroke();
+  c.setLineDash([]);
+  c.fillStyle = "#EBD3A2"; c.font = "800 20px system-ui, sans-serif";
+  c.textAlign = "center"; c.textBaseline = "middle";
+  c.fillText("EL RIZO", rizo.x, rizo.y);
+
+  /* Rampas de salto: la cuña naranja con sus rayas. */
+  sembrar(c, 5, 4101, 62, (c,x,y,i) => {
+    vetoDeco.push({ x:x-72, y:y-30, w:144, h:70 });
+    c.save(); c.translate(x, y); c.rotate(az(i)*.5 - .25);
+    c.fillStyle = "rgba(0,0,0,.2)";
+    c.beginPath(); c.ellipse(0, 26, 60, 12, 0, 0, 6.283); c.fill();
+    c.fillStyle = "#D9741F";
+    c.beginPath(); c.moveTo(-58, 24); c.lineTo(58, -14); c.lineTo(58, 24); c.closePath(); c.fill();
+    c.fillStyle = "#F09A3E";
+    c.beginPath(); c.moveTo(-50, 20); c.lineTo(52, -10); c.lineTo(52, 20); c.closePath(); c.fill();
+    c.fillStyle = "rgba(255,255,255,.3)";
+    for (let k=0;k<4;k++) c.fillRect(-34 + k*22, 4, 5, 15);
+    c.restore();
+  }, WORLD_H-120);
+
+  /* Aceleradores: la pareja de rodillos amarillos con sus flechas. */
+  sembrar(c, 6, 4201, 44, (c,x,y,i) => {
+    vetoDeco.push({ x:x-52, y:y-42, w:104, h:84 });
+    c.save(); c.translate(x, y);
+    c.fillStyle = "#2A2A30";
+    rr(c, -40, -30, 80, 60, 10); c.fill();
+    c.fillStyle = "#FFC53D";
+    rr(c, -32, -22, 64, 16, 7); c.fill();
+    rr(c, -32, 6, 64, 16, 7); c.fill();
+    c.fillStyle = "#2A2A30";
+    for (let k=0;k<3;k++){
+      c.beginPath();
+      c.moveTo(-16 + k*16, -8); c.lineTo(-6 + k*16, -1); c.lineTo(-16 + k*16, 6);
+      c.closePath(); c.fill();
+    }
+    c.restore();
+  }, WORLD_H-100);
+
+  /* Piezas de pista sueltas y los conectores naranjas, como las deja un niño. */
+  sembrar(c, 9, 4301, 26, (c,x,y,i) => {
+    c.save(); c.translate(x, y); c.rotate(az(i)*3.14);
+    c.fillStyle = "#B0561A"; rr(c, -30, -13, 60, 26, 4); c.fill();
+    c.fillStyle = "#F09A3E"; rr(c, -30, -9, 60, 18, 3); c.fill();
+    c.restore();
+  });
+}
+
+/* ---------- el tablero: el anillo de casillas, la cárcel y las casitas ---------- */
+const COLORES_TABLERO = ["#8B4A2B","#8B4A2B","#7FD3F0","#7FD3F0","#7FD3F0",
+                         "#E86FA8","#E86FA8","#E86FA8","#F2933C","#F2933C","#F2933C",
+                         "#E2453C","#E2453C","#E2453C","#FFD84D","#FFD84D","#FFD84D",
+                         "#4FB84A","#4FB84A","#4FB84A","#2E6FD9","#2E6FD9"];
+function decoTablero(c, E){
+  const A = ANILLO_TABLERO, b = A.banda;
+  c.fillStyle = E.mancha;                                  // el cartón gastado
+  for (let i=0;i<14;i++){
+    const x = azEntre(i+11,0,WORLD_W), y = azEntre(i+71,0,WORLD_H), r = 40+az(i)*60;
+    c.beginPath(); c.ellipse(x,y,r,r*.5,i,0,6.283); c.fill();
+  }
+
+  /* El anillo: banda crema con su marco. Las casas de los vecinos caen encima
+     de las casillas, que es justo lo que pasa cuando juegas en el suelo. */
+  c.fillStyle = "#EFE9D4";
+  c.fillRect(A.x, A.y, A.w, b);
+  c.fillRect(A.x, A.y + A.h - b, A.w, b);
+  c.fillRect(A.x, A.y, b, A.h);
+  c.fillRect(A.x + A.w - b, A.y, b, A.h);
+  c.strokeStyle = "#4A4436"; c.lineWidth = 4;
+  c.strokeRect(A.x, A.y, A.w, A.h);
+  c.strokeRect(A.x + b, A.y + b, A.w - b*2, A.h - b*2);
+
+  /* Las casillas, con su franja de color mirando hacia dentro. */
+  const casilla = (x, y, w, h, col, hacia) => {
+    c.strokeStyle = "#4A4436"; c.lineWidth = 2.5;
+    c.strokeRect(x, y, w, h);
+    if (!col) return;
+    c.fillStyle = col;
+    if (hacia === "abajo")      c.fillRect(x+2, y+h-28, w-4, 26);
+    else if (hacia === "arriba")c.fillRect(x+2, y+2, w-4, 26);
+    else if (hacia === "der")   c.fillRect(x+w-28, y+2, 26, h-4);
+    else                        c.fillRect(x+2, y+2, 26, h-4);
+  };
+  const N = 9;
+  for (let k=0;k<N;k++){
+    const w = (A.w - b*2) / N, x = A.x + b + k*w;
+    casilla(x, A.y, w, b, COLORES_TABLERO[k % COLORES_TABLERO.length], "abajo");
+    casilla(x, A.y + A.h - b, w, b, COLORES_TABLERO[(k+11) % COLORES_TABLERO.length], "arriba");
+  }
+  const M = 6;
+  for (let k=0;k<M;k++){
+    const h = (A.h - b*2) / M, y = A.y + b + k*h;
+    casilla(A.x, y, b, h, COLORES_TABLERO[(k+5) % COLORES_TABLERO.length], "der");
+    casilla(A.x + A.w - b, y, b, h, COLORES_TABLERO[(k+16) % COLORES_TABLERO.length], "izq");
+  }
+
+  /* Las cuatro esquinas, que son las que todo el mundo reconoce. */
+  const esquina = (x, y, texto, icono, col) => {
+    c.fillStyle = col;
+    c.fillRect(x+3, y+3, b-6, b-6);
+    c.strokeStyle = "#4A4436"; c.lineWidth = 3;
+    c.strokeRect(x+3, y+3, b-6, b-6);
+    c.textAlign = "center"; c.textBaseline = "middle";
+    c.font = "30px system-ui, sans-serif";
+    c.fillStyle = "#2A1226";
+    c.fillText(icono, x + b/2, y + b/2 - 12);
+    c.font = "800 12px system-ui, sans-serif";
+    c.fillText(texto, x + b/2, y + b/2 + 26);
+  };
+  esquina(A.x, A.y + A.h - b, "SALIDA", "➡️", "#F2933C");
+  esquina(A.x, A.y, "CÁRCEL", "🚔", "#C9C2A8");
+  esquina(A.x + A.w - b, A.y, "APARCA", "🅿️", "#8FE388");
+  esquina(A.x + A.w - b, A.y + A.h - b, "A LA CÁRCEL", "👮", "#F0A0A0");
+
+  /* Casitas verdes y hoteles rojos repartidos, como fichas olvidadas. */
+  sembrar(c, 10, 4401, 24, (c,x,y,i) => {
+    const hotel = i % 3 === 0;
+    vetoDeco.push({ x:x-30, y:y-30, w:60, h:52 });
+    c.fillStyle = "rgba(0,0,0,.22)";
+    c.beginPath(); c.ellipse(x, y+11, hotel ? 22 : 15, 6, 0, 0, 6.283); c.fill();
+    c.fillStyle = hotel ? "#E2453C" : "#4FB84A";
+    if (hotel){
+      rr(c, x-20, y-6, 40, 17, 3); c.fill();
+      c.beginPath(); c.moveTo(x-22, y-6); c.lineTo(x, y-22); c.lineTo(x+22, y-6); c.closePath(); c.fill();
+      c.fillStyle = "rgba(255,255,255,.4)";
+      for (let k=0;k<3;k++) c.fillRect(x-13 + k*11, y-2, 6, 8);
+    } else {
+      rr(c, x-13, y-4, 26, 14, 2.5); c.fill();
+      c.beginPath(); c.moveTo(x-15, y-4); c.lineTo(x, y-17); c.lineTo(x+15, y-4); c.closePath(); c.fill();
+      c.fillStyle = "rgba(255,255,255,.4)";
+      c.fillRect(x-4, y-1, 8, 8);
+    }
+  });
+
+  /* Los dos mazos de cartas. */
+  sembrar(c, 3, 4501, 34, (c,x,y,i) => {
+    vetoDeco.push({ x:x-42, y:y-34, w:84, h:68 });
+    c.save(); c.translate(x, y); c.rotate(az(i)*.6 - .3);
+    for (let k=3;k>=0;k--){
+      c.fillStyle = k ? "rgba(0,0,0,.14)" : (i % 2 ? "#F2933C" : "#7FD3F0");
+      rr(c, -30 + k*2, -22 + k*2, 60, 44, 5); c.fill();
+    }
+    c.fillStyle = "#2A1226"; c.font = "800 22px system-ui, sans-serif";
+    c.textAlign = "center"; c.textBaseline = "middle";
+    c.fillText(i % 2 ? "?" : "★", 0, 0);
+    c.restore();
+  });
+}
+
+/* ---------- el mirador: la montaña, la vía de madera y la estación ---------- */
+function decoMirador(c, E){
+  c.fillStyle = E.mancha;                                  // el fieltro de la mesa
+  for (let i=0;i<18;i++){
+    const x = azEntre(i+5,0,WORLD_W), y = azEntre(i+61,0,WORLD_H), r = 34+az(i+3)*50;
+    c.beginPath(); c.ellipse(x,y,r,r*.5,i,0,6.283); c.fill();
+  }
+
+  /* La vía de madera: tabla clara, traviesas y los dos rieles oscuros. */
+  const O = OVALO_TREN;
+  const via = (ancho, color) => {
+    c.strokeStyle = color; c.lineWidth = ancho;
+    c.beginPath(); c.ellipse(O.x, O.y, O.rx, O.ry, 0, 0, 6.283); c.stroke();
+  };
+  via(74, "#C9A46A");                                      // la tabla
+  c.strokeStyle = "rgba(120,90,55,.5)"; c.lineWidth = 4;   // traviesas
+  c.setLineDash([6, 26]);
+  c.beginPath(); c.ellipse(O.x, O.y, O.rx, O.ry, 0, 0, 6.283); c.stroke();
+  c.setLineDash([]);
+  for (const d of [-19, 19]){
+    c.strokeStyle = "#6B4A2A"; c.lineWidth = 7;
+    c.beginPath(); c.ellipse(O.x, O.y, O.rx + d, O.ry + d*.7, 0, 0, 6.283); c.stroke();
+  }
+
+  /* La montaña, en la esquina que el escenario deja libre a propósito. */
+  const M = { x: 90, y: 110, w: 520, h: 630 };
+  vetoDeco.push({ x:M.x-20, y:M.y-20, w:M.w+40, h:M.h+40 });
+  c.fillStyle = "rgba(0,0,0,.18)";
+  c.beginPath(); c.ellipse(M.x+M.w/2, M.y+M.h-20, M.w*.52, 44, 0, 0, 6.283); c.fill();
+  /* Dos picos detrás y el grande delante, con la ladera de la derecha en
+     sombra: tres tonos bastan para que se lea montaña y no cucurucho. */
+  c.fillStyle = "#6E5F4C";
+  for (const [px, py, pw] of [[.16, .40, .34], [.86, .34, .30]]){
+    c.beginPath();
+    c.moveTo(M.x+M.w*(px-pw), M.y+M.h);
+    c.lineTo(M.x+M.w*px,      M.y+M.h*py);
+    c.lineTo(M.x+M.w*(px+pw), M.y+M.h);
+    c.closePath(); c.fill();
+  }
+  const cima = { x: M.x+M.w*.52, y: M.y+M.h*.12 };
+  c.fillStyle = "#9A8B74";                                  // la ladera al sol
+  c.beginPath();
+  c.moveTo(M.x+M.w*.02, M.y+M.h);
+  c.lineTo(M.x+M.w*.30, M.y+M.h*.38);
+  c.lineTo(cima.x, cima.y);
+  c.lineTo(M.x+M.w*.76, M.y+M.h*.42);
+  c.lineTo(M.x+M.w*.98, M.y+M.h);
+  c.closePath(); c.fill();
+  c.fillStyle = "#7E7058";                                  // la de la sombra
+  c.beginPath();
+  c.moveTo(cima.x, cima.y);
+  c.lineTo(M.x+M.w*.76, M.y+M.h*.42);
+  c.lineTo(M.x+M.w*.98, M.y+M.h);
+  c.lineTo(cima.x + 14, M.y+M.h);
+  c.closePath(); c.fill();
+  c.strokeStyle = "rgba(60,52,40,.35)"; c.lineWidth = 4;    // las grietas
+  for (const [dx, dy] of [[-.16, .34], [.10, .30], [-.05, .52]]){
+    c.beginPath();
+    c.moveTo(cima.x + M.w*dx*.35, cima.y + M.h*dy*.4);
+    c.quadraticCurveTo(cima.x + M.w*dx, cima.y + M.h*dy, cima.x + M.w*dx*1.5, M.y+M.h-30);
+    c.stroke();
+  }
+  c.fillStyle = "#FFEFE2";                                  // la nieve de la cumbre
+  c.beginPath();
+  c.moveTo(M.x+M.w*.40, M.y+M.h*.26);
+  c.lineTo(M.x+M.w*.52, M.y+M.h*.12);
+  c.lineTo(M.x+M.w*.64, M.y+M.h*.28);
+  c.quadraticCurveTo(M.x+M.w*.52, M.y+M.h*.20, M.x+M.w*.40, M.y+M.h*.26);
+  c.closePath(); c.fill();
+  /* El mirador propiamente: plataforma de madera con barandilla y catalejo. */
+  const mx = M.x+M.w*.52, my = M.y+M.h*.34;
+  c.fillStyle = "#C9A46A";
+  rr(c, mx-62, my, 124, 26, 5); c.fill();
+  c.strokeStyle = "#8A6A3C"; c.lineWidth = 4;
+  c.beginPath(); c.moveTo(mx-58, my); c.lineTo(mx-58, my-24);
+  c.lineTo(mx+58, my-24); c.lineTo(mx+58, my); c.stroke();
+  for (let k=-2;k<=2;k++){
+    c.beginPath(); c.moveTo(mx+k*24, my); c.lineTo(mx+k*24, my-24); c.stroke();
+  }
+  c.fillStyle = "#3A3630";
+  c.save(); c.translate(mx+30, my-30); c.rotate(-.5);
+  rr(c, -4, -22, 8, 26, 3); c.fill();
+  c.restore();
+  c.fillStyle = "#2A2018";                                  // la boca del túnel
+  const tx = M.x+M.w*.5, ty = M.y+M.h-46;
+  c.beginPath(); c.moveTo(tx-52, ty+46); c.lineTo(tx-52, ty); c.arc(tx, ty, 52, Math.PI, 0); c.lineTo(tx+52, ty+46); c.closePath(); c.fill();
+  c.strokeStyle = "#9A8A70"; c.lineWidth = 9;
+  c.beginPath(); c.moveTo(tx-56, ty+46); c.lineTo(tx-56, ty); c.arc(tx, ty, 56, Math.PI, 0); c.lineTo(tx+56, ty+46); c.stroke();
+  c.fillStyle = "#EBD3A2"; c.font = "800 15px system-ui, sans-serif";
+  c.textAlign = "center"; c.textBaseline = "middle";
+  c.fillText("EL MIRADOR", mx, my+13);
+
+  /* La estación de madera, con su andén y el cartel. */
+  sembrar(c, 1, 4601, 96, (c,x,y) => {
+    vetoDeco.push({ x:x-120, y:y-56, w:240, h:120 });
+    c.fillStyle = "rgba(0,0,0,.2)";
+    c.beginPath(); c.ellipse(x, y+42, 104, 20, 0, 0, 6.283); c.fill();
+    c.fillStyle = "#C9A46A"; rr(c, x-100, y-14, 200, 56, 6); c.fill();
+    c.fillStyle = "#E2453C"; rr(c, x-108, y-44, 216, 34, 6); c.fill();
+    c.fillStyle = "rgba(0,0,0,.2)";
+    for (let k=0;k<9;k++) c.fillRect(x-100 + k*23, y-44, 8, 34);
+    c.fillStyle = "#FFEFE2"; c.font = "800 15px system-ui, sans-serif";
+    c.textAlign = "center"; c.textBaseline = "middle";
+    c.fillText("ESTACIÓN", x, y+12);
+  });
+
+  /* Árboles de madera: tronco cilíndrico y copa de disco. */
+  sembrar(c, 12, 4701, 30, (c,x,y,i) => {
+    vetoDeco.push({ x:x-26, y:y-42, w:52, h:60 });
+    c.fillStyle = "rgba(0,0,0,.2)";
+    c.beginPath(); c.ellipse(x, y+14, 18, 6, 0, 0, 6.283); c.fill();
+    c.fillStyle = "#9A7040"; c.fillRect(x-6, y-6, 12, 20);
+    c.fillStyle = i%2 ? "#3E8A3A" : "#4FA84A";
+    c.beginPath(); c.arc(x, y-18, 22, 0, 6.283); c.fill();
+    c.fillStyle = "rgba(255,255,255,.16)";
+    c.beginPath(); c.arc(x-7, y-25, 8, 0, 6.283); c.fill();
+  });
+
+  /* Señales de paso a nivel y topes de vía. */
+  sembrar(c, 6, 4801, 22, (c,x,y,i) => {
+    c.fillStyle = "#EFE9D4"; c.fillRect(x-2.5, y-26, 5, 30);
+    c.save(); c.translate(x, y-30); c.rotate(az(i)*.4-.2);
+    c.fillStyle = "#E2453C";
+    c.beginPath(); c.moveTo(0,-14); c.lineTo(13,0); c.lineTo(0,14); c.lineTo(-13,0); c.closePath(); c.fill();
+    c.fillStyle = "#FFEFE2"; c.font = "800 13px system-ui, sans-serif";
+    c.textAlign = "center"; c.textBaseline = "middle";
+    c.fillText("✕", 0, 1);
+    c.restore();
+  });
+}
+
+/* ---------- el circuito: asfalto, pianitos, tuberías y cajas de ítem ---------- */
+function decoCircuito(c, E){
+  const O = OVALO_KART;
+  c.fillStyle = E.mancha;
+  for (let i=0;i<16;i++){
+    const x = azEntre(i+9,0,WORLD_W), y = azEntre(i+83,0,WORLD_H), r = 40+az(i)*56;
+    c.beginPath(); c.ellipse(x,y,r,r*.5,i,0,6.283); c.fill();
+  }
+
+  /* El asfalto y los pianitos rojiblancos de los dos bordes. */
+  for (const [ancho, color] of [[O.ancho+34, "#E2453C"], [O.ancho, "#4A4A52"]]){
+    c.strokeStyle = color; c.lineWidth = ancho;
+    c.beginPath(); c.ellipse(O.x, O.y, O.rx, O.ry, 0, 0, 6.283); c.stroke();
+  }
+  c.strokeStyle = "#FFEFE2"; c.lineWidth = O.ancho + 34;    // el blanco del pianito
+  c.setLineDash([34, 34]);
+  c.beginPath(); c.ellipse(O.x, O.y, O.rx, O.ry, 0, 0, 6.283); c.stroke();
+  c.setLineDash([]);
+  c.strokeStyle = "#4A4A52"; c.lineWidth = O.ancho;
+  c.beginPath(); c.ellipse(O.x, O.y, O.rx, O.ry, 0, 0, 6.283); c.stroke();
+  c.strokeStyle = "rgba(255,255,255,.3)"; c.lineWidth = 5;  // la línea del medio
+  c.setLineDash([40, 44]);
+  c.beginPath(); c.ellipse(O.x, O.y, O.rx, O.ry, 0, 0, 6.283); c.stroke();
+  c.setLineDash([]);
+
+  /* La meta a cuadros, arriba del todo. */
+  const meta = puntoOvalo(O, .75);
+  c.save(); c.translate(meta.x, meta.y);
+  for (let f=0; f<6; f++) for (let k=0;k<2;k++){
+    c.fillStyle = (f+k) % 2 ? "#FFEFE2" : "#2A1226";
+    c.fillRect(-O.ancho/2 + f*(O.ancho/6), -22 + k*22, O.ancho/6, 22);
+  }
+  c.restore();
+
+  /* Aceleradores: las flechas del suelo. */
+  for (const f of [.10, .40, .60, .90]){
+    const p = puntoOvalo(O, f);
+    const ang = Math.atan2(Math.cos(f*6.283)*O.ry, -Math.sin(f*6.283)*O.rx);
+    c.save(); c.translate(p.x, p.y); c.rotate(ang);
+    for (let k=0;k<3;k++){
+      c.fillStyle = ["#5CE1EA","#FFC53D","#FF6B90"][k];
+      c.beginPath();
+      c.moveTo(-30 + k*22, -34); c.lineTo(-8 + k*22, 0); c.lineTo(-30 + k*22, 34);
+      c.lineTo(-20 + k*22, 0); c.closePath(); c.fill();
+    }
+    c.restore();
+  }
+
+  /* Tuberías verdes: desde arriba, el borde grueso y el agujero negro. */
+  sembrar(c, 6, 4901, 48, (c,x,y) => {
+    vetoDeco.push({ x:x-52, y:y-40, w:104, h:80 });
+    c.fillStyle = "rgba(0,0,0,.22)";
+    c.beginPath(); c.ellipse(x, y+14, 42, 13, 0, 0, 6.283); c.fill();
+    c.fillStyle = "#2E8B32";
+    c.beginPath(); c.ellipse(x, y, 40, 26, 0, 0, 6.283); c.fill();
+    c.fillStyle = "#4FB84A";
+    c.beginPath(); c.ellipse(x, y-4, 40, 26, 0, 0, 6.283); c.fill();
+    c.fillStyle = "#1B5A1F";
+    c.beginPath(); c.ellipse(x, y-4, 27, 17, 0, 0, 6.283); c.fill();
+    c.fillStyle = "rgba(255,255,255,.22)";
+    c.beginPath(); c.ellipse(x-18, y-10, 7, 4, -.4, 0, 6.283); c.fill();
+  });
+
+  /* Bloques ? de ladrillo, los que están fijos en el suelo. */
+  sembrar(c, 7, 5001, 30, (c,x,y,i) => {
+    vetoDeco.push({ x:x-34, y:y-34, w:68, h:76 });
+    c.fillStyle = "rgba(0,0,0,.22)";
+    c.beginPath(); c.ellipse(x, y+22, 26, 8, 0, 0, 6.283); c.fill();
+    c.fillStyle = "#C97A1F"; rr(c, x-24, y-24, 48, 48, 6); c.fill();
+    c.fillStyle = "#F2A93C"; rr(c, x-20, y-20, 40, 40, 5); c.fill();
+    c.fillStyle = "#8A5A18";
+    for (const [dx,dy] of [[-15,-15],[15,-15],[-15,15],[15,15]]){
+      c.beginPath(); c.arc(x+dx, y+dy, 3, 0, 6.283); c.fill();
+    }
+    c.fillStyle = "#FFEFE2"; c.font = "800 30px system-ui, sans-serif";
+    c.textAlign = "center"; c.textBaseline = "middle";
+    c.fillText(i % 4 === 3 ? "!" : "?", x, y+2);
+  });
+
+  /* Monedas y setas, el confeti del circuito. */
+  sembrar(c, 10, 5101, 18, (c,x,y,i) => {
+    if (i % 3 === 2){                                       // una seta
+      c.fillStyle = "rgba(0,0,0,.2)";
+      c.beginPath(); c.ellipse(x, y+11, 15, 5, 0, 0, 6.283); c.fill();
+      c.fillStyle = "#F2E3C0"; rr(c, x-8, y-2, 16, 13, 4); c.fill();
+      c.fillStyle = "#E2453C";
+      c.beginPath(); c.arc(x, y-2, 15, Math.PI, 0); c.fill();
+      c.fillStyle = "#FFEFE2";
+      for (const dx of [-8, 0, 8]){
+        c.beginPath(); c.arc(x+dx, y-8, 3.6, 0, 6.283); c.fill();
+      }
+    } else {
+      c.fillStyle = "#C99A1F";
+      c.beginPath(); c.ellipse(x, y, 10, 13, 0, 0, 6.283); c.fill();
+      c.fillStyle = "#FFD84D";
+      c.beginPath(); c.ellipse(x, y-2, 10, 13, 0, 0, 6.283); c.fill();
+      c.fillStyle = "#C99A1F"; c.font = "800 13px system-ui, sans-serif";
+      c.textAlign = "center"; c.textBaseline = "middle";
+      c.fillText("$", x, y-1);
+    }
+  });
+}
+
 function pintarSuelo(){
   const E = visualDe(G.esc.id);
   sueloCv = document.createElement("canvas");
@@ -2809,6 +3513,10 @@ function pintarSuelo(){
   else if (E.deco === "asfalto")  decoNuevaYork(c, E);
   else if (E.deco === "duna")     decoEgipto(c, E);
   else if (E.deco === "selva")    decoAmazonas(c, E);
+  else if (E.deco === "pista")    decoPista(c, E);
+  else if (E.deco === "tablero")  decoTablero(c, E);
+  else if (E.deco === "mirador")  decoMirador(c, E);
+  else if (E.deco === "circuito") decoCircuito(c, E);
 
   c.strokeStyle = E.borde; c.lineWidth = 16;
   c.strokeRect(8,8,WORLD_W-16,WORLD_H-16);

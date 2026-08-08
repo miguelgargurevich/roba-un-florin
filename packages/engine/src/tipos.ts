@@ -176,9 +176,9 @@ export interface Circulo { x: number; y: number; r: number }
 export type TipoTrasto =
   // se montan
   | "bici" | "patineta" | "tabla" | "flotador" | "tablaArena"
-  | "balsa" | "llama" | "camello"
+  | "balsa" | "llama" | "camello" | "carrito" | "vagoneta"
   // se patean
-  | "pelota" | "mata" | "coco" | "piedra";
+  | "pelota" | "mata" | "coco" | "piedra" | "dado" | "caparazon";
 
 export interface Trasto {
   id: number;

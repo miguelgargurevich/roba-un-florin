@@ -80,6 +80,32 @@ export const VISUALES = {
     suelo: "#3E6B3A", loseta: "rgba(255,255,255,.05)", mancha: "rgba(25,55,25,.32)",
     borde: "#24421F", deco: "selva",
   },
+
+  /* Los cuatro de juguete. El suelo del cuarto, a lo grande. */
+  pista: {
+    icono: "🏎️",
+    desc: "La alfombra del cuarto con la pista naranja montada encima: rizo, rampas, aceleradores y carritos a toda.",
+    suelo: "#46506E", loseta: "rgba(255,255,255,.05)", mancha: "rgba(28,32,48,.3)",
+    borde: "#2A3049", deco: "pista",
+  },
+  tablero: {
+    icono: "🎲",
+    desc: "Un tablero gigante: casillas de colores por el borde, la cárcel, casitas, hoteles y los dados rodando.",
+    suelo: "#D9D2B8", loseta: "rgba(255,255,255,.14)", mancha: "rgba(150,142,115,.2)",
+    borde: "#8A8266", deco: "tablero",
+  },
+  mirador: {
+    icono: "🚂",
+    desc: "Vía de madera sobre la mesa verde, con la montaña y su mirador, el túnel, la estación y el trencito dando vueltas.",
+    suelo: "#5E8A4E", loseta: "rgba(255,255,255,.07)", mancha: "rgba(50,80,42,.26)",
+    borde: "#3E5C34", deco: "mirador",
+  },
+  circuito: {
+    icono: "🍄",
+    desc: "Circuito de karts: asfalto con pianitos, tuberías verdes, cajas de ítem, aceleradores y monedas.",
+    suelo: "#57893F", loseta: "rgba(255,255,255,.06)", mancha: "rgba(45,75,35,.26)",
+    borde: "#31531F", deco: "circuito",
+  },
 };
 
 /** La lista para el selector de la portada: reparto del motor + aspecto local. */

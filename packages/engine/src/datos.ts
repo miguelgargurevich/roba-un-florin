@@ -134,6 +134,10 @@ export const VEHICULOS: Record<string, Vehiculo> = {
   tabla:      { mult:1.7,  agua:true,  label:"tabla de surf", icon:"🏄" },
   balsa:      { mult:1.6,  agua:true,  label:"balsa",         icon:"🛶" },
   flotador:   { mult:1.15, agua:true,  label:"flotador",      icon:"🛟" },
+  /* Los de juguete. El carrito es lo más rápido que hay: es un cochecito, y en
+     la pista de plástico o en el circuito tiene que sentirse así. */
+  carrito:    { mult:1.75, agua:false, label:"carrito",       icon:"🏎️" },
+  vagoneta:   { mult:1.5,  agua:false, label:"vagoneta",      icon:"🚃" },
 };
 export const esVehiculo = (tipo: string) => tipo in VEHICULOS;
 
@@ -156,6 +160,10 @@ export const TRASTOS_ESCENARIO: Record<string, { tipo: string; n: number }[]> = 
   nuevayork:   [{ tipo:"patineta", n:5 },   { tipo:"bici", n:3 },     { tipo:"pelota", n:6 }],
   egipto:      [{ tipo:"camello", n:3 },    { tipo:"tablaArena", n:3 }, { tipo:"piedra", n:6 }],
   amazonas:    [{ tipo:"balsa", n:4 },      { tipo:"coco", n:8 }],
+  pista:       [{ tipo:"carrito", n:5 },    { tipo:"pelota", n:6 }],
+  tablero:     [{ tipo:"carrito", n:3 },    { tipo:"dado", n:8 }],
+  mirador:     [{ tipo:"vagoneta", n:4 },   { tipo:"piedra", n:7 }],
+  circuito:    [{ tipo:"carrito", n:5 },    { tipo:"caparazon", n:7 }],
 };
 
 export const RULETA_PRECIO = 1200;
@@ -293,6 +301,24 @@ export const ESCENARIOS: Escenario[] = [
     patios:[[70,1120],[520,1120],[70,760]],
     // el río corre por el sur: sin balsa te frena en la ribera
     mar: WORLD_H - 240 },
+
+  /* Los cuatro de juguete: el suelo del cuarto convertido en cuadra. El
+     reparto es el de siempre —cuatro casas, un patio y los dos comprables al
+     lado— porque el sitio cambia el decorado, no las reglas. */
+  { id:"pista",    nombre:"Pista Naranja",
+    casas:[[70,90],[2150,90],[2150,700],[2150,1290]],
+    patios:[[70,1290],[520,1290],[70,900]] },
+  { id:"tablero",  nombre:"El Tablero",
+    casas:[[70,90],[560,90],[1620,90],[2130,90]],
+    patios:[[70,1290],[520,1290],[70,900]] },
+  /* En el Mirador las casas van todas a la derecha y arriba: la esquina
+     noroeste se deja libre a propósito para que quepa la montaña. */
+  { id:"mirador",  nombre:"El Mirador",
+    casas:[[2150,90],[2150,700],[2150,1290],[1620,90]],
+    patios:[[70,1290],[520,1290],[70,880]] },
+  { id:"circuito", nombre:"El Circuito",
+    casas:[[70,90],[2150,90],[560,90],[2150,620]],
+    patios:[[70,1120],[520,1120],[70,760]] },
 ];
 
 export const varMult = (v: string | null) =>

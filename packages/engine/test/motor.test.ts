@@ -80,8 +80,8 @@ describe("el mundo se monta bien", () => {
     expect(baseDe(e, e.players[1].baseId).name).toBe("Patio del J2");
   });
 
-  it("todos los escenarios se pueden montar, y son ocho", () => {
-    expect(ESCENARIOS.length).toBe(8);
+  it("todos los escenarios se pueden montar, y son doce", () => {
+    expect(ESCENARIOS.length).toBe(12);
     for (const esc of ESCENARIOS) {
       const e = partida({ escenario: esc.id });
       expect(e.esc.id, esc.id).toBe(esc.id);
@@ -490,6 +490,10 @@ describe("trastos: bicis, tablas y pelotas", () => {
     expect(partida({ escenario: "barrio" }).trastos.some(v => v.tipo === "patineta")).toBe(true);
     expect(partida({ escenario: "playa" }).trastos.some(v => v.tipo === "tabla")).toBe(true);
     expect(partida({ escenario: "desierto" }).trastos.some(v => v.tipo === "tablaArena")).toBe(true);
+    expect(partida({ escenario: "pista" }).trastos.some(v => v.tipo === "carrito")).toBe(true);
+    expect(partida({ escenario: "tablero" }).trastos.some(v => v.tipo === "dado")).toBe(true);
+    expect(partida({ escenario: "mirador" }).trastos.some(v => v.tipo === "vagoneta")).toBe(true);
+    expect(partida({ escenario: "circuito" }).trastos.some(v => v.tipo === "caparazon")).toBe(true);
     expect(partida({ escenario: "colegio" }).trastos.some(v => v.tipo === "patineta")).toBe(true);
   });
 
