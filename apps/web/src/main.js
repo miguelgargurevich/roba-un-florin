@@ -17,6 +17,7 @@ import {
   inRect, laserActivo, lerp, money, nuevaPartidaMotor, nuevoFlorin, occupied,
   occupiedDe, orbitaDelCentro, playerIncome, puntoDelDesfile, rumboDeTiro,
   bajarse, conAtajosDeSala as conAtajosMotor, nombreDeHito, patiosDe, precioDeVenta,
+  soltarCarga, trastoDe,
   venderFlorin,
   revivirPartida, seleccionarArma, textoDePremio,
   usarArma, varLabel, vitrinaDe,
@@ -78,6 +79,13 @@ function entradas(){
 
 /* Dónde apunta el ratón / el arrastre táctil, en coordenadas del mundo. */
 const mira = { on:false, wx:0, wy:0 };
+
+/** Soltar el Florín que llevas, para poder coger otro. Queda en el suelo y lo
+    recoge quien pase — tú incluido. */
+function soltarLoQueLlevo(){
+  if (!G || !G.started || G.over || !G.player.carry) return;
+  if (sala) sala.soltar(); else soltarCarga(G, G.player);
+}
 
 /** Bajarse a mano de lo que lleves debajo. */
 function bajarseDelTrasto(){
@@ -324,6 +332,7 @@ window.addEventListener("keydown", e => {
   // La N sirve para dos cosas según el momento: si vas montado te bajas, y si
   // no, bautizas. Nunca coinciden — montado no puedes cargar un Florín.
   if (k === "n"){ if (G.player.montado != null) bajarseDelTrasto(); else abrirBautizo(); }
+  if (k === "f") soltarLoQueLlevo();
   if (k === "b") { if (document.getElementById("album").hidden) abrirAlbum(); else cerrarAlbum(); }
   if (k === "t") togglePanel("arm");
   if (k === "r") togglePanel("rul");
@@ -492,13 +501,23 @@ el.throwB.addEventListener("pointercancel", () => { tiro.id = null; });
 el.throwB.addEventListener("keydown", e => {
   if (e.key === "Enter" || e.key === " "){ e.preventDefault(); usarArma(G, G.player); }
 });
+/* Una X en cada panel. Todas pasan por aquí para que ninguna se quede sin
+   cerrar cuando se añada un panel nuevo. */
+for (const b of document.querySelectorAll(".cerrarX")){
+  const qué = b.dataset.cerrar;
+  b.addEventListener("click", () => {
+    if (qué === "arm" || qué === "rul") cerrarPanel(qué);
+    else if (qué === "album") cerrarAlbum();
+    else if (qué === "bautizo") cerrarBautizo();
+  });
+}
 el.pause.addEventListener("click", togglePause);
 el.sound.addEventListener("click", toggleSound);
 el.hand.addEventListener("click", () => { toggleZurdo(); empujarPreferencias(); });
 /* ---- paneles de Armería y Ruleta: se abren con su botón, no al pasar ---- */
 function panelDisponible(cual){
   if (!G || !G.started || G.over || G.local2) return false;
-  return cual === "arm" ? !!G.players[0].inShop : !!G.players[0].inRuleta;
+  return cual === "arm" ? !!G.player.inShop : !!G.player.inRuleta;
 }
 function cerrarPanel(cual){
   (cual === "arm" ? el.arm : el.rul).hidden = true;
@@ -507,7 +526,7 @@ function cerrarPanel(cual){
 function togglePanel(cual){
   if (!panelDisponible(cual)){
     if (G && G.started && !G.over && !G.local2){
-      const p = G.players[0];
+      const p = G.player;
       const donde = cual === "arm" ? "la Armería" : "la Ruleta";
       pop(p.x, p.y-62, "Tienes que estar en " + donde, "#FF6B90");
     }
@@ -525,6 +544,33 @@ function togglePanel(cual){
   }
   renderBotonesPanel();
 }
+/* ---- el "entra aquí" que sale sobre tu cabeza ----
+   La pista de antes decía "entra y toca 🧰 arriba": había que adivinar cuál de
+   los seis iconos de la barra era ese. Encima del personaje no hay nada que
+   adivinar, y en el celular queda al alcance del pulgar. */
+const elAccion = document.getElementById("accion");
+let accionActual = null;
+elAccion.addEventListener("click", () => { if (accionActual) togglePanel(accionActual); });
+
+function pintarAccion(){
+  const puedo = G && G.started && !G.over && !G.paused && !G.local2;
+  const cual = !puedo ? null
+    : panelDisponible("arm") ? "arm"
+    : panelDisponible("rul") ? "rul" : null;
+  const yaAbierto = !el.arm.hidden || !el.rul.hidden;
+  if (!cual || yaAbierto){ elAccion.hidden = true; accionActual = null; return; }
+  if (cual !== accionActual){
+    accionActual = cual;
+    elAccion.textContent = cual === "arm"
+      ? "🧰 Entrar a la Armería"
+      : "🎰 Girar la Ruleta · " + money(RULETA_PRECIO);
+  }
+  const p = G.player;
+  elAccion.style.left = ((p.x - cam.x) * ZOOM) + "px";
+  elAccion.style.top  = ((p.y - cam.y) * ZOOM - 58) + "px";
+  elAccion.hidden = false;
+}
+
 function renderBotonesPanel(){
   for (const [cual, boton, caja] of [["arm", el.btnArm, el.arm], ["rul", el.btnRul, el.rul]]){
     const listo = panelDisponible(cual);
@@ -898,6 +944,7 @@ const bau = {
   que:    document.getElementById("bautizoQue"),
   titulo: document.getElementById("bautizoTitulo"),
   boton:  document.getElementById("nameBtn"),
+  soltar: document.getElementById("dropBtn"),
   vender: document.getElementById("bautizoVender"),
   ped: null,
 };
@@ -971,6 +1018,7 @@ function refDelPedestal(ped){
   return null;
 }
 
+bau.soltar.addEventListener("click", soltarLoQueLlevo);
 bau.vender.addEventListener("click", venderElDeAlLado);
 document.getElementById("bautizoOk").addEventListener("click", guardarNombre);
 document.getElementById("bautizoCancelar").addEventListener("click", cerrarBautizo);
@@ -1076,13 +1124,23 @@ function pintarCelda(c){
   d.style.color = c.col;
   return d;
 }
+/* Una casilla al azar para rellenar la tira. Es adorno, así que tira del azar
+   del cliente: el del motor está reservado para lo que decide la partida, y
+   gastarlo aquí desincronizaría una sala. */
+function casillaDeAdorno(){
+  const total = RULETA.reduce((s, x) => s + x.p, 0);
+  let r = azar2(0, total);
+  for (const fila of RULETA){ r -= fila.p; if (r <= 0) return fila; }
+  return RULETA[RULETA.length - 1];
+}
+
 /* Con premio, lo planta en RUL_IDX; sin premio, es solo adorno al abrir el puesto */
 function construirTira(premio){
   el.rulStrip.style.transform = "translateX(0px)";
   el.rulStrip.innerHTML = "";
   for (let i=0;i<RUL_IDX+8;i++){
     el.rulStrip.appendChild(pintarCelda(
-      premio && i === RUL_IDX ? celdaDePremio(premio) : celdaDeCasilla(tiraDeTabla(RULETA))));
+      premio && i === RUL_IDX ? celdaDePremio(premio) : celdaDeCasilla(casillaDeAdorno())));
   }
 }
 
@@ -1476,7 +1534,7 @@ function dibujarBalsa(c, x, y, giro, i){
 }
 
 /* ---- llama y camello: los dos se montan, y los dos son un bicho de perfil ---- */
-function dibujarBestia(c, x, y, giro, i, cual){
+function dibujarBestia(c, x, y, giro, i, cual, trote){
   const esCamello = cual === "camello";
   const mira = Math.cos(giro) >= 0 ? 1 : -1;
   const pelo = esCamello ? "#C9A46A" : ["#EDE3D0","#C9B79A","#8B6F52"][i % 3];
@@ -1484,7 +1542,15 @@ function dibujarBestia(c, x, y, giro, i, cual){
   c.fillStyle = "rgba(0,0,0,.2)";
   c.beginPath(); c.ellipse(0, 11, 26, 8, 0, 0, 6.283); c.fill();
   c.fillStyle = esCamello ? "#A8854E" : "#6E5A44";       // patas
-  for (const px of [-14,-8,8,14]) c.fillRect(px, -6, 4, 18);
+  /* Al trote las patas van en diagonal: adelanta la delantera de un lado con la
+     trasera del otro. Cada pata gira desde el hombro, no se desliza. */
+  const paso = G.t * 9, fase = [0, Math.PI, Math.PI, 0];
+  [-14,-8,8,14].forEach((px, k) => {
+    c.save(); c.translate(px + 2, -6);
+    if (trote) c.rotate(Math.sin(paso + fase[k]) * .55 * trote);
+    c.fillRect(-2, 0, 4, 18);
+    c.restore();
+  });
   c.fillStyle = pelo;                                    // cuerpo
   rr(c, -20, -30, 40, 26, 12); c.fill();
   if (esCamello){                                        // las jorobas
@@ -1690,23 +1756,68 @@ function dibujarRana(c, a){
   c.restore();
 }
 
+/* ---- cómo se ve ir montado ----
+   Antes el trasto se dibujaba en la posición exacta del jugador y el jugador
+   encima, a la misma altura: no parecía subido, parecía que lo llevaba a
+   cuestas. Tres cosas lo arreglan — el trasto baja a los pies, el jinete sube,
+   y en vez de dos sombras solapadas hay una sola debajo de todo el conjunto. */
+const MONTURA = {
+  bici:       { baja: 6,  sube: 15, sombra: 30, atras: 0 },
+  patineta:   { baja: 8,  sube: 8,  sombra: 26, atras: 0 },
+  tablaArena: { baja: 8,  sube: 9,  sombra: 26, atras: 0 },
+  tabla:      { baja: 9,  sube: 7,  sombra: 30, atras: 0 },
+  balsa:      { baja: 10, sube: 8,  sombra: 32, atras: 0 },
+  flotador:   { baja: 9,  sube: 5,  sombra: 22, atras: 0 },
+  /* `atras`: el jinete se sienta hacia la cola. Sin esto la cabeza del animal
+     queda tapada por la del jugador y la llama se ve como un bulto blanco. */
+  llama:      { baja: 4,  sube: 28, sombra: 28, atras: 11 },
+  camello:    { baja: 4,  sube: 32, sombra: 30, atras: 12 },
+};
+const monturaDe = p => (p.montado != null ? MONTURA[trastoDe(G, p.montado)?.tipo] : null) || null;
+
 /* Todo lo que se puede montar o patear. Va después de las cáscaras y antes de
    la gente: así el que va montado sale dibujado encima de su bici. */
 function drawTrastos(){
   for (const v of G.trastos){
     const i = v.variante;
-    if (v.tipo === "bici")            biciBarrio(ctx, v.x, v.y, i, v.giro);
-    else if (v.tipo === "patineta")   dibujarPatineta(ctx, v.x, v.y, v.giro, i);
-    else if (v.tipo === "tabla")      dibujarTabla(ctx, v.x, v.y, v.giro, i);
-    else if (v.tipo === "flotador")   dibujarFlotador(ctx, v.x, v.y, v.giro, i);
-    else if (v.tipo === "tablaArena") dibujarTablaArena(ctx, v.x, v.y, v.giro, i);
-    else if (v.tipo === "balsa")      dibujarBalsa(ctx, v.x, v.y, v.giro, i);
-    else if (v.tipo === "llama")      dibujarBestia(ctx, v.x, v.y, v.giro, i, "llama");
-    else if (v.tipo === "camello")    dibujarBestia(ctx, v.x, v.y, v.giro, i, "camello");
-    else if (v.tipo === "mata")       dibujarMata(ctx, v.x, v.y, v.giro, i);
-    else if (v.tipo === "coco")       dibujarCoco(ctx, v.x, v.y, v.giro);
-    else if (v.tipo === "piedra")     dibujarPiedra(ctx, v.x, v.y, v.giro, i);
-    else                              pelotaBarrio(ctx, v.x, v.y, i, v.giro);
+    if (v.montadoPor != null){
+      /* Lo que alguien lleva montado se dibuja aparte: a los pies del jinete,
+         con su sombra y con la inclinación de la marcha. */
+      const p = G.players[v.montadoPor];
+      if (!p) continue;
+      const M = MONTURA[v.tipo] || { baja: 6, sube: 10, sombra: 26 };
+      const anda = Math.min(1, Math.hypot(p.vx, p.vy) / 300);
+      ctx.save();
+      ctx.fillStyle = "rgba(0,0,0,.24)";
+      ctx.beginPath();
+      ctx.ellipse(p.x, p.y + M.baja + 8, M.sombra, M.sombra * .3, 0, 0, 6.283);
+      ctx.fill();
+      ctx.translate(p.x, p.y + M.baja);
+      ctx.rotate(Math.sin(G.t * 9) * .035 * anda);      // el vaivén de ir rodando
+      ctx.translate(-p.x, -(p.y + M.baja));
+      dibujarTrasto(v, p.x, p.y + M.baja, p.face > 0 ? 0 : Math.PI, anda);
+      ctx.restore();
+      continue;
+    }
+    dibujarTrasto(v, v.x, v.y, v.giro);
+  }
+}
+
+function dibujarTrasto(v, x, y, giro, trote){
+  {
+    const i = v.variante;
+    if (v.tipo === "bici")            biciBarrio(ctx, x, y, i, giro);
+    else if (v.tipo === "patineta")   dibujarPatineta(ctx, x, y, giro, i);
+    else if (v.tipo === "tabla")      dibujarTabla(ctx, x, y, giro, i);
+    else if (v.tipo === "flotador")   dibujarFlotador(ctx, x, y, giro, i);
+    else if (v.tipo === "tablaArena") dibujarTablaArena(ctx, x, y, giro, i);
+    else if (v.tipo === "balsa")      dibujarBalsa(ctx, x, y, giro, i);
+    else if (v.tipo === "llama")      dibujarBestia(ctx, x, y, giro, i, "llama", trote);
+    else if (v.tipo === "camello")    dibujarBestia(ctx, x, y, giro, i, "camello", trote);
+    else if (v.tipo === "mata")       dibujarMata(ctx, x, y, giro, i);
+    else if (v.tipo === "coco")       dibujarCoco(ctx, x, y, giro);
+    else if (v.tipo === "piedra")     dibujarPiedra(ctx, x, y, giro, i);
+    else                              pelotaBarrio(ctx, x, y, i, giro);
   }
 }
 
@@ -3289,7 +3400,7 @@ function drawArmeria(){
   ctx.fillStyle = "rgba(255,239,226,.6)";
   ctx.font = "600 12px system-ui, sans-serif";
   ctx.fillText(G.local2 ? "cerrada en modo dos jugadores"
-               : !G.inShop ? "entra y toca 🧰 arriba"
+               : !G.inShop ? "métete y toca el botón"
                : el.arm.hidden ? "toca 🧰 arriba (tecla T)" : "elige tu arma abajo ↓",
                a.x+a.w/2, a.y+46);
 
@@ -3586,7 +3697,7 @@ function drawRuleta(){
   ctx.fillStyle = "rgba(255,239,226,.6)";
   ctx.font = "600 12px system-ui, sans-serif";
   ctx.fillText(G.local2 ? "cerrada en modo dos jugadores"
-               : !G.player.inRuleta ? "entra y toca 🎰 arriba · " + money(RULETA_PRECIO)
+               : !G.player.inRuleta ? "métete y toca el botón · " + money(RULETA_PRECIO)
                : el.rul.hidden ? "toca 🎰 arriba (tecla R)" : "gira abajo ↓",
                r.x, r.y + r.r + 38);
   ctx.restore();
@@ -3597,19 +3708,32 @@ function drawShadow(x,y,r){
   ctx.beginPath(); ctx.ellipse(x, y, r, r*.4, 0, 0, 6.283); ctx.fill();
 }
 
+/** mm:ss para las cuentas atrás cortas. */
+function reloj(seg){
+  const t = Math.max(0, Math.ceil(seg));
+  return Math.floor(t/60) + ":" + String(t%60).padStart(2, "0");
+}
+
 function drawPerson(x, y, face, walk, opts){
-  const { skin, shirt, hair, stun, carry, bandana, apron, frozen, alpha, cap, ears } = opts;
+  const { skin, shirt, hair, stun, carry, bandana, apron, frozen, alpha, cap, ears, montado } = opts;
   if (alpha != null) ctx.globalAlpha = alpha;
   const bounce = Math.sin(walk)*2.6;
   ctx.save();
   ctx.translate(x, y + (stun>0 ? Math.sin(G.t*40)*1.5 : 0));
-  drawShadow(0, 22, 18);
+  if (!montado) drawShadow(0, 22, 18);   // montado, la sombra la pone la montura
 
-  // piernas
+  /* Piernas. A caballo (o en bici) no caminas: las abres a los lados y quien
+     mueve las patas es el animal. Si el jinete siguiera dando pasos en el aire
+     parecería que lleva a la llama, no que va encima. */
   ctx.strokeStyle = "#3A2A44"; ctx.lineWidth = 6; ctx.lineCap = "round";
-  const sw = Math.sin(walk)*7;
-  ctx.beginPath(); ctx.moveTo(-4,10); ctx.lineTo(-4+sw, 22); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(4,10);  ctx.lineTo(4-sw, 22); ctx.stroke();
+  if (montado){
+    ctx.beginPath(); ctx.moveTo(-4,9); ctx.lineTo(-11, 21); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(4,9);  ctx.lineTo(11, 21); ctx.stroke();
+  } else {
+    const sw = Math.sin(walk)*7;
+    ctx.beginPath(); ctx.moveTo(-4,10); ctx.lineTo(-4+sw, 22); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(4,10);  ctx.lineTo(4-sw, 22); ctx.stroke();
+  }
 
   // cuerpo
   ctx.fillStyle = shirt;
@@ -3839,6 +3963,18 @@ function draw(){
   for (const p of G.players) drawJugador(p);
 
   function drawJugador(p){
+  /* Montado, el jinete sube: es lo que hace que se lea "va encima" y no "lo
+     lleva a cuestas". Su sombra la pone la montura, una sola para todo. */
+  const M = monturaDe(p);
+  if (M){
+    ctx.save();
+    ctx.translate(-p.face * (M.atras || 0), -M.sube);
+  }
+  dibujarJugadorCuerpo(p, M);
+  if (M) ctx.restore();
+  }
+
+  function dibujarJugadorCuerpo(p, M){
   if (p.boost > 0 && !REDUCED){                 // estela del refresco
     ctx.strokeStyle = "rgba(255,158,196,.5)"; ctx.lineWidth = 4; ctx.lineCap = "round";
     for (let i=1;i<=3;i++){
@@ -3850,8 +3986,9 @@ function draw(){
     }
     ctx.globalAlpha = 1;
   }
-  drawPerson(p.x, p.y, p.face, p.walk, {
+  drawPerson(p.x, p.y, p.face, M ? 0 : p.walk, {
     skin:"#F0C08A", shirt:p.shirt, hair:"#3A1B33", stun:p.stun, carry:p.carry,
+    montado: !!M,
     alpha: p.invis > 0 ? (p.invis < 2 ? .3 + Math.sin(G.t*14)*.15 : .34) : 1
   });
   if (G.local2){                            // etiqueta J1 / J2
@@ -3870,7 +4007,13 @@ function draw(){
     ctx.globalAlpha = 1;
     ctx.font = "15px system-ui, sans-serif";
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    ctx.fillText("☂️", p.x, p.y-52);
+    /* Ahora el paraguas dura tres minutos, así que hay que poder ver cuánto
+       queda: sin el reloj no sabes si te la puedes jugar. */
+    const aviso = p.escudo > 0 ? "☂️ " + reloj(p.escudo) : "☂️";
+    ctx.lineWidth = 4; ctx.strokeStyle = "rgba(15,7,14,.85)";
+    ctx.strokeText(aviso, p.x, p.y-52);
+    ctx.fillStyle = p.escudo > 0 ? "#5CE1EA" : "#FFEFE2";
+    ctx.fillText(aviso, p.x, p.y-52);
   }
   if (p.chancla.state === "held")
     drawChanclaSprite(p.x + 16*p.face, p.y - 4, (p.face>0?.6:-.6), .85);
@@ -4142,6 +4285,7 @@ function hud(){
     el.goal.textContent  = va.llenos + " / " + va.huecos;
     el.lost.textContent  = a.stats.lost + " / " + b.stats.lost;
     bau.boton.hidden = !(isTouch && florinAlLado() && bau.caja.hidden);
+    bau.soltar.hidden = !(G.player.carry && bau.caja.hidden);
     return;
   }
   el.j2.hidden = true;
@@ -4173,12 +4317,14 @@ function hud(){
 
   const alLado = florinAlLado();
   bau.boton.hidden = !(isTouch && alLado && bau.caja.hidden);
+  bau.soltar.hidden = !(G.player.carry && bau.caja.hidden);
 
   const w = WEAPONS[G.wsel];
   const notReady = G.cd > 0 ||
     (w.id === "chancla" ? G.chancla.state !== "held" : G.ammo[w.id] <= 0);
   el.throwB.classList.toggle("cool", notReady);
 
+  pintarAccion();
 }
 
 /* ============================================================
@@ -4274,6 +4420,7 @@ function frame(now){
   hud();
   requestAnimationFrame(frame);
 }
+
 
 
 

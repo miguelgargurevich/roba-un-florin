@@ -146,6 +146,22 @@
     pointer-events:auto;cursor:pointer;font-size:26px;display:grid;place-items:center;
   }
   #nameBtn[hidden]{display:none}
+  /* soltar lo que llevas, para poder coger otro */
+  #dropBtn{
+    position:absolute;right:24px;bottom:214px;width:56px;height:56px;border-radius:50%;
+    background:radial-gradient(circle at 35% 30%,#FFD9A0,#E8A85C 60%,#A96F28);
+    border:4px solid #7A4A16;box-shadow:0 6px 0 #5C3610;z-index:23;line-height:1;
+    pointer-events:auto;cursor:pointer;font-size:24px;display:grid;place-items:center;
+  }
+  #dropBtn small{
+    position:absolute;bottom:-3px;right:-3px;width:19px;height:19px;border-radius:50%;
+    background:#2A1226;color:var(--cream);font:800 10px/19px var(--ui);text-align:center;
+  }
+  /* En el celular no hay teclado: la pista de la tecla sobra. */
+  @media (pointer:coarse){ #dropBtn small{display:none} }
+  #dropBtn[hidden]{display:none}
+  #dropBtn:active{transform:translateY(3px);box-shadow:0 3px 0 #5C3610}
+  #app.zurdo #dropBtn{left:24px;right:auto}
   #nameBtn:active{transform:translateY(3px);box-shadow:0 3px 0 #0B4630}
   #app.zurdo #nameBtn{left:24px;right:auto}
 
@@ -155,11 +171,13 @@
   }
   #bautizo[hidden]{display:none}
   .bautizoCaja{
+    position:relative;
     width:min(400px,100%);background:linear-gradient(180deg,var(--plum-800),var(--plum-900));
     border:3px solid var(--leaf);border-radius:18px;padding:18px;
     box-shadow:0 14px 0 rgba(0,0,0,.4);
   }
   .bautizoCaja h3{
+    padding-right:38px;
     font-family:var(--display);font-size:22px;text-transform:uppercase;letter-spacing:.02em;
     margin:0 0 4px;color:var(--cream);
   }
@@ -204,6 +222,39 @@
   }
   @media (max-height:460px){ #alarma{font-size:11.5px;padding:6px 12px;gap:6px} }
 
+  /* ---------- la X de cerrar, igual en todos los paneles ----------
+     Antes había que buscar "Cancelar" o acordarse de Esc. Una X en la esquina
+     la encuentra cualquiera, que es de lo que se trata. */
+  .cerrarX{
+    position:absolute;right:9px;top:9px;width:34px;height:34px;padding:0;
+    border-radius:50%;border:2px solid rgba(255,239,226,.32);
+    background:rgba(15,7,14,.6);color:var(--cream);
+    font:800 16px/1 var(--ui);cursor:pointer;display:grid;place-items:center;
+    z-index:2;pointer-events:auto;
+  }
+  .cerrarX:hover{background:var(--rose);border-color:var(--rose);color:#fff}
+  .cerrarX:focus-visible{outline:3px solid var(--cosmo);outline-offset:2px}
+
+  /* ---------- el botón que aparece sobre tu cabeza ----------
+     Es el que dice "aquí se puede entrar". Va en coordenadas de pantalla, lo
+     coloca hud() cada frame sobre el jugador. */
+  #accion{
+    position:absolute;z-index:22;transform:translate(-50%,-100%);
+    padding:8px 14px;border-radius:999px;border:3px solid var(--gold);
+    background:linear-gradient(180deg,#3B1B36,var(--plum-900));
+    color:var(--cream);font:800 13px/1 var(--ui);letter-spacing:.02em;
+    white-space:nowrap;cursor:pointer;pointer-events:auto;
+    box-shadow:0 5px 0 rgba(0,0,0,.45);
+    animation:accionLatido 1.1s ease-in-out infinite;
+  }
+  #accion[hidden]{display:none}
+  #accion:hover{background:var(--gold);color:#2A1226}
+  @keyframes accionLatido{
+    0%,100%{transform:translate(-50%,-100%) scale(1)}
+    50%{transform:translate(-50%,-100%) scale(1.07)}
+  }
+  @media (prefers-reduced-motion:reduce){ #accion{animation:none} }
+
   /* ---------- álbum de Florines ---------- */
   #album{
     position:absolute;inset:0;z-index:31;display:grid;place-items:start center;padding:18px;
@@ -214,11 +265,13 @@
   .albumCaja{margin:auto}
   #album[hidden]{display:none}
   .albumCaja{
+    position:relative;
     width:min(660px,100%);background:linear-gradient(180deg,var(--plum-800),var(--plum-900));
     border:3px solid var(--gold);border-radius:18px;padding:18px;
     box-shadow:0 14px 0 rgba(0,0,0,.4);
   }
   .albumCaja h3{
+    padding-right:38px;
     font-family:var(--display);font-size:22px;text-transform:uppercase;letter-spacing:.02em;
     margin:0 0 4px;color:var(--cream);display:flex;justify-content:space-between;align-items:baseline;gap:10px;
   }
@@ -465,6 +518,7 @@
   /* ---------- armería ---------- */
   /* va dentro del flujo del HUD, justo encima del selector de armas: así nunca lo tapa */
   #armeria{
+    position:relative;
     align-self:center;flex:0 0 auto;
     width:min(560px,100%);margin-bottom:8px;pointer-events:auto;
     background:linear-gradient(180deg,color-mix(in srgb,var(--plum-800) 96%,transparent),var(--plum-900));
@@ -473,6 +527,7 @@
   }
   #armeria[hidden]{display:none}
   #armeria h2{
+    padding-right:38px;
     font-family:var(--display);font-size:16px;letter-spacing:.06em;text-transform:uppercase;
     margin:0 0 9px;color:var(--gold);display:flex;justify-content:space-between;align-items:center;gap:8px
   }
@@ -493,6 +548,7 @@
 
   /* ---------- ruleta de Florines ---------- */
   #ruleta{
+    position:relative;
     align-self:center;flex:0 0 auto;
     width:min(560px,100%);margin-bottom:8px;pointer-events:auto;
     background:linear-gradient(180deg,color-mix(in srgb,var(--plum-800) 96%,transparent),var(--plum-900));
@@ -503,6 +559,7 @@
   #app.dos #ruleta{display:none}
   #app.dos #btnArm,#app.dos #btnRul{display:none}   /* cerrados en el duelo */
   #ruleta h2{
+    padding-right:38px;
     font-family:var(--display);font-size:16px;letter-spacing:.06em;text-transform:uppercase;
     margin:0 0 9px;color:var(--chancla);display:flex;justify-content:space-between;align-items:center;gap:8px
   }
@@ -618,6 +675,13 @@
 <div id="app">
   <canvas id="game"></canvas>
 
+  <!-- El "entra aquí" que sale sobre el personaje. Lo coloca hud(). -->
+  <button id="accion" type="button" hidden></button>
+
+  <!-- Soltar lo que llevas. Fuera de #touch: en escritorio también hace falta. -->
+  <button id="dropBtn" type="button" hidden title="Soltar el Florín (tecla F)"
+          aria-label="Soltar el Florín que llevas">👐<small>F</small></button>
+
   <div class="hud">
     <div class="topbar">
       <div class="card money"><div class="label">Dinero</div><div class="val" id="uiMoney">$0</div></div>
@@ -666,11 +730,13 @@
     <div class="vgap"></div>
 
     <div id="armeria" hidden>
+      <button class="cerrarX" data-cerrar="arm" aria-label="Cerrar la Armería">✕</button>
       <h2>🧰 Armería <small id="armMoney">$0</small></h2>
       <div class="rack" id="rack"></div>
     </div>
 
     <div id="ruleta" hidden>
+      <button class="cerrarX" data-cerrar="rul" aria-label="Cerrar la Ruleta">✕</button>
       <h2>🎰 Ruleta de Florines <small id="rulMoney">$0</small></h2>
       <div class="rulTira"><div class="rulStrip" id="rulStrip"></div><i class="rulMarca"></i></div>
       <div class="rulPie">
@@ -700,6 +766,7 @@
   <!-- Bautizar un Florín de tu vitrina -->
   <div id="bautizo" hidden>
     <div class="bautizoCaja">
+      <button class="cerrarX" data-cerrar="bautizo" aria-label="Cerrar">✕</button>
       <h3 id="bautizoTitulo">Bautiza tu Florín</h3>
       <p class="bautizoSub" id="bautizoQue">Florín Común</p>
       <input id="bautizoInput" type="text" maxlength="14" placeholder="Pepito, El Jefe, Chanclitas…"
@@ -715,6 +782,7 @@
 
   <div id="album" hidden>
     <div class="albumCaja">
+      <button class="cerrarX" data-cerrar="album" aria-label="Cerrar el álbum">✕</button>
       <h3>📖 Álbum de Florines <small id="albumCuenta">0 / 21</small></h3>
       <p class="albumSub">Las cuatro variantes — ✨ Brillante (×2), 🌈 Arcoíris (×3), 👻 Fantasma (×4) y 👑 Dorado (×5) — solo salen de la casilla <b>???</b> de la Ruleta.</p>
       <div class="albumGrid" id="albumGrid"></div>

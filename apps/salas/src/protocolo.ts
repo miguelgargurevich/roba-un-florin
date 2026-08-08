@@ -36,6 +36,7 @@ export type DelCliente =
   | { t: "ruleta" }
   | { t: "bajarse" }
   | { t: "vender"; b: number; i: number }
+  | { t: "soltar" }
   | { t: "ping" };
 
 /* ---- lo que manda la sala ---- */

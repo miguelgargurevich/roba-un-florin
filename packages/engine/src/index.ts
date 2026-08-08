@@ -30,7 +30,7 @@ export {
   avanzar, usarArma, comprarArma, seleccionarArma, girarRuleta, premioDeRuleta,
   textoDePremio, spawnThief, sacarDelPortal, comprarPatio, rumboDeTiro,
   maxTier, rollTier, blancosDe, dropCarried, zap, knock, applyKnock, escudoAguanta,
-  bajarse, cargar, multDeMontura, venderFlorin, precioDeVenta,
+  bajarse, cargar, multDeMontura, venderFlorin, precioDeVenta, soltarCarga,
 } from "./simular.js";
 
 import { WEAPONS } from "./datos.js";

@@ -5,7 +5,7 @@
 
 import { describe, expect, it } from "vitest";
 import {
-  ESCENARIOS, FLORES, GOAL, JUGADORES_MAX, LASER_DUR, LASER_PRECIO, PORTAL_RAREZAS, RAR_COLOR,
+  ESCENARIOS, ESCUDO_DUR, FLORES, GOAL, JUGADORES_MAX, LASER_DUR, LASER_PRECIO, PORTAL_RAREZAS, RAR_COLOR,
   reglasPara,
   RULETA, RULETA_INCOGNITA, RULETA_PRECIO, TIERS, WEAPONS, varMult,
   avanzar, bajarse, cargar, crearPartida, girarRuleta, idsDeArmas, inRect,
@@ -978,16 +978,32 @@ describe("armas", () => {
     expect(e.portal.desfile.includes(d)).toBe(false);
   });
 
-  it("el paraguas se come un golpe y deja margen", () => {
+  it("el paraguas aguanta el golpe y deja margen", () => {
     const e = partida();
     const p = e.players[0];
-    p.escudo = 1;
+    p.escudo = ESCUDO_DUR;
     const abuela = e.bases.find(b => b.guard)!.guard!;
     p.x = abuela.x + 10; p.y = abuela.y;
     avanzar(e, nada(), 1 / 60);
-    expect(p.escudo).toBe(0);
+    expect(p.escudo).toBeGreaterThan(0);  // ya no se gasta de un golpe
     expect(p.inmune).toBeGreaterThan(0);
     expect(p.stun).toBe(0);               // aguantó
+  });
+
+  it("el paraguas se cierra a los tres minutos y entonces sí te pegan", () => {
+    const e = partida();
+    const p = e.players[0];
+    p.escudo = ESCUDO_DUR;
+    const abuela = e.bases.find(b => b.guard)!.guard!;
+    /* Lejos de la abuela mientras corre el reloj: si no, cada golpe renovaría
+       `inmune` y el que aguantaría sería ese margen, no el paraguas. */
+    p.x = 40; p.y = 40;
+    for (let i = 0; i < ESCUDO_DUR * 60 + 120; i++) avanzar(e, nada(), 1 / 60);
+    expect(p.escudo).toBe(0);
+    p.stun = 0; p.inmune = 0;
+    p.x = abuela.x + 10; p.y = abuela.y;
+    avanzar(e, nada(), 1 / 60);
+    expect(p.stun).toBeGreaterThan(0);
   });
 });
 

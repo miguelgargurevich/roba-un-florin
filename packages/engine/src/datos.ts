@@ -69,6 +69,9 @@ export const TIERS = [
     petal:"#3DDC97", petal2:"#1E9A66", center:"#FFD84D" },
 ];
 
+/** Cuánto dura abierto el paraguas, en segundos. */
+export const ESCUDO_DUR = 180;
+
 export const WEAPONS = [
   { id:"chancla",  name:"Chancla",      icon:"🩴", price:0,    uses:0, cd:0,  color:"#FF3D6E",
     desc:"Bumerán. Noquea 3.6 s." },
@@ -95,7 +98,7 @@ export const WEAPONS = [
   { id:"red",      name:"Red",          icon:"🕸️", price:1600, uses:3, cd:.6, color:"#BFE9FF",
     desc:"Caza al instante un Florín del desfile, sin esperar el aro." },
   { id:"paraguas", name:"Paraguas",     icon:"☂️", price:1100, uses:2, cd:.4, color:"#5CE1EA",
-    desc:"Te aguanta el próximo golpe sin soltar lo que cargas." },
+    desc:"Te protege tres minutos: aguanta los golpes sin soltar lo que cargas." },
 ];
 
 export const PORTAL_CADA = 6;                 // segundos entre Florines

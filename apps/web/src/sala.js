@@ -148,6 +148,7 @@ export function conectarSala({ url, token, codigo, modo, escenario, apodo, al })
     ruleta: () => mandar({ t: "ruleta" }),
     bajarse: () => mandar({ t: "bajarse" }),
     vender: (b, i) => mandar({ t: "vender", b, i }),
+    soltar: () => mandar({ t: "soltar" }),
     cerrar,
   };
 }

@@ -13,7 +13,7 @@ import type {
   Pedestal, Premio, Abuela, RefObjetivo, RefPed, Trasto,
 } from "./tipos.js";
 import {
-  GOAL, LADRONES, LASER_CARGA, RULETA, RULETA_INCOGNITA, RULETA_PRECIO,
+  ESCUDO_DUR, GOAL, LADRONES, LASER_CARGA, RULETA, RULETA_INCOGNITA, RULETA_PRECIO,
   PATADA, PORTAL_CADA, PORTAL_MAX, PORTAL_RAREZAS, PORTAL_VUELTA,
   LASER_DUR, LASER_PRECIO, LASER_RECARGA, RODAR_ROCE, TRASTO_ALCANCE,
   TIERS, VARIANTES, VEHICULOS, WEAPONS, WORLD_H, WORLD_W, esVehiculo, varLabel, varMult,
@@ -59,12 +59,15 @@ export function applyKnock(en: any, dt: number) {
   if (Math.abs(en.ky) < 4) en.ky = 0;
 }
 
-/** El paraguas: se come el próximo golpe y deja un margen para escapar. */
+/** El paraguas: mientras esté abierto aguanta los golpes.
+
+    `escudo` son segundos que quedan, no un sí/no: se compra por ESCUDO_DUR y va
+    bajando. `inmune` sigue siendo el margen corto de después de cada golpe —
+    sin él, un enemigo pegado te vaciaría el aviso sesenta veces por segundo. */
 export function escudoAguanta(e: Estado, en: any): boolean {
   if (!en) return false;
   if (en.inmune > 0) return true;
-  if (!en.escudo) return false;
-  en.escudo = 0;
+  if (!(en.escudo > 0)) return false;
   en.inmune = 0.9;
   texto(e, en.x, en.y - 58, "☂️ ¡Aguantó el paraguas!", "#5CE1EA");
   polvo(e, en.x, en.y - 10, "#5CE1EA", 14);
@@ -149,6 +152,17 @@ export function spawnThief(e: Estado) {
     salto: K.salta ? K.salta : 0, saltoT: 0,
     who: from.who!, isGuard: false,
   });
+}
+
+/** Suelta lo que llevas al suelo, para poder coger otro. Lo puede recoger
+    cualquiera, igual que si te lo hubieran tirado de un chancletazo. */
+export function soltarCarga(e: Estado, p: Jugador): boolean {
+  if (!p.carry) return false;
+  const f = p.carry;
+  dropCarried(e, p, p.x, p.y + 16);
+  texto(e, p.x, p.y - 48, "Soltaste " + TIERS[f.tier].name, "#D8BCB0");
+  sonar(e, "place");
+  return true;
 }
 
 /* ---- vender lo que ya tienes en la vitrina ----
@@ -413,8 +427,8 @@ export function usarArma(e: Estado, p: Jugador) {
   }
 
   if (w.id === "paraguas") {
-    p.escudo = 1;
-    texto(e, p.x, p.y - 62, "☂️ Escudo listo", "#5CE1EA");
+    p.escudo = ESCUDO_DUR;
+    texto(e, p.x, p.y - 62, "☂️ Escudo · 3 minutos", "#5CE1EA");
     polvo(e, p.x, p.y, "#5CE1EA", 12);
     sonar(e, "buy");
   }
@@ -984,6 +998,10 @@ function avanzarJugador(e: Estado, p: Jugador, ent: EntradaJugador | undefined, 
   if (p.boost > 0) p.boost -= dt;
   if (p.invis > 0) p.invis -= dt;
   if (p.inmune > 0) p.inmune -= dt;
+  if (p.escudo > 0){
+    p.escudo -= dt;
+    if (p.escudo <= 0){ p.escudo = 0; texto(e, p.x, p.y - 62, "☂️ Se cerró el paraguas", "#8E7F92"); }
+  }
   if (p.cd > 0) p.cd -= dt;
 
   const speed = (p.carry ? 196 : 268) * (p.boost > 0 ? 1.75 : 1) * multDeMontura(e, p);

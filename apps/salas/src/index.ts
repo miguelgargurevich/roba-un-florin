@@ -66,6 +66,7 @@ wss.on("connection", ws => {
     else if (m.t === "ruleta")    s.sala.ruleta(s.asiento);
     else if (m.t === "bajarse")   s.sala.bajar(s.asiento);
     else if (m.t === "vender")    s.sala.vender(s.asiento, m.b, m.i);
+    else if (m.t === "soltar")    s.sala.soltarFlorin(s.asiento);
   });
 
   ws.on("close", () => {
