@@ -5707,7 +5707,8 @@ function aLaCancha(){
 
 /** Cómo se llama el que va delante: su apodo en una sala, "un bot" si no. */
 function nombreDeCorredor(p){
-  const quien = sala?.estado.gente?.find(q => q.idx === p.idx);
+  if (sala && p.idx === sala.estado.idx) return "tú";
+  const quien = sala?.estado.gente?.find(q => q.idx === p.idx && q.conectado);
   return quien ? quien.apodo : "un bot";
 }
 
@@ -5718,22 +5719,28 @@ function endGame(ganador){
   /* Una carrera no se cuenta en Florines robados: se cuenta en puesto y en
      tiempo. Con el mismo cartel de siempre parecía que habías perdido. */
   if (G.reglas?.modo === "carrera"){
-    const orden = puestosDeCarrera(G);
-    const mio = puestoDe(G, G.player);
+    /* En una sala el resultado lo dice el mundo del SERVIDOR, no `G`: `G` se
+       reemplaza cada frame y en el momento del final puede no ser el de la
+       carrera. Se vio en producción — el que llegó último leyó "¡Primero!" y
+       un tiempo de 0:00, que era el reloj de otra partida. */
+    const M = sala?.estado.mundo || G;
+    const yo = sala ? M.players[sala.estado.idx] : G.player;
+    const orden = puestosDeCarrera(M);
+    const mio = orden.indexOf(yo) + 1;
     const gané = mio === 1;
     document.getElementById("endEyebrow").textContent = "Bandera a cuadros";
     document.getElementById("endTitle").innerHTML = gané
       ? "¡<em>Primero</em>!"
       : "Llegaste <em>" + mio + "º</em>";
     document.getElementById("endSub").textContent = gané
-      ? "Tres vueltas y nadie te pasó. En " + mmss(G.t) + "."
-      : "Ganó " + (orden[0] === G.player ? "nadie" : nombreDeCorredor(orden[0])) +
-        ". Tú entraste " + mio + "º de " + G.players.length + ".";
+      ? "Tres vueltas y nadie te pasó. En " + mmss(M.t) + "."
+      : "Ganó " + nombreDeCorredor(orden[0]) +
+        ". Tú entraste " + mio + "º de " + M.players.length + ".";
     document.getElementById("lbSteals").textContent = "Puesto";
     document.getElementById("lbRate").textContent = "Recorrido";
     document.getElementById("stSteals").textContent = mio + "º";
-    document.getElementById("stHits").textContent = G.stats.hits;
-    document.getElementById("stTime").textContent = mmss(G.t);
+    document.getElementById("stHits").textContent = yo.stats.hits;
+    document.getElementById("stTime").textContent = mmss(M.t);
     document.getElementById("stRate").textContent = VUELTAS + " vueltas";
     el.end.hidden = false;
     if (gané) Snd.win();
