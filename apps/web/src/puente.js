@@ -18,7 +18,7 @@ import {
   VUELTAS, CIRCUITOS, JUGADORES_MAX, pensarBot, GARAJE, TRASTOS_ESCENARIO,
   darleVehiculo, vehiculoDelSitio, esEspecial, ANCHO_PISTA, enLaPista,
   usarPotenciador, potenciadoresDe, potenciadorPorId, colocarPuestos,
-  DIFICULTADES, dificultadDe,
+  DIFICULTADES, dificultadDe, fijarMundo, MUNDO_NORMAL,
 } from "@florin/engine";
 
 export {
@@ -284,6 +284,11 @@ export function revivirPartida(texto){
     const G = JSON.parse(texto);
     if (!G || !Array.isArray(G.players) || !G.players.length || !Array.isArray(G.bases)) return null;
     if (!G.esc || !VISUALES[G.esc.id]) return null;
+    /* El tamaño del mundo lo fija cada escenario al CREAR la partida, y una
+       revivida no pasa por ahí: sin esto, retomar una partida normal después de
+       haber jugado en El Valle la dejaba con un mundo de 10 800 px de ancho.
+       Se toma del escenario guardado, que ya lo trae. */
+    fijarMundo(G.esc.mundo?.w ?? MUNDO_NORMAL.w, G.esc.mundo?.h ?? MUNDO_NORMAL.h);
     G.eventos = [];
     /* Las partidas guardadas antes de los trastos no traen el campo. Se rellena
        en vez de rechazarlas: perder el guardado de ayer por una función nueva

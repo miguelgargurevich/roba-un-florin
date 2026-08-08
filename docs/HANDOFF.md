@@ -24,6 +24,12 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Última sesión
 
+- 2026-08-08 (claude-code): promovido TODO a producción, incluido El Valle. Antes
+  de subirlo salió un fallo del refactor: revivir una partida guardada no volvía
+  a fijar el tamaño del mundo, así que retomarla después de jugar en El Valle la
+  dejaba con un mapa de 10 800 px. Hay prueba de que el tamaño no se contagia
+  entre escenarios.
+
 - 2026-08-08 (claude-code): el **álbum enseña los Florines dibujados** y con su
   rebote —los que no tienes, en silueta—, en vez de una lista de nombres. Y el
   botón 🏠 **pregunta antes de salir**: está pegado al libro y al sonido y en

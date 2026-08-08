@@ -1138,6 +1138,26 @@ describe("el reparto del mapa", () => {
     a[0] < b[0] + CASA_W && a[0] + CASA_W > b[0] &&
     a[1] < b[1] + CASA_H && a[1] + CASA_H > b[1];
 
+  it("cada escenario trae su tamaño de mundo, y no se contagia al siguiente", () => {
+    /* El Valle mide 10 800 de ancho y los demás 3 600. Si al cambiar de sitio
+       no se volviera a fijar, el mapa siguiente se jugaría con el mundo del
+       anterior: el jugador se saldría del mapa y la cámara se iría a un lado.
+       Lo mismo al REVIVIR una partida guardada, que no pasa por `crearPartida`
+       — de eso se encarga `revivirPartida` en el cliente llamando a
+       `fijarMundo` con lo que trae el escenario guardado. */
+    const valle = partida({ escenario: "valle" });
+    expect(WORLD_W).toBe(10800);
+    expect(valle.esc.mundo).toEqual({ w: 10800, h: 2100 });
+    const normal = partida({ escenario: "catarata" });
+    expect(WORLD_W, "el mundo del valle se contagió al mapa siguiente").toBe(3600);
+    expect(normal.esc.mundo).toBeUndefined();
+    // y todo lo del mapa normal cabe en el mapa normal
+    for (const b of normal.bases)
+      expect(b.rect.x + b.rect.w, "una base se salió").toBeLessThanOrEqual(WORLD_W);
+    for (const t of normal.trastos)
+      expect(t.x, "un trasto se salió").toBeLessThanOrEqual(WORLD_W);
+  });
+
   it("ninguna casa ni patio se sale del mundo", () => {
     for (const base of ESCENARIOS) {
       const esc = montarEscenario(base);
