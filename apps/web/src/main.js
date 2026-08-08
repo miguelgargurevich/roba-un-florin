@@ -14,7 +14,8 @@ import {
   RULETA_PRECIO, TIERS, VARIANTES, WEAPONS, WORLD_H, WORLD_W,
   avanzar, azar2, bloqueadoPorLaser, clamp, comprarArma, dist2, esMiPatio,
   florNombre, florinIncome, freePed, freePedDe, girarRuleta as girarEnMotor,
-  inRect, laserActivo, lerp, money, nuevaPartidaMotor, nuevoFlorin, occupied,
+  inRect, laserActivo, lerp, money, nuevaPartidaMotor, nuevoFlorin, occupied, DIFICULTADES,
+  dificultadDe,
   occupiedDe, orbitaDelCentro, playerIncome, puntoDelDesfile, rumboDeTiro,
   bajarse, conAtajosDeSala as conAtajosMotor, nombreDeHito, patiosDe, precioDeVenta,
   puestoDe, puestosDeCarrera, VUELTAS, CIRCUITOS, pensarBot, GARAJE, VEHICULOS,
@@ -125,7 +126,7 @@ const modoElegido = () =>
 
 function nuevaPartida(modo){
   pops = []; puffs = [];
-  const G2 = nuevaPartidaMotor(modo, ESCENARIOS[escSel].id, modoElegido() === "carrera");
+  const G2 = nuevaPartidaMotor(modo, ESCENARIOS[escSel].id, modoElegido() === "carrera", difSel);
   if (modoElegido() === "carrera" && vehSel) darleVehiculo(G2, G2.players[0], vehSel);
   G2.started = false; G2.paused = false;    // banderas del cliente, no del motor
   return G2;
@@ -717,6 +718,32 @@ function pintarVehiculos(){
   }
 }
 
+/* Qué tan brava es la carrera. La fila sale solo al elegir Carrera, igual que
+   la de vehículos: en aventura la dificultad no pinta nada. */
+let difSel = "normal";
+const difFila = document.getElementById("difFila");
+const difTitulo = document.getElementById("difTitulo");
+const difDesc = document.getElementById("difDesc");
+
+function pintarDificultad(){
+  const corriendo = modoElegido() === "carrera";
+  difTitulo.hidden = !corriendo;
+  difFila.hidden = !corriendo;
+  difDesc.hidden = !corriendo;
+  if (!corriendo) return;
+  difFila.innerHTML = "";
+  for (const [id, D] of Object.entries(DIFICULTADES)){
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "escBtn difBtn" + (id === difSel ? " sel" : "");
+    b.innerHTML = '<span class="ic">' + D.icon + '</span><span>' + D.label + '</span>';
+    b.setAttribute("aria-pressed", String(id === difSel));
+    b.addEventListener("click", () => { difSel = id; pintarDificultad(); Snd.unlock(); });
+    difFila.appendChild(b);
+  }
+  difDesc.textContent = DIFICULTADES[difSel].desc;
+}
+
 function elegirModoLocal(m){
   for (const b of document.querySelectorAll("#modoFila .modoBtn")){
     const suyo = b.dataset.modo === m;
@@ -731,6 +758,7 @@ function elegirModoLocal(m){
   if (m === "carrera" && !puedeCorrer(escSel))
     elegirEscenario(ESCENARIOS.findIndex(e => e.id === CIRCUITOS[0].id));
   pintarVehiculos();
+  pintarDificultad();
   rotularBotonJugar();
   const sel = document.getElementById("salaModo");
   if (sel && m === "carrera") sel.value = "carrera";
@@ -4813,8 +4841,12 @@ function drawCircuito(){
   ctx.restore();
 }
 
-/** Un tope cada tantos px a lo largo de los dos bordes de la pista. */
+/** Un tope cada tantos px a lo largo de los dos bordes de la pista.
+
+    En fácil no hay: de la pista se sale y se vuelve. Dibujarlos igual sería
+    mentir sobre lo que va a pasar cuando llegues al borde. */
 function dibujarTopes(c){
+  if (!dificultadDe(G.reglas).topes) return;
   const V = visualDe(G.esc.id);
   const cual = V.topes || "conos";
   const media = ANCHO_PISTA / 2;

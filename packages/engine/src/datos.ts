@@ -334,6 +334,55 @@ export const HITO_R = 140;
 export const ANCHO_PISTA = 190;
 /** Cuántas cajas de ítem hay repartidas por el circuito. */
 export const CAJAS_EN_PISTA = 10;
+
+/* ---- lo brava que es una carrera ----
+
+   En fácil no hay muro en el borde de la pista: te sales y vuelves. Lo que
+   impide entonces cortar por el césped en cada curva no es un tope sino la
+   hierba, que te deja al 70 % — salirse pasa a ser una torpeza que perdona en
+   vez de un choque que frustra. Y no se puede atajar el circuito entero
+   quitando el muro: los puntos de paso hay que pisarlos EN ORDEN, uno a uno.
+
+   `rivales` es lo que más se nota, y solo sabe FRENAR: multiplica lo que el bot
+   pide moverse, y el motor normaliza todo vector de módulo mayor que 1, así que
+   pedir 1,06 se queda en 1,00 —medido, difícil no corría más que normal—. Por
+   eso la escala llega hasta 1 y es normal el que baja un punto: estaba medido
+   que los bots le sacaban dos vueltas a un jugador en red, y ese punto es
+   justamente la latencia y la torpeza de quien juega con las manos.
+
+   `traza` es cuánto mira más allá del punto de paso siguiente, para cortar la
+   curva en vez de ir de baliza en baliza. Medido barriendo el parámetro en
+   cuatro mapas, el óptimo está en 0,20 y de ahí para ARRIBA empeora: mirando
+   demasiado lejos apunta fuera de la curva y acaba rozando el tope, que le
+   quita la velocidad. Así que difícil corre en el punto óptimo y a fácil se le
+   desvía a un trazado peor — al revés de lo que parecía. */
+export type Dificultad = "facil" | "normal" | "dificil";
+
+export const DIFICULTADES: Record<Dificultad, {
+  label: string; icon: string; desc: string;
+  /** ¿hay muro en el borde de la pista? */
+  topes: boolean;
+  /** cuánto te frena el césped cuando no hay muro */
+  fuera: number;
+  /** lo rápido que van los rivales, sobre tu velocidad */
+  rivales: number;
+  /** hasta cuánto miran hacia delante para cortar la curva */
+  traza: number;
+  /** cuántas cajas de ? hay repartidas */
+  cajas: number;
+}> = {
+  facil:   { label:"Fácil",   icon:"🐣", desc:"Sin topes: te sales y vuelves. Los otros van más despacio y hay potenciadores de sobra.",
+             topes:false, fuera:0.70, rivales:0.80, traza:0.36, cajas:14 },
+  normal:  { label:"Normal",  icon:"🏁", desc:"Topes en la pista y los otros corren como tú.",
+             topes:true,  fuera:1,    rivales:0.94, traza:0.27, cajas:10 },
+  dificil: { label:"Difícil", icon:"🔥", desc:"Los otros corren más que tú y trazan mejor las curvas. Y hay menos potenciadores que repartir.",
+             topes:true,  fuera:1,    rivales:1,    traza:0.20, cajas:6 },
+};
+
+/** Lo que toca en esta partida. Fuera de carrera no pinta nada, pero se
+    devuelve `normal` para no tener que preguntar por el modo en cada sitio. */
+export const dificultadDe = (r: { dificultad?: Dificultad }) =>
+  DIFICULTADES[r.dificultad ?? "normal"] ?? DIFICULTADES.normal;
 /** Lo que tarda una caja en volver después de que se la lleven. */
 export const CAJA_VUELVE = 6;
 /** Lo que gira la ruleta de la caja antes de pararse en algo. */

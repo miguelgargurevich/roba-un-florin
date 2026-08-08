@@ -7,7 +7,7 @@ import type {
 } from "./tipos.js";
 import {
   ESCENARIOS, FLORES, GOAL, LASER_CARGA, PATIOS_PRECIO, TIERS, TRASTOS_ESCENARIO,
-  ANCHO_PISTA, CAJAS_EN_PISTA, ESCALA_MAPA, OCHO_A, OCHO_B, VARIANTES, VEHICULOS, WORLD_H, WORLD_W, esVehiculo, varMult,
+  ANCHO_PISTA, CAJAS_EN_PISTA, ESCALA_MAPA, OCHO_A, OCHO_B, VARIANTES, dificultadDe, VEHICULOS, WORLD_H, WORLD_W, esVehiculo, varMult,
 } from "./datos.js";
 import { azar, clamp, dist2, inRect, rnd } from "./util.js";
 
@@ -321,6 +321,7 @@ export function reglasPara(jugadores: number): Reglas {
     puestos: true,
     modo: "aventura",
     vecinos: true,
+    dificultad: "normal",
   };
 }
 
@@ -501,8 +502,12 @@ function aLaLineaDeSalida(e: Estado): void {
   /* Las cajas: repartidas por la pista, siempre en el mismo sitio y en el eje
      del asfalto, para que se pueda pasar por ellas a propósito y no de rebote. */
   e.cajas = [];
-  for (let k = 0; k < CAJAS_EN_PISTA; k++) {
-    const f = ((k + 0.5) / CAJAS_EN_PISTA) * c.length;
+  /* Cuántas hay lo dice la dificultad: de sobra en fácil (más ayudas y más
+     caos a tu favor) y pocas en difícil (que gane quien conduce mejor, no quien
+     tuvo suerte con la caja). */
+  const cuantas = dificultadDe(e.reglas).cajas;
+  for (let k = 0; k < cuantas; k++) {
+    const f = ((k + 0.5) / cuantas) * c.length;
     const i = Math.floor(f) % c.length, t = f - Math.floor(f);
     const [ax, ay] = c[i], [bx, by] = c[(i + 1) % c.length];
     e.cajas.push({
@@ -554,9 +559,19 @@ export function enLaPista(e: Estado, x: number, y: number) {
   return mejor;
 }
 
-/** Empuja a quien se salga de la pista. Solo en carrera y solo si hay pista. */
+/** ¿Está sobre el asfalto? Sin decidir nada: solo mirar. */
+export function sobreLaPista(e: Estado, p: { x: number; y: number }): boolean {
+  if (e.reglas.modo !== "carrera" || !e.esc.circuito?.length) return true;
+  const borde = ANCHO_PISTA / 2;
+  return enLaPista(e, p.x, p.y).d2 <= borde * borde;
+}
+
+/** Empuja a quien se salga de la pista. Solo en carrera, solo si hay pista y
+    solo si la dificultad tiene topes: en fácil no hay muro y de la pista se
+    sale — lo que te disuade de cortar por el césped es que ahí vas más lento. */
 export function dentroDeLaPista(e: Estado, p: { x: number; y: number; vx: number; vy: number }): boolean {
   if (e.reglas.modo !== "carrera" || !e.esc.circuito?.length) return true;
+  if (!dificultadDe(e.reglas).topes) return true;
   const borde = ANCHO_PISTA / 2;
   const q = enLaPista(e, p.x, p.y);
   if (q.d2 <= borde * borde) return true;

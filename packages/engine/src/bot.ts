@@ -14,7 +14,7 @@
 
 import type { Estado, Jugador, EntradaJugador } from "./tipos.js";
 import { dist2 } from "./util.js";
-import { ANCHO_PISTA } from "./datos.js";
+import { ANCHO_PISTA, dificultadDe } from "./datos.js";
 import { centroDelMapa, enLaPista, esMiPatio, freePedDe, patiosDe } from "./estado.js";
 
 /** Lo que decide el bot en un paso: hacia dónde va y si tira la chancla. */
@@ -73,7 +73,11 @@ function aDondeVoy(e: Estado, p: Jugador): { x: number; y: number } | null {
     const yo = enLaPista(e, p.x, p.y);
     if (yo.d2 > (ANCHO_PISTA * 0.40) ** 2) return { x: yo.cx, y: yo.cy };
 
-    const mx = x1 * 0.75 + x2 * 0.25, my = y1 * 0.75 + y2 * 0.25;
+    /* Cuánto mira hacia el punto siguiente. Mirando más allá corta mejor la
+       curva en vez de ir de baliza en baliza como un cono, y eso es lo que hace
+       que en difícil se le note oficio. */
+    const k = dificultadDe(e.reglas).traza;
+    const mx = x1 * (1 - k) + x2 * k, my = y1 * (1 - k) + y2 * k;
     const q = enLaPista(e, mx, my);
     const borde = ANCHO_PISTA * 0.3;
     if (q.d2 <= borde * borde) return { x: mx, y: my };
@@ -162,5 +166,11 @@ export function pensarBot(e: Estado, p: Jugador, dt: number): PlanBot {
         return { x: Math.cos(a), y: Math.sin(a) };
       })();
 
-  return { entrada: { mover, apunta: blanco }, usar };
+  /* Lo rápido que va, según la dificultad. El motor respeta los vectores de
+     módulo menor que 1 (solo normaliza los que se pasan), así que escalar aquí
+     es escalar su velocidad, sin tocar el movimiento de nadie más. Es la
+     palanca del problema medido: los bots le sacaban dos vueltas a un jugador
+     en red. */
+  const brío = e.reglas.modo === "carrera" ? dificultadDe(e.reglas).rivales : 1;
+  return { entrada: { mover: { x: mover.x * brío, y: mover.y * brío }, apunta: blanco }, usar };
 }

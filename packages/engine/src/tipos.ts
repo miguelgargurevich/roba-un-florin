@@ -3,6 +3,9 @@
    DOM, ni audio, ni localStorage, ni Math.random. Todo lo que el jugador ve o
    escucha sale como `Evento` y lo interpreta quien renderice. */
 
+import type { Dificultad } from "./datos.js";
+export type { Dificultad };
+
 export type Variante = "brillante" | "arcoiris" | "fantasma" | "dorado" | null;
 
 /** Un Florín. `flor` es la especie (forma), `tier` la rareza (colores y valor). */
@@ -309,6 +312,8 @@ export interface Reglas {
   modo: "aventura" | "versus" | "carrera";
   /** ¿Hay vecinos? Ladrones, abuelas y desfile. En carrera solo estorban. */
   vecinos: boolean;
+  /** Solo cuenta corriendo: qué tan brava es la carrera. Ver `DIFICULTADES`. */
+  dificultad: Dificultad;
 }
 
 export interface Estado {

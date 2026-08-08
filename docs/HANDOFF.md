@@ -24,6 +24,12 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Última sesión
 
+- 2026-08-08 (claude-code): **dificultad en las carreras** (fácil, normal,
+  difícil). En fácil no hay topes —de la pista se sale y se vuelve— y lo que
+  sustituye al muro es el césped, que te deja al 70 %. Cambian también lo rápido
+  que van los rivales y cuántas cajas de ? hay. Se elige en el menú, junto a
+  Aventura y Carrera.
+
 - 2026-08-08 (claude-code): **del final de una partida se puede volver al
   inicio**. El cartel del final es una capa a pantalla completa y su único botón
   era "Otra ronda", que repite el MISMO modo: para pasar de carrera a aventura
@@ -123,8 +129,11 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
       RENDIMIENTO en el aparato, que es lo que no se puede simular.
 - [ ] **Los bots corren mucho más que un jugador en red.** Medido: 3 vueltas
       contra 1 en el mismo tiempo. Parte es la latencia (220 ms) y parte que el
-      bot traza perfecto. Si va a jugarse en serio, hay que frenarlos en
-      carrera.
+      bot traza perfecto. Ya hay palanca —`DIFICULTADES[…].rivales`— y en normal
+      va a 0,94; falta volver a medirlo CONTRA UN CLIENTE EN RED para saber si
+      ese punto basta. Ojo: la palanca solo sabe frenar (ver decisiones).
+- [ ] La dificultad **no llega a las salas**: quien crea una sala online no la
+      elige y se juega siempre en normal. Habría que pasarla por el protocolo.
 - [ ] **Dos personas de carne y hueso.** Sigue sin probarse: el segundo cliente
       siempre ha sido un script mío (`scratchpad/carrera.mjs`).
 - [ ] Los trazados de carrera son seis para dieciséis mapas. Se repiten (con
@@ -177,6 +186,14 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
   ocho hay las dos cosas. Se sortea al salir del portal, no en el cruce: así el
   recorrido entero sigue siendo una función de `k` y dos clientes con la misma
   semilla ven lo mismo.
+- 2026-08-08: la dificultad de los rivales solo sabe FRENAR. Se aplica
+  escalando lo que el bot pide moverse, y el motor normaliza todo vector de
+  módulo mayor que 1: pedir 1,06 se queda en 1,00 —medido, difícil no corría más
+  que normal—. Por eso la escala es 0,80 / 0,94 / 1,00 y el que baja es normal.
+- 2026-08-08: mirar más allá del punto de paso siguiente NO hace mejor al bot.
+  Barriendo el parámetro en cuatro mapas, el óptimo está en 0,20 y de ahí para
+  arriba empeora: apunta fuera de la curva y acaba rozando el tope, que le quita
+  la velocidad. Difícil corre en el óptimo y a fácil se le desvía.
 - 2026-08-08: el suelo se vuelca por trozos, no entero. `drawFloor` dibuja solo
   el rectángulo visible del lienzo cacheado; volcándolo completo, lo que cuesta
   pintar el suelo crecía con el mundo aunque en pantalla quepa lo mismo. Medido

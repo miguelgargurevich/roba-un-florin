@@ -14,7 +14,7 @@ import type {
 } from "./tipos.js";
 import {
   ESCUDO_DUR, GARAJE, GOAL, LADRONES, LASER_CARGA, RULETA, RULETA_INCOGNITA, RULETA_PRECIO,
-  PATADA, PORTAL_CADA, PORTAL_MAX, PORTAL_RAREZAS, PORTAL_VUELTA,
+  PATADA, PORTAL_CADA, PORTAL_MAX, PORTAL_RAREZAS, PORTAL_VUELTA, dificultadDe,
   LASER_DUR, LASER_PRECIO, LASER_RECARGA, RODAR_ROCE, TRASTO_ALCANCE, HITO_R, VUELTAS,
   PORTAL_VEL, CAJA_GIRA, CAJA_VUELVE, potenciadoresDe, potenciadorPorId,
   TIERS, VARIANTES, VEHICULOS, WEAPONS, WORLD_H, WORLD_W, esVehiculo, varLabel, varMult,
@@ -25,6 +25,7 @@ import {
   freePedDe, jugadorDe, laserActivo, mismoFlorin, nivelDeVitrina, nombreDeHito,
   nuevoFlorin, nuevoId, occupied, occupiedDe, patiosDe, pedDe, playerIncome,
   polvo, ponerLaser, puedeMojarse, puntoDelDesfile, sonar, texto, trastoDe, dentroDeLaPista,
+  sobreLaPista,
 } from "./estado.js";
 
 /* Cualquier cosa a la que se pueda golpear */
@@ -1197,7 +1198,12 @@ function avanzarJugador(e: Estado, p: Jugador, ent: EntradaJugador | undefined, 
   }
   if (p.cd > 0) p.cd -= dt;
 
-  const speed = (p.carry ? 196 : 268) * (p.boost > 0 ? 1.75 : 1) * multDeMontura(e, p);
+  /* Sin topes (fácil), el césped te deja al 70 %. Es lo único que hace que
+     valga la pena seguir el trazado cuando no hay muro que te devuelva: sin
+     esto, cortar por fuera de cada curva salía gratis. */
+  const hierba = e.reglas.modo === "carrera" && !dificultadDe(e.reglas).topes &&
+                 !sobreLaPista(e, p) ? dificultadDe(e.reglas).fuera : 1;
+  const speed = (p.carry ? 196 : 268) * (p.boost > 0 ? 1.75 : 1) * multDeMontura(e, p) * hierba;
   p.vx = lerp(p.vx, ix * speed, 1 - Math.pow(0.0009, dt));
   p.vy = lerp(p.vy, iy * speed, 1 - Math.pow(0.0009, dt));
   p.x = clamp(p.x + p.vx * dt, 22, WORLD_W - 22);

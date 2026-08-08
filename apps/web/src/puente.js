@@ -18,6 +18,7 @@ import {
   VUELTAS, CIRCUITOS, JUGADORES_MAX, pensarBot, GARAJE, TRASTOS_ESCENARIO,
   darleVehiculo, vehiculoDelSitio, esEspecial, ANCHO_PISTA, enLaPista,
   usarPotenciador, potenciadoresDe, potenciadorPorId, colocarPuestos,
+  DIFICULTADES, dificultadDe,
 } from "@florin/engine";
 
 export {
@@ -32,7 +33,7 @@ export {
   VEHICULOS, bajarse, enElMar, trastoDe, nivelDeVitrina, vitrinaDe, nombreDeHito,
   venderFlorin, precioDeVenta, soltarCarga, puestoDe, puestosDeCarrera,
   VUELTAS, CIRCUITOS, JUGADORES_MAX, pensarBot, GARAJE, TRASTOS_ESCENARIO,
-  darleVehiculo, vehiculoDelSitio, esEspecial, ANCHO_PISTA, enLaPista,
+  darleVehiculo, vehiculoDelSitio, esEspecial, ANCHO_PISTA, enLaPista, DIFICULTADES, dificultadDe,
   usarPotenciador, potenciadoresDe, potenciadorPorId, colocarPuestos,
 };
 
@@ -174,7 +175,7 @@ function conAtajos(G) {
 /* `local2` es el duelo de sofá: dos personas en un teclado. Es una decisión del
    cliente, no del motor — para el motor son dos jugadores y unas reglas. Vive
    como bandera del cliente al lado de `started` y `paused`. */
-export function nuevaPartidaMotor(modo, escenarioId, carrera = false) {
+export function nuevaPartidaMotor(modo, escenarioId, carrera = false, dificultad = "normal") {
   const local2 = modo === 2;
   /* Una carrera solo contra nadie no es una carrera: los otros cuatro asientos
      se llenan de bots, que es para lo que `pensarBot` vive en el motor. */
@@ -185,7 +186,7 @@ export function nuevaPartidaMotor(modo, escenarioId, carrera = false) {
     escenario: esc,
     armas: idsDeArmas(),
     reglas: carrera
-      ? { patiosExtra: false, puestos: false, modo: "carrera", vecinos: false }
+      ? { patiosExtra: false, puestos: false, modo: "carrera", vecinos: false, dificultad }
       : local2
         ? { patiosExtra: false, todasLasArmas: false, puestos: false, modo: "versus" }
         : undefined,

@@ -1235,6 +1235,64 @@ describe("el reparto del mapa", () => {
   });
 });
 
+describe("lo brava que es la carrera", () => {
+  const corrida = (dificultad: any) => {
+    let hitos = 0;
+    for (const esc of ["barrio", "prehistoria", "egipto", "colegio"]) {
+      const e = crearPartida({ jugadores: 5, escenario: esc, semilla: 7, armas: ["chancla"],
+                               reglas: { modo: "carrera", vecinos: false, dificultad } as any });
+      for (let i = 0; i < 60 * 40; i++) {
+        const ent: Record<number, EntradaJugador> = {};
+        for (const p of e.players) ent[p.idx] = pensarBot(e, p, 1 / 60).entrada;
+        avanzar(e, ent, 1 / 60);
+      }
+      const r = e.players[1].carrera!;
+      hitos += r.vuelta * e.esc.circuito!.length + r.hito;
+    }
+    return hitos;
+  };
+
+  it("los rivales corren más cuanto más brava es", () => {
+    /* Medido en cuatro mapas y 40 s: 194 / 228 / 261 puntos de paso. Si esto se
+       aplana, la dificultad dejó de significar nada. */
+    const facil = corrida("facil"), normal = corrida("normal"), dificil = corrida("dificil");
+    expect(normal, `fácil ${facil} vs normal ${normal}`).toBeGreaterThan(facil * 1.08);
+    expect(dificil, `normal ${normal} vs difícil ${dificil}`).toBeGreaterThan(normal * 1.08);
+  });
+
+  it("en fácil no hay topes y de la pista se sale", () => {
+    for (const [dif, seSale] of [["facil", true], ["normal", false], ["dificil", false]] as const) {
+      const e = crearPartida({ jugadores: 1, escenario: "barrio", semilla: 7, armas: ["chancla"],
+                               reglas: { modo: "carrera", vecinos: false, dificultad: dif } as any });
+      const p = e.players[0], c = e.esc.circuito!;
+      p.x = c[0][0]; p.y = c[0][1]; p.vx = p.vy = 0;
+      // empujarlo perpendicular a la pista un buen rato
+      for (let i = 0; i < 60 * 2; i++)
+        avanzar(e, { 0: { mover: { x: 0, y: -1 }, apunta: null } }, 1 / 60);
+      const fuera = enLaPista(e, p.x, p.y).d2 > (ANCHO_PISTA / 2 + 4) ** 2;
+      expect(fuera, dif + ": esperaba " + (seSale ? "poder salirme" : "que el tope me frenara")).toBe(seSale);
+    }
+  });
+
+  it("en fácil el césped frena, que es lo que sustituye al tope", () => {
+    /* Sin nada que penalice, en fácil sale a cuenta cortar por el césped en
+       cada curva y el trazado deja de importar. */
+    const rec = (dentro: boolean) => {
+      const e = crearPartida({ jugadores: 1, escenario: "barrio", semilla: 7, armas: ["chancla"],
+                               reglas: { modo: "carrera", vecinos: false, dificultad: "facil" } as any });
+      const p = e.players[0], c = e.esc.circuito!;
+      p.x = c[0][0]; p.y = c[0][1] + (dentro ? 0 : ANCHO_PISTA * 2.5); p.vx = p.vy = 0;
+      const x0 = p.x;
+      for (let i = 0; i < 60 * 2; i++)
+        avanzar(e, { 0: { mover: { x: 1, y: 0 }, apunta: null } }, 1 / 60);
+      return p.x - x0;
+    };
+    const asfalto = rec(true), cesped = rec(false);
+    expect(cesped, `asfalto ${Math.round(asfalto)} vs césped ${Math.round(cesped)}`)
+      .toBeLessThan(asfalto * 0.85);
+  });
+});
+
 describe("carrera", () => {
   const carrera = (esc = "circuito", jugadores = 2) =>
     crearPartida({ jugadores, escenario: esc, semilla: 7, armas: idsDeArmas(),
