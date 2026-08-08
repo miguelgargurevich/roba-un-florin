@@ -949,11 +949,13 @@ const isTouch = matchMedia("(pointer: coarse)").matches;
   addEventListener("orientationchange", () => setTimeout(mirar, 120));
 }
 
-/* Las reglas van abiertas en pantalla grande y plegadas en el celular: ahí
-   ocupaban tres pantallas de scroll por delante del botón de jugar. */
+/* Las reglas van abiertas con ratón y plegadas en el celular, donde ocupaban
+   tres pantallas de scroll por delante del botón de jugar. El corte es por
+   ALTO y no por ancho: lo que hace ilegible la portada es que no quepa a lo
+   largo, y eso incluye un teléfono en horizontal (~390 px). */
 {
   const como = document.getElementById("comoSeJuega");
-  if (como) como.open = !isTouch && innerWidth >= 900;
+  if (como) como.open = !isTouch && innerHeight >= 700;
 }
 if (isTouch){
   el.touch.classList.add("on");
