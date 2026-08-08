@@ -1858,8 +1858,11 @@ function dibujarBalsa(c, x, y, giro, i){
 /* ---- llama y camello: los dos se montan, y los dos son un bicho de perfil ---- */
 function dibujarBestia(c, x, y, giro, i, cual, trote){
   const esCamello = cual === "camello";
+  const esCaballo = cual === "caballo";
   const mira = Math.cos(giro) >= 0 ? 1 : -1;
-  const pelo = esCamello ? "#C9A46A" : ["#EDE3D0","#C9B79A","#8B6F52"][i % 3];
+  const pelo = esCamello ? "#C9A46A"
+             : esCaballo ? ["#6E4A2E","#3A2A22","#C9B79A"][i % 3]
+             : ["#EDE3D0","#C9B79A","#8B6F52"][i % 3];
   c.save(); c.translate(x, y);
   c.fillStyle = "rgba(0,0,0,.2)";
   c.beginPath(); c.ellipse(0, 11, 26, 8, 0, 0, 6.283); c.fill();
@@ -1885,11 +1888,15 @@ function dibujarBestia(c, x, y, giro, i, cual, trote){
   c.beginPath();                                          // oreja
   c.moveTo(mira*15, -61); c.lineTo(mira*16, -69); c.lineTo(mira*20, -61); c.closePath(); c.fill();
   c.beginPath(); c.arc(mira*22, -56, 1.6, 0, 6.283); c.fill();
-  if (!esCamello){                                        // la borla de la llama
+  if (esCaballo){                                         // la crin, hasta el lomo
+    c.fillStyle = "#2A1A10";
+    for (let k = 0; k < 5; k++)
+      c.fillRect(mira*(12 - k*4) - 1.5, -58 + k*3, 3, 8);
+  } else if (!esCamello){                                 // la borla de la llama
     c.fillStyle = "#E2453C";
     c.beginPath(); c.arc(mira*15, -67, 2.8, 0, 6.283); c.fill();
   }
-  c.fillStyle = esCamello ? "#8A6A3C" : "#B5A088";        // manta de montar
+  c.fillStyle = esCamello ? "#8A6A3C" : esCaballo ? "#8A4A3C" : "#B5A088";   // manta
   rr(c, -14, -34, 24, 9, 3); c.fill();
   c.restore();
 }
@@ -1995,6 +2002,357 @@ function dibujarDino(c, x, y, giro, i, trote){
     const h = 7 - Math.abs(k-3)*.9;
     c.beginPath(); c.moveTo(px-3, py); c.lineTo(px+3, py); c.lineTo(px, py-h); c.closePath(); c.fill();
   }
+  c.restore();
+}
+
+/* ---- el caballo ----
+   No vale reusar el cuerpo de la llama: la llama tiene el cuello vertical y un
+   caballo con eso parece un avestruz. El cuello va inclinado hacia delante, el
+   cuerpo es más largo y las patas más finas. */
+function dibujarCaballo(c, x, y, giro, i, trote){
+  const mira = Math.cos(giro) >= 0 ? 1 : -1;
+  const paso = G.t * 9, fase = [0, Math.PI, Math.PI, 0];
+  const pelo = ["#6E4A2E","#3A2A22","#C9B79A","#8A6A4E"][i % 4];
+  const crin = ["#2A1A10","#1A1008","#8A6A3C","#3A2416"][i % 4];
+  c.save(); c.translate(x, y); c.scale(mira, 1);
+  c.fillStyle = "rgba(0,0,0,.2)";
+  c.beginPath(); c.ellipse(0, 11, 28, 8, 0, 0, 6.283); c.fill();
+  c.strokeStyle = "#4A3222"; c.lineCap = "round"; c.lineWidth = 4.5;
+  [-16, -10, 10, 16].forEach((px, k) => {                 // las cuatro patas
+    const sw = trote ? Math.sin(paso + fase[k]) * .55 * trote : 0;
+    c.save(); c.translate(px, -8);
+    c.rotate(sw);
+    c.beginPath(); c.moveTo(0, 0); c.lineTo(0, 10); c.stroke();
+    c.beginPath(); c.moveTo(0, 10); c.lineTo(Math.max(0, sw) * 6, 19); c.stroke();
+    c.restore();
+  });
+  c.fillStyle = pelo;                                      // el cuerpo, alargado
+  c.beginPath(); c.ellipse(0, -20, 25, 13, 0, 0, 6.283); c.fill();
+  c.fillStyle = crin;                                      // la cola
+  c.beginPath();
+  c.moveTo(-23, -26); c.quadraticCurveTo(-36, -20 + Math.sin(paso*.6)*4, -32, -2);
+  c.quadraticCurveTo(-26, -14, -22, -20); c.closePath(); c.fill();
+  /* el cuello, inclinado hacia delante: esto es lo que lo hace caballo */
+  c.fillStyle = pelo;
+  c.beginPath();
+  c.moveTo(12, -28); c.lineTo(24, -52); c.lineTo(32, -50); c.lineTo(22, -24);
+  c.closePath(); c.fill();
+  c.beginPath(); c.ellipse(30, -54, 11, 7, -.5, 0, 6.283); c.fill();   // la cabeza
+  c.beginPath(); c.ellipse(37, -60, 6, 4.5, -.5, 0, 6.283); c.fill();  // el hocico
+  c.fillStyle = crin;                                      // la crin
+  for (let k = 0; k < 6; k++){
+    const t = k / 5;
+    c.beginPath();
+    c.moveTo(13 + t*12, -29 - t*22); c.lineTo(8 + t*12, -33 - t*22);
+    c.lineTo(13 + t*12, -36 - t*22); c.closePath(); c.fill();
+  }
+  c.fillStyle = pelo;
+  c.beginPath();                                           // la oreja
+  c.moveTo(25, -58); c.lineTo(25, -66); c.lineTo(30, -59); c.closePath(); c.fill();
+  c.fillStyle = "#1A1410";
+  c.beginPath(); c.arc(33, -56, 1.6, 0, 6.283); c.fill();
+  c.fillStyle = "#8A4A3C";                                 // la manta de montar
+  rr(c, -14, -30, 26, 10, 3); c.fill();
+  c.restore();
+}
+
+/* ---- lo que se patea en los sitios nuevos ---- */
+function dibujarLadrillo(c, x, y, giro, i){
+  c.save(); c.translate(x, y); c.rotate(giro);
+  c.fillStyle = "rgba(0,0,0,.22)";
+  c.beginPath(); c.ellipse(0, 7, 13, 4, 0, 0, 6.283); c.fill();
+  c.fillStyle = ["#B5533A","#A8472F","#C46248"][i % 3];
+  rr(c, -12, -6, 24, 12, 2); c.fill();
+  c.fillStyle = "rgba(0,0,0,.18)";                    // los tres huecos
+  for (const hx of [-6, 0, 6]){ c.beginPath(); c.arc(hx, 0, 2.4, 0, 6.283); c.fill(); }
+  c.fillStyle = "rgba(255,255,255,.18)";
+  c.fillRect(-12, -6, 24, 2);
+  c.restore();
+}
+
+function dibujarBarril(c, x, y, giro, i){
+  c.save(); c.translate(x, y); c.rotate(giro);
+  c.fillStyle = "rgba(0,0,0,.22)";
+  c.beginPath(); c.ellipse(0, 9, 12, 4, 0, 0, 6.283); c.fill();
+  c.fillStyle = "#8A5A32";
+  c.beginPath();
+  c.moveTo(-9, -10); c.quadraticCurveTo(-13, 0, -9, 10);
+  c.lineTo(9, 10); c.quadraticCurveTo(13, 0, 9, -10); c.closePath(); c.fill();
+  c.fillStyle = "#5A5248";                            // los aros
+  c.fillRect(-12, -5, 24, 3); c.fillRect(-12, 3, 24, 3);
+  c.fillStyle = "#A87244";
+  c.beginPath(); c.ellipse(0, -10, 9, 3.4, 0, 0, 6.283); c.fill();
+  c.restore();
+}
+
+function dibujarAnfora(c, x, y, giro, i){
+  c.save(); c.translate(x, y); c.rotate(giro);
+  c.fillStyle = "rgba(0,0,0,.22)";
+  c.beginPath(); c.ellipse(0, 10, 10, 4, 0, 0, 6.283); c.fill();
+  c.fillStyle = ["#C08A5A","#A87244","#D0A070"][i % 3];
+  c.beginPath();                                      // la panza
+  c.moveTo(-4, -12); c.quadraticCurveTo(-12, -2, -6, 10);
+  c.lineTo(6, 10); c.quadraticCurveTo(12, -2, 4, -12); c.closePath(); c.fill();
+  c.fillRect(-4, -16, 8, 5);                          // el cuello
+  c.beginPath(); c.ellipse(0, -17, 6, 2.6, 0, 0, 6.283); c.fill();
+  c.strokeStyle = "#8A5A32"; c.lineWidth = 2.4;       // las asas
+  c.beginPath(); c.arc(-7, -10, 4, -1.2, 1.6); c.stroke();
+  c.beginPath(); c.arc(7, -10, 4, 1.6, 4.3); c.stroke();
+  c.strokeStyle = "rgba(60,40,24,.5)"; c.lineWidth = 1.4;
+  c.beginPath(); c.moveTo(-8, 0); c.lineTo(8, 0); c.stroke();
+  c.restore();
+}
+
+function dibujarCofre(c, x, y, giro, i){
+  c.save(); c.translate(x, y); c.rotate(giro);
+  c.fillStyle = "rgba(0,0,0,.24)";
+  c.beginPath(); c.ellipse(0, 9, 14, 4, 0, 0, 6.283); c.fill();
+  c.fillStyle = "#8A5A32";
+  rr(c, -13, -3, 26, 12, 2); c.fill();
+  c.fillStyle = "#A87244";                            // la tapa curva
+  c.beginPath(); c.moveTo(-13, -3); c.quadraticCurveTo(0, -16, 13, -3); c.closePath(); c.fill();
+  c.fillStyle = "#FFD84D";                            // los herrajes
+  c.fillRect(-13, -4, 26, 2.5);
+  rr(c, -2.5, -6, 5, 8, 1); c.fill();
+  c.fillStyle = "#5A5248";
+  c.beginPath(); c.arc(0, 0, 1.6, 0, 6.283); c.fill();
+  c.restore();
+}
+
+/* ---- el dragón ----
+   De la Edad Media. Cuerpo de lagarto, alas de murciélago que baten, cuello
+   largo y una llamita en el hocico. Vuela, así que flota sobre su sombra. */
+function dibujarDragon(c, x, y, giro, i, trote){
+  const mira = Math.cos(giro) >= 0 ? 1 : -1;
+  const flota = Math.sin(G.t * 2.4 + i) * 5;
+  const ala = Math.sin(G.t * 6 + i);
+  const piel  = ["#3E7A4E","#7A3E5E","#3E5A8A"][i % 3];
+  const panza = ["#A8D08A","#D0A0B8","#8AB0D8"][i % 3];
+  c.fillStyle = "rgba(0,0,0,.22)";
+  c.beginPath(); c.ellipse(x, y + 22, 36, 10, 0, 0, 6.283); c.fill();
+  c.save(); c.translate(x, y + flota); c.scale(mira * 1.28, 1.28);
+  /* la cola, con su punta de flecha */
+  c.strokeStyle = piel; c.lineCap = "round"; c.lineWidth = 9;
+  c.beginPath(); c.moveTo(-12, -18);
+  c.quadraticCurveTo(-40, -12 + Math.sin(G.t*3)*6, -60, -28 + Math.sin(G.t*3-.7)*9);
+  c.stroke();
+  c.fillStyle = piel;
+  c.beginPath(); c.moveTo(-58, -26); c.lineTo(-72, -34); c.lineTo(-60, -18); c.closePath(); c.fill();
+  /* el ala de atrás, más oscura */
+  const alaForma = (k) => {
+    c.beginPath();
+    c.moveTo(0, -22);
+    c.quadraticCurveTo(-14, -52 - k*12, -34, -44 - k*16);
+    c.lineTo(-26, -30 - k*8); c.lineTo(-30, -22 - k*6);
+    c.lineTo(-18, -20 - k*4); c.lineTo(-16, -14);
+    c.closePath(); c.fill();
+  };
+  c.fillStyle = "rgba(0,0,0,.28)"; c.save(); c.translate(6, 2); alaForma(ala * .5); c.restore();
+  c.fillStyle = piel;                                     // cuerpo
+  c.beginPath(); c.ellipse(-4, -20, 20, 13, -.1, 0, 6.283); c.fill();
+  c.fillStyle = panza;
+  c.beginPath(); c.ellipse(-4, -15, 15, 7, -.1, 0, 6.283); c.fill();
+  /* las patas encogidas, que va volando */
+  c.strokeStyle = piel; c.lineWidth = 5;
+  c.beginPath(); c.moveTo(-6, -10); c.lineTo(-2, -2); c.lineTo(6, -3); c.stroke();
+  c.beginPath(); c.moveTo(6, -12); c.lineTo(11, -4); c.lineTo(18, -5); c.stroke();
+  /* cuello y cabeza */
+  c.strokeStyle = piel; c.lineWidth = 10;
+  c.beginPath(); c.moveTo(10, -26); c.quadraticCurveTo(22, -38, 26, -48); c.stroke();
+  c.fillStyle = piel;
+  c.beginPath(); c.ellipse(30, -52, 13, 8, .25, 0, 6.283); c.fill();
+  c.beginPath();                                          // el hocico
+  c.moveTo(38, -54); c.lineTo(50, -50); c.lineTo(38, -46); c.closePath(); c.fill();
+  c.beginPath();                                          // el cuerno
+  c.moveTo(24, -58); c.lineTo(20, -70); c.lineTo(30, -60); c.closePath(); c.fill();
+  c.fillStyle = "#FFD84D";
+  c.beginPath(); c.ellipse(32, -55, 3.4, 2.8, 0, 0, 6.283); c.fill();
+  c.fillStyle = "#1A1410";
+  c.beginPath(); c.ellipse(33, -55, 1.3, 2.4, 0, 0, 6.283); c.fill();
+  /* la llamita, que crece cuando corre */
+  const fuego = 6 + (trote || 0) * 14 + Math.sin(G.t * 14) * 3;
+  c.fillStyle = "#FF8A2B";
+  c.beginPath(); c.moveTo(50, -52); c.lineTo(50 + fuego, -50); c.lineTo(50, -48); c.closePath(); c.fill();
+  c.fillStyle = "#FFD84D";
+  c.beginPath(); c.moveTo(50, -51); c.lineTo(50 + fuego * .6, -50); c.lineTo(50, -49); c.closePath(); c.fill();
+  /* la cresta del lomo */
+  c.fillStyle = panza;
+  for (let k = 0; k < 5; k++){
+    const px = 4 - k * 6;
+    c.beginPath(); c.moveTo(px - 3, -31); c.lineTo(px + 3, -31); c.lineTo(px, -39); c.closePath(); c.fill();
+  }
+  /* El ala de delante, aclarada: con el mismo tono que el cuerpo tapaba al
+     jinete y el conjunto se leía como una mancha. */
+  c.fillStyle = panza; c.globalAlpha = .85; alaForma(ala); c.globalAlpha = 1;
+  c.restore();
+}
+
+/* ---- la grúa de obra ----
+   Camión con la pluma levantada y unos fierros colgando del gancho, que se
+   balancean con la marcha. Es lo que pidió el dueño del repo, literal. */
+function dibujarGrua(c, x, y, giro, i, trote){
+  const mira = Math.cos(giro) >= 0 ? 1 : -1;
+  const vaiven = Math.sin(G.t * 2.2) * (0.25 + (trote || 0) * 0.75);
+  c.fillStyle = "rgba(0,0,0,.26)";
+  c.beginPath(); c.ellipse(x, y + 12, 34, 10, 0, 0, 6.283); c.fill();
+  c.save(); c.translate(x, y); c.scale(mira * 1.15, 1.15);
+  c.fillStyle = "#2A2226";                                 // ruedas
+  for (const rx of [-20, -6, 18]){ c.beginPath(); c.arc(rx, 8, 9, 0, 6.283); c.fill(); }
+  c.fillStyle = "#8A8478";
+  for (const rx of [-20, -6, 18]){ c.beginPath(); c.arc(rx, 8, 4, 0, 6.283); c.fill(); }
+  c.fillStyle = "#FFB020";                                 // chasis
+  rr(c, -28, -6, 52, 12, 3); c.fill();
+  c.fillStyle = "#E28A10";
+  rr(c, -28, -2, 52, 5, 2); c.fill();
+  c.fillStyle = "#FFC53D";                                 // cabina
+  rr(c, 12, -20, 17, 16, 4); c.fill();
+  c.fillStyle = "#2A3A4A";
+  rr(c, 15, -17, 11, 8, 2); c.fill();
+  /* La pluma sale hacia ATRÁS y bien arriba. Saliendo hacia delante quedaba
+     justo detrás del jinete, que mide cuarenta píxeles y la tapaba entera: la
+     grúa se leía como un palé con ruedas. */
+  c.save(); c.translate(-14, -14); c.rotate(-2.42);
+  c.fillStyle = "#FFB020"; rr(c, 0, -5, 74, 10, 2); c.fill();
+  c.strokeStyle = "#C97C0A"; c.lineWidth = 2;
+  for (let k = 0; k < 8; k++){
+    c.beginPath(); c.moveTo(4 + k*9, -5); c.lineTo(13 + k*9, 5); c.stroke();
+  }
+  c.restore();
+  /* el cable y los fierros colgando */
+  const gx = -14 + Math.cos(-2.42) * 74, gy = -14 + Math.sin(-2.42) * 74;
+  c.strokeStyle = "#5A5248"; c.lineWidth = 2;
+  c.beginPath(); c.moveTo(gx, gy); c.lineTo(gx + vaiven * 10, gy + 26); c.stroke();
+  c.save(); c.translate(gx + vaiven * 10, gy + 26); c.rotate(vaiven * .18);
+  c.fillStyle = "#8A8478";                                 // el gancho
+  rr(c, -4, -4, 8, 6, 2); c.fill();
+  c.fillStyle = "#A8654A";                                 // los fierros, atados
+  for (let k = 0; k < 3; k++) rr(c, -22 + k*2, 2 + k*4, 44, 3.5, 1.5), c.fill();
+  c.strokeStyle = "#3A2416"; c.lineWidth = 2;
+  c.beginPath(); c.moveTo(-6, 1); c.lineTo(-6, 15); c.stroke();
+  c.beginPath(); c.moveTo(8, 1); c.lineTo(8, 15); c.stroke();
+  c.restore();
+  c.restore();
+}
+
+/* ---- el monster truck ----
+   Todo son las ruedas: el chasis es la excusa para que quepan. Rebota al
+   andar, que es lo que hacen estos con la suspensión. */
+function dibujarMonster(c, x, y, giro, i, trote){
+  const mira = Math.cos(giro) >= 0 ? 1 : -1;
+  const bote = Math.sin(G.t * 7) * 2.2 * (trote || 0);
+  const col = ["#E2453C","#3B7BC4","#8B6BEE"][i % 3];
+  c.fillStyle = "rgba(0,0,0,.28)";
+  c.beginPath(); c.ellipse(x, y + 14, 32, 9, 0, 0, 6.283); c.fill();
+  c.save(); c.translate(x, y + bote); c.scale(mira, 1);
+  c.fillStyle = col;                                       // la carrocería, arriba
+  rr(c, -20, -26, 40, 18, 5); c.fill();
+  c.fillStyle = "rgba(255,255,255,.22)";
+  rr(c, -14, -23, 16, 7, 2); c.fill();
+  c.fillStyle = "#2A2226";                                 // el eje
+  rr(c, -22, -10, 44, 5, 2); c.fill();
+  /* las cuatro ruedas enormes, con taco */
+  for (const rx of [-18, 18]){
+    c.fillStyle = "#1A1410";
+    c.beginPath(); c.arc(rx, 0, 16, 0, 6.283); c.fill();
+    c.fillStyle = "#3A3238";
+    for (let k = 0; k < 8; k++){
+      const a = G.t * (trote ? 7 : 0) * mira + k * 0.785;
+      c.save(); c.translate(rx, 0); c.rotate(a);
+      c.fillRect(-2, -16, 4, 5);
+      c.restore();
+    }
+    c.fillStyle = "#C9C2B8";
+    c.beginPath(); c.arc(rx, 0, 6, 0, 6.283); c.fill();
+  }
+  c.restore();
+}
+
+/* ---- el carro romano ----
+   Una biga: dos ruedas, la cesta detrás y un caballo tirando. El jinete va de
+   pie, así que `sube` es poco. */
+function dibujarCarroRomano(c, x, y, giro, i, trote){
+  const mira = Math.cos(giro) >= 0 ? 1 : -1;
+  const paso = G.t * 9;
+  c.fillStyle = "rgba(0,0,0,.24)";
+  c.beginPath(); c.ellipse(x, y + 12, 36, 10, 0, 0, 6.283); c.fill();
+  c.save(); c.translate(x, y); c.scale(mira * 1.22, 1.22);
+  /* el caballo, delante */
+  c.fillStyle = "#8A6A4E";
+  for (const [px, f] of [[26, 0], [40, Math.PI]]){
+    c.save(); c.translate(px, -4);
+    if (trote) c.rotate(Math.sin(paso + f) * .5 * trote);
+    c.fillRect(-2, 0, 4, 16); c.restore();
+  }
+  c.fillStyle = "#9A7A56";
+  rr(c, 22, -22, 26, 16, 7); c.fill();
+  c.fillRect(44, -34, 5, 16);                              // cuello
+  c.beginPath(); c.ellipse(48, -37, 8, 5.5, .2, 0, 6.283); c.fill();
+  c.fillStyle = "#3A2416";
+  c.beginPath(); c.moveTo(44, -42); c.lineTo(45, -48); c.lineTo(49, -42); c.closePath(); c.fill();
+  c.beginPath(); c.arc(52, -38, 1.4, 0, 6.283); c.fill();
+  c.fillStyle = "#C0452F";                                 // la crin
+  for (let k = 0; k < 4; k++) c.fillRect(38 - k*3, -32 + k, 3, 7);
+  /* las varas */
+  c.strokeStyle = "#8A6A3C"; c.lineWidth = 3;
+  c.beginPath(); c.moveTo(20, -12); c.lineTo(-2, -6); c.stroke();
+  /* la cesta del carro */
+  c.fillStyle = "#C9A46A";
+  c.beginPath();
+  c.moveTo(-24, -6); c.lineTo(4, -6); c.lineTo(4, -34);
+  c.quadraticCurveTo(-12, -36, -24, -24); c.closePath(); c.fill();
+  c.fillStyle = "#B08A50";                                 // la sombra de dentro
+  c.beginPath();
+  c.moveTo(-20, -8); c.lineTo(0, -8); c.lineTo(0, -28);
+  c.quadraticCurveTo(-11, -30, -20, -22); c.closePath(); c.fill();
+  c.fillStyle = "#FFD84D";                                 // el filo dorado
+  rr(c, -24, -36, 28, 5, 2); c.fill();
+  c.fillRect(-24, -22, 28, 3);
+  /* la rueda de radios */
+  c.save(); c.translate(-12, 2); c.rotate(trote ? G.t * 6 * mira : 0);
+  c.strokeStyle = "#6A4E30"; c.lineWidth = 3;
+  c.beginPath(); c.arc(0, 0, 13, 0, 6.283); c.stroke();
+  c.lineWidth = 2;
+  for (let k = 0; k < 6; k++){
+    const a = k * 1.047;
+    c.beginPath(); c.moveTo(0, 0); c.lineTo(Math.cos(a) * 13, Math.sin(a) * 13); c.stroke();
+  }
+  c.restore();
+  c.restore();
+}
+
+/* ---- la carabela ----
+   La Santa María de juguete: casco, palo mayor con la cruz y la vela hinchada
+   que ondea. Flota, así que se mece en vez de rodar. */
+function dibujarCarabela(c, x, y, giro, i, trote){
+  const mira = Math.cos(giro) >= 0 ? 1 : -1;
+  const mece = Math.sin(G.t * 1.8 + i) * 0.06;
+  c.fillStyle = "rgba(0,0,0,.2)";
+  c.beginPath(); c.ellipse(x, y + 14, 32, 8, 0, 0, 6.283); c.fill();
+  c.save(); c.translate(x, y); c.rotate(mece); c.scale(mira, 1);
+  /* el casco */
+  c.fillStyle = "#8A5A32";
+  c.beginPath();
+  c.moveTo(-28, -6); c.lineTo(28, -6);
+  c.quadraticCurveTo(22, 12, -18, 12);
+  c.quadraticCurveTo(-28, 10, -28, -6); c.closePath(); c.fill();
+  c.fillStyle = "#6E4526";
+  rr(c, -28, -8, 56, 5, 2); c.fill();
+  c.fillStyle = "#C9A46A";                                 // el castillo de popa
+  rr(c, -28, -20, 16, 14, 3); c.fill();
+  /* el palo y la vela */
+  c.fillStyle = "#6E4526";
+  c.fillRect(2, -52, 4, 46);
+  c.fillStyle = "#FFF6E1";
+  c.beginPath();
+  c.moveTo(4, -48);
+  c.quadraticCurveTo(30 + Math.sin(G.t * 2) * 4, -34, 4, -14);
+  c.closePath(); c.fill();
+  c.strokeStyle = "#E2453C"; c.lineWidth = 3;              // la cruz
+  c.beginPath(); c.moveTo(12, -40); c.lineTo(12, -24); c.stroke();
+  c.beginPath(); c.moveTo(7, -33); c.lineTo(18, -33); c.stroke();
+  /* la banderita del tope */
+  c.fillStyle = "#FFD84D";
+  c.beginPath(); c.moveTo(4, -52); c.lineTo(18, -48); c.lineTo(4, -44); c.closePath(); c.fill();
   c.restore();
 }
 
@@ -2658,6 +3016,15 @@ const MONTURA = {
      jinete sube el doble y se sienta casi sobre la cadera, que es donde
      tendría dónde agarrarse. */
   dino:       { baja: 2,  sube: 50, sombra: 40, atras: 21 },
+  caballo:    { baja: 4,  sube: 30, sombra: 30, atras: 11 },
+  /* En el carro y en la carabela vas DE PIE, no sentado: subes poco y te
+     colocas donde está el hueco, atrás del todo. */
+  carroRomano:{ baja: 6,  sube: 14, sombra: 38, atras: 16 },
+  carabela:   { baja: 8,  sube: 22, sombra: 32, atras: 12 },
+  dragon:     { baja: 0,  sube: 44, sombra: 38, atras: 6 },
+  monster:    { baja: 3,  sube: 26, sombra: 32, atras: 0 },
+  /* En la grúa vas en la cabina, que está adelante y alta. */
+  grua:       { baja: 4,  sube: 24, sombra: 36, atras: -14 },
   /* En el carrito y en la vagoneta vas metido dentro: subes poco y te sientas
      atrás, que es donde está el hueco. */
   carrito:    { baja: 5,  sube: 12, sombra: 26, atras: 6 },
@@ -2711,6 +3078,16 @@ function dibujarTrasto(v, x, y, giro, trote){
     else if (v.tipo === "llama")      dibujarBestia(ctx, x, y, giro, i, "llama", trote);
     else if (v.tipo === "camello")    dibujarBestia(ctx, x, y, giro, i, "camello", trote);
     else if (v.tipo === "dino")       dibujarDino(ctx, x, y, giro, i, trote);
+    else if (v.tipo === "caballo")    dibujarCaballo(ctx, x, y, giro, i, trote);
+    else if (v.tipo === "carroRomano") dibujarCarroRomano(ctx, x, y, giro, i, trote);
+    else if (v.tipo === "carabela")   dibujarCarabela(ctx, x, y, giro, i, trote);
+    else if (v.tipo === "dragon")     dibujarDragon(ctx, x, y, giro, i, trote);
+    else if (v.tipo === "monster")    dibujarMonster(ctx, x, y, giro, i, trote);
+    else if (v.tipo === "grua")       dibujarGrua(ctx, x, y, giro, i, trote);
+    else if (v.tipo === "ladrillo")   dibujarLadrillo(ctx, x, y, giro, i);
+    else if (v.tipo === "barril")     dibujarBarril(ctx, x, y, giro, i);
+    else if (v.tipo === "anfora")     dibujarAnfora(ctx, x, y, giro, i);
+    else if (v.tipo === "cofre")      dibujarCofre(ctx, x, y, giro, i);
     else if (v.tipo === "mata")       dibujarMata(ctx, x, y, giro, i);
     else if (v.tipo === "ovni")       dibujarOvni(ctx, x, y, giro, i, trote);
     else if (v.tipo === "chancla")    dibujarChanclaVoladora(ctx, x, y, giro, i, trote);
@@ -4364,6 +4741,405 @@ function decoCostaVerde(c, E){
    por eso se puede caminar entera una figura sin levantar el pie. Son cinco de
    las famosas: el colibrí, el mono de la cola en espiral, la araña, el cóndor
    y el astronauta de la ladera. */
+/* ---------- La Construcción ----------
+   Torres a medio hacer con el hormigón visto, andamios, montones de arena y
+   grava, y las vallas naranjas. */
+function decoObra(c, E){
+  c.fillStyle = E.mancha;
+  for (let i=0;i<20;i++){
+    const x = azEntre(i+3,0,WORLD_W), y = azEntre(i+31,0,WORLD_H), r = 40+az(i)*60;
+    c.beginPath(); c.ellipse(x,y,r,r*.4,i,0,6.283); c.fill();
+  }
+  /* Rodadas de camión: tramos cortos y por pares, que es como quedan las
+     huellas. De punta a punta parecían un pentagrama sobre la obra. */
+  c.strokeStyle = "rgba(80,70,58,.13)"; c.lineWidth = 6;
+  for (let i=0;i<22;i++){
+    const x0 = azEntre(i+90, 60, WORLD_W-460), y0 = azEntre(i+140, 80, WORLD_H-120);
+    const dx = azEntre(i+7, 260, 420), dy = azEntre(i+17, -70, 70);
+    for (const off of [-9, 9]){
+      c.beginPath(); c.moveTo(x0, y0+off);
+      c.quadraticCurveTo(x0+dx*.5, y0+off+dy, x0+dx, y0+off+dy*.4);
+      c.stroke();
+    }
+  }
+
+  /* los edificios a medio hacer */
+  sembrar(c, 6, 7100, 90, (c,x,y,i) => {
+    const pisos = 3 + (i % 3), an = 120, al = 46;
+    vetoDeco.push({ x:x-an/2-16, y:y-pisos*al-20, w:an+32, h:pisos*al+50 });
+    c.fillStyle = "rgba(0,0,0,.2)";
+    c.beginPath(); c.ellipse(x, y+10, an*.6, 16, 0, 0, 6.283); c.fill();
+    for (let k=0;k<pisos;k++){
+      const py = y - k*al;
+      c.fillStyle = k === pisos-1 ? "#B0A89A" : "#9A9084";   // el último, más claro
+      rr(c, x-an/2, py-al, an, al-4, 2); c.fill();
+      c.fillStyle = "rgba(0,0,0,.22)";                        // los huecos de ventana
+      for (let w=0;w<3;w++) rr(c, x-an/2+14+w*38, py-al+10, 24, 20, 2), c.fill();
+      c.fillStyle = "#8A8478";                                // el forjado
+      c.fillRect(x-an/2-6, py-al-4, an+12, 5);
+    }
+    /* los fierros que asoman arriba, sin doblar */
+    c.strokeStyle = "#A8654A"; c.lineWidth = 3;
+    for (let w=0;w<5;w++){
+      const fx = x-an/2+16+w*22;
+      c.beginPath(); c.moveTo(fx, y-pisos*al-4);
+      c.lineTo(fx+azEntre(i*7+w,-4,4), y-pisos*al-20); c.stroke();
+    }
+    /* el andamio pegado a un lado */
+    c.strokeStyle = "#C9A46A"; c.lineWidth = 3;
+    for (let k=0;k<=pisos;k++){
+      c.beginPath(); c.moveTo(x+an/2, y-k*al); c.lineTo(x+an/2+26, y-k*al); c.stroke();
+    }
+    c.beginPath(); c.moveTo(x+an/2+26, y+8); c.lineTo(x+an/2+26, y-pisos*al); c.stroke();
+  });
+
+  /* montones de arena y de grava */
+  sembrar(c, 9, 7200, 46, (c,x,y,i) => {
+    vetoDeco.push({ x:x-40, y:y-30, w:80, h:50 });
+    const arena = i % 2 === 0;
+    c.fillStyle = "rgba(0,0,0,.2)";
+    c.beginPath(); c.ellipse(x, y+10, 38, 11, 0, 0, 6.283); c.fill();
+    /* Dos tonos y un filo claro arriba: con un solo color plano los montones
+       se leían como charcos grises sobre la tierra. */
+    c.fillStyle = arena ? "#B89A5E" : "#6E6660";
+    c.beginPath();
+    c.moveTo(x-38, y+10); c.quadraticCurveTo(x, y-34, x+38, y+10); c.closePath(); c.fill();
+    c.fillStyle = arena ? "#E8D0A0" : "#9A928A";
+    c.beginPath();
+    c.moveTo(x-38, y+10); c.quadraticCurveTo(x-6, y-32, x+6, y+10); c.closePath(); c.fill();
+    c.strokeStyle = arena ? "#F2E4C0" : "#B8B0A6"; c.lineWidth = 2.5;
+    c.beginPath(); c.moveTo(x-20, y-12); c.quadraticCurveTo(x-2, y-32, x+14, y-10); c.stroke();
+    if (!arena){                                    // piedras sueltas en la grava
+      c.fillStyle = "#6E6660";
+      for (let k=0;k<5;k++)
+        c.fillRect(x-24+k*10, y+azEntre(i*4+k,-6,6), 5, 4);
+    }
+  });
+
+  /* conos, palés y carretillas */
+  sembrar(c, 14, 7300, 26, (c,x,y,i) => {
+    if (i % 3 === 0){                                // palé de ladrillos
+      c.fillStyle = "#8A6A3C"; rr(c, x-16, y+2, 32, 6, 1); c.fill();
+      c.fillStyle = "#B5533A";
+      for (let k=0;k<6;k++) rr(c, x-14+(k%3)*10, y-6-((k/3)|0)*7, 9, 6, 1), c.fill();
+    } else if (i % 3 === 1){                         // cono
+      c.fillStyle = "rgba(0,0,0,.24)";
+      c.beginPath(); c.ellipse(x, y+7, 10, 3.4, 0, 0, 6.283); c.fill();
+      c.fillStyle = "#FF7A1A";
+      c.beginPath(); c.moveTo(x-9, y+7); c.lineTo(x, y-14); c.lineTo(x+9, y+7); c.closePath(); c.fill();
+      c.fillStyle = "#FFF6E1"; c.fillRect(x-5.5, y-4, 11, 4);
+    } else {                                         // carretilla
+      c.fillStyle = "#5A5248";
+      c.beginPath(); c.arc(x-8, y+6, 5, 0, 6.283); c.fill();
+      c.fillStyle = "#FFB020";
+      c.beginPath();
+      c.moveTo(x-14, y-6); c.lineTo(x+12, y-6); c.lineTo(x+6, y+4); c.lineTo(x-10, y+4);
+      c.closePath(); c.fill();
+      c.strokeStyle = "#8A8478"; c.lineWidth = 2.4;
+      c.beginPath(); c.moveTo(x+12, y-6); c.lineTo(x+22, y-2); c.stroke();
+    }
+  });
+}
+
+/* ---------- La Edad Media ----------
+   El castillo con sus torres, casas de entramado, el pozo, campos arados y
+   aldeanos yendo a lo suyo. */
+function decoMedieval(c, E){
+  c.fillStyle = E.mancha;
+  for (let i=0;i<18;i++){
+    const x = azEntre(i+11,0,WORLD_W), y = azEntre(i+41,0,WORLD_H), r = 46+az(i)*66;
+    c.beginPath(); c.ellipse(x,y,r,r*.42,i,0,6.283); c.fill();
+  }
+  /* campos arados: bandas de surcos */
+  for (let b=0;b<4;b++){
+    const bx = azEntre(b+70, 100, WORLD_W-500), by = azEntre(b+80, 100, WORLD_H-380);
+    c.fillStyle = "rgba(120,96,58,.20)";
+    rr(c, bx, by, 380, 260, 10); c.fill();
+    c.strokeStyle = "rgba(90,70,42,.28)"; c.lineWidth = 4;
+    for (let k=0;k<11;k++){
+      c.beginPath(); c.moveTo(bx+10, by+16+k*22); c.lineTo(bx+370, by+16+k*22); c.stroke();
+    }
+  }
+
+  /* el castillo, uno solo y grande */
+  const castillo = huecoGrande(7400, 150, 260, WORLD_H*.6);
+  if (castillo){
+    const [cx, cy] = castillo;
+    vetoDeco.push({ x:cx-130, y:cy-150, w:260, h:200 });
+    c.fillStyle = "rgba(0,0,0,.24)";
+    c.beginPath(); c.ellipse(cx, cy+44, 128, 22, 0, 0, 6.283); c.fill();
+    c.fillStyle = "#9A9184";                          // el cuerpo
+    rr(c, cx-96, cy-70, 192, 114, 4); c.fill();
+    c.fillStyle = "#8A8176";
+    rr(c, cx-96, cy-70, 192, 12, 3); c.fill();
+    for (const tx of [cx-116, cx+76]){                // las dos torres
+      c.fillStyle = "#A8A092"; rr(c, tx, cy-110, 40, 154, 4); c.fill();
+      c.fillStyle = "#8A8176";
+      for (let k=0;k<3;k++) c.fillRect(tx+k*14, cy-120, 9, 12);   // las almenas
+      c.fillStyle = "#C0452F";                        // el tejado cónico
+      c.beginPath();
+      c.moveTo(tx-6, cy-120); c.lineTo(tx+20, cy-152); c.lineTo(tx+46, cy-120);
+      c.closePath(); c.fill();
+      c.fillStyle = "rgba(0,0,0,.3)";                 // la saetera
+      rr(c, tx+16, cy-84, 8, 20, 3); c.fill();
+    }
+    c.fillStyle = "#8A8176";                          // almenas del centro
+    for (let k=0;k<7;k++) c.fillRect(cx-92+k*28, cy-82, 16, 14);
+    c.fillStyle = "#5A3E22";                          // el portón
+    c.beginPath();
+    c.moveTo(cx-24, cy+44); c.lineTo(cx-24, cy-6);
+    c.quadraticCurveTo(cx, cy-34, cx+24, cy-6); c.lineTo(cx+24, cy+44);
+    c.closePath(); c.fill();
+    c.strokeStyle = "#3A2416"; c.lineWidth = 2.5;     // el rastrillo
+    for (let k=1;k<5;k++){
+      c.beginPath(); c.moveTo(cx-24+k*10, cy-16); c.lineTo(cx-24+k*10, cy+44); c.stroke();
+    }
+    c.fillStyle = "#FFD84D";                          // la bandera
+    c.beginPath(); c.moveTo(cx, cy-152); c.lineTo(cx, cy-176); c.lineTo(cx+22, cy-168); c.closePath(); c.fill();
+  }
+
+  /* casas de entramado de madera */
+  sembrar(c, 10, 7500, 56, (c,x,y,i) => {
+    vetoDeco.push({ x:x-44, y:y-64, w:88, h:84 });
+    c.fillStyle = "rgba(0,0,0,.2)";
+    c.beginPath(); c.ellipse(x, y+16, 42, 12, 0, 0, 6.283); c.fill();
+    c.fillStyle = "#E4DCC8";                          // el muro encalado
+    rr(c, x-34, y-30, 68, 46, 2); c.fill();
+    c.strokeStyle = "#5A3E22"; c.lineWidth = 4;       // el entramado
+    c.beginPath(); c.moveTo(x-34, y-14); c.lineTo(x+34, y-14); c.stroke();
+    c.beginPath(); c.moveTo(x-14, y-30); c.lineTo(x-14, y+16); c.stroke();
+    c.beginPath(); c.moveTo(x+14, y-30); c.lineTo(x+14, y+16); c.stroke();
+    c.beginPath(); c.moveTo(x-34, y-30); c.lineTo(x-14, y-14); c.stroke();
+    c.fillStyle = ["#8A4A3C","#6E4526","#7A5C32"][i % 3];   // el tejado a dos aguas
+    c.beginPath();
+    c.moveTo(x-42, y-30); c.lineTo(x, y-64); c.lineTo(x+42, y-30); c.closePath(); c.fill();
+    c.fillStyle = "#3A2416";                          // la puerta
+    rr(c, x-7, y-6, 14, 22, 2); c.fill();
+  });
+
+  /* el pozo, y aldeanos yendo a lo suyo */
+  sembrar(c, 3, 7600, 40, (c,x,y) => {
+    vetoDeco.push({ x:x-26, y:y-40, w:52, h:60 });
+    c.fillStyle = "rgba(0,0,0,.22)";
+    c.beginPath(); c.ellipse(x, y+10, 24, 8, 0, 0, 6.283); c.fill();
+    c.fillStyle = "#8A8478";
+    c.beginPath(); c.ellipse(x, y, 22, 11, 0, 0, 6.283); c.fill();
+    c.fillStyle = "#3A3238";
+    c.beginPath(); c.ellipse(x, y-2, 15, 7, 0, 0, 6.283); c.fill();
+    c.strokeStyle = "#6E4526"; c.lineWidth = 4;
+    c.beginPath(); c.moveTo(x-16, y-4); c.lineTo(x-16, y-34); c.stroke();
+    c.beginPath(); c.moveTo(x+16, y-4); c.lineTo(x+16, y-34); c.stroke();
+    c.fillStyle = "#8A4A3C";
+    c.beginPath(); c.moveTo(x-24, y-34); c.lineTo(x, y-48); c.lineTo(x+24, y-34); c.closePath(); c.fill();
+    c.strokeStyle = "#5A5248"; c.lineWidth = 1.6;
+    c.beginPath(); c.moveTo(x, y-34); c.lineTo(x, y-18); c.stroke();
+    c.fillStyle = "#6E4526"; rr(c, x-5, y-18, 10, 8, 1); c.fill();
+  });
+  sembrar(c, 12, 7700, 24, (c,x,y,i) => {
+    /* aldeanos: los mismos monigotes del juego, en pequeño y de espaldas */
+    const col = ["#8A5A32","#5A6E8A","#8A4A6A","#6E7A46"][i % 4];
+    c.fillStyle = "rgba(0,0,0,.2)";
+    c.beginPath(); c.ellipse(x, y+11, 8, 3, 0, 0, 6.283); c.fill();
+    c.fillStyle = col; rr(c, x-6, y-6, 12, 17, 4); c.fill();
+    c.fillStyle = "#E8B08A";
+    c.beginPath(); c.arc(x, y-11, 6, 0, 6.283); c.fill();
+    c.fillStyle = ["#3A2416","#8A6A3C","#2A1A10"][i % 3];   // el pelo o la caperuza
+    c.beginPath(); c.arc(x, y-13, 6, Math.PI, 0); c.fill();
+  });
+}
+
+/* ---------- Italia ----------
+   El Coliseo, la torre inclinada, cipreses y columnas caídas. */
+function decoItalia(c, E){
+  c.fillStyle = E.mancha;
+  for (let i=0;i<16;i++){
+    const x = azEntre(i+13,0,WORLD_W), y = azEntre(i+43,0,WORLD_H), r = 44+az(i)*62;
+    c.beginPath(); c.ellipse(x,y,r,r*.42,i,0,6.283); c.fill();
+  }
+  /* la vía empedrada, que cruza el mapa */
+  c.fillStyle = "rgba(150,138,120,.35)";
+  c.fillRect(0, WORLD_H*.5-46, WORLD_W, 92);
+  c.fillStyle = "rgba(110,100,86,.30)";
+  for (let x=0;x<WORLD_W;x+=34) for (let k=0;k<3;k++)
+    rr(c, x+((k%2)?17:0), WORLD_H*.5-40+k*30, 28, 24, 4), c.fill();
+
+  /* el Coliseo */
+  const col = huecoGrande(7800, 150, 240, WORLD_H*.62);
+  if (col){
+    const [cx, cy] = col;
+    vetoDeco.push({ x:cx-140, y:cy-110, w:280, h:180 });
+    c.fillStyle = "rgba(0,0,0,.24)";
+    c.beginPath(); c.ellipse(cx, cy+56, 136, 26, 0, 0, 6.283); c.fill();
+    /* el óvalo de fuera, con las arcadas en dos pisos */
+    c.fillStyle = "#D8C8A8";
+    c.beginPath(); c.ellipse(cx, cy, 130, 74, 0, 0, 6.283); c.fill();
+    c.fillStyle = "#C4B292";
+    c.beginPath(); c.ellipse(cx, cy-16, 130, 74, 0, 0, 6.283); c.fill();
+    c.fillStyle = "#E4D8BE";
+    c.beginPath(); c.ellipse(cx, cy-26, 130, 74, 0, 0, 6.283); c.fill();
+    /* la parte derrumbada: media corona más baja */
+    c.fillStyle = "#C4B292";
+    c.beginPath(); c.ellipse(cx, cy-14, 130, 74, 0, 3.6, 5.9); c.lineTo(cx, cy-14); c.fill();
+    c.fillStyle = "#3A3238";                          // la arena de dentro
+    c.beginPath(); c.ellipse(cx, cy-20, 88, 46, 0, 0, 6.283); c.fill();
+    c.fillStyle = "#C9A46A";
+    c.beginPath(); c.ellipse(cx, cy-22, 80, 40, 0, 0, 6.283); c.fill();
+    /* las arcadas */
+    c.fillStyle = "rgba(60,50,38,.55)";
+    for (let k=0;k<18;k++){
+      const a = (k/18)*6.283;
+      const ax = cx + Math.cos(a)*118, ay = cy - 22 + Math.sin(a)*66;
+      if (ay < cy - 40) continue;
+      c.beginPath(); c.ellipse(ax, ay, 7, 12, 0, 0, 6.283); c.fill();
+      c.beginPath(); c.ellipse(ax, ay-22, 6, 10, 0, 0, 6.283); c.fill();
+    }
+  }
+
+  /* la torre inclinada */
+  const torre = huecoGrande(7900, 110, 240, WORLD_H-260);
+  if (torre){
+    const [tx, ty] = torre;
+    vetoDeco.push({ x:tx-70, y:ty-190, w:140, h:220 });
+    c.fillStyle = "rgba(0,0,0,.24)";
+    c.beginPath(); c.ellipse(tx, ty+16, 46, 14, 0, 0, 6.283); c.fill();
+    c.save(); c.translate(tx, ty+16); c.rotate(0.13);      // la inclinación, que es el chiste
+    c.fillStyle = "#F2ECDC";
+    rr(c, -28, -178, 56, 178, 4); c.fill();
+    c.fillStyle = "rgba(0,0,0,.10)"; rr(c, 10, -178, 18, 178, 4); c.fill();
+    c.strokeStyle = "#C4B292"; c.lineWidth = 2;           // los pisos de columnitas
+    for (let k=1;k<7;k++){
+      const yy = -178 + k*25;
+      c.beginPath(); c.moveTo(-28, yy); c.lineTo(28, yy); c.stroke();
+      c.fillStyle = "rgba(120,108,90,.5)";
+      for (let w=0;w<6;w++) c.fillRect(-24+w*9, yy+4, 3, 16);
+    }
+    c.fillStyle = "#E4D8BE";
+    rr(c, -32, -196, 64, 20, 3); c.fill();
+    c.restore();
+  }
+
+  /* cipreses y columnas caídas */
+  sembrar(c, 16, 8000, 40, (c,x,y,i) => {
+    if (i % 3 === 2){                                   // columna caída
+      c.save(); c.translate(x, y); c.rotate(azEntre(i, -.4, .4));
+      c.fillStyle = "rgba(0,0,0,.2)";
+      c.beginPath(); c.ellipse(0, 6, 26, 6, 0, 0, 6.283); c.fill();
+      c.fillStyle = "#E4DCC8";
+      rr(c, -24, -6, 48, 12, 5); c.fill();
+      c.fillStyle = "rgba(0,0,0,.12)";
+      for (const fx of [-12, 0, 12]) c.fillRect(fx, -6, 2, 12);
+      c.restore();
+    } else {                                            // ciprés
+      vetoDeco.push({ x:x-16, y:y-70, w:32, h:84 });
+      c.fillStyle = "rgba(0,0,0,.2)";
+      c.beginPath(); c.ellipse(x, y+10, 14, 5, 0, 0, 6.283); c.fill();
+      c.fillStyle = "#6E4526"; c.fillRect(x-3, y-4, 6, 14);
+      c.fillStyle = ["#2F5A2C","#3E6B36","#254A24"][i % 3];
+      c.beginPath();
+      c.moveTo(x, y-72); c.quadraticCurveTo(x+15, y-30, x+9, y-2);
+      c.lineTo(x-9, y-2); c.quadraticCurveTo(x-15, y-30, x, y-72); c.fill();
+    }
+  });
+}
+
+/* ---------- El Descubrimiento ----------
+   La costa: las tres carabelas fondeadas, chozas de los nativos, hogueras,
+   tótems y palmeras. */
+function decoAmerica(c, E){
+  const mar = G.esc.mar;
+  c.fillStyle = E.mancha;
+  for (let i=0;i<16;i++){
+    const x = azEntre(i+17,0,WORLD_W), y = azEntre(i+47,0,mar-60), r = 44+az(i)*60;
+    c.beginPath(); c.ellipse(x,y,r,r*.42,i,0,6.283); c.fill();
+  }
+  /* el mar y su orilla de espuma */
+  const agua = c.createLinearGradient(0, mar-20, 0, WORLD_H);
+  agua.addColorStop(0, "#4FA8C8"); agua.addColorStop(1, "#1E6E96");
+  c.fillStyle = agua; c.fillRect(0, mar, WORLD_W, WORLD_H-mar);
+  c.fillStyle = "#E8DCB0";
+  for (let x=0;x<WORLD_W;x+=40){
+    c.beginPath(); c.ellipse(x, mar, 30, 12, 0, 0, 6.283); c.fill();
+  }
+  c.strokeStyle = "rgba(255,255,255,.5)"; c.lineWidth = 4;
+  for (let k=0;k<3;k++){
+    c.beginPath();
+    for (let x=0;x<=WORLD_W;x+=40)
+      c[x?"lineTo":"moveTo"](x, mar+26+k*46 + Math.sin(x/120+k)*7);
+    c.stroke();
+  }
+  /* las tres carabelas fondeadas, ahí como decorado */
+  [[0.22, 0.55], [0.44, 0.30], [0.68, 0.62]].forEach(([fx, fy], k) => {
+    const x = WORLD_W*fx, y = mar + (WORLD_H-mar)*fy;
+    c.fillStyle = "rgba(0,0,0,.18)";
+    c.beginPath(); c.ellipse(x, y+12, 34, 8, 0, 0, 6.283); c.fill();
+    c.fillStyle = "#8A5A32";
+    c.beginPath();
+    c.moveTo(x-30, y-6); c.lineTo(x+30, y-6);
+    c.quadraticCurveTo(x+22, y+12, x-18, y+12);
+    c.quadraticCurveTo(x-30, y+8, x-30, y-6); c.closePath(); c.fill();
+    c.fillStyle = "#C9A46A"; rr(c, x-30, y-20, 16, 14, 3); c.fill();
+    c.fillStyle = "#6E4526"; c.fillRect(x+1, y-56, 4, 50);
+    c.fillStyle = "#FFF6E1";
+    c.beginPath(); c.moveTo(x+3, y-52); c.quadraticCurveTo(x+30, y-36, x+3, y-16); c.closePath(); c.fill();
+    c.strokeStyle = "#E2453C"; c.lineWidth = 3;
+    c.beginPath(); c.moveTo(x+12, y-44); c.lineTo(x+12, y-26); c.stroke();
+    c.beginPath(); c.moveTo(x+6, y-36); c.lineTo(x+19, y-36); c.stroke();
+  });
+
+  /* la aldea: chozas de paja */
+  sembrar(c, 9, 8100, 52, (c,x,y,i) => {
+    vetoDeco.push({ x:x-40, y:y-56, w:80, h:74 });
+    c.fillStyle = "rgba(0,0,0,.2)";
+    c.beginPath(); c.ellipse(x, y+14, 38, 11, 0, 0, 6.283); c.fill();
+    c.fillStyle = "#C9A46A";
+    c.beginPath(); c.moveTo(x-36, y+14); c.lineTo(x, y-56); c.lineTo(x+36, y+14); c.closePath(); c.fill();
+    c.strokeStyle = "rgba(120,90,50,.45)"; c.lineWidth = 2;    // las hojas de la paja
+    for (let k=1;k<5;k++){
+      const t = k/5;
+      c.beginPath(); c.moveTo(x-36*t, y+14-70*(1-t)+0); c.lineTo(x+36*t, y+14-70*(1-t)); c.stroke();
+    }
+    c.fillStyle = "#5A3E22";
+    c.beginPath();
+    c.moveTo(x-10, y+14); c.lineTo(x-10, y-6); c.quadraticCurveTo(x, y-16, x+10, y-6);
+    c.lineTo(x+10, y+14); c.closePath(); c.fill();
+  }, mar - 90);
+
+  /* hogueras y palmeras en la playa */
+  sembrar(c, 14, 8200, 30, (c,x,y,i) => {
+    if (i % 2 === 0){                                    // palmera
+      vetoDeco.push({ x:x-26, y:y-64, w:52, h:78 });
+      c.fillStyle = "rgba(0,0,0,.2)";
+      c.beginPath(); c.ellipse(x, y+10, 16, 5, 0, 0, 6.283); c.fill();
+      c.strokeStyle = "#8A6A3C"; c.lineWidth = 7; c.lineCap = "round";
+      c.beginPath(); c.moveTo(x, y+8); c.quadraticCurveTo(x-8, y-24, x-2, y-48); c.stroke();
+      c.fillStyle = "#3E7A4E";
+      for (let k=0;k<6;k++){
+        const a = -Math.PI/2 + (k-2.5)*0.5;
+        c.save(); c.translate(x-2, y-48); c.rotate(a);
+        c.beginPath(); c.ellipse(0, -18, 7, 20, 0, 0, 6.283); c.fill();
+        c.restore();
+      }
+    } else {                                             // hoguera
+      c.fillStyle = "#5A5248";
+      for (let k=0;k<7;k++){
+        const a = k*.9;
+        c.beginPath(); c.ellipse(x+Math.cos(a)*20, y+Math.sin(a)*10, 6, 4, a, 0, 6.283); c.fill();
+      }
+      c.strokeStyle = "#6A4E30"; c.lineWidth = 5; c.lineCap = "round";
+      c.beginPath(); c.moveTo(x-11, y+4); c.lineTo(x+8, y-11); c.stroke();
+      c.beginPath(); c.moveTo(x+11, y+4); c.lineTo(x-8, y-11); c.stroke();
+      c.fillStyle = "#FF8A2B";
+      c.beginPath();
+      c.moveTo(x-9, y-3); c.quadraticCurveTo(x-3, y-20, x, y-30);
+      c.quadraticCurveTo(x+4, y-18, x+9, y-3); c.closePath(); c.fill();
+      c.fillStyle = "#FFD84D";
+      c.beginPath();
+      c.moveTo(x-4, y-3); c.quadraticCurveTo(x, y-13, x+1, y-19);
+      c.quadraticCurveTo(x+3, y-11, x+4, y-3); c.closePath(); c.fill();
+    }
+  }, mar - 40);
+}
+
 /* ---------- La Prehistoria ----------
    Volcanes al fondo, helechos gigantes, huesos a medio enterrar, pozos de brea
    y una cueva con pinturas rupestres. Todo lo que se dibuja aquí es adorno: lo
@@ -4905,6 +5681,57 @@ function unTope(cual, x, y, ang, i){
     rr(ctx, -4.5, -18, 9, 24, 4); ctx.fill();
     ctx.fillStyle = "rgba(150,138,112,.35)";
     ctx.fillRect(-4.5, -8, 3, 14);
+  } else if (cual === "vallaObra"){                   // la valla naranja de obra
+    ctx.fillStyle = "rgba(0,0,0,.25)";
+    ctx.beginPath(); ctx.ellipse(0, 8, 14, 4, 0, 0, 6.283); ctx.fill();
+    ctx.fillStyle = "#5A5248";
+    ctx.fillRect(-2, -4, 4, 12);
+    ctx.fillStyle = "#FF7A1A"; rr(ctx, -15, -14, 30, 11, 2); ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,.85)";           // las rayas
+    for (let k = 0; k < 3; k++){
+      ctx.save(); ctx.beginPath(); ctx.rect(-15, -14, 30, 11); ctx.clip();
+      ctx.beginPath();
+      ctx.moveTo(-14 + k*11, -3); ctx.lineTo(-8 + k*11, -14);
+      ctx.lineTo(-4 + k*11, -14); ctx.lineTo(-10 + k*11, -3);
+      ctx.closePath(); ctx.fill(); ctx.restore();
+    }
+  } else if (cual === "empalizada"){                  // estacas puntiagudas
+    ctx.rotate(az(i) * .3 - .15);
+    ctx.fillStyle = "rgba(0,0,0,.25)";
+    ctx.beginPath(); ctx.ellipse(0, 8, 9, 3.5, 0, 0, 6.283); ctx.fill();
+    ctx.fillStyle = ["#8A6A3C","#7A5C32","#9A7A46"][i % 3];
+    ctx.beginPath();
+    ctx.moveTo(-5, 8); ctx.lineTo(-5, -14); ctx.lineTo(0, -22);
+    ctx.lineTo(5, -14); ctx.lineTo(5, 8); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "rgba(0,0,0,.16)"; ctx.fillRect(1, -14, 4, 22);
+    ctx.strokeStyle = "#5A4526"; ctx.lineWidth = 2;    // la cuerda que las ata
+    ctx.beginPath(); ctx.moveTo(-6, -4); ctx.lineTo(6, -4); ctx.stroke();
+  } else if (cual === "columnas"){                    // columnitas romanas
+    ctx.fillStyle = "rgba(0,0,0,.24)";
+    ctx.beginPath(); ctx.ellipse(0, 9, 11, 4, 0, 0, 6.283); ctx.fill();
+    ctx.fillStyle = "#E4DCC8";
+    rr(ctx, -8, 4, 16, 5, 1); ctx.fill();              // la base
+    rr(ctx, -5, -16, 10, 20, 1); ctx.fill();           // el fuste
+    ctx.fillStyle = "rgba(0,0,0,.12)";                 // las estrías
+    for (const fx of [-2.5, 0.5]) ctx.fillRect(fx, -16, 1.5, 20);
+    ctx.fillStyle = "#F2ECDC";
+    rr(ctx, -8, -20, 16, 5, 1); ctx.fill();            // el capitel
+  } else if (cual === "totems"){                      // tótems tallados
+    ctx.fillStyle = "rgba(0,0,0,.25)";
+    ctx.beginPath(); ctx.ellipse(0, 8, 10, 4, 0, 0, 6.283); ctx.fill();
+    ctx.fillStyle = "#8A5A32";
+    rr(ctx, -7, -22, 14, 30, 3); ctx.fill();
+    const cols = ["#E2453C","#FFD84D","#5CE1EA"];
+    for (let k = 0; k < 3; k++){                       // las caras pintadas
+      ctx.fillStyle = cols[(i + k) % 3];
+      ctx.fillRect(-7, -20 + k*9, 14, 3);
+      ctx.fillStyle = "#2A1A10";
+      ctx.beginPath(); ctx.arc(-3, -15 + k*9, 1.3, 0, 6.283); ctx.fill();
+      ctx.beginPath(); ctx.arc(3, -15 + k*9, 1.3, 0, 6.283); ctx.fill();
+    }
+    ctx.fillStyle = "#C9A46A";                         // las alas del remate
+    ctx.beginPath(); ctx.moveTo(-7, -22); ctx.lineTo(-14, -26); ctx.lineTo(-7, -18); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(7, -22); ctx.lineTo(14, -26); ctx.lineTo(7, -18); ctx.closePath(); ctx.fill();
   } else if (cual === "postes"){                      // los de madera del tren
     ctx.fillStyle = "rgba(0,0,0,.25)";
     ctx.beginPath(); ctx.ellipse(0, 8, 9, 3.5, 0, 0, 6.283); ctx.fill();
@@ -4967,6 +5794,10 @@ function pintarSuelo(){
   else if (E.deco === "circuito") decoCircuito(c, E);
   else if (E.deco === "costa")    decoCostaVerde(c, E);
   else if (E.deco === "prehistoria") decoPrehistoria(c, E);
+  else if (E.deco === "obra")     decoObra(c, E);
+  else if (E.deco === "medieval") decoMedieval(c, E);
+  else if (E.deco === "italia")   decoItalia(c, E);
+  else if (E.deco === "america")  decoAmerica(c, E);
   else if (E.deco === "volcan")   decoVolcan(c, E);
   else if (E.deco === "luna")     decoLuna(c, E);
 

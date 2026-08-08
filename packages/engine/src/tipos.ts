@@ -198,10 +198,12 @@ export type TipoTrasto =
   // se montan
   | "bici" | "patineta" | "tabla" | "flotador" | "tablaArena"
   | "balsa" | "llama" | "camello" | "carrito" | "vagoneta" | "dino"
+  | "caballo" | "carroRomano" | "carabela"
   // los especiales: no se encuentran tirados, se ganan o se compran
-  | "ovni" | "chancla" | "condor" | "amaru"
+  | "ovni" | "chancla" | "condor" | "amaru" | "dragon" | "monster" | "grua"
   // se patean
-  | "pelota" | "mata" | "coco" | "piedra" | "dado" | "caparazon";
+  | "pelota" | "mata" | "coco" | "piedra" | "dado" | "caparazon"
+  | "ladrillo" | "barril" | "anfora" | "cofre";
 
 export interface Trasto {
   id: number;

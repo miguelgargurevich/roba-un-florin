@@ -153,6 +153,11 @@ export const VEHICULOS: Record<string, Vehiculo> = {
      diferencia lo más grande: si vas montado en un tiranosaurio, tiene que
      notarse desde el otro lado del mapa. */
   dino:       { mult:1.9,  agua:false, label:"dinosaurio",    icon:"🦖" },
+  caballo:    { mult:1.65, agua:false, label:"caballo",       icon:"🐴" },
+  carroRomano:{ mult:1.8,  agua:false, label:"carro romano",  icon:"🏇" },
+  /* La carabela es de agua, como la balsa: en El Descubrimiento el mar es
+     medio mapa y cruzarlo es la gracia. */
+  carabela:   { mult:1.7,  agua:true,  label:"carabela",      icon:"⛵" },
 
   /* ---- los especiales ----
      No se encuentran tirados por el mapa: se ganan en la Ruleta o se compran
@@ -163,6 +168,13 @@ export const VEHICULOS: Record<string, Vehiculo> = {
   chancla:    { mult:1.95, agua:true,  label:"chancla voladora", icon:"🩴" },
   condor:     { mult:2.0,  agua:true,  label:"cóndor",        icon:"🦅" },
   amaru:      { mult:2.2,  agua:true,  label:"Amaru",         icon:"🐉" },
+  /* Estos tres tienen tierra propia y allí se encuentran tirados (ver
+     `esDeSuTierra`): comprarlos es poder llevártelos a los otros quince mapas.
+     Los dos de obra no vuelan —una grúa que flota no la quiere nadie—, así que
+     rompen la regla de que todo especial cruza el agua. */
+  dragon:     { mult:2.15, agua:true,  label:"dragón",        icon:"🐲" },
+  monster:    { mult:2.0,  agua:false, label:"monster truck", icon:"🛻" },
+  grua:       { mult:1.95, agua:false, label:"grúa",          icon:"🏗️" },
 };
 
 /** Lo que cuesta cada especial en el Garaje, y qué hay que haber hecho antes.
@@ -173,7 +185,23 @@ export const GARAJE: { tipo: string; precio: number; comoSale: string }[] = [
   { tipo:"condor",  precio: 120_000, comoSale:"El cóndor de la sierra. Vuela por encima de todo." },
   { tipo:"ovni",    precio: 300_000, comoSale:"El platillo de los Marcianos. Nadie sabe cómo lo consiguieron." },
   { tipo:"amaru",   precio: 750_000, comoSale:"La serpiente alada. Lo más rápido que hay, y no es discutible." },
+  /* Los tres con tierra propia. Cuestan menos que los que solo salen del
+     Garaje: al fin y al cabo, si te vas a su mapa lo montas gratis. Lo que
+     compras es poder sacarlo de ahí. */
+  { tipo:"monster", precio: 60_000,  comoSale:"El de las ruedas gigantes. En La Construcción hay uno; comprarlo es sacarlo de la obra." },
+  { tipo:"grua",    precio: 90_000,  comoSale:"El camión con la pluma y los fierros colgando. Vive en La Construcción." },
+  { tipo:"dragon",  precio: 500_000, comoSale:"El de la Edad Media. Escupe fuego, vuela y no le teme al agua." },
 ];
+
+/* Los tres de arriba SÍ se encuentran tirados, pero solo en su tierra: hay
+   dragones en la Edad Media y grúas en la obra. Comprarlos en el Garaje es
+   poder llevárselos a los otros mapas, que es lo que le da sentido al precio.
+   El resto de especiales no aparecen en ninguna parte. */
+export const TIERRA_DEL_ESPECIAL: Record<string, string> = {
+  dragon: "medieval", monster: "construccion", grua: "construccion",
+};
+export const esDeSuTierra = (tipo: string, escenario: string) =>
+  TIERRA_DEL_ESPECIAL[tipo] === escenario;
 export const esEspecial = (tipo: string) => GARAJE.some(g => g.tipo === tipo);
 export const esVehiculo = (tipo: string) => tipo in VEHICULOS;
 
@@ -202,6 +230,10 @@ export const TRASTOS_ESCENARIO: Record<string, { tipo: string; n: number }[]> = 
   circuito:    [{ tipo:"carrito", n:5 },    { tipo:"caparazon", n:7 }],
   costaverde:  [{ tipo:"bici", n:5 },       { tipo:"patineta", n:4 }, { tipo:"pelota", n:5 }],
   prehistoria: [{ tipo:"dino", n:4 },       { tipo:"piedra", n:8 },   { tipo:"coco", n:5 }],
+  construccion:[{ tipo:"grua", n:2 },       { tipo:"monster", n:2 },  { tipo:"ladrillo", n:9 }, { tipo:"barril", n:5 }],
+  medieval:    [{ tipo:"caballo", n:4 },    { tipo:"dragon", n:2 },   { tipo:"barril", n:7 }],
+  italia:      [{ tipo:"carroRomano", n:3 },{ tipo:"caballo", n:3 },  { tipo:"anfora", n:8 }],
+  america:     [{ tipo:"carabela", n:3 },   { tipo:"caballo", n:3 },  { tipo:"cofre", n:6 }],
   volcan:      [{ tipo:"carrito", n:4 },    { tipo:"piedra", n:8 }],
   luna:        [{ tipo:"carrito", n:5 },    { tipo:"piedra", n:7 }],
 };
@@ -420,6 +452,10 @@ export const ESPECIAL_NIVEL: Record<string, Potenciador> = {
   circuito:    { id:"seta",        icon:"🍄", nombre:"Súper seta",          efecto:"turbo" },
   costaverde:  { id:"parapente",   icon:"🪂", nombre:"Parapente",           efecto:"fantasma" },
   prehistoria: { id:"meteorito",   icon:"☄️", nombre:"Meteorito",           efecto:"rayo" },
+  construccion:{ id:"viga",        icon:"🏗️", nombre:"Viga de acero",       efecto:"rayo" },
+  medieval:    { id:"llamarada",   icon:"🔥", nombre:"Llamarada",           efecto:"cascara" },
+  italia:      { id:"pizza",       icon:"🍕", nombre:"Pizza voladora",      efecto:"turbo" },
+  america:     { id:"vientoPopa",  icon:"🌬️", nombre:"Viento en popa",      efecto:"turbo" },
   volcan:      { id:"erupcion",    icon:"🌋", nombre:"Erupción",            efecto:"rayo" },
   luna:        { id:"gravedad",    icon:"🌕", nombre:"Gravedad cero",       efecto:"fantasma" },
 };
@@ -776,6 +812,30 @@ export const ESCENARIOS: Escenario[] = ([
     casas:[sitio(0,0.008),sitio(1,0.008),sitio(1,0.992),sitio(0.236,0.992)],
     patios:[sitio(0,0.992),sitio(0,0.656),sitio(0,0.328)],
     circuito: trazar(RINON, medioX(), alto(0.5), ancho(0.885), alto(0.8), true) },
+  /* Los cuatro de historia. Cada uno trae su vehículo: la grúa y el monster de
+     la obra, el dragón de la Edad Media, el carro romano y la carabela. Los
+     tres primeros además se compran en el Garaje, que es lo que permite
+     sacarlos de su mapa (ver `TIERRA_DEL_ESPECIAL`). */
+  { id:"construccion", nombre:"La Construcción",
+    casas:[sitio(0,0.008),sitio(1,0.008),sitio(1,0.992),sitio(0,0.992)],
+    patios:[sitio(0.236,0.008),sitio(0,0.5),sitio(0.236,0.992)],
+    circuito: trazar(ZIGZAG, medioX(), alto(0.5), ancho(0.885), alto(0.8)) },
+  { id:"medieval",   nombre:"La Edad Media",
+    casas:[sitio(0,0.008),sitio(0.236,0.008),sitio(1,0.508),sitio(0,0.992)],
+    patios:[sitio(1,0.008),sitio(0.784,0.992),sitio(1,0.992)],
+    circuito: trazar(TREBOL, medioX(), alto(0.5), ancho(0.885), alto(0.8), true) },
+  { id:"italia",     nombre:"Italia",
+    casas:[sitio(0,0.008),sitio(1,0.008),sitio(1,0.992),sitio(0.236,0.992)],
+    patios:[sitio(0,0.508),sitio(0.236,0.008),sitio(0,0.992)],
+    circuito: trazar(RINON, medioX(), alto(0.5), ancho(0.885), alto(0.8), true) },
+  /* El mar al sur: cruzarlo en carabela es la gracia del sitio, así que la
+     pista se recorta por encima de la orilla como en los demás de costa. */
+  { id:"america",    nombre:"El Descubrimiento",
+    casas:[sitio(0,0),sitio(0.236,0),sitio(0.745,0),sitio(0.99,0)],
+    patios:[sitio(0,0.361),sitio(0.15,0.361),sitio(0,0.656)],
+    mar: alto(0.855),
+    circuito: trazar(HERRADURA, medioX(), alto(0.415), ancho(0.885), alto(0.68)) },
+
   { id:"luna",       nombre:"La Luna",
     casas:[sitio(0,0.008),sitio(1,0.008),sitio(1,0.508),sitio(1,0.992)],
     patios:[sitio(0,0.992),sitio(0.216,0.992),sitio(0,0.672)],

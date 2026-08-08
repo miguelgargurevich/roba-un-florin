@@ -6,7 +6,7 @@
 import { describe, expect, it } from "vitest";
 import {
   CIRCUITOS, ESCENARIOS, ESCUDO_DUR, FLORES, GARAJE, GOAL, HITO_R, JUGADORES_MAX,
-  VEHICULOS, VUELTAS, ANCHO_PISTA, CASAS_POR_MAPA, PATIOS_PRECIO,
+  VEHICULOS, VUELTAS, ANCHO_PISTA, CASAS_POR_MAPA, PATIOS_PRECIO, TIERRA_DEL_ESPECIAL,
   PORTAL_CADA, PORTAL_MAX, PORTAL_VUELTA, TRASTOS_ESCENARIO, CAJAS_EN_PISTA, ESPECIAL_NIVEL, darleVehiculo,
   enLaPista, esEspecial, potenciadorPorId, potenciadoresDe, trastoDe, usarPotenciador,
   vehiculoDelSitio,
@@ -99,8 +99,8 @@ describe("el mundo se monta bien", () => {
     expect(baseDe(e, e.players[1].baseId).name).toBe("Patio del J2");
   });
 
-  it("todos los escenarios se pueden montar, y son dieciséis", () => {
-    expect(ESCENARIOS.length).toBe(16);
+  it("todos los escenarios se pueden montar, y son veinte", () => {
+    expect(ESCENARIOS.length).toBe(20);
     for (const esc of ESCENARIOS) {
       const e = partida({ escenario: esc.id });
       expect(e.esc.id, esc.id).toBe(esc.id);
@@ -1407,8 +1407,32 @@ describe("carrera", () => {
     expect(trastoDe(e, e.players[0].montado)!.tipo).toBe("dino");
   });
 
-  it("los especiales vuelan: el agua no los para", () => {
-    for (const g of GARAJE) expect(VEHICULOS[g.tipo].agua, g.tipo).toBe(true);
+  it("los de tierra propia se encuentran allí, y solo allí", () => {
+    /* Es lo que le da sentido a comprarlos: en su mapa los montas gratis, y lo
+       que pagas en el Garaje es poder sacarlos de ahí. */
+    for (const [tipo, donde] of Object.entries(TIERRA_DEL_ESPECIAL)) {
+      const suyo = partida({ escenario: donde });
+      expect(suyo.trastos.some(t => t.tipo === tipo),
+             tipo + " no aparece en " + donde).toBe(true);
+      for (const esc of ESCENARIOS) {
+        if (esc.id === donde) continue;
+        const otro = partida({ escenario: esc.id });
+        expect(otro.trastos.some(t => t.tipo === tipo),
+               tipo + " apareció tirado en " + esc.id).toBe(false);
+      }
+    }
+  });
+
+  it("los especiales vuelan, menos los de obra", () => {
+    /* Volar era la marca de la casa de los especiales, hasta que llegaron la
+       grúa y el monster truck: un camión de obra que flota sobre el mar no lo
+       quiere nadie. Los que no vuelan son exactamente los que tienen tierra
+       propia y se encuentran tirados allí. */
+    for (const g of GARAJE) {
+      const vuela = VEHICULOS[g.tipo].agua;
+      const deObra = !!TIERRA_DEL_ESPECIAL[g.tipo] && g.tipo !== "dragon";
+      expect(vuela, g.tipo).toBe(!deObra);
+    }
     // y son más rápidos que cualquier cosa que se encuentre tirada
     const normales = Object.entries(VEHICULOS)
       .filter(([k]) => !esEspecial(k)).map(([, v]) => v.mult);

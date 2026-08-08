@@ -125,6 +125,30 @@ export const VISUALES = {
     suelo: "#3A3238", loseta: "rgba(255,255,255,.04)", mancha: "rgba(20,16,20,.35)",
     borde: "#1E1A1E", deco: "volcan", topes: "piedras",
   },
+  construccion: {
+    icono: "🏗️",
+    desc: "La obra: torres a medio hacer, andamios, montones de arena, conos y una grúa moviendo fierros. Aquí viven la grúa y el monster truck.",
+    suelo: "#8A7862", loseta: "rgba(255,255,255,.06)", mancha: "rgba(60,50,38,.26)",
+    borde: "#5E564C", deco: "obra", topes: "vallaObra",
+  },
+  medieval: {
+    icono: "🏰",
+    desc: "La villa amurallada: casas de madera, el castillo, el pozo, campos de cultivo y aldeanos. Y dragones, que aquí son de la casa.",
+    suelo: "#7E8A5E", loseta: "rgba(255,255,255,.05)", mancha: "rgba(52,60,38,.26)",
+    borde: "#4A5432", deco: "medieval", topes: "empalizada",
+  },
+  italia: {
+    icono: "🇮🇹",
+    desc: "El Coliseo, la torre inclinada, los cipreses y las columnas. Se corre en carro romano por la vía empedrada.",
+    suelo: "#C4A886", loseta: "rgba(255,255,255,.07)", mancha: "rgba(120,96,68,.22)",
+    borde: "#8A6E4A", deco: "italia", topes: "columnas",
+  },
+  america: {
+    icono: "🧭",
+    desc: "La costa del Descubrimiento: las tres carabelas fondeadas, las chozas de los nativos, hogueras, tótems y palmeras.",
+    suelo: "#B8A272", loseta: "rgba(255,255,255,.06)", mancha: "rgba(110,94,58,.24)",
+    borde: "#7A6640", deco: "america", topes: "totems",
+  },
   luna: {
     icono: "🌕",
     desc: "Polvo gris, cráteres, la bandera, el módulo lunar y la Tierra saliendo por el horizonte.",
