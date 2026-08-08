@@ -23,6 +23,10 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Última sesión
 
+- 2026-08-07 (claude-code): bots en los asientos libres de una sala, y tres
+  cosas que estaban rotas y no se sabía: la Ruleta no rodaba, ni la Ruleta ni
+  la Armería llegaban al servidor en una sala, y soltar el Florín no hacía nada.
+
 - 2026-08-07 (claude-code): primera prueba de multijugador con dos clientes
   independientes contra producción (ver decisiones y gotchas). Salieron dos
   fallos: el ritmo de ticks y el despliegue de salas que nunca desplegaba.
@@ -43,10 +47,9 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
       aparte, 220 ms de ida y vuelta): la sala, la lista de gente, el
       movimiento y la caída funcionan. Lo que sigue sin probarse es dos
       personas de carne y hueso, cada una con su teléfono y su red.
-- [ ] **Los asientos vacíos de una sala son estatuas.** Con dos jugadores, los
-      otros tres huecos son muñecos plantados en su patio: `Sala.avanzar` les
-      pasa `QUIETO` porque no hay bots que los jueguen. Se pidió que los bots
-      rellenaran los sitios libres y eso está sin hacer.
+- [ ] **Bots también fuera de las salas.** `pensarBot` vive en el motor y lo usa
+      la sala; jugando solo en el navegador sigues sin vecinos que jueguen.
+      Se pidió "el mínimo si quiero jugar solo con bots".
 - [ ] Resolver la pregunta de derechos sobre Invictor / Florín **antes** de
       monetizar nada. Incluye las cuatro marcas de juguete, que ahora salen con
       su nombre en el selector de escenario.
@@ -81,6 +84,9 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Gotchas
 
+- `window.prueba` (colocar al jugador, darle dinero, cargarle un Florín) existe
+  **solo en desarrollo**: va dentro de `if (import.meta.env.DEV)` y Vite lo
+  borra del build. Úsalo en vez de andamios de usar y tirar.
 - **`docker restart` NO despliega el servidor de salas.** Reinicia el contenedor
   con la imagen con la que se creó: puedes reconstruir la imagen y seguir
   sirviendo el código viejo. Hay que recrear el contenedor —
