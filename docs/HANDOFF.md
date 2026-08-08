@@ -8,13 +8,14 @@ Monorepo con workspaces npm:
 
 | Paquete | Qué es |
 |---|---|
-| `packages/engine` | el juego sin navegador: determinista, JSON serializable, 91 pruebas |
+| `packages/engine` | el juego sin navegador: determinista, JSON serializable, 93 pruebas |
 | `apps/web` | el cliente (Vite + canvas 2D). Solo dibuja y escucha teclas |
 | `apps/api` | cuentas, álbum y guardado (.NET 9, Clean Arch + CQRS), 32 pruebas |
-| `apps/salas` | servidor de salas autoritativo (Node + `ws`), 19 pruebas |
+| `apps/salas` | servidor de salas autoritativo (Node + `ws`), 27 pruebas |
 
-Funciona: un jugador, salas online hasta 5 (modo aventura y versus), 8
-escenarios, cuentas con guardado en la nube, álbum y ranking. Se publica en
+Funciona: un jugador, salas online hasta 5 (modo aventura y versus) con bots
+en los asientos libres, 12 escenarios, cuentas con guardado en la nube, álbum
+y ranking. Se publica en
 GitHub Pages y en el VPS (ver `/opt/florin-api/LEEME.md` en el servidor: es el
 runbook de despliegue, con los cuatro contenedores y el rollback).
 
@@ -23,16 +24,19 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Última sesión
 
-- 2026-08-07 (claude-code): bots en los asientos libres de una sala, y tres
-  cosas que estaban rotas y no se sabía: la Ruleta no rodaba, ni la Ruleta ni
-  la Armería llegaban al servidor en una sala, y soltar el Florín no hacía nada.
+- 2026-08-07 (claude-code): bots en los asientos libres de una sala; la Ruleta
+  no rodaba (nadie repintaba el panel), ni la Ruleta ni la Armería llegaban al
+  servidor en una sala, y soltar el Florín no hacía nada (se recogía solo en el
+  acto). Además: `girarRuleta`/`comprarArma` ahora exigen estar dentro en el
+  MOTOR y no solo en la interfaz; botón 🏠 para volver al inicio o al lobby; y
+  fuera los iconos repetidos de Armería y Ruleta de la barra de arriba.
 
 - 2026-08-07 (claude-code): primera prueba de multijugador con dos clientes
   independientes contra producción (ver decisiones y gotchas). Salieron dos
   fallos: el ritmo de ticks y el despliegue de salas que nunca desplegaba.
 
-- 2026-08-07 (claude-code): cuatro escenarios de juguete (Pista Naranja, El
-  Tablero, El Mirador, El Circuito) con cuatro trastos nuevos, y el arreglo del
+- 2026-08-07 (claude-code): cuatro escenarios de juguete (Hot Wheels, Monopoly,
+  Thomas y el Mirador, Mario Kart) con cuatro trastos nuevos, y el arreglo del
   reloj de la fauna (ver decisiones).
 
 - 2026-08-07 (claude-code): botón para soltar el Florín que llevas, el jinete
@@ -42,6 +46,11 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Próximos pasos
 
+- [ ] **Promover a producción.** Todo lo de esta última tanda —bots, Ruleta,
+      soltar, botón de inicio— está en staging (`nuevo.florin.gargurevich.dev`),
+      no en `florin.gargurevich.dev`.
+- [ ] **¿Los bots son demasiado buenos?** 13 robos en 75 s medidos contra
+      producción. Se frenan con `REPENSAR` y con el `PEGADO` de `bot.ts`.
 - [ ] **Dos personas de verdad, cada una en su aparato.** Ya hay una prueba con
       dos clientes independientes contra producción (navegador + proceso
       aparte, 220 ms de ida y vuelta): la sala, la lista de gente, el
