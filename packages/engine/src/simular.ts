@@ -15,7 +15,7 @@ import type {
 import {
   ESCUDO_DUR, GOAL, LADRONES, LASER_CARGA, RULETA, RULETA_INCOGNITA, RULETA_PRECIO,
   PATADA, PORTAL_CADA, PORTAL_MAX, PORTAL_RAREZAS, PORTAL_VUELTA,
-  LASER_DUR, LASER_PRECIO, LASER_RECARGA, RODAR_ROCE, TRASTO_ALCANCE,
+  LASER_DUR, LASER_PRECIO, LASER_RECARGA, RODAR_ROCE, TRASTO_ALCANCE, HITO_R, VUELTAS,
   TIERS, VARIANTES, VEHICULOS, WEAPONS, WORLD_H, WORLD_W, esVehiculo, varLabel, varMult,
 } from "./datos.js";
 import { azar, clamp, dist2, inRect, lerp, money, pick, rnd, tiraDeTabla } from "./util.js";
@@ -477,6 +477,78 @@ export function usarArma(e: Estado, p: Jugador) {
    El tick
    ============================================================ */
 
+/* ============================================================
+   Carrera
+   ============================================================
+   Las vueltas se cuentan por puntos de paso EN ORDEN: por eso no sirve dar
+   media vuelta ni cortar por el medio. El punto 0 es la meta. */
+
+/** Cuántos puntos de paso lleva hechos, para ordenar la parrilla. */
+function avanceDe(e: Estado, p: Jugador): number {
+  const c = e.esc.circuito!;
+  const r = p.carrera!;
+  return r.vuelta * c.length + r.hito;
+}
+
+/** El orden de la carrera ahora mismo: primero el que va más adelante. */
+export function puestosDeCarrera(e: Estado): Jugador[] {
+  const c = e.esc.circuito;
+  if (!c) return e.players.slice();
+  return e.players.slice().sort((a, b) => {
+    const ra = a.carrera, rb = b.carrera;
+    if (!ra || !rb) return 0;
+    // el que ya terminó va por delante, y entre ellos por orden de llegada
+    if (ra.fin >= 0 || rb.fin >= 0) {
+      if (ra.fin < 0) return 1;
+      if (rb.fin < 0) return -1;
+      return ra.fin - rb.fin;
+    }
+    const d = avanceDe(e, b) - avanceDe(e, a);
+    if (d) return d;
+    // empatados en puntos de paso, gana el que esté más cerca del siguiente
+    const [hx, hy] = c[ra.hito % c.length];
+    return dist2(a.x, a.y, hx, hy) - dist2(b.x, b.y, hx, hy);
+  });
+}
+
+/** En qué puesto va uno, empezando por 1. */
+export const puestoDe = (e: Estado, p: Jugador): number =>
+  puestosDeCarrera(e).indexOf(p) + 1;
+
+function pasoCarrera(e: Estado, dt: number): void {
+  const c = e.esc.circuito;
+  if (!c || !c.length) return;
+  for (const p of e.players) {
+    const r = (p.carrera ??= { vuelta: 0, hito: 1, fin: -1 });
+    if (r.fin >= 0) continue;
+    const [hx, hy] = c[r.hito % c.length];
+    if (dist2(p.x, p.y, hx, hy) > HITO_R * HITO_R) continue;
+
+    r.hito++;
+    if (r.hito > c.length) {          // pasó por meta
+      r.hito = 1;
+      r.vuelta++;
+      if (r.vuelta >= VUELTAS) {
+        r.fin = e.t;
+        const puesto = e.players.filter(q => q.carrera && q.carrera.fin >= 0).length;
+        texto(e, p.x, p.y - 80, puesto === 1 ? "¡GANASTE!" : puesto + "º", "#FFC53D");
+        polvo(e, p.x, p.y - 20, "#FFC53D", 26);
+        sonar(e, "win");
+        e.eventos.push({ t: "meta", jugador: p.idx, puesto, segundos: e.t });
+        /* Se acaba cuando llega el primero: esperar a los últimos es aburrido
+           y en una sala nadie quiere mirar cómo remolonea un bot. */
+        if (puesto === 1) {
+          e.over = true; e.winnerIdx = p.idx;
+          e.eventos.push({ t: "fin", ganador: p.idx });
+        }
+      } else {
+        texto(e, p.x, p.y - 74, "Vuelta " + (r.vuelta + 1) + "/" + VUELTAS, "#5CE1EA");
+        sonar(e, "place");
+      }
+    }
+  }
+}
+
 export function avanzar(e: Estado, entradas: Record<number, EntradaJugador>, dt: number) {
   e.eventos.length = 0;
   if (e.over) return e;
@@ -530,6 +602,9 @@ export function avanzar(e: Estado, entradas: Record<number, EntradaJugador>, dt:
   }
 
   /* ---- ladrones ---- */
+  /* En carrera no hay vecinos: ni ladrones, ni abuelas, ni desfile. Una abuela
+     persiguiéndote mientras das vueltas no es gracioso, es ruido. */
+  if (e.reglas.vecinos) {
   e.thiefTimer -= dt;
   if (e.thiefTimer <= 0) {
     spawnThief(e);
@@ -727,6 +802,7 @@ export function avanzar(e: Estado, entradas: Record<number, EntradaJugador>, dt:
       if (ped) { ped.florin = nuevoFlorin(e, rollTier(e), { bob: rnd(e, 0, 6.28) }); ped.pop = 1; }
     }
   }
+  }   // fin de `if (e.reglas.vecinos)`
 
   /* ---- cáscaras ---- */
   for (let i = e.cascaras.length - 1; i >= 0; i--) {
@@ -789,6 +865,7 @@ export function avanzar(e: Estado, entradas: Record<number, EntradaJugador>, dt:
 
   /* ---- el desfile del portal ---- */
   const P = e.portal;
+  if (e.reglas.vecinos) {
   P.timer -= dt;
   if (P.timer <= 0) { P.timer = PORTAL_CADA; sacarDelPortal(e); }
   for (let i = P.desfile.length - 1; i >= 0; i--) {
@@ -800,6 +877,7 @@ export function avanzar(e: Estado, entradas: Record<number, EntradaJugador>, dt:
     d.face = q.x >= d.x ? 1 : -1;
     d.x = q.x; d.y = q.y;
     d.florin.bob += dt * 4.2;
+  }
   }
 
   /* ---- ruleta ---- */
@@ -850,6 +928,8 @@ export function avanzar(e: Estado, entradas: Record<number, EntradaJugador>, dt:
   } else {
     e.alarma = null;
   }
+
+  if (e.reglas.modo === "carrera") { pasoCarrera(e, dt); return e; }
 
   /* ---- la meta: la vitrina ----
 

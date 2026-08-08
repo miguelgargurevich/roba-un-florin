@@ -33,7 +33,7 @@ export const ESPERA_VUELTA = 45;
 /* ---- lo que manda el cliente ---- */
 export type DelCliente =
   | { t: "entrar"; token?: string; codigo?: string; escenario?: string; apodo?: string;
-      modo?: "aventura" | "versus" }
+      modo?: "aventura" | "versus" | "carrera" }
   | { t: "entrada"; mover: { x: number; y: number }; apunta: { x: number; y: number } | null }
   | { t: "arma"; i: number }
   | { t: "comprar"; i: number }

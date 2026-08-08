@@ -164,6 +164,10 @@ export const TRASTOS_ESCENARIO: Record<string, { tipo: string; n: number }[]> = 
   tablero:     [{ tipo:"carrito", n:3 },    { tipo:"dado", n:8 }],
   mirador:     [{ tipo:"vagoneta", n:4 },   { tipo:"piedra", n:7 }],
   circuito:    [{ tipo:"carrito", n:5 },    { tipo:"caparazon", n:7 }],
+  costaverde:  [{ tipo:"bici", n:5 },       { tipo:"patineta", n:4 }, { tipo:"pelota", n:5 }],
+  nazca:       [{ tipo:"tablaArena", n:4 }, { tipo:"carrito", n:3 },  { tipo:"piedra", n:6 }],
+  volcan:      [{ tipo:"carrito", n:4 },    { tipo:"piedra", n:8 }],
+  luna:        [{ tipo:"carrito", n:5 },    { tipo:"piedra", n:7 }],
 };
 
 export const RULETA_PRECIO = 1200;
@@ -265,26 +269,84 @@ export const VARIANTES = {
 };
 /* Los escenarios: aquí solo va el REPARTO (lo que afecta al juego).
    El suelo, los colores y el decorado son cosa de quien dibuja. */
+/* ---- circuitos ----
+   Un circuito son puntos de paso en bucle. El motor solo necesita eso: te
+   cuenta la vuelta cuando los tocas EN ORDEN, que es lo que impide cortar por
+   el medio. El dibujo de la pista lo pone el cliente uniendo los mismos
+   puntos, así que lo que se ve y lo que se corre no pueden separarse. */
+
+/** Cuántas vueltas dura una carrera. */
+export const VUELTAS = 3;
+/** A qué distancia cuenta que pasaste por un punto. Generoso a propósito: esto
+    no es un simulador, y un niño no debería perder por pasar a 20 px. */
+export const HITO_R = 170;
+
+/** Un óvalo de `n` puntos. La mayoría de los circuitos son esto, deformado. */
+function ovalo(cx: number, cy: number, rx: number, ry: number, n = 16, giro = 0):
+    [number, number][] {
+  return Array.from({ length: n }, (_, i) => {
+    const a = giro + (i / n) * Math.PI * 2;
+    return [Math.round(cx + Math.cos(a) * rx), Math.round(cy + Math.sin(a) * ry)];
+  }) as [number, number][];
+}
+
+/** Un rectángulo con las esquinas comidas: para las cuadras y los tableros,
+    donde un óvalo se ve fuera de sitio. */
+function rectangulo(cx: number, cy: number, w: number, h: number, n = 20): [number, number][] {
+  const x0 = cx - w / 2, x1 = cx + w / 2, y0 = cy - h / 2, y1 = cy + h / 2;
+  const r = Math.min(w, h) * 0.22;
+  const lados: [number, number][][] = [
+    [[x0 + r, y0], [x1 - r, y0]],
+    [[x1, y0 + r], [x1, y1 - r]],
+    [[x1 - r, y1], [x0 + r, y1]],
+    [[x0, y1 - r], [x0, y0 + r]],
+  ];
+  const pts: [number, number][] = [];
+  const porLado = Math.max(2, Math.round(n / 4));
+  for (const [[ax, ay], [bx, by]] of lados)
+    for (let k = 0; k < porLado; k++) {
+      const f = k / porLado;
+      pts.push([Math.round(ax + (bx - ax) * f), Math.round(ay + (by - ay) * f)]);
+    }
+  return pts;
+}
+
+/** Un ocho echado: se cruza en el medio, que es donde se arma el lío. */
+function ocho(cx: number, cy: number, rx: number, ry: number, n = 20): [number, number][] {
+  return Array.from({ length: n }, (_, i) => {
+    const t = (i / n) * Math.PI * 2;
+    return [Math.round(cx + Math.sin(t) * rx), Math.round(cy + Math.sin(t * 2) * ry / 2)];
+  }) as [number, number][];
+}
+
 export const ESCENARIOS: Escenario[] = [
   { id:"barrio",   nombre:"El Barrio",
     casas:[[70,90],[2150,90],[2150,700],[2150,1290]],
-    patios:[[70,1290],[520,1290],[70,900]] },
+    patios:[[70,1290],[520,1290],[70,900]],
+    circuito: ovalo(1300, 850, 1060, 620, 18) },
   { id:"colegio",  nombre:"Sta. Teresita",
     casas:[[70,90],[560,90],[70,660],[70,1290]],
-    patios:[[2150,1290],[1700,1290],[2150,860]] },
+    patios:[[2150,1290],[1700,1290],[2150,860]],
+    // en el colegio se corre alrededor de la cancha, en rectángulo
+    circuito: rectangulo(1300, 850, 2020, 1120, 20) },
   { id:"playa",    nombre:"La Playa",
     casas:[[2150,90],[2150,620],[2150,1100],[560,1100]],
     patios:[[70,90],[70,450],[70,810]],
-    mar: WORLD_H - 210 },
+    mar: WORLD_H - 210,
+    // pegado a la orilla pero sin meterse: en la arena mojada se corre mejor
+    circuito: ovalo(1300, 740, 1080, 520, 18) },
   { id:"desierto", nombre:"El Desierto",
     casas:[[70,90],[2150,90],[2150,1290],[1750,700]],
-    patios:[[70,1290],[70,900],[70,510]] },
+    patios:[[70,1290],[70,900],[70,510]],
+    circuito: ocho(1300, 850, 1040, 1150, 22) },
 
   /* Los cuatro de viaje. Mismo reparto de siempre —un patio, cuatro casas y
      los dos comprables al lado— porque las reglas no cambian con el sitio. */
   { id:"machupicchu", nombre:"Machu Picchu",
     casas:[[70,90],[2150,90],[2150,700],[2150,1290]],
-    patios:[[70,1290],[520,1290],[70,900]] },
+    patios:[[70,1290],[520,1290],[70,900]],
+    // el circuito sigue los andenes, que ya son bandas horizontales
+    circuito: ovalo(1300, 850, 1080, 600, 18) },
   /* Nueva York se reparte a propósito: las casas arriba, los patios a la
      izquierda, Central Park ocupando toda la derecha y el puerto abajo. El
      puente de Brooklyn es el único paso a pie sobre el agua. */
@@ -292,34 +354,71 @@ export const ESCENARIOS: Escenario[] = [
     casas:[[70,80],[560,80],[1620,80],[2130,80]],
     patios:[[70,540],[70,910],[480,1060]],
     mar: 1430,
-    puente: { x: 1880, w: 340 } },
+    puente: { x: 1880, w: 340 },
+    // por las cuadras, y sin bajar al puerto: el puente es de a pie
+    circuito: rectangulo(1290, 700, 2000, 940, 20) },
   { id:"egipto",      nombre:"Egipto",
     casas:[[2150,90],[2150,700],[2150,1290],[70,90]],
-    patios:[[70,1290],[520,1290],[70,880]] },
+    patios:[[70,1290],[520,1290],[70,880]],
+    circuito: ovalo(1300, 850, 1070, 630, 18, 0.3) },
   { id:"amazonas",    nombre:"El Amazonas",
     casas:[[70,90],[2150,90],[560,90],[2150,620]],
     patios:[[70,1120],[520,1120],[70,760]],
     // el río corre por el sur: sin balsa te frena en la ribera
-    mar: WORLD_H - 240 },
+    mar: WORLD_H - 240,
+    // la pista se queda en tierra firme, al norte del río
+    circuito: ovalo(1300, 700, 1080, 480, 18) },
 
   /* Los cuatro de juguete: el suelo del cuarto convertido en cuadra. El
      reparto es el de siempre —cuatro casas, un patio y los dos comprables al
      lado— porque el sitio cambia el decorado, no las reglas. */
   { id:"pista",    nombre:"Hot Wheels",
     casas:[[70,90],[2150,90],[2150,700],[2150,1290]],
-    patios:[[70,1290],[520,1290],[70,900]] },
+    patios:[[70,1290],[520,1290],[70,900]],
+    // la pista de plástico ya era un circuito: solo faltaba decirlo
+    circuito: ovalo(1300, 850, 1080, 560, 18) },
   { id:"tablero",  nombre:"Monopoly",
     casas:[[70,90],[560,90],[1620,90],[2130,90]],
-    patios:[[70,1290],[520,1290],[70,900]] },
+    patios:[[70,1290],[520,1290],[70,900]],
+    // por el anillo de casillas: el tablero ya era una pista, con sus esquinas
+    circuito: rectangulo(1300, 850, 2120, 1300, 24) },
   /* En el Mirador las casas van todas a la derecha y arriba: la esquina
      noroeste se deja libre a propósito para que quepa la montaña. */
   { id:"mirador",  nombre:"Thomas y el Mirador",
     casas:[[2150,90],[2150,700],[2150,1290],[1620,90]],
-    patios:[[70,1290],[520,1290],[70,880]] },
+    patios:[[70,1290],[520,1290],[70,880]],
+    circuito: ovalo(1300, 850, 1090, 700, 18) },
   { id:"circuito", nombre:"Mario Kart",
     casas:[[70,90],[2150,90],[560,90],[2150,620]],
-    patios:[[70,1120],[520,1120],[70,760]] },
+    patios:[[70,1120],[520,1120],[70,760]],
+    circuito: ovalo(1300, 850, 1110, 720, 18) },
+
+  /* ---- los cuatro de correr ----
+     Nacieron como circuitos: el reparto de casas es el de siempre porque en
+     aventura también se juegan, pero la forma del sitio la manda la pista. */
+  { id:"costaverde", nombre:"La Costa Verde",
+    casas:[[70,80],[560,80],[1620,80],[2130,80]],
+    patios:[[70,520],[520,520],[70,880]],
+    // el mar al sur; el acantilado y la pista van pegados a la orilla
+    mar: 1480,
+    circuito: ovalo(1300, 800, 1120, 560, 18) },
+  { id:"nazca",      nombre:"Nazca",
+    casas:[[70,90],[2150,90],[2150,1290],[70,1290]],
+    patios:[[560,90],[1050,90],[560,1290]],
+    // las líneas son la pista: por eso se corre en ocho, cruzando por el medio
+    circuito: ocho(1300, 850, 1050, 1180, 22) },
+  { id:"volcan",     nombre:"El Volcán",
+    casas:[[70,90],[2150,90],[2150,1290],[560,1290]],
+    patios:[[70,1290],[70,880],[70,480]],
+    circuito: ovalo(1300, 850, 1060, 620, 18, 0.4) },
+  { id:"luna",       nombre:"La Luna",
+    casas:[[70,90],[2150,90],[2150,700],[2150,1290]],
+    patios:[[70,1290],[520,1290],[70,900]],
+    circuito: ovalo(1300, 850, 1100, 650, 20, 0.2) },
 ];
+
+/** Los escenarios donde se puede correr, para el selector del lobby. */
+export const CIRCUITOS = ESCENARIOS.filter(e => e.circuito);
 
 export const varMult = (v: string | null) =>
   (v && (VARIANTES as any)[v] ? (VARIANTES as any)[v].mult : 1) as number;

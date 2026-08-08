@@ -17,6 +17,7 @@ import {
   inRect, laserActivo, lerp, money, nuevaPartidaMotor, nuevoFlorin, occupied,
   occupiedDe, orbitaDelCentro, playerIncome, puntoDelDesfile, rumboDeTiro,
   bajarse, conAtajosDeSala as conAtajosMotor, nombreDeHito, patiosDe, precioDeVenta,
+  puestoDe, puestosDeCarrera, VUELTAS, CIRCUITOS, pensarBot,
   soltarCarga, trastoDe,
   venderFlorin,
   revivirPartida, seleccionarArma, textoDePremio,
@@ -59,9 +60,17 @@ function consumirEventos(){
 }
 
 /** Lo que el jugador está pidiendo este tick, en el formato que espera el motor. */
-function entradas(){
+function entradas(dt){
   const out = {};
   for (const p of G.players){
+    /* Jugando solo una carrera, del 2 al 5 los lleva la máquina: es la misma
+       `pensarBot` que juega los asientos libres de una sala. */
+    if (p.idx > 0 && !G.local2){
+      const plan = pensarBot(G, p, dt || 1/60);
+      out[p.idx] = plan.entrada;
+      if (plan.usar) usarArma(G, p);
+      continue;
+    }
     const T = p.idx === 0 ? (G.local2 ? TECLAS_J1 : TECLAS_1P) : TECLAS_J2;
     let x = 0, y = 0;
     if (T.left.some(k => keys.has(k)))  x -= 1;
@@ -95,9 +104,13 @@ function bajarseDelTrasto(){
 }
 
 /** Arranca una partida nueva en el escenario elegido. */
+/* Si en la portada eliges Carrera, jugar solo arranca una carrera contra bots.
+   Vive aquí y no en el motor porque es cosa de la portada, no del juego. */
+let modoLocal = "aventura";
+
 function nuevaPartida(modo){
   pops = []; puffs = [];
-  const G2 = nuevaPartidaMotor(modo, ESCENARIOS[escSel].id);
+  const G2 = nuevaPartidaMotor(modo, ESCENARIOS[escSel].id, modoLocal === "carrera");
   G2.started = false; G2.paused = false;    // banderas del cliente, no del motor
   return G2;
 }
@@ -588,6 +601,9 @@ function pintarAccion(){
    que buscarlos. */
 function renderBotonesPanel(){}
 
+for (const b of document.querySelectorAll("#modoFila .modoBtn"))
+  b.addEventListener("click", () => elegirModoLocal(b.dataset.modo));
+
 el.rulBtn.addEventListener("click", girarRuleta);
 el.btnInicio.addEventListener("click", volverAlInicio);
 document.getElementById("btnAlbum").addEventListener("click", abrirAlbum);
@@ -605,6 +621,35 @@ const escBtns = ESCENARIOS.map((e, i) => {
   escFila.appendChild(b);
   return b;
 });
+/* ---- a qué jugamos ----
+   El modo manda sobre el escenario: en carrera solo valen los que tienen
+   circuito, y si el elegido no lo tiene se salta al primero que sí. */
+const puedeCorrer = i => CIRCUITOS.some(c => c.id === ESCENARIOS[i].id);
+
+function elegirModoLocal(m){
+  modoLocal = m;
+  for (const b of document.querySelectorAll("#modoFila .modoBtn")){
+    const suyo = b.dataset.modo === m;
+    b.classList.toggle("sel", suyo);
+    b.setAttribute("aria-pressed", String(suyo));
+  }
+  escBtns.forEach((b, k) => {
+    const no = m === "carrera" && !puedeCorrer(k);
+    b.classList.toggle("nocorre", no);
+    b.disabled = no;
+  });
+  if (m === "carrera" && !puedeCorrer(escSel))
+    elegirEscenario(ESCENARIOS.findIndex(e => e.id === CIRCUITOS[0].id));
+  const jugar = document.getElementById("btnStart");
+  jugar.textContent = m === "carrera" ? "Correr ▸"
+    : (typeof guardadaEnLaNube !== "undefined" && guardadaEnLaNube
+        ? "Empezar de cero ▸" : "Jugar solo ▸");
+  const sel = document.getElementById("salaModo");
+  if (sel && m === "carrera") sel.value = "carrera";
+  if (sel && m !== "carrera" && sel.value === "carrera") sel.value = "aventura";
+  Snd.unlock();
+}
+
 function elegirEscenario(i){
   escSel = i;
   try { localStorage.setItem("florin_escenario", ESCENARIOS[i].id); } catch (_){}
@@ -938,6 +983,10 @@ elSala.entrar.addEventListener("click", () => {
   conectar({ codigo: c });
 });
 elSala.codigo.addEventListener("keydown", e => { if (e.key === "Enter") elSala.entrar.click(); });
+/* Los dos selectores de modo son el mismo ajuste: el de la portada y el del
+   lobby se siguen el uno al otro. */
+elSala.modo.addEventListener("change", () => elegirModoLocal(
+  elSala.modo.value === "carrera" ? "carrera" : "aventura"));
 elSala.salir.addEventListener("click", salirDeLaSala);
 
 /* Recién acá, con todo el formulario montado, se enchufa la cuenta. */
@@ -3680,6 +3729,345 @@ function decoCircuito(c, E){
   });
 }
 
+/* ============================================================
+   Los cuatro de correr
+   ============================================================ */
+
+/* ---------- La Costa Verde: acantilado, mar y ciclovía ---------- */
+function decoCostaVerde(c, E){
+  const MAR = 1480;                          // tiene que casar con `mar`
+  c.fillStyle = E.mancha;
+  for (let i=0;i<16;i++){
+    const x = azEntre(i+3,0,WORLD_W), y = azEntre(i+51,0,MAR-200), r = 40+az(i)*60;
+    c.beginPath(); c.ellipse(x,y,r,r*.5,i,0,6.283); c.fill();
+  }
+
+  /* el mar, en bandas de azul que van aclarando hacia la orilla */
+  const agua = c.createLinearGradient(0, MAR, 0, WORLD_H);
+  agua.addColorStop(0, "#4E8FA8"); agua.addColorStop(1, "#1E4E68");
+  c.fillStyle = agua;
+  c.fillRect(0, MAR, WORLD_W, WORLD_H - MAR);
+  c.strokeStyle = "rgba(255,255,255,.22)"; c.lineWidth = 4;
+  for (let k=0;k<7;k++){
+    const y = MAR + 24 + k*30;
+    c.beginPath();
+    for (let x=0;x<=WORLD_W;x+=40) c[x?"lineTo":"moveTo"](x, y + Math.sin(x/120 + k)*6);
+    c.stroke();
+  }
+
+  /* el acantilado: el canto de tierra que cae al mar, con sus grietas */
+  c.fillStyle = "#7A6242";
+  c.fillRect(0, MAR - 70, WORLD_W, 70);
+  c.fillStyle = "#9A7F58";
+  c.fillRect(0, MAR - 70, WORLD_W, 22);
+  c.strokeStyle = "rgba(50,40,26,.5)"; c.lineWidth = 3;
+  for (let x=30;x<WORLD_W;x+=70){
+    c.beginPath(); c.moveTo(x, MAR - 62); c.lineTo(x + azEntre(x,-14,14), MAR - 6); c.stroke();
+  }
+  /* la espuma donde rompe */
+  c.fillStyle = "rgba(255,255,255,.5)";
+  for (let x=0;x<WORLD_W;x+=26){
+    c.beginPath(); c.ellipse(x, MAR + 6 + Math.sin(x/90)*5, 16, 5, 0, 0, 6.283); c.fill();
+  }
+
+  /* la ciclovía roja pegada al borde, que es la marca de la Costa Verde */
+  c.fillStyle = "#8A3A32";
+  c.fillRect(0, MAR - 132, WORLD_W, 46);
+  c.strokeStyle = "rgba(255,255,255,.55)"; c.lineWidth = 3;
+  c.setLineDash([30, 26]);
+  c.beginPath(); c.moveTo(0, MAR - 109); c.lineTo(WORLD_W, MAR - 109); c.stroke();
+  c.setLineDash([]);
+
+  /* palmeras del malecón y bancas mirando al mar */
+  sembrar(c, 11, 5201, 30, (c,x,y,i) => {
+    vetoDeco.push({ x:x-26, y:y-70, w:52, h:90 });
+    c.fillStyle = "rgba(0,0,0,.2)";
+    c.beginPath(); c.ellipse(x, y+12, 20, 6, 0, 0, 6.283); c.fill();
+    c.strokeStyle = "#8A6A3C"; c.lineWidth = 7; c.lineCap = "round";
+    c.beginPath(); c.moveTo(x, y+10); c.quadraticCurveTo(x + 8, y-24, x + 4, y-52); c.stroke();
+    c.lineCap = "butt";
+    c.fillStyle = i%2 ? "#3E8A3A" : "#4FA84A";
+    for (let k=0;k<6;k++){
+      const a = -1.6 + (k-2.5)*.52;
+      c.save(); c.translate(x+4, y-52); c.rotate(a);
+      c.beginPath(); c.ellipse(20, 0, 22, 7, 0, 0, 6.283); c.fill();
+      c.restore();
+    }
+  }, MAR - 180);
+
+  /* parapentes: lo que siempre hay volando sobre el malecón */
+  sembrar(c, 4, 5301, 40, (c,x,y,i) => {
+    c.fillStyle = "rgba(0,0,0,.14)";
+    c.beginPath(); c.ellipse(x, y+52, 30, 9, 0, 0, 6.283); c.fill();
+    const col = ["#FF6B90","#FFC53D","#5CE1EA","#8FE388"][i % 4];
+    c.fillStyle = col;
+    c.beginPath(); c.moveTo(x-42, y); c.quadraticCurveTo(x, y-34, x+42, y); 
+    c.quadraticCurveTo(x, y-14, x-42, y); c.closePath(); c.fill();
+    c.strokeStyle = "rgba(255,239,226,.7)"; c.lineWidth = 1.6;
+    for (const dx of [-30,-10,10,30]){
+      c.beginPath(); c.moveTo(x+dx, y-4); c.lineTo(x, y+22); c.stroke();
+    }
+    c.fillStyle = "#2A1226";
+    c.beginPath(); c.arc(x, y+26, 6, 0, 6.283); c.fill();
+  }, MAR - 260);
+}
+
+/* ---------- Nazca: las líneas dibujadas en la pampa ---------- */
+function decoNazca(c, E){
+  c.fillStyle = E.mancha;
+  for (let i=0;i<18;i++){
+    const x = azEntre(i+7,0,WORLD_W), y = azEntre(i+37,0,WORLD_H), r = 44+az(i)*70;
+    c.beginPath(); c.ellipse(x,y,r,r*.45,i,0,6.283); c.fill();
+  }
+  /* el suelo rayado del desierto */
+  c.strokeStyle = "rgba(255,239,226,.05)"; c.lineWidth = 6;
+  for (let y=0;y<WORLD_H;y+=34){
+    c.beginPath(); c.moveTo(0, y + Math.sin(y/200)*10); c.lineTo(WORLD_W, y - Math.sin(y/240)*10); c.stroke();
+  }
+
+  /* Las líneas: surcos claros, un trazo continuo cada figura. Están dibujadas
+     a mano con puntos porque una curva bonita no se ve como algo rascado. */
+  const linea = (pts, cerrar) => {
+    c.strokeStyle = "#EBD3A2"; c.lineWidth = 13; c.lineJoin = "round"; c.lineCap = "round";
+    c.beginPath();
+    pts.forEach(([x,y], i) => i ? c.lineTo(x,y) : c.moveTo(x,y));
+    if (cerrar) c.closePath();
+    c.stroke();
+    c.strokeStyle = "rgba(255,255,255,.35)"; c.lineWidth = 5;
+    c.stroke();
+  };
+  // el colibrí, arriba a la izquierda
+  const cb = (dx, dy, k) => ([dx*k, dy*k]);
+  linea([[330,300],[430,340],[560,350],[700,345],[820,330]]);          // el pico
+  linea([[560,350],[520,430],[430,520],[360,600]]);                    // ala izquierda
+  linea([[560,350],[620,440],[700,540],[760,620]]);                    // ala derecha
+  linea([[560,350],[556,470],[548,600],[540,700],[500,760]]);          // cuerpo y cola
+  linea([[540,700],[600,780]]);
+  // el mono, abajo a la derecha
+  linea([[1900,1180],[1990,1120],[2090,1140],[2140,1230],[2090,1320],[1980,1330],[1910,1270]], true);
+  linea([[2140,1230],[2230,1180],[2300,1250],[2260,1350],[2160,1380]]); // la cola en espiral
+  linea([[1900,1180],[1830,1090],[1760,1120]]);                        // brazo
+  // la araña, arriba a la derecha
+  const ax = 1980, ay = 420;
+  linea([[ax-40,ay],[ax+40,ay],[ax+40,ay+90],[ax-40,ay+90]], true);
+  for (let k=0;k<4;k++){
+    const off = k*34 - 50;
+    linea([[ax-40, ay+20+off*0.4],[ax-150, ay-30+off],[ax-210, ay+40+off]]);
+    linea([[ax+40, ay+20+off*0.4],[ax+150, ay-30+off],[ax+210, ay+40+off]]);
+  }
+
+  /* el mirador de fierro que hay en la carretera, y piedras sueltas */
+  sembrar(c, 2, 5401, 70, (c,x,y) => {
+    vetoDeco.push({ x:x-60, y:y-90, w:120, h:130 });
+    c.fillStyle = "rgba(0,0,0,.22)";
+    c.beginPath(); c.ellipse(x, y+22, 52, 14, 0, 0, 6.283); c.fill();
+    c.strokeStyle = "#A8A29A"; c.lineWidth = 7;
+    c.beginPath(); c.moveTo(x-40, y+20); c.lineTo(x-10, y-70); c.stroke();
+    c.beginPath(); c.moveTo(x+40, y+20); c.lineTo(x+10, y-70); c.stroke();
+    for (let k=0;k<4;k++){
+      const yy = y + 12 - k*22, w = 38 - k*7;
+      c.lineWidth = 4;
+      c.beginPath(); c.moveTo(x-w, yy); c.lineTo(x+w, yy); c.stroke();
+    }
+    c.fillStyle = "#8A8478"; rr(c, x-34, y-88, 68, 20, 4); c.fill();
+  });
+  sembrar(c, 12, 5501, 20, (c,x,y,i) => {
+    c.fillStyle = i%2 ? "#8A6A44" : "#A08258";
+    c.beginPath(); c.ellipse(x, y, 9+az(i)*6, 7+az(i+2)*4, az(i)*3, 0, 6.283); c.fill();
+  });
+}
+
+/* ---------- El Volcán: ceniza, lava y el cráter ---------- */
+function decoVolcan(c, E){
+  c.fillStyle = E.mancha;
+  for (let i=0;i<20;i++){
+    const x = azEntre(i+13,0,WORLD_W), y = azEntre(i+67,0,WORLD_H), r = 50+az(i)*70;
+    c.beginPath(); c.ellipse(x,y,r,r*.5,i,0,6.283); c.fill();
+  }
+
+  /* ríos de lava: el borde oscuro y el chorro brillante por dentro */
+  const rio = (pts, ancho) => {
+    c.lineJoin = "round"; c.lineCap = "round";
+    for (const [w, col] of [[ancho+14, "#5A1E10"], [ancho, "#E2453C"],
+                            [ancho*.55, "#FF9E3D"], [ancho*.25, "#FFE066"]]){
+      c.strokeStyle = col; c.lineWidth = w;
+      c.beginPath();
+      pts.forEach(([x,y], i) => i ? c.lineTo(x,y) : c.moveTo(x,y));
+      c.stroke();
+    }
+  };
+  rio([[0,430],[380,470],[760,400],[1150,470],[1500,420],[1900,480],[2300,430],[WORLD_W,470]], 30);
+  rio([[0,1260],[420,1200],[820,1290],[1240,1210],[1660,1300],[2100,1230],[WORLD_W,1280]], 24);
+  rio([[1290,470],[1310,760],[1280,1000],[1300,1210]], 18);
+
+  /* el cráter, en el medio: labio de roca y la boca al rojo */
+  const cx = 1300, cy = 850;
+  vetoDeco.push({ x:cx-260, y:cy-200, w:520, h:400 });
+  c.fillStyle = "#2A2226";
+  c.beginPath(); c.ellipse(cx, cy, 240, 175, 0, 0, 6.283); c.fill();
+  c.fillStyle = "#4A3A36";
+  c.beginPath(); c.ellipse(cx, cy-8, 210, 150, 0, 0, 6.283); c.fill();
+  for (const [r, col] of [[150, "#7A2A18"], [110, "#E2453C"], [70, "#FF9E3D"], [34, "#FFE066"]]){
+    c.fillStyle = col;
+    c.beginPath(); c.ellipse(cx, cy, r, r*.7, 0, 0, 6.283); c.fill();
+  }
+
+  /* rocas volcánicas y fumarolas */
+  sembrar(c, 14, 5601, 26, (c,x,y,i) => {
+    c.fillStyle = "rgba(0,0,0,.3)";
+    c.beginPath(); c.ellipse(x, y+10, 16, 5, 0, 0, 6.283); c.fill();
+    c.fillStyle = ["#4A424A","#3A343C","#5A5058"][i % 3];
+    c.beginPath();
+    for (let k=0;k<6;k++){
+      const a = k*1.047, r = 13 + az(i*4+k)*7;
+      c[k?"lineTo":"moveTo"](x + Math.cos(a)*r, y + Math.sin(a)*r*.8);
+    }
+    c.closePath(); c.fill();
+    c.fillStyle = "rgba(255,158,61,.4)";
+    c.beginPath(); c.arc(x-3, y-3, 3.5, 0, 6.283); c.fill();
+  });
+  sembrar(c, 8, 5701, 34, (c,x,y,i) => {
+    c.fillStyle = "rgba(255,239,226,.13)";
+    for (let k=0;k<4;k++){
+      c.beginPath();
+      c.arc(x + Math.sin(k*1.7 + i)*13, y - k*24, 13 + k*7, 0, 6.283);
+      c.fill();
+    }
+  });
+}
+
+/* ---------- La Luna: cráteres, la bandera y el módulo ---------- */
+function decoLuna(c, E){
+  /* cráteres: un anillo claro y el hueco en sombra. Es lo único que hay que
+     hacer bien aquí — el resto del suelo es polvo. */
+  const crater = (x, y, r) => {
+    c.fillStyle = "#A2A2AA";
+    c.beginPath(); c.ellipse(x, y, r, r*.72, 0, 0, 6.283); c.fill();
+    c.fillStyle = "#6E6E78";
+    c.beginPath(); c.ellipse(x, y+2, r*.82, r*.58, 0, 0, 6.283); c.fill();
+    c.fillStyle = "rgba(255,255,255,.13)";
+    c.beginPath(); c.ellipse(x - r*.25, y - r*.28, r*.42, r*.24, -.4, 0, 6.283); c.fill();
+  };
+  for (let i=0;i<26;i++)
+    crater(azEntre(i+2,60,WORLD_W-60), azEntre(i+91,60,WORLD_H-60), 26 + az(i)*70);
+  c.fillStyle = E.mancha;
+  for (let i=0;i<14;i++){
+    const x = azEntre(i+23,0,WORLD_W), y = azEntre(i+77,0,WORLD_H), r = 50+az(i)*70;
+    c.beginPath(); c.ellipse(x,y,r,r*.4,i,0,6.283); c.fill();
+  }
+
+  /* la Tierra saliendo por el horizonte, arriba a la derecha */
+  const tx = 2180, ty = 240;
+  vetoDeco.push({ x:tx-180, y:ty-180, w:360, h:360 });
+  c.fillStyle = "rgba(90,150,220,.2)";
+  c.beginPath(); c.arc(tx, ty, 168, 0, 6.283); c.fill();
+  c.fillStyle = "#2E6FD9";
+  c.beginPath(); c.arc(tx, ty, 140, 0, 6.283); c.fill();
+  c.fillStyle = "#4FB84A";
+  for (const [dx,dy,rx,ry,g] of [[-40,-30,52,34,.4],[36,20,44,30,-.3],[-10,66,34,20,.2],[70,-58,26,18,0]]){
+    c.beginPath(); c.ellipse(tx+dx, ty+dy, rx, ry, g, 0, 6.283); c.fill();
+  }
+  c.fillStyle = "rgba(255,255,255,.35)";
+  c.beginPath(); c.ellipse(tx-24, ty-72, 60, 16, -.3, 0, 6.283); c.fill();
+  c.beginPath(); c.ellipse(tx+36, ty+78, 52, 14, .25, 0, 6.283); c.fill();
+  c.fillStyle = "rgba(255,255,255,.22)";
+  c.beginPath(); c.arc(tx - 46, ty - 46, 44, 0, 6.283); c.fill();
+
+  /* el módulo lunar, con sus patas y la escalerilla */
+  sembrar(c, 1, 5801, 90, (c,x,y) => {
+    vetoDeco.push({ x:x-80, y:y-100, w:160, h:150 });
+    c.fillStyle = "rgba(0,0,0,.3)";
+    c.beginPath(); c.ellipse(x, y+38, 72, 18, 0, 0, 6.283); c.fill();
+    c.strokeStyle = "#8A8478"; c.lineWidth = 7;
+    for (const dx of [-58, 58]){
+      c.beginPath(); c.moveTo(x + dx*.45, y-6); c.lineTo(x + dx, y+34); c.stroke();
+      c.fillStyle = "#A8A29A"; c.beginPath(); c.ellipse(x+dx, y+36, 13, 5, 0, 0, 6.283); c.fill();
+    }
+    c.fillStyle = "#C9A46A"; rr(c, x-46, y-30, 92, 40, 6); c.fill();   // la falda dorada
+    c.fillStyle = "#9A9182";                                           // el habitáculo
+    c.beginPath();
+    c.moveTo(x-34, y-30); c.lineTo(x-26, y-78); c.lineTo(x+26, y-78); c.lineTo(x+34, y-30);
+    c.closePath(); c.fill();
+    c.fillStyle = "#2A3A4A";
+    c.beginPath(); c.arc(x-12, y-58, 8, 0, 6.283); c.fill();
+    c.beginPath(); c.arc(x+12, y-58, 8, 0, 6.283); c.fill();
+    c.strokeStyle = "#8A8478"; c.lineWidth = 3;
+    for (let k=0;k<4;k++){ c.beginPath(); c.moveTo(x-8, y+2+k*8); c.lineTo(x+8, y+2+k*8); c.stroke(); }
+  });
+
+  /* la bandera tiesa, que en la Luna no ondea */
+  sembrar(c, 1, 5901, 40, (c,x,y) => {
+    c.fillStyle = "rgba(0,0,0,.25)";
+    c.beginPath(); c.ellipse(x, y+10, 12, 4, 0, 0, 6.283); c.fill();
+    c.fillStyle = "#EFE9D4"; c.fillRect(x-2, y-64, 4, 74);
+    c.fillStyle = "#E2453C"; c.fillRect(x+2, y-64, 46, 30);
+    c.fillStyle = "#FFEFE2"; c.fillRect(x+2, y-54, 46, 4);
+    c.fillRect(x+2, y-44, 46, 4);
+  });
+
+  /* huellas de bota, que es lo primero que uno busca en la Luna */
+  sembrar(c, 16, 6001, 16, (c,x,y,i) => {
+    c.fillStyle = "rgba(60,60,68,.5)";
+    for (let k=0;k<4;k++){
+      const a = az(i)*6.283;
+      c.save();
+      c.translate(x + Math.cos(a)*k*22, y + Math.sin(a)*k*22);
+      c.rotate(a);
+      rr(c, -5, -8, 10, 16, 4); c.fill();
+      c.restore();
+    }
+  });
+}
+
+/* ---- la pista de una carrera ----
+   Se dibuja con los MISMOS puntos que cuenta el motor. Si se dibujara aparte,
+   la pista que ves y la que te suma vuelta acabarían siendo dos cosas. */
+function drawCircuito(){
+  const c = G.esc.circuito;
+  if (!c || !c.length) return;
+  const cerrado = pts => {
+    ctx.beginPath();
+    ctx.moveTo(pts[0][0], pts[0][1]);
+    for (let i = 1; i <= pts.length; i++){
+      const [x0, y0] = pts[i % pts.length];
+      const [x1, y1] = pts[(i + 1) % pts.length];
+      ctx.quadraticCurveTo(x0, y0, (x0 + x1) / 2, (y0 + y1) / 2);
+    }
+    ctx.closePath();
+  };
+  ctx.lineJoin = "round"; ctx.lineCap = "round";
+  ctx.strokeStyle = "rgba(20,14,20,.35)"; ctx.lineWidth = 210;  // la sombra del asfalto
+  cerrado(c); ctx.stroke();
+  ctx.strokeStyle = "#4A4A52"; ctx.lineWidth = 190;
+  cerrado(c); ctx.stroke();
+  ctx.strokeStyle = "rgba(255,255,255,.28)"; ctx.lineWidth = 5; // la raya del medio
+  ctx.setLineDash([46, 52]);
+  cerrado(c); ctx.stroke();
+  ctx.setLineDash([]);
+
+  /* el siguiente punto de paso, marcado: sin esto en un mapa grande no sabes
+     para dónde ir */
+  const r = G.player?.carrera;
+  if (r && !G.over){
+    const [hx, hy] = c[r.hito % c.length];
+    const pulso = REDUCED ? 1 : 1 + Math.sin(G.t * 5) * .08;
+    ctx.strokeStyle = "#5CE1EA"; ctx.lineWidth = 7;
+    ctx.globalAlpha = .8;
+    ctx.beginPath(); ctx.arc(hx, hy, 60 * pulso, 0, 6.283); ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+
+  /* la meta a cuadros, atravesada en el punto 0 */
+  const [mx, my] = c[0], [sx, sy] = c[1] || c[0];
+  const ang = Math.atan2(sy - my, sx - mx) + Math.PI / 2;
+  ctx.save(); ctx.translate(mx, my); ctx.rotate(ang);
+  for (let f=0; f<8; f++) for (let k=0; k<2; k++){
+    ctx.fillStyle = (f + k) % 2 ? "#FFEFE2" : "#2A1226";
+    ctx.fillRect(-96 + f*24, -26 + k*26, 24, 26);
+  }
+  ctx.restore();
+}
+
 function pintarSuelo(){
   const E = visualDe(G.esc.id);
   sueloCv = document.createElement("canvas");
@@ -3709,6 +4097,10 @@ function pintarSuelo(){
   else if (E.deco === "tablero")  decoTablero(c, E);
   else if (E.deco === "mirador")  decoMirador(c, E);
   else if (E.deco === "circuito") decoCircuito(c, E);
+  else if (E.deco === "costa")    decoCostaVerde(c, E);
+  else if (E.deco === "nazca")    decoNazca(c, E);
+  else if (E.deco === "volcan")   decoVolcan(c, E);
+  else if (E.deco === "luna")     decoLuna(c, E);
 
   c.strokeStyle = E.borde; c.lineWidth = 16;
   c.strokeRect(8,8,WORLD_W-16,WORLD_H-16);
@@ -4792,16 +5184,20 @@ function draw(){
   ctx.setTransform(DPR*ZOOM, 0, 0, DPR*ZOOM, -cam.x*DPR*ZOOM, -cam.y*DPR*ZOOM);
 
   drawFloor();
-  drawRuta();                        // la alfombra va debajo de todo
-  for (const b of G.bases) drawBase(b);
-  drawArmeria();
-  drawPortal();
-  if (!G.local2) drawRuleta();
+  const corriendo = G.reglas?.modo === "carrera";
+  if (corriendo){
+    drawCircuito();                  // la pista es lo único que importa
+  } else {
+    drawRuta();                      // la alfombra va debajo de todo
+    for (const b of G.bases) drawBase(b);
+    drawArmeria();
+    drawPortal();
+    if (!G.local2) drawRuleta();
+  }
   drawCascaras();
   drawTrastos();
   drawFauna();
-  for (const b of G.bases) drawLaser(b);
-  drawDesfile();
+  if (!corriendo){ for (const b of G.bases) drawLaser(b); drawDesfile(); }
   drawGrabRing();
   drawAim();
 
@@ -5198,6 +5594,24 @@ function hud(){
   /* La barra mide la VITRINA, no el dinero: cuántos huecos llenos de cuántos.
      El dinero ya no sirve de meta — entre la vitrina más pobre y la más rica
      hay 174 000× y ninguna cifra es interesante en los dos extremos. */
+  if (G.reglas?.modo === "carrera"){
+    /* Corriendo, la barra de la vitrina no dice nada: lo que importa es en qué
+       vuelta vas y en qué puesto. */
+    const r = G.player.carrera || { vuelta: 0 };
+    const n = G.players.length;
+    el.goalLabel.textContent = puestoDe(G, G.player) + "º de " + n;
+    el.goal.textContent = "Vuelta " + Math.min(r.vuelta + 1, VUELTAS) + " / " + VUELTAS;
+    el.bar.style.width = clamp((r.vuelta / VUELTAS) * 100, 0, 100).toFixed(1) + "%";
+    el.goalCard.classList.toggle("fiesta", r.fin >= 0);
+    el.lost.textContent = G.stats.hits;
+    el.alarma.hidden = true;
+    bau.boton.hidden = true; bau.soltar.hidden = true;
+    const w0 = WEAPONS[G.wsel];
+    el.throwB.classList.toggle("cool", G.cd > 0 ||
+      (w0.id === "chancla" ? G.chancla.state !== "held" : G.ammo[w0.id] <= 0));
+    pintarAccion();
+    return;
+  }
   const v = vitrinaDe(G, G.player);
   el.goal.textContent = v.llenos + " / " + v.huecos;
   el.bar.style.width = clamp(v.llenos/v.huecos*100, 0, 100).toFixed(1) + "%";
@@ -5266,9 +5680,40 @@ function aLaCancha(){
   Snd.unlock();
 }
 
+/** Cómo se llama el que va delante: su apodo en una sala, "un bot" si no. */
+function nombreDeCorredor(p){
+  const quien = sala?.estado.gente?.find(q => q.idx === p.idx);
+  return quien ? quien.apodo : "un bot";
+}
+
 function endGame(ganador){
   G.over = true;
   const won = !!ganador;
+
+  /* Una carrera no se cuenta en Florines robados: se cuenta en puesto y en
+     tiempo. Con el mismo cartel de siempre parecía que habías perdido. */
+  if (G.reglas?.modo === "carrera"){
+    const orden = puestosDeCarrera(G);
+    const mio = puestoDe(G, G.player);
+    const gané = mio === 1;
+    document.getElementById("endEyebrow").textContent = "Bandera a cuadros";
+    document.getElementById("endTitle").innerHTML = gané
+      ? "¡<em>Primero</em>!"
+      : "Llegaste <em>" + mio + "º</em>";
+    document.getElementById("endSub").textContent = gané
+      ? "Tres vueltas y nadie te pasó. En " + mmss(G.t) + "."
+      : "Ganó " + (orden[0] === G.player ? "nadie" : nombreDeCorredor(orden[0])) +
+        ". Tú entraste " + mio + "º de " + G.players.length + ".";
+    document.getElementById("lbSteals").textContent = "Puesto";
+    document.getElementById("lbRate").textContent = "Recorrido";
+    document.getElementById("stSteals").textContent = mio + "º";
+    document.getElementById("stHits").textContent = G.stats.hits;
+    document.getElementById("stTime").textContent = mmss(G.t);
+    document.getElementById("stRate").textContent = VUELTAS + " vueltas";
+    el.end.hidden = false;
+    if (gané) Snd.win();
+    return;
+  }
   if (G.local2 && ganador){
     const perdedor = G.players.find(p => p !== ganador);
     document.getElementById("endEyebrow").textContent = "Duelo terminado";
@@ -5287,6 +5732,8 @@ function endGame(ganador){
     Snd.win();
     return;
   }
+  document.getElementById("lbSteals").textContent = "Los que robaste tú";
+  document.getElementById("lbRate").textContent = "Ingresos finales";
   document.getElementById("endEyebrow").textContent = won ? "Meta cumplida" : "Fin del patio";
   document.getElementById("endTitle").innerHTML = won ? "¡Vitrina <em>llena</em>!" : "Te dejaron <em>pelado</em>";
   document.getElementById("endSub").textContent = won
@@ -5317,7 +5764,7 @@ function frame(now){
       sala.aplicar(dt, ent);
       G = conAtajosMotor(sala.estado.mundo, sala.estado.idx);
     } else {
-      avanzar(G, entradas(), dt);
+      avanzar(G, entradas(dt), dt);
       consumirEventos();
       guardarSiTocaEn(dt);
     }

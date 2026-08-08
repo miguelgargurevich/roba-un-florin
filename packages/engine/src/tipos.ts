@@ -107,6 +107,9 @@ export interface Jugador {
   escudo: number; inmune: number;
   /** solo los asientos que juega la máquina: a dónde iba y cuándo repensarlo */
   bot?: { x: number; y: number; repensar: number };
+  /** solo en carrera: vuelta, siguiente punto de paso, y en qué segundo cruzó
+      la meta (-1 mientras corre) */
+  carrera?: { vuelta: number; hito: number; fin: number };
   money: number;
   ammo: Record<string, number>;
   wsel: number;
@@ -239,6 +242,7 @@ export type Evento =
   | { t: "sonido"; cual: Sonido }
   | { t: "album"; tier: number; variant: Variante }
   | { t: "hito"; n: number; monto: number; jugador: number }
+  | { t: "meta"; jugador: number; puesto: number; segundos: number }
   | { t: "fin"; ganador: number | null };
 
 export type Sonido =
@@ -264,6 +268,9 @@ export interface Escenario {
   /** un paso franco sobre el agua, entre x y x+w. El puente de Brooklyn se
       cruza andando: si no, sería un dibujo bonito y nada más. */
   puente?: { x: number; w: number };
+  /** Los puntos de paso del circuito, en orden y en bucle. Sin esto aquí no se
+      corre: el escenario no aparece en el modo carrera. */
+  circuito?: [number, number][];
 }
 
 /* Lo que antes decidía `mode: 1 | 2`. Separado, porque eran cuatro reglas
@@ -279,7 +286,9 @@ export interface Reglas {
   puestos: boolean;
   /* aventura: sin fin, cada uno con sus hitos.
      versus:   gana el primero que llena todos sus patios. */
-  modo: "aventura" | "versus";
+  modo: "aventura" | "versus" | "carrera";
+  /** ¿Hay vecinos? Ladrones, abuelas y desfile. En carrera solo estorban. */
+  vecinos: boolean;
 }
 
 export interface Estado {

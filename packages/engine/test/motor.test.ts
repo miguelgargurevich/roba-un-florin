@@ -5,7 +5,8 @@
 
 import { describe, expect, it } from "vitest";
 import {
-  ESCENARIOS, ESCUDO_DUR, FLORES, GOAL, JUGADORES_MAX, LASER_DUR, LASER_PRECIO, PORTAL_RAREZAS, RAR_COLOR,
+  CIRCUITOS, ESCENARIOS, ESCUDO_DUR, FLORES, GOAL, JUGADORES_MAX, VUELTAS,
+  puestosDeCarrera, puestoDe, pensarBot, LASER_DUR, LASER_PRECIO, PORTAL_RAREZAS, RAR_COLOR,
   reglasPara,
   RULETA, RULETA_INCOGNITA, RULETA_PRECIO, TIERS, WEAPONS, varMult,
   avanzar, bajarse, cargar, crearPartida, girarRuleta, idsDeArmas, inRect,
@@ -93,8 +94,8 @@ describe("el mundo se monta bien", () => {
     expect(baseDe(e, e.players[1].baseId).name).toBe("Patio del J2");
   });
 
-  it("todos los escenarios se pueden montar, y son doce", () => {
-    expect(ESCENARIOS.length).toBe(12);
+  it("todos los escenarios se pueden montar, y son dieciséis", () => {
+    expect(ESCENARIOS.length).toBe(16);
     for (const esc of ESCENARIOS) {
       const e = partida({ escenario: esc.id });
       expect(e.esc.id, esc.id).toBe(esc.id);
@@ -1050,6 +1051,107 @@ describe("soltar lo que llevas", () => {
   it("sin nada en brazos no hace nada", () => {
     const e = partida();
     expect(soltarCarga(e, e.players[0])).toBe(false);
+  });
+});
+
+describe("carrera", () => {
+  const carrera = (esc = "circuito", jugadores = 2) =>
+    crearPartida({ jugadores, escenario: esc, semilla: 7, armas: idsDeArmas(),
+                   reglas: { modo: "carrera", vecinos: false, puestos: false } });
+
+  it("en TODOS los escenarios se puede correr, y se sale en línea y montado", () => {
+    expect(CIRCUITOS.length, "hay escenarios sin circuito").toBe(ESCENARIOS.length);
+    for (const esc of CIRCUITOS) {
+      const e = carrera(esc.id, 4);
+      const [mx, my] = esc.circuito![0];
+      for (const p of e.players) {
+        expect(p.montado, esc.id + ": alguien sale a pie").not.toBeNull();
+        expect(p.carrera, esc.id).toEqual({ vuelta: 0, hito: 1, fin: -1 });
+        expect(Math.hypot(p.x - mx, p.y - my), esc.id + ": lejos de la meta")
+          .toBeLessThan(320);
+        /* Nadie sale con el agua al cuello: en la Playa, el Amazonas, Nueva
+           York y la Costa Verde la parrilla tiene que quedar en tierra. */
+        if (e.esc.mar != null)
+          expect(p.y, esc.id + ": parrilla en el agua").toBeLessThan(e.esc.mar - 60);
+      }
+      /* Y el circuito entero también, que si no la vuelta pasa por el mar. */
+      if (e.esc.mar != null)
+        for (const [, cy] of esc.circuito!)
+          expect(cy, esc.id + ": la pista se mete al agua").toBeLessThan(e.esc.mar - 60);
+    }
+  });
+
+  it("no hay vecinos: ni ladrones, ni abuelas, ni desfile", () => {
+    const e = carrera();
+    for (let i = 0; i < 60 * 30; i++) avanzar(e, nada(2), 1 / 60);
+    expect(e.thieves.length).toBe(0);
+    expect(e.portal.desfile.length).toBe(0);
+    expect(e.bases.every(b => !b.guard)).toBe(true);
+  });
+
+  it("las vueltas se cuentan solo pasando los puntos EN ORDEN", () => {
+    const e = carrera();
+    const c = e.esc.circuito!;
+    const p = e.players[0];
+    // saltar al último punto sin pasar por los del medio no cuenta
+    const [ux, uy] = c[c.length - 1];
+    p.x = ux; p.y = uy;
+    avanzar(e, nada(2), 1 / 60);
+    expect(p.carrera!.hito, "coló un atajo").toBe(1);
+    // y haciéndolos en orden, sí
+    for (let k = 1; k < c.length; k++) {
+      p.x = c[k][0]; p.y = c[k][1];
+      avanzar(e, nada(2), 1 / 60);
+    }
+    expect(p.carrera!.hito).toBe(c.length);
+    p.x = c[0][0]; p.y = c[0][1];
+    avanzar(e, nada(2), 1 / 60);
+    expect(p.carrera!.vuelta).toBe(1);
+    expect(p.carrera!.hito).toBe(1);
+  });
+
+  it("gana el primero que completa las vueltas y ahí se acaba", () => {
+    const e = carrera();
+    const c = e.esc.circuito!;
+    const p = e.players[1];
+    for (let v = 0; v < VUELTAS; v++)
+      for (let k = 1; k <= c.length; k++) {
+        const [x, y] = c[k % c.length];
+        p.x = x; p.y = y;
+        avanzar(e, nada(2), 1 / 60);
+      }
+    expect(p.carrera!.fin).toBeGreaterThanOrEqual(0);
+    expect(e.over).toBe(true);
+    expect(e.winnerIdx).toBe(1);
+  });
+
+  it("el puesto lo manda quién va más adelante", () => {
+    const e = carrera("circuito", 3);
+    const c = e.esc.circuito!;
+    e.players[2].carrera = { vuelta: 2, hito: 3, fin: -1 };
+    e.players[0].carrera = { vuelta: 1, hito: 9, fin: -1 };
+    e.players[1].carrera = { vuelta: 0, hito: 2, fin: -1 };
+    expect(puestosDeCarrera(e).map(p => p.idx)).toEqual([2, 0, 1]);
+    expect(puestoDe(e, e.players[1])).toBe(3);
+    expect(c.length).toBeGreaterThan(3);
+  });
+
+  it("una carrera de bots termina sola y con ganador, en todos los circuitos", () => {
+    for (const esc of CIRCUITOS) {
+      const e = carrera(esc.id, 3);
+      let seg = 0;
+      for (let i = 0; i < 60 * 400 && !e.over; i++) {
+        const entradas: Record<number, EntradaJugador> = {};
+        for (const p of e.players) entradas[p.idx] = pensarBot(e, p, 1 / 60).entrada;
+        avanzar(e, entradas, 1 / 60);
+        seg = e.t;
+      }
+      expect(e.over, esc.id + ": la carrera no terminó en 400 s").toBe(true);
+      expect(e.winnerIdx, esc.id).not.toBeNull();
+      expect(e.players[e.winnerIdx!].carrera!.vuelta, esc.id).toBe(VUELTAS);
+      // que no sea absurdamente lenta: si pasa de tres minutos, algo se atasca
+      expect(seg, esc.id + ": tardó demasiado").toBeLessThan(180);
+    }
   });
 });
 

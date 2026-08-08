@@ -14,7 +14,8 @@ import {
   occupied, occupiedDe, orbitaDelCentro, patiosDe, playerIncome, puntoDelDesfile,
   rumboDeTiro, seleccionarArma, textoDePremio, usarArma, varLabel, varMult,
   VEHICULOS, bajarse, enElMar, trastoDe, nivelDeVitrina, vitrinaDe, nombreDeHito,
-  venderFlorin, precioDeVenta, soltarCarga,
+  venderFlorin, precioDeVenta, soltarCarga, puestoDe, puestosDeCarrera,
+  VUELTAS, CIRCUITOS, JUGADORES_MAX, pensarBot,
 } from "@florin/engine";
 
 export {
@@ -27,7 +28,8 @@ export {
   patiosDe, playerIncome, puntoDelDesfile, rumboDeTiro, seleccionarArma,
   textoDePremio, usarArma, varLabel, varMult,
   VEHICULOS, bajarse, enElMar, trastoDe, nivelDeVitrina, vitrinaDe, nombreDeHito,
-  venderFlorin, precioDeVenta, soltarCarga,
+  venderFlorin, precioDeVenta, soltarCarga, puestoDe, puestosDeCarrera,
+  VUELTAS, CIRCUITOS, JUGADORES_MAX, pensarBot,
 };
 
 /* ---- escenarios: el motor pone el reparto, el cliente el aspecto ---- */
@@ -100,6 +102,30 @@ export const VISUALES = {
     suelo: "#5E8A4E", loseta: "rgba(255,255,255,.07)", mancha: "rgba(50,80,42,.26)",
     borde: "#3E5C34", deco: "mirador",
   },
+  costaverde: {
+    icono: "🌊",
+    desc: "El malecón de Lima: acantilado, el mar abajo, parapentes, palmeras y la ciclovía pegada al borde.",
+    suelo: "#8E9A6C", loseta: "rgba(255,255,255,.07)", mancha: "rgba(90,100,70,.26)",
+    borde: "#5A6544", deco: "costa",
+  },
+  nazca: {
+    icono: "🛩️",
+    desc: "La pampa con las líneas dibujadas en el suelo: el colibrí, el mono y la araña, y el mirador de fierro.",
+    suelo: "#C98B52", loseta: "rgba(255,239,226,.06)", mancha: "rgba(150,100,50,.22)",
+    borde: "#8A5A2A", deco: "nazca",
+  },
+  volcan: {
+    icono: "🌋",
+    desc: "Ceniza negra, ríos de lava, humaredas y el cráter en el medio. Cuidado con lo que arde.",
+    suelo: "#3A3238", loseta: "rgba(255,255,255,.04)", mancha: "rgba(20,16,20,.35)",
+    borde: "#1E1A1E", deco: "volcan",
+  },
+  luna: {
+    icono: "🌕",
+    desc: "Polvo gris, cráteres, la bandera, el módulo lunar y la Tierra saliendo por el horizonte.",
+    suelo: "#8E8E96", loseta: "rgba(255,255,255,.05)", mancha: "rgba(60,60,68,.3)",
+    borde: "#55555E", deco: "luna",
+  },
   circuito: {
     icono: "🍄",
     desc: "Circuito de karts: pianitos, tuberías, bloques ?, cajas de ítem, aceleradores, monedas y setas.",
@@ -144,15 +170,21 @@ function conAtajos(G) {
 /* `local2` es el duelo de sofá: dos personas en un teclado. Es una decisión del
    cliente, no del motor — para el motor son dos jugadores y unas reglas. Vive
    como bandera del cliente al lado de `started` y `paused`. */
-export function nuevaPartidaMotor(modo, escenarioId) {
+export function nuevaPartidaMotor(modo, escenarioId, carrera = false) {
   const local2 = modo === 2;
+  /* Una carrera solo contra nadie no es una carrera: los otros cuatro asientos
+     se llenan de bots, que es para lo que `pensarBot` vive en el motor. */
+  const esc = carrera && !CIRCUITOS.some(x => x.id === escenarioId)
+    ? CIRCUITOS[0].id : escenarioId;
   const G = conAtajos(crearPartida({
-    jugadores: local2 ? 2 : 1,
-    escenario: escenarioId,
+    jugadores: carrera ? JUGADORES_MAX : (local2 ? 2 : 1),
+    escenario: esc,
     armas: idsDeArmas(),
-    reglas: local2
-      ? { patiosExtra: false, todasLasArmas: false, puestos: false, modo: "versus" }
-      : undefined,
+    reglas: carrera
+      ? { patiosExtra: false, puestos: false, modo: "carrera", vecinos: false }
+      : local2
+        ? { patiosExtra: false, todasLasArmas: false, puestos: false, modo: "versus" }
+        : undefined,
     semilla: (semillaSiguiente = (semillaSiguiente * 48271) % 2147483647),
   }));
   G.local2 = local2;

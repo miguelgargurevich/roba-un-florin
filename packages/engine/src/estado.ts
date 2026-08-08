@@ -7,9 +7,9 @@ import type {
 } from "./tipos.js";
 import {
   ESCENARIOS, FLORES, GOAL, LASER_CARGA, PATIOS_PRECIO, TIERS, TRASTOS_ESCENARIO,
-  VARIANTES, VEHICULOS, WORLD_H, WORLD_W, varMult,
+  VARIANTES, VEHICULOS, WORLD_H, WORLD_W, esVehiculo, varMult,
 } from "./datos.js";
-import { azar, dist2, inRect, rnd } from "./util.js";
+import { azar, clamp, dist2, inRect, rnd } from "./util.js";
 
 /* ---- eventos: el único canal hacia el mundo exterior ---- */
 export const texto = (e: Estado, x: number, y: number, txt: string, color: string) =>
@@ -306,6 +306,7 @@ export function reglasPara(jugadores: number): Reglas {
     todasLasArmas: true,
     puestos: true,
     modo: "aventura",
+    vecinos: true,
   };
 }
 
@@ -378,6 +379,8 @@ export function crearPartida(op: OpcionesPartida): Estado {
   for (const b of bases) {
     b.refill = rnd(e, 3, 7);
     if (b.isPlayer) continue;
+    // en carrera las casas son decorado: ni Florines que robar ni abuela que huir
+    if (!reglas.vecinos) continue;
     const n = 2 + ((azar(e) * 2) | 0);
     for (let i = 0; i < n; i++)
       b.peds[i].florin = nuevoFlorin(e, (azar(e) * 2) | 0, { bob: rnd(e, 0, 6.28) });
@@ -391,7 +394,45 @@ export function crearPartida(op: OpcionesPartida): Estado {
   }
 
   sembrarTrastos(e);       // después de las bases: necesita saber dónde no caben
+  if (reglas.modo === "carrera") aLaLineaDeSalida(e);
   return e;
+}
+
+/* ---- la parrilla ----
+   Una carrera empieza distinta: todos en la línea, montados y mirando hacia el
+   primer punto de paso. Si cada uno saliera de su patio ganaría el que lo
+   tuviera más cerca, antes de empezar. */
+function aLaLineaDeSalida(e: Estado): void {
+  const c = e.esc.circuito;
+  if (!c || !c.length) return;
+
+  const [mx, my] = c[0];
+  const [sx, sy] = c[1] || c[0];
+  const ang = Math.atan2(sy - my, sx - mx);
+  /* En fila de a dos y hacia atrás, como una parrilla: perpendicular al rumbo
+     para el hueco de al lado, y en contra para la fila siguiente. */
+  const lx = Math.cos(ang + Math.PI / 2), ly = Math.sin(ang + Math.PI / 2);
+  const ax = -Math.cos(ang), ay = -Math.sin(ang);
+
+  e.players.forEach((p, i) => {
+    const fila = i >> 1, lado = i % 2 ? 1 : -1;
+    p.x = clamp(mx + lx * lado * 58 + ax * fila * 90, 40, WORLD_W - 40);
+    p.y = clamp(my + ly * lado * 58 + ay * fila * 90, 40, WORLD_H - 40);
+    p.vx = 0; p.vy = 0;
+    p.face = Math.cos(ang) >= 0 ? 1 : -1;
+    p.carrera = { vuelta: 0, hito: 1, fin: -1 };
+
+    /* Cada uno con el vehículo que toca en este sitio: en la Luna un carrito,
+       en la Costa Verde una bici. Se crean aparte de los que hay sueltos por el
+       mapa para que nadie empiece a pie. */
+    const tipo = (TRASTOS_ESCENARIO[e.esc.id] || []).map(t => t.tipo).find(esVehiculo) || "bici";
+    const v: Trasto = {
+      id: nuevoId(e), tipo: tipo as Trasto["tipo"], x: p.x, y: p.y, vx: 0, vy: 0,
+      montadoPor: p.idx, pateadoPor: null, giro: 0, variante: i,
+    };
+    e.trastos.push(v);
+    p.montado = v.id;
+  });
 }
 
 /* Reexportados por comodidad de quien consume el motor */

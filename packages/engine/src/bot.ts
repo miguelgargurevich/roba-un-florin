@@ -53,6 +53,17 @@ function aQuienLeTiro(e: Estado, p: Jugador): { x: number; y: number } | null {
 
 /** A dónde va: lo que lleva pesa más que lo que podría llevarse. */
 function aDondeVoy(e: Estado, p: Jugador): { x: number; y: number } | null {
+  /* Corriendo solo existe el siguiente punto de paso. Mira uno más allá para
+     ir cortando la curva en vez de ir de baliza en baliza como un cono. */
+  if (e.reglas.modo === "carrera" && e.esc.circuito?.length) {
+    const c = e.esc.circuito;
+    const r = p.carrera;
+    const i = r ? r.hito % c.length : 0;
+    const [x1, y1] = c[i];
+    const [x2, y2] = c[(i + 1) % c.length];
+    return { x: x1 * 0.75 + x2 * 0.25, y: y1 * 0.75 + y2 * 0.25 };
+  }
+
   // 1. con las manos llenas, a casa
   if (p.carry) {
     const hueco = freePedDe(e, p);
@@ -112,7 +123,8 @@ export function pensarBot(e: Estado, p: Jugador, dt: number): PlanBot {
      misma distancia lo dejaban temblando en el sitio sin ir a por ninguno. */
   const b = (p.bot ??= { x: p.x, y: p.y, repensar: 0 });
   b.repensar -= dt;
-  const llegó = dist2(p.x, p.y, b.x, b.y) < PEGADO * PEGADO;
+  const llegó = dist2(p.x, p.y, b.x, b.y) < PEGADO * PEGADO ||
+                (e.reglas.modo === "carrera" && b.repensar <= REPENSAR - 0.25);
   if (b.repensar <= 0 || llegó) {
     const meta = aDondeVoy(e, p);
     b.repensar = REPENSAR;
@@ -123,7 +135,8 @@ export function pensarBot(e: Estado, p: Jugador, dt: number): PlanBot {
   const m = Math.hypot(dx, dy);
   /* Pegado al objetivo se planta: el aro tarda 0,55 s en llenarse y si sigue
      empujando se pasa de largo y vuelve a empezar. */
-  const mover = m < PEGADO
+  const corriendo = e.reglas.modo === "carrera";
+  const mover = m < PEGADO && !corriendo
     ? { x: 0, y: 0 }
     /* El bamboleo evita la línea recta de robot. Sale del reloj y del número de
        jugador, así que sigue siendo reproducible. */
