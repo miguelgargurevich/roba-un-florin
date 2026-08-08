@@ -24,6 +24,11 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Última sesión
 
+- 2026-08-08 (claude-code): promovido todo a producción. Arreglos de iPad
+  —el potenciador al lado del botón de tirar para no soltar el joystick, y
+  `touch-action`/`gesturestart` para que deje de hacer zoom con dos pulgares— y
+  la tecla del objeto pasó a X, que la E ya cambiaba de arma.
+
 - 2026-08-08 (claude-code): cajas de ítem en las carreras con ruleta de
   potenciadores (cuatro comunes y uno propio de cada uno de los 16 escenarios),
   y el patio en venta redibujado: era una reja de barrotes que parecía cárcel y
@@ -69,6 +74,13 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Próximos pasos
 
+- [ ] **BUG abierto, intermitente:** a veces, la PRIMERA vez que le das a
+      "Correr ▸" después de cargar la página, arranca una aventura en vez de una
+      carrera. El botón dice "Correr", `#modoFila .modoBtn.sel` es `carrera` y
+      leyendo justo antes del clic también dice `carrera`, pero el juego sale en
+      modo aventura. Reproducido dos veces en producción (740×420, puntero
+      grueso) y ninguna en localhost. Workaround: 🏠 y darle otra vez. Sospecha
+      pendiente: algo asíncrono del arranque con la nube que no ocurre en local.
 - [ ] **Los bots corren mucho más que un jugador en red.** Medido: 3 vueltas
       contra 1 en el mismo tiempo. Parte es la latencia (220 ms) y parte que el
       bot traza perfecto. Si va a jugarse en serio, hay que frenarlos en
