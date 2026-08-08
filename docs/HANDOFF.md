@@ -24,6 +24,11 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Última sesión
 
+- 2026-08-08 (claude-code): el **álbum enseña los Florines dibujados** y con su
+  rebote —los que no tienes, en silueta—, en vez de una lista de nombres. Y el
+  botón 🏠 **pregunta antes de salir**: está pegado al libro y al sonido y en
+  tableta se roza sin querer.
+
 - 2026-08-08 (claude-code): **El Valle**, la prueba de mundo abierto: tres sitios
   que ya existían —La Catarata, La Construcción, El Zoológico— cosidos en un
   mapa de 10 800 x 2 100 que se cruza andando, sin menú. Para que fuera posible:

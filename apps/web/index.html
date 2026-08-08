@@ -285,14 +285,32 @@
   }
   .albumCaja h3 small{font-family:var(--num);font-size:14px;color:var(--gold)}
   .albumSub{margin:0 0 14px;font-size:12.5px;color:var(--cream-dim);line-height:1.45}
+  #salirAviso{
+    position:absolute;inset:0;z-index:40;display:grid;place-items:center;
+    background:rgba(12,6,14,.72);pointer-events:auto;padding:16px;
+  }
+  #salirAviso[hidden]{display:none}
+  .avisoCaja{
+    width:min(460px,100%);background:var(--plum-900);border:3px solid var(--gold);
+    border-radius:20px;padding:20px;box-shadow:0 14px 0 rgba(0,0,0,.45);
+  }
+  .avisoCaja h3{font-family:var(--display);font-size:24px;margin:0 0 8px;color:var(--cream)}
+  .avisoCaja p{margin:0 0 16px;color:var(--cream-dim);line-height:1.45}
+  .avisoBtns{display:flex;gap:10px;flex-wrap:wrap}
+  .avisoBtns .play{flex:1 1 180px;font-size:18px;padding:14px}
+
   .albumGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
   @media (max-width:520px){ .albumGrid{grid-template-columns:repeat(2,1fr)} }
+  /* En fila: el Florín dibujado a la izquierda y su ficha a la derecha. */
   .albumCel{
     border:2px solid var(--plum-600);border-radius:12px;padding:8px 9px;
-    background:var(--plum-700);display:flex;flex-direction:column;gap:3px;min-height:74px;
+    background:var(--plum-700);display:flex;align-items:center;gap:8px;min-height:74px;
   }
+  .albumTxt{display:flex;flex-direction:column;gap:3px;min-width:0}
+  .albumFlor{width:56px;height:56px;flex:0 0 auto}
+  @media (max-width:520px){ .albumFlor{width:46px;height:46px} }
   .albumCel.tenido{border-color:var(--leaf);background:color-mix(in srgb,var(--leaf) 12%, var(--plum-700))}
-  .albumCel.nunca{opacity:.4}
+  .albumCel.nunca{opacity:.62}
   .albumCel .rar{font-size:10px;font-weight:800;letter-spacing:.07em;text-transform:uppercase}
   .albumCel .nm{font-size:12.5px;font-weight:800;color:var(--cream);line-height:1.2}
   .albumCel .dt{font-family:var(--num);font-size:11px;color:var(--gold)}
@@ -972,6 +990,20 @@
         <button class="bautizoBtn vender" id="bautizoVender">Vender</button>
         <button class="bautizoBtn" id="bautizoQuitar">Quitar</button>
         <button class="bautizoBtn" id="bautizoCancelar">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Preguntar antes de salir: el 🏠 está en la barra, al lado del libro y
+       del sonido, y se toca sin querer. Perder la partida por un roce es lo
+       peor que puede pasarte en un juego de acumular. -->
+  <div id="salirAviso" hidden>
+    <div class="avisoCaja">
+      <h3>🏠 ¿Sales al menú?</h3>
+      <p id="salirTxt">Tu partida queda guardada y puedes seguirla desde el inicio.</p>
+      <div class="avisoBtns">
+        <button class="play" id="salirNo">◂ Seguir jugando</button>
+        <button class="play menu" id="salirSi">Ir al menú ▸</button>
       </div>
     </div>
   </div>

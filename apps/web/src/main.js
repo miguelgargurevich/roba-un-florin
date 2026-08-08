@@ -375,6 +375,7 @@ window.addEventListener("keydown", e => {
   if (k === "t") togglePanel("arm");
   if (k === "r") togglePanel("rul");
   if (k === "escape" && !document.getElementById("album").hidden) cerrarAlbum();
+  if (k === "escape" && !document.getElementById("salirAviso").hidden) cerrarSalir();
   if (k >= "1" && k <= "9") elegirArma(+k - 1);
   if (k === "0") elegirArma(9);
   if (k === "q") elegirArma((G.wsel + WEAPONS.length - 1) % WEAPONS.length);
@@ -434,9 +435,15 @@ function vistoEnAlbum(tier, variant){
       "📖 ¡Nuevo en el álbum!" , RAR_COLOR[T.rar] || "#FFC53D");
 }
 
+/* Los Florines del álbum, con su dibujo y su rebote. Verlos ahí es la mitad de
+   la gracia de coleccionarlos: una lista de nombres no motiva a nadie. */
+let albumCanvas = [];
+let albumRaf = 0;
+
 function renderAlbum(){
   const grid = document.getElementById("albumGrid");
   grid.innerHTML = "";
+  albumCanvas = [];
   let n = 0;
   TIERS.forEach((T, tier) => {
     ALBUM_VARIANTES.forEach(v => {
@@ -445,16 +452,54 @@ function renderAlbum(){
       const cel = document.createElement("div");
       cel.className = "albumCel " + (tenido ? "tenido" : "nunca");
       const inc = T.income * varMult(v);
-      cel.innerHTML =
+      const cv = document.createElement("canvas");
+      cv.className = "albumFlor";
+      cv.width = 84; cv.height = 84;
+      cel.appendChild(cv);
+      const txt = document.createElement("div");
+      txt.className = "albumTxt";
+      txt.innerHTML =
         '<span class="rar" style="color:' + (RAR_COLOR[T.rar] || "#FFEFE2") + '">' + T.rar + '</span>' +
         '<span class="nm">' + (tenido ? T.name : "???") + (v ? " " + VARIANTES[v].icon : "") + '</span>' +
         '<span class="dt">' + money(T.price) + ' · ' + inc + '/s</span>' +
         '<span class="q">' + (v ? VARIANTES[v].label + " ×" + varMult(v) : "normal") + '</span>';
+      cel.appendChild(txt);
       grid.appendChild(cel);
+      /* La flor es siempre la misma para cada casilla: el álbum es una ficha,
+         no una tirada. Sale del número de rareza, así que no cambia al abrirlo. */
+      albumCanvas.push({ cv, c: cv.getContext("2d"),
+                         f: { tier, variant: v, flor: (tier * 3 + ALBUM_VARIANTES.indexOf(v)) },
+                         tenido, fase: (tier * 7 + ALBUM_VARIANTES.indexOf(v) * 3) * 0.37 });
     });
   });
   document.getElementById("albumCuenta").textContent = n + " / " + ALBUM_TOTAL;
+  animarAlbum();
 }
+
+function animarAlbum(){
+  cancelAnimationFrame(albumRaf);
+  const paso = () => {
+    const t = performance.now() / 1000;
+    for (const a of albumCanvas){
+      /* Solo los que se ven. Son 75 casillas y redibujarlas todas cada frame
+         se nota en una tableta, aunque la mayoría estén fuera de la ventana. */
+      const r = a.cv.getBoundingClientRect();
+      if (r.bottom < -40 || r.top > innerHeight + 40) continue;
+      const { c } = a;
+      c.clearRect(0, 0, 84, 84);
+      c.save();
+      /* Los que no tienes salen en silueta: se ve la forma, no cuál es. */
+      if (!a.tenido) c.filter = "grayscale(1) brightness(.35)";
+      const bob = Math.sin(t * 2.2 + a.fase) * 3;
+      drawFlorinEn(c, 42, 46 + bob, 1.25, a.f, t + a.fase);
+      c.restore();
+    }
+    albumRaf = requestAnimationFrame(paso);
+  };
+  paso();
+}
+
+function pararAlbum(){ cancelAnimationFrame(albumRaf); albumRaf = 0; albumCanvas = []; }
 
 function abrirAlbum(){
   if (!G || !G.started || G.over) return;
@@ -463,6 +508,7 @@ function abrirAlbum(){
   if (!G.paused) togglePause();
 }
 function cerrarAlbum(){
+  pararAlbum();
   document.getElementById("album").hidden = true;
   if (G.paused) togglePause();
 }
@@ -650,7 +696,27 @@ for (const b of document.querySelectorAll("#modoFila .modoBtn"))
   b.addEventListener("click", () => elegirModoLocal(b.dataset.modo));
 
 el.rulBtn.addEventListener("click", girarRuleta);
-el.btnInicio.addEventListener("click", volverAlInicio);
+/* El 🏠 pregunta antes de salir. Está en la barra de arriba, pegado al libro y
+   al sonido, y en una tableta se roza sin querer: perder la partida por eso es
+   lo peor que puede pasar en un juego de acumular. */
+const salirAviso = document.getElementById("salirAviso");
+el.btnInicio.addEventListener("click", () => {
+  if (!G || !G.started || G.over){ volverAlInicio(); return; }   // nada que perder
+  document.getElementById("salirTxt").textContent = sala
+    ? "Vas a salir de la sala. Los demás siguen jugando sin ti."
+    : "Tu partida queda guardada y puedes seguirla desde el inicio.";
+  salirAviso.hidden = false;
+  if (!G.paused) togglePause();
+});
+const cerrarSalir = () => {
+  salirAviso.hidden = true;
+  if (G && G.started && !G.over && G.paused) togglePause();
+};
+document.getElementById("salirNo").addEventListener("click", cerrarSalir);
+document.getElementById("salirSi").addEventListener("click", () => {
+  salirAviso.hidden = true;
+  volverAlInicio();
+});
 document.getElementById("btnAlbum").addEventListener("click", abrirAlbum);
 document.getElementById("albumCerrar").addEventListener("click", cerrarAlbum);
 aplicarZurdo();
@@ -6911,7 +6977,10 @@ function drawBase(b){
 
 /* Recibe el Florín entero (tier + variante + especie de flor) en vez de sueltos:
    así ningún sitio se olvida de pasar uno y salen todos iguales sin querer. */
-function drawFlorin(x, y, s, f, t){
+/* Dibuja un Florín en el lienzo que le den. Antes solo sabía pintar en el del
+   juego; el álbum necesita el mismo dibujo en su propia casilla, y repetir el
+   código habría dejado dos Florines que se parecen pero no son iguales. */
+function drawFlorinEn(ctx, x, y, s, f, t){
   const tier = f.tier, variant = f.variant || null;
   const FL = FLORES[(f.flor|0) % FLORES.length];
   const T = TIERS[tier];
@@ -7369,6 +7438,9 @@ function drawFlorin(x, y, s, f, t){
   }
   ctx.restore();
 }
+
+/** El de siempre, en el lienzo del juego. */
+function drawFlorin(x, y, s, f, t){ drawFlorinEn(ctx, x, y, s, f, t); }
 
 function drawArmeria(){ for (const a of G.armerias) unaArmeria(a); }
 function unaArmeria(a){
