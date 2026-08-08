@@ -24,6 +24,11 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Última sesión
 
+- 2026-08-08 (claude-code): **promovido a producción** el mapa grande completo
+  (3600x2100, seis vecinos, cuatro patios, dos puestos de cada, dinosaurio, La
+  Prehistoria y el desfile por la pasarela). Verificado: bundle sin `localhost`,
+  API y salas respondiendo, assets viejos intactos y consola limpia.
+
 - 2026-08-08 (claude-code): **el mapa pasa de 2600x1700 a 3600x2100** (área
   x1,71) y, sobre todo, su tamaño vuelve a ser dos números: el reparto entero
   —casas, patios, caja de circuito, mar, puente, calles y óvalos del cliente—
@@ -117,7 +122,6 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
       carrera.
 - [ ] **Dos personas de carne y hueso.** Sigue sin probarse: el segundo cliente
       siempre ha sido un script mío (`scratchpad/carrera.mjs`).
-- [ ] **Promover a producción** todo esto: sigue solo en staging.
 - [ ] Los trazados de carrera son seis para dieciséis mapas. Se repiten (con
       media vuelta de diferencia). Si cansan, tocar `HORQUILLA`, `RINON`,
       `CHICANA`, `HERRADURA`, `TREBOL` y `ZIGZAG` en `datos.ts`: al cambiar uno
@@ -126,9 +130,6 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
       (si no, queda un vértice y los bots se clavan ahí), y que ningún punto se
       pase de ±1 (los escenarios con mar tienen la caja recortada). Hay pruebas
       de las dos cosas.
-- [ ] **Promover a producción.** Todo lo de esta última tanda —bots, Ruleta,
-      soltar, botón de inicio— está en staging (`nuevo.florin.gargurevich.dev`),
-      no en `florin.gargurevich.dev`.
 - [ ] **¿Los bots son demasiado buenos?** 13 robos en 75 s medidos contra
       producción. Se frenan con `REPENSAR` y con el `PEGADO` de `bot.ts`.
 - [ ] **Dos personas de verdad, cada una en su aparato.** Ya hay una prueba con
