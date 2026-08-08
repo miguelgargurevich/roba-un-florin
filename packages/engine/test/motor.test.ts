@@ -11,6 +11,7 @@ import {
   avanzar, bajarse, cargar, crearPartida, girarRuleta, idsDeArmas, inRect,
   occupiedDe, playerIncome, spawnThief, usarArma, comprarArma, seleccionarArma,
   nuevoFlorin, baseDe, patiosDe, zap, multDeMontura, puntoDelDesfile, puntoDelOcho,
+  nivelDeVitrina, nombreDeHito, HITOS_MAX, vitrinaDe,
   type EntradaJugador, type Estado,
 } from "../src/index.js";
 
@@ -24,7 +25,7 @@ function partida(op: Partial<Parameters<typeof crearPartida>[0]> = {}) {
 function duelo() {
   return partida({
     jugadores: 2,
-    reglas: { patiosExtra: false, todasLasArmas: false, puestos: false, duelo: true },
+    reglas: { patiosExtra: false, todasLasArmas: false, puestos: false, modo: "versus" },
   });
 }
 /** Corre `segs` segundos a 60 fps. */
@@ -192,14 +193,15 @@ describe("cada jugador de más reemplaza a un bot", () => {
 
   it("los hitos son de cada uno, no del jugador 1", () => {
     const e = partida({ jugadores: 3 });
-    e.players[2].money = GOAL + 1;
+    const p = e.players[2];
+    for (const b of patiosDe(e, p)) for (const q of b.peds) q.florin = nuevoFlorin(e, 0);
     avanzar(e, nada(3), 1 / 60);
-    expect(e.players[2].hitoN).toBe(1);
+    expect(p.hitoN).toBe(1);
     expect(e.players[0].hitoN).toBe(0);
     expect(e.players[1].hitoN).toBe(0);
     const ev = e.eventos.find(x => x.t === "hito");
     expect(ev && (ev as any).jugador).toBe(2);
-    expect(e.over).toBe(false);                  // una sala no se acaba
+    expect(e.over).toBe(false);                  // una sala de aventura no se acaba
   });
 
   it("todos pueden cambiar de arma y usar los puestos", () => {
@@ -253,34 +255,112 @@ describe("ingresos", () => {
   });
 });
 
-describe("la partida de un jugador no se corta", () => {
-  it("al pasar la meta celebra un hito y sigue", () => {
+describe("los hitos son de vitrina, no de dinero", () => {
+  /** Llena todos los huecos del jugador con Florines de esa rareza. */
+  function llenar(e: Estado, idx: number, tier: number) {
+    const p = e.players[idx];
+    for (const b of patiosDe(e, p)) for (const q of b.peds) q.florin = nuevoFlorin(e, tier);
+  }
+
+  it("el dinero no da hitos por muy alto que sea", () => {
     const e = partida();
-    e.players[0].money = GOAL + 1;
+    e.players[0].money = GOAL * 500;
+    correr(e, 1);
+    expect(e.players[0].hitoN).toBe(0);
+    expect(e.over).toBe(false);
+  });
+
+  it("llenar la vitrina es el primer hito", () => {
+    const e = partida();
+    llenar(e, 0, 0);
     avanzar(e, nada(), 1 / 60);
-    expect(e.over).toBe(false);
     expect(e.players[0].hitoN).toBe(1);
-    expect(e.players[0].hito).toBe(GOAL * 2);
-    expect(e.eventos.some(ev => ev.t === "hito")).toBe(true);
+    expect(e.eventos.some(ev => ev.t === "hito" && ev.n === 1)).toBe(true);
+    expect(e.over).toBe(false);              // en aventura no se acaba
   });
 
-  it("encadena hitos sin terminar nunca", () => {
+  it("el nivel lo marca el PEOR Florín: subir es cambiar el más flojo", () => {
     const e = partida();
-    for (let k = 1; k <= 5; k++) {
-      e.players[0].money = GOAL * k + 1;
-      avanzar(e, nada(), 1 / 60);
-    }
-    expect(e.players[0].hitoN).toBe(5);
-    expect(e.over).toBe(false);
+    llenar(e, 0, 6);                          // toda de Cósmicos
+    avanzar(e, nada(), 1 / 60);
+    expect(e.players[0].hitoN).toBe(7);       // llena(1) + Cósmico(6)
+
+    // uno malo entre los buenos tira el nivel actual al suelo
+    baseDe(e, e.players[0].baseId).peds[0].florin = nuevoFlorin(e, 0);
+    expect(nivelDeVitrina(e, e.players[0])).toBe(1);
+    avanzar(e, nada(), 1 / 60);
+    expect(e.players[0].hitoN, "lo ya celebrado no se pierde").toBe(7);
   });
 
-  it("en el duelo sí gana el primero que llega", () => {
-    const e = duelo();
-    e.players[1].money = GOAL + 1;
+  it("una vitrina a medias no es hito, por muy buena que sea", () => {
+    const e = partida();
+    baseDe(e, e.players[0].baseId).peds[0].florin = nuevoFlorin(e, 14);
+    correr(e, 1);
+    expect(e.players[0].hitoN).toBe(0);
+  });
+
+  it("con más patios hay más huecos que llenar", () => {
+    const e = partida();
+    const p = e.players[0];
+    llenar(e, 0, 3);
+    avanzar(e, nada(), 1 / 60);
+    expect(p.hitoN).toBe(4);
+
+    p.money = 99999;                          // se compra otro patio: la meta crece
+    const patio2 = e.bases.find(b => b.locked)!;
+    patio2.locked = false; patio2.owner = p.idx; p.patios.push(patio2.id);
+    expect(nivelDeVitrina(e, p)).toBe(0);     // vacío: ya no está llena
+  });
+
+  it("la escalera llega hasta la última rareza", () => {
+    const e = partida();
+    llenar(e, 0, TIERS.length - 1);
+    avanzar(e, nada(), 1 / 60);
+    expect(e.players[0].hitoN).toBe(HITOS_MAX);
+    expect(nombreDeHito(HITOS_MAX)).toContain("Ancestral");
+  });
+});
+
+describe("modo versus", () => {
+  function versus(n = 2) {
+    return partida({ jugadores: n, reglas: { modo: "versus", patiosExtra: false } });
+  }
+
+  it("gana el primero que llena todos sus patios", () => {
+    const e = versus();
+    const p = e.players[1];
+    for (const b of patiosDe(e, p)) for (const q of b.peds) q.florin = nuevoFlorin(e, 0);
     avanzar(e, nada(2), 1 / 60);
     expect(e.over).toBe(true);
     expect(e.winnerIdx).toBe(1);
     expect(e.eventos.some(ev => ev.t === "fin" && ev.ganador === 1)).toBe(true);
+  });
+
+  it("el dinero no gana la partida", () => {
+    const e = versus();
+    e.players[0].money = GOAL * 1000;
+    correr(e, 2, nada(2));
+    expect(e.over).toBe(false);
+  });
+
+  it("media vitrina no basta", () => {
+    const e = versus();
+    const p = e.players[0];
+    const peds = patiosDe(e, p).flatMap(b => b.peds);
+    for (const q of peds.slice(0, peds.length - 1)) q.florin = nuevoFlorin(e, 14);
+    correr(e, 1, nada(2));
+    expect(e.over).toBe(false);
+    peds[peds.length - 1].florin = nuevoFlorin(e, 0);   // el último, aunque sea Común
+    avanzar(e, nada(2), 1 / 60);
+    expect(e.over).toBe(true);
+  });
+
+  it("en aventura llenarla NO acaba la partida", () => {
+    const e = partida();
+    for (const b of patiosDe(e, e.players[0])) for (const q of b.peds) q.florin = nuevoFlorin(e, 0);
+    correr(e, 1);
+    expect(e.over).toBe(false);
+    expect(e.players[0].hitoN).toBe(1);
   });
 });
 

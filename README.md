@@ -77,12 +77,41 @@ Un Florín tirado en el suelo lo puede recoger cualquiera: si le pegas a un ladr
 Funciona **en vertical y en horizontal**. Al tumbar el móvil el HUD se compacta
 para que quepa en los ~390 px de alto y se respetan los recortes del notch.
 
-### La partida no se acaba
+### Los hitos son de vitrina, no de dinero
 
-Llegar a $60 000 ya no corta el juego: se celebra el hito, la barra se vuelve a
-llenar hacia el siguiente ($120 000, $180 000…) y sigues jugando. La idea es
-coleccionar, así que juega hasta que te aburras. En **2 jugadores** sí es un
-duelo: gana el primero que llega a $60 000.
+El dinero dejó de servir como vara. Con las 15 rarezas y las 4 variantes, una
+vitrina llena puede rendir **54/s o 522 000/s**: un abanico de **174 000×**.
+Ninguna cifra es interesante en los dos extremos — a $60 000 el hito tarda
+**18 minutos** con Comunes y **una décima de segundo** con Amarus dorados.
+
+Así que el hito es la **vitrina**:
+
+| Nivel | Qué hay que hacer |
+|---|---|
+| 1 | Llenar todos los huecos de tus patios |
+| 2 | Que todos sean **Fiestero** o mejor |
+| 3 | Que todos sean **Raro** o mejor |
+| … | … |
+| 15 | Que todos sean **Ancestral** — el fin del mundo |
+
+El nivel lo marca **el peor Florín** que tengas puesto, así que subir es cambiar
+el más flojo por uno mejor. Esa escalera no se infla nunca: dieciocho huecos son
+dieciocho huecos con 3/s y con 29 000/s. Lo ya celebrado no se pierde si te
+roban, pero la barra sí baja: te dice cómo estás ahora.
+
+El dinero se queda como lo que **gastas** (patios, armas, ruleta) y como marca
+para el ranking.
+
+### Modos
+
+- **Aventura** — sin fin. Coleccionar hasta aburrirse, solo o con amigos.
+- **Versus** — gana el primero que **llena todos sus patios**. Comprar un patio
+  de más te da ingresos pero alarga la meta: seis huecos se llenan antes que
+  doce.
+
+*(Cooperativo queda pendiente: una sala en aventura ya es cooperativa —amigos
+en el mismo barrio, sin ganador— así que para ser un modo de verdad necesita un
+objetivo y una amenaza comunes, y eso todavía no está diseñado.)*
 
 ### Los paneles se abren tú
 

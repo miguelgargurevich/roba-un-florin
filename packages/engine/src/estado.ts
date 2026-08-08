@@ -85,6 +85,40 @@ export function playerIncome(e: Estado, p: Jugador): number {
   return occupiedDe(e, p).reduce((s, q) => s + florinIncome(q.florin!), 0);
 }
 
+/* ---- la escalera de hitos ----
+
+   El hito es la VITRINA, no el dinero. Nivel 1 es tenerla llena; a partir de
+   ahí sube con la rareza del PEOR Florín que tengas puesto, así que subir de
+   nivel es cambiar el más flojo por uno mejor. Nunca se infla: dieciocho
+   huecos son dieciocho huecos con 3/s y con 29 000/s. */
+export const HITOS_MAX = TIERS.length;   // llena (1) + una por rareza a partir de Común
+
+/** Nivel de vitrina AHORA MISMO. 0 = ni siquiera está llena. */
+export function nivelDeVitrina(e: Estado, p: Jugador): number {
+  const patios = patiosDe(e, p);
+  const huecos = patios.reduce((s, b) => s + b.peds.length, 0);
+  if (!huecos) return 0;
+  const puestos = occupiedDe(e, p);
+  if (puestos.length < huecos) return 0;
+  const peor = Math.min(...puestos.map(q => q.florin!.tier));
+  return 1 + peor;
+}
+
+/** Cuántos huecos tiene y cuántos llenos: lo que enseña la barra del HUD. */
+export function vitrinaDe(e: Estado, p: Jugador) {
+  const huecos = patiosDe(e, p).reduce((s, b) => s + b.peds.length, 0);
+  const llenos = occupiedDe(e, p).length;
+  return { huecos, llenos, nivel: nivelDeVitrina(e, p) };
+}
+
+/** Cómo se llama el hito de ese nivel. */
+export function nombreDeHito(nivel: number): string {
+  if (nivel <= 0) return "Llena tu vitrina";
+  if (nivel === 1) return "¡Vitrina llena!";
+  const T = TIERS[Math.min(nivel - 1, TIERS.length - 1)];
+  return "¡Vitrina de " + T.rar + "!";
+}
+
 /* ---- láseres ---- */
 export function ponerLaser(b: Base): void {
   b.laser = {
@@ -222,7 +256,7 @@ function mkJugador(idx: number, base: Base, shirt: string, ammoIds: string[]): J
     grab: { ped: null, t: 0 },
     apunta: { on: false, wx: 0, wy: 0 },
     stats: { steals: 0, hits: 0, lost: 0, froze: 0 },
-    hito: GOAL, hitoN: 0, fiesta: 0,
+    hitoN: 0, fiesta: 0,
   };
 }
 
@@ -265,7 +299,7 @@ export function reglasPara(jugadores: number): Reglas {
     patiosExtra: solo,
     todasLasArmas: true,
     puestos: true,
-    duelo: false,
+    modo: "aventura",
   };
 }
 

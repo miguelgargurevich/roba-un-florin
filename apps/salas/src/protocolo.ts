@@ -28,7 +28,8 @@ export const SIN_SEÑALES = 20;
 
 /* ---- lo que manda el cliente ---- */
 export type DelCliente =
-  | { t: "entrar"; token?: string; codigo?: string; escenario?: string; apodo?: string }
+  | { t: "entrar"; token?: string; codigo?: string; escenario?: string; apodo?: string;
+      modo?: "aventura" | "versus" }
   | { t: "entrada"; mover: { x: number; y: number }; apunta: { x: number; y: number } | null }
   | { t: "arma"; i: number }
   | { t: "usar" }
@@ -38,7 +39,8 @@ export type DelCliente =
 
 /* ---- lo que manda la sala ---- */
 export type DeLaSala =
-  | { t: "bienvenida"; codigo: string; idx: number; apodo: string; mundo: Estado; gente: Presencia[] }
+  | { t: "bienvenida"; codigo: string; idx: number; apodo: string; modo: string;
+      mundo: Estado; gente: Presencia[] }
   | { t: "mundo"; mundo: Estado }
   | { t: "tick"; n: number; movil: Movil }
   | { t: "gente"; gente: Presencia[] }

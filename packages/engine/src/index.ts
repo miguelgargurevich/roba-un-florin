@@ -22,6 +22,7 @@ export {
   bloqueadoPorLaser, orbitaDelCentro, puntoDelDesfile, ponerLaser,
   PORTAL_BAJADA, PORTAL_OCHO, OCHO_A, OCHO_B, centroDelMapa, puntoDelOcho,
   baseDe, jugadorDe, pedDe, desfileDe, patiosDe, objetivoDe,
+  nivelDeVitrina, vitrinaDe, nombreDeHito, HITOS_MAX,
   trastoDe, hayMar, enElMar, puedeMojarse,
 } from "./estado.js";
 export type { OpcionesPartida } from "./estado.js";

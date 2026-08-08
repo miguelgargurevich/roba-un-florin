@@ -21,9 +21,9 @@ import {
 import { azar, clamp, dist2, inRect, lerp, money, pick, rnd, tiraDeTabla } from "./util.js";
 import {
   baseDe, bloqueadoPorLaser, desfileDe, enElMar, esMiPatio, florinIncome, freePed,
-  freePedDe, jugadorDe, laserActivo, mismoFlorin, nuevoFlorin, nuevoId, occupied,
-  occupiedDe, patiosDe, pedDe, playerIncome, polvo, ponerLaser, puedeMojarse,
-  puntoDelDesfile, sonar, texto, trastoDe,
+  freePedDe, jugadorDe, laserActivo, mismoFlorin, nivelDeVitrina, nombreDeHito,
+  nuevoFlorin, nuevoId, occupied, occupiedDe, patiosDe, pedDe, playerIncome,
+  polvo, ponerLaser, puedeMojarse, puntoDelDesfile, sonar, texto, trastoDe,
 } from "./estado.js";
 
 /* Cualquier cosa a la que se pueda golpear */
@@ -798,30 +798,30 @@ export function avanzar(e: Estado, entradas: Record<number, EntradaJugador>, dt:
     e.alarma = null;
   }
 
-  /* ---- la meta ---- */
-  if (e.reglas.duelo) {
-    for (const p of e.players) if (p.money >= GOAL) {
-      e.over = true; e.winnerIdx = p.idx;
-      e.eventos.push({ t: "fin", ganador: p.idx });
+  /* ---- la meta: la vitrina ----
+
+     Antes esto miraba el dinero, y con 174 000× de abanico entre la vitrina
+     más pobre y la más rica no había número que valiera: eterno al empezar,
+     instantáneo al final. Ahora el hito es llenar la vitrina y luego subirle
+     la rareza, que es lo que el juego dice que importa y no se infla. */
+  for (const p of e.players) {
+    const nivel = nivelDeVitrina(e, p);
+    if (nivel > p.hitoN) {
+      p.hitoN = nivel;
+      texto(e, p.x, p.y - 92, nombreDeHito(nivel), "#FFC53D");
+      polvo(e, p.x, p.y - 20, "#FFC53D", 26);
+      e.eventos.push({ t: "hito", n: nivel, monto: Math.floor(p.money), jugador: p.idx });
+      p.fiesta = 2.2;
       sonar(e, "win");
-      break;
+
+      /* En versus se gana llenando los patios que tengas. Comprar uno más da
+         ingresos pero alarga la meta: seis huecos se llenan antes que doce. */
+      if (e.reglas.modo === "versus" && nivel >= 1) {
+        e.over = true; e.winnerIdx = p.idx;
+        e.eventos.push({ t: "fin", ganador: p.idx });
+      }
     }
-    return e;
-  }
-  /* Sin fin: cada jugador encadena SUS hitos. Antes esto miraba solo al
-     jugador 1, que estaba bien cuando el resto eran bots pero en una sala
-     dejaría a los demás sin celebrar nunca nada. */
-  for (const p1 of e.players) {
-    if (p1.money >= p1.hito) {
-      p1.hitoN++;
-      p1.hito = GOAL * (p1.hitoN + 1);
-      texto(e, p1.x, p1.y - 92, "¡Hito " + p1.hitoN + "! " + money(GOAL * p1.hitoN), "#FFC53D");
-      polvo(e, p1.x, p1.y - 20, "#FFC53D", 26);
-      e.eventos.push({ t: "hito", n: p1.hitoN, monto: GOAL * p1.hitoN, jugador: p1.idx });
-      p1.fiesta = 2.2;
-      sonar(e, "win");
-    }
-    if (p1.fiesta > 0) p1.fiesta -= dt;
+    if (p.fiesta > 0) p.fiesta -= dt;
   }
   return e;
 }

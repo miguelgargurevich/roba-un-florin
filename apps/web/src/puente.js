@@ -13,7 +13,7 @@ import {
   idsDeArmas, inRect, laserActivo, lerp, mismoFlorin, money, nuevoFlorin,
   occupied, occupiedDe, orbitaDelCentro, patiosDe, playerIncome, puntoDelDesfile,
   rumboDeTiro, seleccionarArma, textoDePremio, usarArma, varLabel, varMult,
-  VEHICULOS, bajarse, enElMar, trastoDe,
+  VEHICULOS, bajarse, enElMar, trastoDe, nivelDeVitrina, vitrinaDe, nombreDeHito,
 } from "@florin/engine";
 
 export {
@@ -25,7 +25,7 @@ export {
   lerp, mismoFlorin, money, nuevoFlorin, occupied, occupiedDe, orbitaDelCentro,
   patiosDe, playerIncome, puntoDelDesfile, rumboDeTiro, seleccionarArma,
   textoDePremio, usarArma, varLabel, varMult,
-  VEHICULOS, bajarse, enElMar, trastoDe,
+  VEHICULOS, bajarse, enElMar, trastoDe, nivelDeVitrina, vitrinaDe, nombreDeHito,
 };
 
 /* ---- escenarios: el motor pone el reparto, el cliente el aspecto ---- */
@@ -98,7 +98,7 @@ let semillaSiguiente = (Date.now() % 2147483647) | 0;
    jugador), así que se reponen aquí encima del estado. Es un puente de
    compatibilidad: cuando el cliente se reescriba, esto se cae. */
 const ATAJOS = ["money", "ammo", "wsel", "cd", "chancla", "grab", "apunta", "stats",
-                "inShop", "inRuleta", "hito", "hitoN", "fiesta"];
+                "inShop", "inRuleta", "hitoN", "fiesta"];
 function conAtajos(G) {
   Object.defineProperty(G, "player", {
     get: () => G.players[0], configurable: true, enumerable: false,
@@ -123,7 +123,7 @@ export function nuevaPartidaMotor(modo, escenarioId) {
     escenario: escenarioId,
     armas: idsDeArmas(),
     reglas: local2
-      ? { patiosExtra: false, todasLasArmas: false, puestos: false, duelo: true }
+      ? { patiosExtra: false, todasLasArmas: false, puestos: false, modo: "versus" }
       : undefined,
     semilla: (semillaSiguiente = (semillaSiguiente * 48271) % 2147483647),
   }));
@@ -152,12 +152,15 @@ export function revivirPartida(texto){
     for (const p of G.players){
       if (p.montado === undefined) p.montado = null;
       if (p.trastoUsado === undefined) p.trastoUsado = null;
-      // los hitos eran del estado; en los guardados viejos están ahí
-      if (p.hito === undefined) p.hito = G.hito ?? GOAL;
-      if (p.hitoN === undefined) p.hitoN = G.hitoN ?? 0;
+      /* Los hitos eran de dinero y vivían en el estado. En los guardados viejos
+         el número no significa lo mismo, así que se parte de cero: se volverán
+         a celebrar los de vitrina, que es más amable que no celebrar ninguno. */
+      if (p.hitoN === undefined) p.hitoN = 0;
+      delete p.hito;
       if (p.fiesta === undefined) p.fiesta = 0;
     }
-    if (!G.reglas) G.reglas = { patiosExtra: true, todasLasArmas: true, puestos: true, duelo: false };
+    if (!G.reglas) G.reglas = { patiosExtra: true, todasLasArmas: true, puestos: true, modo: "aventura" };
+    if (G.reglas.modo === undefined) G.reglas.modo = G.reglas.duelo ? "versus" : "aventura";
     G.local2 = false;              // nunca se guardó una partida de sofá
     return conAtajos(G);
   } catch (_){ return null; }

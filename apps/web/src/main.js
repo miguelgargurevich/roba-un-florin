@@ -16,7 +16,8 @@ import {
   florNombre, florinIncome, freePed, freePedDe, girarRuleta as girarEnMotor,
   inRect, laserActivo, lerp, money, nuevaPartidaMotor, nuevoFlorin, occupied,
   occupiedDe, orbitaDelCentro, playerIncome, puntoDelDesfile, rumboDeTiro,
-  bajarse, patiosDe, revivirPartida, seleccionarArma, textoDePremio, usarArma, varLabel,
+  bajarse, nombreDeHito, patiosDe, revivirPartida, seleccionarArma, textoDePremio,
+  usarArma, varLabel, vitrinaDe,
   varMult, visualDe,
 } from "./puente.js";
 import { nube } from "./nube.js";
@@ -3731,9 +3732,10 @@ function hud(){
     el.rate.textContent  = money(playerIncome(G, a)) + "/s";
     el.j2money.textContent = money(b.money);
     el.j2rate.textContent  = money(playerIncome(G, b)) + "/s";
-    el.bar.style.width   = clamp(a.money/GOAL*100, 0, 100).toFixed(1) + "%";
-    el.j2bar.style.width = clamp(b.money/GOAL*100, 0, 100).toFixed(1) + "%";
-    el.goal.textContent  = "meta " + money(GOAL);
+    const va = vitrinaDe(G, a), vb = vitrinaDe(G, b);
+    el.bar.style.width   = clamp(va.llenos/va.huecos*100, 0, 100).toFixed(1) + "%";
+    el.j2bar.style.width = clamp(vb.llenos/vb.huecos*100, 0, 100).toFixed(1) + "%";
+    el.goal.textContent  = va.llenos + " / " + va.huecos;
     el.lost.textContent  = a.stats.lost + " / " + b.stats.lost;
     bau.boton.hidden = !(isTouch && florinAlLado() && bau.caja.hidden);
     return;
@@ -3742,11 +3744,15 @@ function hud(){
   const inc = playerIncome(G, G.player);
   el.money.textContent = money(G.money);
   el.rate.textContent = money(inc) + "/s";
-  // la barra mide el tramo del hito actual, así que se vuelve a llenar cada vez
-  const base = G.hito - GOAL;
-  el.goal.textContent = money(G.money) + " / " + money(G.hito);
-  el.bar.style.width = clamp((G.money - base)/GOAL*100, 0, 100).toFixed(1) + "%";
-  el.goalLabel.textContent = G.hitoN ? "Hito " + (G.hitoN + 1) : "Meta del patio";
+  /* La barra mide la VITRINA, no el dinero: cuántos huecos llenos de cuántos.
+     El dinero ya no sirve de meta — entre la vitrina más pobre y la más rica
+     hay 174 000× y ninguna cifra es interesante en los dos extremos. */
+  const v = vitrinaDe(G, G.player);
+  el.goal.textContent = v.llenos + " / " + v.huecos;
+  el.bar.style.width = clamp(v.llenos/v.huecos*100, 0, 100).toFixed(1) + "%";
+  el.goalLabel.textContent = v.nivel > 0
+    ? nombreDeHito(v.nivel).replace(/[¡!]/g, "")
+    : G.hitoN > 0 ? "Vuelve a llenarla" : "Llena tu vitrina";
   el.goalCard.classList.toggle("fiesta", G.fiesta > 0);
   el.lost.textContent = G.stats.lost;
 
@@ -3809,9 +3815,11 @@ function endGame(ganador){
     document.getElementById("endEyebrow").textContent = "Duelo terminado";
     document.getElementById("endTitle").innerHTML =
       "¡Gana <em>J" + (ganador.idx+1) + "</em>!";
+    const vp = vitrinaDe(G, perdedor);
     document.getElementById("endSub").textContent =
-      "J" + (ganador.idx+1) + " llegó a " + money(GOAL) + " mientras J" + (perdedor.idx+1) +
-      " se quedó en " + money(perdedor.money) + ". Las abuelas del barrio no quieren volver a ver a ninguno de los dos.";
+      "J" + (ganador.idx+1) + " llenó su vitrina entera mientras J" + (perdedor.idx+1) +
+      " se quedó en " + vp.llenos + " de " + vp.huecos +
+      ". Las abuelas del barrio no quieren volver a ver a ninguno de los dos.";
     document.getElementById("stSteals").textContent = ganador.stats.steals + " / " + perdedor.stats.steals;
     document.getElementById("stHits").textContent   = ganador.stats.hits + " / " + perdedor.stats.hits;
     document.getElementById("stTime").textContent   = mmss(G.t);
@@ -3821,9 +3829,9 @@ function endGame(ganador){
     return;
   }
   document.getElementById("endEyebrow").textContent = won ? "Meta cumplida" : "Fin del patio";
-  document.getElementById("endTitle").innerHTML = won ? "¡Patio <em>lleno</em>!" : "Te dejaron <em>pelado</em>";
+  document.getElementById("endTitle").innerHTML = won ? "¡Vitrina <em>llena</em>!" : "Te dejaron <em>pelado</em>";
   document.getElementById("endSub").textContent = won
-    ? "Llegaste a " + money(GOAL) + " con la vitrina más envidiada del barrio. Las abuelas del vecindario no te quieren volver a ver."
+    ? "Llenaste tu vitrina entera. Las abuelas del vecindario no te quieren volver a ver."
     : "Los vecinos se llevaron todo.";
   document.getElementById("stSteals").textContent = G.stats.steals;
   document.getElementById("stHits").textContent = G.stats.hits;
@@ -3850,6 +3858,7 @@ function frame(now){
   hud();
   requestAnimationFrame(frame);
 }
+
 
 
 

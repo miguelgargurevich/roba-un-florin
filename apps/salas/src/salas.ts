@@ -43,7 +43,11 @@ export class Sala {
   /* El reloj se inyecta en vez de pasarse en cada llamada: `sentar(..., 0)` era
      un filo afiladísimo — el guardián de inactividad daba al jugador por ido en
      el primer tick y la sala se quedaba muda sin decir por qué. */
-  constructor(codigo: string, escenario: string, private reloj: () => number) {
+  readonly modo: "aventura" | "versus";
+
+  constructor(codigo: string, escenario: string, private reloj: () => number,
+              modo: "aventura" | "versus" = "aventura") {
+    this.modo = modo;
     this.codigo = codigo;
     const ahora = reloj();
     this.creada = ahora;
@@ -54,6 +58,7 @@ export class Sala {
       jugadores: JUGADORES_MAX,
       escenario,
       armas: idsDeArmas(),
+      reglas: { modo },
       semilla: (ahora ^ (codigo.charCodeAt(0) * 7919)) | 0,
     });
   }
@@ -144,13 +149,13 @@ export class Registro {
   get tamaño(): number { return this.salas.size; }
   buscar(codigo: string): Sala | undefined { return this.salas.get(codigo.toUpperCase()); }
 
-  crear(escenario = "barrio"): Sala {
+  crear(escenario = "barrio", modo: "aventura" | "versus" = "aventura"): Sala {
     let codigo = "";
     do {
       codigo = Array.from({ length: 4 }, () =>
         LETRAS[(this.azar() * LETRAS.length) | 0]).join("");
     } while (this.salas.has(codigo));
-    const sala = new Sala(codigo, escenario, this.ahora);
+    const sala = new Sala(codigo, escenario, this.ahora, modo);
     this.salas.set(codigo, sala);
     return sala;
   }

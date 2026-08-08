@@ -119,9 +119,10 @@ export interface Jugador {
   grab: { ped: RefObjetivo | null; t: number };
   apunta: { on: boolean; wx: number; wy: number };
   stats: Stats;
-  /* Los hitos son de cada uno. Eran del estado y solo los contaba el jugador 1;
-     en una sala sin fin eso dejaría a los demás sin celebrar nunca el suyo. */
-  hito: number;
+  /* Los hitos son de cada uno, y son de VITRINA, no de dinero: llenarla, y
+     luego subirle la rareza. El dinero no sirve de vara — entre 54/s y
+     522 000/s hay 174 000×, así que cualquier escalera de plata es eterna al
+     empezar e instantánea al final. Dieciocho huecos son dieciocho huecos. */
   hitoN: number;
   /** cuenta atrás de la fiesta del último hito, para que el HUD la enseñe */
   fiesta: number;
@@ -268,8 +269,9 @@ export interface Reglas {
   todasLasArmas: boolean;
   /** Armería y Ruleta abiertas */
   puestos: boolean;
-  /** termina cuando alguien llega a la meta, en vez de encadenar hitos sin fin */
-  duelo: boolean;
+  /* aventura: sin fin, cada uno con sus hitos.
+     versus:   gana el primero que llena todos sus patios. */
+  modo: "aventura" | "versus";
 }
 
 export interface Estado {

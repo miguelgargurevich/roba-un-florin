@@ -43,7 +43,7 @@ wss.on("connection", ws => {
       const quien = await quienEs(m.token, aj);
       if (!quien) { mandar(ws, { t: "error", motivo: "Hay que entrar con tu cuenta." }); return; }
 
-      const sala = m.codigo ? registro.buscar(m.codigo) : registro.crear(m.escenario);
+      const sala = m.codigo ? registro.buscar(m.codigo) : registro.crear(m.escenario, m.modo);
       if (!sala) { mandar(ws, { t: "error", motivo: "No existe esa sala." }); return; }
 
       const asiento = sala.sentar(quien.userId, m.apodo || quien.apodo, x => mandar(ws, x));
@@ -52,7 +52,7 @@ wss.on("connection", ws => {
       sesiones.set(ws, { sala, asiento });
       mandar(ws, {
         t: "bienvenida", codigo: sala.codigo, idx: asiento.idx,
-        apodo: asiento.apodo, mundo: sala.estado, gente: sala.gente,
+        apodo: asiento.apodo, modo: sala.modo, mundo: sala.estado, gente: sala.gente,
       });
       sala.difundir({ t: "gente", gente: sala.gente });
       return;
