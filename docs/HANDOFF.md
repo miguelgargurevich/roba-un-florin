@@ -1,6 +1,6 @@
 # Handoff — Roba un Florín
 
-> Actualizado: 2026-08-07 por claude-code
+> Actualizado: 2026-08-08 por claude-code
 
 ## Estado actual
 
@@ -23,6 +23,12 @@ A medias / sin hacer: el modo cooperativo (aplazado a propósito — una sala en
 aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Última sesión
+
+- 2026-08-08 (claude-code): probada una **carrera en sala con dos clientes**
+  contra producción. Salieron dos fallos, los dos arreglados: la carrera
+  arrancaba al crear la sala (ahora espera en parrilla hasta que alguien da la
+  salida, con cuenta atrás de 3), y el cartel del final se calculaba con `G` en
+  vez del mundo del servidor — el último leía "¡Primero!" y un tiempo de 0:00.
 
 - 2026-08-07 (claude-code): **modo carrera** (tres vueltas, montado, gana el
   primero) y cuatro escenarios más: La Costa Verde, Nazca, El Volcán y La Luna.
@@ -51,6 +57,12 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Próximos pasos
 
+- [ ] **Los bots corren mucho más que un jugador en red.** Medido: 3 vueltas
+      contra 1 en el mismo tiempo. Parte es la latencia (220 ms) y parte que el
+      bot traza perfecto. Si va a jugarse en serio, hay que frenarlos en
+      carrera.
+- [ ] **Dos personas de carne y hueso.** Sigue sin probarse: el segundo cliente
+      siempre ha sido un script mío (`scratchpad/carrera.mjs`).
 - [ ] **Promover a producción** todo esto: sigue solo en staging.
 - [ ] Los trazados de carrera son seis para dieciséis mapas. Se repiten (con
       media vuelta de diferencia). Si cansan, tocar `HORQUILLA`, `RINON`,
