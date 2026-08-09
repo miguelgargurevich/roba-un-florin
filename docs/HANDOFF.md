@@ -39,7 +39,21 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
   - `sembrarTrastos` esquiva la cochera entera, o en la Edad Media aparece un
     dragón salvaje en la plaza de al lado y parece un regalo del juego.
 
-  Con esto no queda nada pendiente de la tanda anterior. **Sin desplegar.**
+  Con esto no queda nada pendiente de la tanda anterior.
+  **Todo desplegado** en el dominio principal (bundle `index-BgR8tHvG.js`) y
+  empujado a GitHub, con Pages en verde.
+
+- 2026-08-09 (claude-code): **el botón de bajarse no salía nunca** en una
+  partida normal. Se le quitaba el `hidden` solo en la rama del duelo de sofá
+  —donde encima estaba la línea duplicada— y el camino principal no lo tocaba,
+  así que seguía escondido desde la carga: en tableta, subirse a algo era para
+  siempre. La condición vive ahora en `montado()` y la preguntan las dos ramas
+  del HUD. Gotcha: `hud()` tiene tres salidas (duelo, carrera y la normal); lo
+  que se muestre u oculte hay que ponerlo en las tres o no está en ninguna.
+
+  Próximo: sigue abierto lo de siempre —los bots corren mucho más que un humano
+  en red, dos personas en dos aparatos sin probar, bots fuera de las salas, el
+  modo cooperativo, y verificar El Valle y los mosaicos en un iPad de verdad.
 
 - 2026-08-08 (claude-code): trineo de Santa y alfombra voladora en el Garaje;
   **Florín Wiracocha (Supremo)**, que SOLO sale de fundir dos Amaru; botón para
