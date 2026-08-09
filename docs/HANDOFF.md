@@ -8,7 +8,7 @@ Monorepo con workspaces npm:
 
 | Paquete | Qué es |
 |---|---|
-| `packages/engine` | el juego sin navegador: determinista, JSON serializable, 145 pruebas |
+| `packages/engine` | el juego sin navegador: determinista, JSON serializable, 153 pruebas |
 | `apps/web` | el cliente (Vite + canvas 2D). Solo dibuja y escucha teclas |
 | `apps/api` | cuentas, álbum y guardado (.NET 9, Clean Arch + CQRS), 32 pruebas |
 | `apps/salas` | servidor de salas autoritativo (Node + `ws`), 32 pruebas |
@@ -23,6 +23,23 @@ A medias / sin hacer: el modo cooperativo (aplazado a propósito — una sala en
 aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Última sesión
+
+- 2026-08-09 (claude-code): **los vecinos juegan solos**. En el menú de Aventura
+  se elige cuántos salen (0 a 3, guardado en `florin_rivales`) y los mueve
+  `pensarBot`, el mismo de las salas — el cliente ya llevaba los asientos
+  `idx > 0`, así que no hizo falta bucle nuevo. Un bot **no es "el J3"**: es el
+  que vive en esa casa, conserva el nombre de la casa y lleva su apodo (el
+  Marciano, Mayo, la Sobri), que se pinta sobre su cabeza. `crearPartida` toma
+  `bots` para saber cuáles son de máquina; con solo bots tu patio se sigue
+  llamando "Tu patio" y los patios comprables se quedan.
+  Tope de 3 a propósito: cada vecino que juega se queda con SU casa y deja de
+  tener Florines, y con cuatro quedan dos casas en todo el mapa.
+  De paso, un agujero que ya existía en versus: cuando **un jugador** te robaba
+  de la vitrina no contaba como robo ni sonaba la alarma —era todo para los
+  ladrones NPC—, así que te vaciaban el patio y el marcador seguía en cero.
+  Ahora suma a `stats.lost` del dueño y la alarma avisa mientras forcejea.
+  Próximo: sigue abierto lo de siempre (bots contra un humano en red, dos
+  personas de verdad, dificultad en las salas, cooperativo, El Valle en iPad).
 
 - 2026-08-09 (claude-code): **la fila de armas al dejar pulsado el botón de
   lanzar** (320 ms; soltar entonces NO lanza) y **la cochera junto a tu patio**

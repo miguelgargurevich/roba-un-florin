@@ -1447,6 +1447,96 @@ describe("la Fusionadora", () => {
   });
 });
 
+describe("vecinos que juegan solos", () => {
+  const conVecinos = (bots: number) =>
+    partida({ jugadores: 1 + bots, bots, reglas: { patiosExtra: true } });
+
+  it("cada uno se queda con su casa y con su nombre", () => {
+    const e = conVecinos(3);
+    expect(e.players.length).toBe(4);
+    expect(e.players[0].apodo, "tú no llevas apodo de vecino").toBeUndefined();
+    expect(e.players.slice(1).map(p => p.apodo)).toEqual(["el Marciano", "Mayo", "la Sobri"]);
+    // su casa sigue llamándose como se llamaba: es del vecino, no "Patio del J2"
+    for (const p of e.players.slice(1)){
+      const casa = baseDe(e, p.baseId);
+      expect(casa.isPlayer, "la casa del vecino no es suya").toBe(true);
+      expect(casa.who, "seguiría soltando ladrones").toBe(null);
+      expect(casa.name, "el bot se llamó J-algo").not.toMatch(/^Patio del J/);
+    }
+  });
+
+  it("con vecinos-máquina tu patio sigue siendo tuyo, no 'del J1'", () => {
+    expect(baseDe(conVecinos(3), 0).name).toBe("Tu patio");
+    expect(baseDe(partida({ jugadores: 2, reglas: { modo: "versus" } }), 0).name)
+      .toBe("Patio del J1");
+  });
+
+  it("un humano de más sí es 'Patio del J2'", () => {
+    const e = partida({ jugadores: 2, reglas: { modo: "versus" } });
+    expect(e.players[1].apodo).toBeUndefined();
+    expect(baseDe(e, e.players[1].baseId).name).toBe("Patio del J2");
+  });
+
+  it("quedan casas de vecino a las que robar", () => {
+    const e = conVecinos(3);
+    const ajenas = e.bases.filter(b => b.who != null);
+    expect(ajenas.length, "el barrio se quedó sin nadie a quien robar")
+      .toBeGreaterThanOrEqual(3);
+    expect(ajenas.some(b => b.peds.some(p => p.florin)), "y sin Florines").toBe(true);
+  });
+
+  it("los patios comprables siguen ahí", () => {
+    const e = conVecinos(2);
+    expect(e.bases.some(b => b.locked && b.price)).toBe(true);
+  });
+
+  it("el vecino juega: se mueve y roba sin que nadie lo toque", () => {
+    const e = conVecinos(1);
+    const bot = e.players[1];
+    const x0 = bot.x, y0 = bot.y;
+    let robó = false;
+    for (let k = 0; k < 60 * 90; k++){
+      const ent: Record<number, EntradaJugador> = { 0: QUIETO };
+      const plan = pensarBot(e, bot, 1 / 60);
+      ent[1] = plan.entrada;
+      if (plan.usar) usarArma(e, bot);
+      avanzar(e, ent, 1 / 60);
+      if (bot.stats.steals > 0) { robó = true; break; }
+    }
+    expect(Math.hypot(bot.x - x0, bot.y - y0), "el vecino no se movió").toBeGreaterThan(200);
+    expect(robó, "el vecino no robó nada en minuto y medio").toBe(true);
+  });
+
+  it("cuando el vecino te roba, te enteras", () => {
+    const e = conVecinos(1);
+    const yo = e.players[0], vecino = e.players[1];
+    const mia = baseDe(e, yo.baseId);
+    mia.peds[0].florin = nuevoFlorin(e, 2, {});
+    // el vecino pegado a mi vitrina, forcejeando
+    vecino.x = mia.peds[0].x; vecino.y = mia.peds[0].y;
+    const suyo = { 0: QUIETO, 1: QUIETO };
+    avanzar(e, suyo, 1 / 60);
+    avanzar(e, suyo, 1 / 60);
+    expect(e.alarma, "no saltó la alarma").not.toBe(null);
+    expect(e.alarma!.quien).toBe("el Marciano");
+    expect(e.alarma!.victimaIdx).toBe(0);
+
+    for (let k = 0; k < 60 && !vecino.carry; k++) avanzar(e, suyo, 1 / 60);
+    expect(vecino.carry, "no llegó a robarlo").toBeTruthy();
+    expect(yo.stats.lost, "el robo no contó como robo").toBe(1);
+    expect(e.alarma, "la alarma se quedó sonando sin nadie robando").toBe(null);
+  });
+
+  it("la aventura no se acaba porque el vecino llene su vitrina", () => {
+    const e = conVecinos(1);
+    const bot = e.players[1];
+    const casa = baseDe(e, bot.baseId);
+    for (const ped of casa.peds) ped.florin = nuevoFlorin(e, 3, {});
+    avanzar(e, nada(2), 1 / 60);
+    expect(e.over, "la aventura terminó sola").toBe(false);
+  });
+});
+
 describe("la cochera del patio", () => {
   const TODOS = GARAJE.map(g => g.tipo);
   const enLaCochera = (e: Estado) =>

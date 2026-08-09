@@ -131,7 +131,7 @@ function nuevaPartida(modo){
      tiene siempre la misma plaza y te acostumbras a dónde está el tuyo. */
   const misTrastos = GARAJE.map(g => g.tipo).filter(tengoVehiculo);
   const G2 = nuevaPartidaMotor(modo, ESCENARIOS[escSel].id, modoElegido() === "carrera", difSel,
-                               misTrastos);
+                               misTrastos, rivSel);
   if (modoElegido() === "carrera" && vehSel) darleVehiculo(G2, G2.players[0], vehSel);
   G2.started = false; G2.paused = false;    // banderas del cliente, no del motor
   return G2;
@@ -930,6 +930,47 @@ function pintarVehiculos(){
   }
 }
 
+/* ---- vecinos que juegan ----
+   Jugando solo, el barrio era tuyo: nadie más robaba. Ahora los vecinos pueden
+   salir a jugar ellos mismos —los lleva `pensarBot`, el mismo de las salas— y
+   cada uno que juega se queda con SU casa: deja de tener Florines que robarle y
+   pasa a competir contigo. Por eso son como mucho tres: con cuatro quedan dos
+   casas en todo el mapa y la aventura se queda sin nada que robar. */
+const RIVALES = [
+  { n: 0, label: "Ninguno",  icon: "🙅", desc: "El barrio para ti solo: los vecinos se quedan en casa y solo salen ladrones." },
+  { n: 1, label: "Uno",      icon: "🧒", desc: "El Marciano sale a jugar. Su nave deja de tener Florines: ahora te los roba a ti." },
+  { n: 2, label: "Dos",      icon: "👦", desc: "El Marciano y Mayo. Dos que van a por los mismos Florines que tú." },
+  { n: 3, label: "Tres",     icon: "👧", desc: "El Marciano, Mayo y la Sobri. Quedan tres casas con Florines y mucha pelea." },
+];
+let rivSel = 0;
+try { rivSel = Math.min(3, Math.max(0, +localStorage.getItem("florin_rivales") || 0)); } catch (_){}
+const rivFila = document.getElementById("rivFila");
+const rivTitulo = document.getElementById("rivTitulo");
+const rivDesc = document.getElementById("rivDesc");
+
+function pintarRivales(){
+  const enAventura = modoElegido() === "aventura";
+  rivTitulo.hidden = !enAventura;
+  rivFila.hidden = !enAventura;
+  rivDesc.hidden = !enAventura;
+  if (!enAventura) return;
+  rivFila.innerHTML = "";
+  for (const R of RIVALES){
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "escBtn rivBtn" + (R.n === rivSel ? " sel" : "");
+    b.innerHTML = '<span class="ic">' + R.icon + '</span><span>' + R.label + '</span>';
+    b.setAttribute("aria-pressed", String(R.n === rivSel));
+    b.addEventListener("click", () => {
+      rivSel = R.n;
+      try { localStorage.setItem("florin_rivales", String(rivSel)); } catch (_){}
+      pintarRivales(); Snd.unlock();
+    });
+    rivFila.appendChild(b);
+  }
+  rivDesc.textContent = (RIVALES.find(R => R.n === rivSel) || RIVALES[0]).desc;
+}
+
 /* Qué tan brava es la carrera. La fila sale solo al elegir Carrera, igual que
    la de vehículos: en aventura la dificultad no pinta nada. */
 let difSel = "normal";
@@ -971,6 +1012,7 @@ function elegirModoLocal(m){
     elegirEscenario(ESCENARIOS.findIndex(e => e.id === CIRCUITOS[0].id));
   pintarVehiculos();
   pintarDificultad();
+  pintarRivales();
   rotularBotonJugar();
   const sel = document.getElementById("salaModo");
   if (sel && m === "carrera") sel.value = "carrera";
@@ -1000,6 +1042,9 @@ function elegirEscenario(i){
   Snd.unlock();
 }
 elegirEscenario(escSel);
+/* El menú abre en Aventura, así que su fila tiene que estar pintada desde el
+   principio: las otras las pinta `elegirModoLocal` al cambiar de modo. */
+pintarRivales();
 
 /* ============================================================
    Cuenta en la nube (opcional)
@@ -8558,13 +8603,17 @@ function draw(){
     montado: !!M,
     alpha: p.invis > 0 ? (p.invis < 2 ? .3 + Math.sin(G.t*14)*.15 : .34) : 1
   });
-  if (G.local2){                            // etiqueta J1 / J2
+  /* Quién es: J1/J2 en el duelo de sofá, y su nombre cuando es un vecino que
+     ha salido a jugar. Sin etiqueta, un rival es un muñeco de otro color y no
+     se entiende que ese es el Marciano robándote. */
+  const quien = p.apodo || (G.local2 ? "J" + (p.idx + 1) : null);
+  if (quien){
     ctx.font = "800 12px system-ui, sans-serif";
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
     ctx.lineWidth = 3.5; ctx.strokeStyle = "rgba(15,7,14,.85)";
-    ctx.strokeText("J"+(p.idx+1), p.x, p.y+36);
+    ctx.strokeText(quien, p.x, p.y+36);
     ctx.fillStyle = p.shirt;
-    ctx.fillText("J"+(p.idx+1), p.x, p.y+36);
+    ctx.fillText(quien, p.x, p.y+36);
   }
   if (p.escudo || p.inmune > 0){                // el paraguas abierto, o el margen tras aguantar
     ctx.strokeStyle = p.escudo ? "#5CE1EA" : "#FFEFE2";

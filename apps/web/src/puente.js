@@ -231,14 +231,19 @@ function conAtajos(G) {
    cliente, no del motor — para el motor son dos jugadores y unas reglas. Vive
    como bandera del cliente al lado de `started` y `paused`. */
 export function nuevaPartidaMotor(modo, escenarioId, carrera = false, dificultad = "normal",
-                                  garaje = []) {
+                                  garaje = [], rivales = 0) {
   const local2 = modo === 2;
   /* Una carrera solo contra nadie no es una carrera: los otros cuatro asientos
      se llenan de bots, que es para lo que `pensarBot` vive en el motor. */
   const esc = carrera && !CIRCUITOS.some(x => x.id === escenarioId)
     ? CIRCUITOS[0].id : escenarioId;
+  /* Los vecinos que juegan solo existen en la aventura de un jugador: en el
+     duelo de sofá el segundo asiento es del que tienes al lado, y en carrera
+     los rivales ya son los cuatro de la parrilla. */
+  const bots = carrera || local2 ? 0 : Math.max(0, Math.min(JUGADORES_MAX - 1, rivales | 0));
   const G = conAtajos(crearPartida({
-    jugadores: carrera ? JUGADORES_MAX : (local2 ? 2 : 1),
+    jugadores: carrera ? JUGADORES_MAX : (local2 ? 2 : 1 + bots),
+    bots,
     escenario: esc,
     armas: idsDeArmas(),
     garaje,                       // lo comprado en el Garaje, aparcado junto a tu patio
@@ -246,7 +251,11 @@ export function nuevaPartidaMotor(modo, escenarioId, carrera = false, dificultad
       ? { patiosExtra: false, puestos: false, modo: "carrera", vecinos: false, dificultad }
       : local2
         ? { patiosExtra: false, todasLasArmas: false, puestos: false, modo: "versus" }
-        : undefined,
+        /* Con vecinos jugando, la aventura sigue siendo la aventura: los patios
+           comprables se quedan. `reglasPara` los quita en cuanto hay compañía
+           —le darían ventaja de salida a uno—, pero aquí la compañía es la
+           máquina y el protagonista eres tú. */
+        : bots > 0 ? { patiosExtra: true } : undefined,
     semilla: (semillaSiguiente = (semillaSiguiente * 48271) % 2147483647),
   }));
   G.local2 = local2;

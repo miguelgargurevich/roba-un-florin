@@ -475,9 +475,19 @@ const SLOTS: { casa: number | null; shirt: string }[] = [
 ];
 export const JUGADORES_MAX = SLOTS.length;
 
+/** Cómo se llama el que vive en cada casa, para cuando sale a jugar él mismo. */
+const APODOS: Record<string, string> = {
+  marcia: "el Marciano", mayo: "Mayo", sobri: "la Sobri",
+  yuli: "Yuli", meche: "Meche", chato: "el Chato",
+};
+
 export interface OpcionesPartida {
-  /** cuántos humanos, de 1 a 5. Cada uno de más reemplaza a un bot. */
+  /** cuántos juegan, de 1 a 5. Cada uno de más ocupa una casa de vecino. */
   jugadores?: number;
+  /** De esos, cuántos de los ÚLTIMOS asientos los lleva la máquina. Solo cambia
+      cómo se llaman: quien mueve a un bot es quien simula (el cliente cuando
+      juegas solo, el servidor en una sala). */
+  bots?: number;
   escenario?: string;
   semilla?: number;
   armas: string[];
@@ -585,8 +595,11 @@ export function crearPartida(op: OpcionesPartida): Estado {
     ["Quiosco de Doña Meche", "#5CE1EA", "meche"],
     ["Casa del Chato", "#9BD97F", "chato"],
   ];
+  /* "Patio del J1" solo cuando hay OTRO humano al que distinguir. Con vecinos
+     que juegan solos sigue siendo tu patio: nadie lo va a confundir. */
+  const humanos = n - clampEntero(op.bots ?? 0, 0, Math.max(0, n - 1));
   const bases: Base[] = [
-    makeBase(0, n > 1 ? "Patio del J1" : "Tu patio", P[0][0], P[0][1], true, "#3DDC97"),
+    makeBase(0, humanos > 1 ? "Patio del J1" : "Tu patio", P[0][0], P[0][1], true, "#3DDC97"),
   ];
   VECINOS.forEach(([nombre, color, quien], k) => {
     if (!C[k]) return;
@@ -605,17 +618,26 @@ export function crearPartida(op: OpcionesPartida): Estado {
   /* Cada jugador de más se queda con su casa: deja de ser de un vecino (`who`
      a null, que es lo que mira spawnThief para saber de dónde salen ladrones) y
      pasa a ser un patio con su color. */
+  /* Los últimos asientos los puede llevar la máquina. Un bot no es "el J3": es
+     el vecino de esa casa, que hoy ha salido a jugar. Por eso conserva el
+     nombre de la casa y se queda con el apodo del que vive allí — todo lo demás
+     (el color, dejar de ser fuente de ladrones) es igual que con un humano. */
+  const primerBot = humanos;
   const jugadores: Jugador[] = [];
   for (let i = 0; i < n; i++) {
     const slot = SLOTS[i];
     const base = slot.casa == null ? bases[0] : bases[slot.casa + 1];
+    const esBot = i >= primerBot && i > 0;
+    const vecino = base.who;
     if (slot.casa != null) {
-      base.name = "Patio del J" + (i + 1);
+      if (!esBot) base.name = "Patio del J" + (i + 1);
       base.isPlayer = true;
       base.who = null;
       base.color = slot.shirt;
     }
-    jugadores.push(mkJugador(i, base, slot.shirt, op.armas));
+    const p = mkJugador(i, base, slot.shirt, op.armas);
+    if (esBot) p.apodo = APODOS[vecino || ""] || "el vecino";
+    jugadores.push(p);
   }
   for (const p of jugadores) for (const id of p.patios) { bases[id].owner = p.idx; ponerLaser(bases[id]); }
 

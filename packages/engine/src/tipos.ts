@@ -111,6 +111,9 @@ export interface Jugador {
   escudo: number; inmune: number;
   /** solo los asientos que juega la máquina: a dónde iba y cuándo repensarlo */
   bot?: { x: number; y: number; repensar: number };
+  /** Cómo se llama, cuando no es "J2": los vecinos que juegan solos llevan el
+      nombre del que vive en esa casa. */
+  apodo?: string;
   /** en carrera: lo que llevas en la mano. `girando` son los segundos que le
       quedan a la ruleta de la caja antes de parar en algo. */
   item?: { que: string | null; girando: number };

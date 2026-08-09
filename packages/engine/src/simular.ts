@@ -1065,18 +1065,31 @@ export function avanzar(e: Estado, entradas: Record<number, EntradaJugador>, dt:
     if (t.state === "grab") return !!pedDe(e, t.target)?.florin;
     return t.state === "back" && !!t.carry;      // ya lo tiene y va camino a casa
   });
-  if (robando) {
-    const victima = baseDe(e, robando.victimId);
+  /* Un vecino que juega roba igual que un ladrón, así que avisa igual: mientras
+     forcejea con tu vitrina todavía te da tiempo a cruzar el mapa. No hay
+     versión "ya se lo lleva" como con los ladrones porque un jugador no va a
+     ninguna casa concreta: en cuanto lo agarra, la carrera es por quitárselo. */
+  const rival = e.players.find(p => {
+    const ref = p.grab.ped;
+    if (!ref || ref.tipo !== "ped" || p.grab.t <= 0 || p.stun > 0) return false;
+    const casa = baseDe(e, (ref as any).b);
+    return casa.owner != null && casa.owner !== p.idx && !!casa.peds[(ref as any).i]?.florin;
+  });
+  if (robando || rival) {
+    const victima = robando ? baseDe(e, robando.victimId)
+                            : baseDe(e, (rival!.grab.ped as any).b);
     if (!e.alarma) sonar(e, "alarma");
     else if (e.alarma.pip <= 0) { sonar(e, "alarma"); e.alarma.pip = 0.9; }
     e.alarma = {
-      quien: LADRONES[robando.who].label,
-      color: LADRONES[robando.who].shirt,
+      quien: robando ? LADRONES[robando.who].label
+                     : (rival!.apodo || "J" + (rival!.idx + 1)),
+      color: robando ? LADRONES[robando.who].shirt : rival!.shirt,
       patio: victima.name,
-      x: robando.x, y: robando.y,
+      x: robando ? robando.x : rival!.x,
+      y: robando ? robando.y : rival!.y,
       pip: e.alarma ? e.alarma.pip - dt : 0.9,
       victimaIdx: victima.owner!,
-      llevandose: robando.state === "back",
+      llevandose: !!robando && robando.state === "back",
     };
   } else {
     e.alarma = null;
@@ -1367,6 +1380,13 @@ function avanzarJugador(e: Estado, p: Jugador, ent: EntradaJugador | undefined, 
           texto(e, best.x, best.y - 56,
             fl.nombre ? "¡" + fl.nombre + " es mío!" : "¡Robado! " + T.rar, "#FF3D6E");
           (best as Pedestal).florin = null;
+          /* Si la vitrina era de otro jugador, a ese le acaban de robar. Sin
+             esto, un vecino que juega te vaciaba el patio y el marcador de "te
+             robaron" seguía en cero: volvías a casa y faltaban Florines sin
+             que nada lo hubiera dicho. */
+          const casa = baseDe(e, (ref as any).b);
+          const dueño = casa.owner != null ? jugadorDe(e, casa.owner) : null;
+          if (dueño && dueño !== p){ dueño.stats.lost++; sonar(e, "lost"); }
         }
         polvo(e, best.x, best.y, (T as any).petal, 12);
         p.grab.ped = null; p.grab.t = 0;
