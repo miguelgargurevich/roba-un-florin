@@ -24,6 +24,21 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Última sesión
 
+- 2026-08-09 (claude-code): **el cartel de la fiesta avisa ANTES y también en
+  el menú**. Antes solo salía con la fiesta empezada, así que como aviso no
+  servía: cuando aparecía ya llegabas tarde. Ahora anuncia la que viene con su
+  cuenta atrás (apagado, dorado) y la que está en marcha con las luces. El
+  reloj es `Date.now()` contra la hora del servidor, no `G.t`: en el menú no
+  hay partida y una pausada tampoco avanza. Al llegar a cero pregunta al
+  servidor en vez de esperar al sondeo del minuto.
+  La cuenta `miguel.gargurevich@outlook.com` (apodo "admin") ya tiene el rol:
+  se registró y se recreó el contenedor. **Los permisos viajan en el token**,
+  así que hay que cerrar sesión y volver a entrar para que aparezca el botón.
+  Primera fiesta programada ("Estreno de las fiestas", 15 min, Wiracocha
+  Galaxia/Lava, Amaru Dorado e Inca Cristal, regalo Wiracocha Galaxia) —
+  **insertada por SQL**, no por el panel: no se puede iniciar sesión como el
+  admin desde aquí (las contraseñas están hasheadas y tampoco toca).
+
 - 2026-08-09 (claude-code): **el correo no cabía en su campo** de la portada.
   Compartía fila con la contraseña y en pantalla estrecha quedaba en 150 px: se
   escribía a ciegas. Ahora el correo y el apodo se llevan la línea entera
