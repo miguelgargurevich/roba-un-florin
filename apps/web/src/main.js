@@ -590,6 +590,7 @@ async function mirarSiHayFiesta(){
   const r = await nube.fiestaViva();
   if (!r) return;
   fiestaViva = r;
+  fiestaDesde = Date.now();       // desde aquí se descuentan los segundos
   aplicarFiesta();
   pintarCartelFiesta();
 }
@@ -628,16 +629,46 @@ async function recogerRegaloSiToca(){
 }
 
 const elFiestaCartel = document.getElementById("fiestaCartel");
-function pintarCartelFiesta(){
-  const f = fiestaViva?.ahora;
-  const hay = !!f && (!G || !G.started || enFiesta(G));
-  elFiestaCartel.hidden = !hay;
-  if (!hay) return;
-  const quedan = G && G.started && G.fiesta
-    ? Math.max(0, G.fiesta.hasta - G.t) : fiestaViva.segundosQueQuedan;
-  elFiestaCartel.innerHTML =
-    '<b>🎉 ' + f.nombre.replace(/[<>&]/g, "") + '</b> · por la pasarela · ' + mmss(quedan);
+/* El cartel sirve para dos cosas: avisar de la que viene y acompañar a la que
+   está. Se ve igual en el menú y jugando — el aviso no sirve de nada si solo
+   lo ve quien ya está dentro.
+
+   La cuenta atrás la lleva `Date.now()` contra la hora de arranque que dio el
+   servidor, y no el reloj de la partida: en el menú no hay partida que corra, y
+   el que la tiene pausada tampoco avanza. */
+let fiestaDesde = 0;               // cuándo contestó el servidor, en ms del reloj
+
+function segundosDeFiesta(){
+  const pasado = (Date.now() - fiestaDesde) / 1000;
+  const viva = fiestaViva?.ahora ? fiestaViva.segundosQueQuedan - pasado : -1;
+  const proxima = fiestaViva?.siguiente ? fiestaViva.segundosParaLaSiguiente - pasado : -1;
+  return { viva, proxima };
 }
+
+function pintarCartelFiesta(){
+  const { viva, proxima } = segundosDeFiesta();
+  const f = viva > 0 ? fiestaViva.ahora : (proxima > 0 ? fiestaViva.siguiente : null);
+  elFiestaCartel.hidden = !f;
+  if (!f) return;
+  const empezada = viva > 0;
+  elFiestaCartel.classList.toggle("avisa", !empezada);
+  elFiestaCartel.innerHTML = "<b>" + (empezada ? "🎉 " : "⏳ ") +
+    f.nombre.replace(/[<>&]/g, "") + "</b> · " +
+    (empezada ? "por la pasarela · " + mmss(viva)
+              : "empieza en " + mmss(proxima));
+}
+
+/* Un tic por segundo para el cartel. El HUD ya repinta jugando, pero en el menú
+   no corre nada y una cuenta atrás congelada no avisa de nada.
+
+   Y cuando la cuenta atrás llega a cero, se le pregunta al servidor en vez de
+   esperar al sondeo del minuto: es justo el momento en que hay que enterarse. */
+setInterval(() => {
+  if (!fiestaViva) return;
+  const antes = segundosDeFiesta();
+  pintarCartelFiesta();
+  if (antes.proxima > -1 && antes.proxima <= 0) mirarSiHayFiesta();
+}, 1000);
 
 /* ---- el panel de admin ----
    Elegir qué baja por la pasarela es elegir de una parrilla de rareza × variante:
@@ -9568,11 +9599,17 @@ if (import.meta.env.DEV) {
     /* El panel de fiestas sin ser admin: para mirar cómo queda. Las llamadas
        a la API las sigue rechazando el servidor, que es quien manda. */
     panelDeFiestas: () => { pintarAdmin(); elAdmin.hidden = false; },
+    /* La respuesta del servidor, a mano: sirve para ver el AVISO de la que
+       viene, que si no habría que esperar a que llegue la hora. */
+    fiestaCruda: payload => { fiestaViva = payload; fiestaDesde = Date.now();
+                             fiestaPuestaEn = null; aplicarFiesta(); pintarCartelFiesta();
+                             return document.getElementById("fiestaCartel").textContent; },
     /* Una fiesta sin servidor, para ver las luces y lo que baja. */
     fiesta: (segundos = 120, florines = [{ tier: TIERS.length - 1, variant: "galaxia" }]) => {
       fiestaViva = { ahora: { id: "prueba", nombre: "Noche de prueba",
                               florines: florines.map(f => ({ tier: f.tier, variante: f.variant })) },
                      segundosQueQuedan: segundos, regaloPendiente: false };
+      fiestaDesde = Date.now();
       fiestaPuestaEn = null;
       aplicarFiesta(); pintarCartelFiesta();
       return enFiesta(G);

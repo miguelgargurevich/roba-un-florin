@@ -351,6 +351,12 @@
     box-shadow:0 6px 0 rgba(0,0,0,.35);
   }
   #fiestaCartel[hidden]{display:none}
+  /* El aviso de la que viene va apagado: si tuviera las mismas luces que la
+     fiesta en marcha, todo el mundo iría a la pasarela antes de tiempo. */
+  #fiestaCartel.avisa{
+    background:var(--plum-800);border:2px solid var(--gold);color:var(--gold);
+    animation:none;box-shadow:0 5px 0 rgba(0,0,0,.35);
+  }
   @keyframes fiestaLuces{ from{background-position:0 0} to{background-position:300% 0} }
   @media (prefers-reduced-motion:reduce){ #fiestaCartel{animation:none} }
   #tienda .rack{grid-template-columns:repeat(2,minmax(0,1fr))}
