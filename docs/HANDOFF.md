@@ -10,7 +10,7 @@ Monorepo con workspaces npm:
 |---|---|
 | `packages/engine` | el juego sin navegador: determinista, JSON serializable, 162 pruebas |
 | `apps/web` | el cliente (Vite + canvas 2D). Solo dibuja y escucha teclas |
-| `apps/api` | cuentas, álbum, guardado y fiestas (.NET 9, Clean Arch + CQRS), 43 pruebas |
+| `apps/api` | cuentas, álbum, guardado, fiestas y avisos (.NET 9, Clean Arch + CQRS), 47 pruebas |
 | `apps/salas` | servidor de salas autoritativo (Node + `ws`), 32 pruebas |
 
 Funciona: un jugador, salas online hasta 5 (aventura, versus y carrera) con
@@ -23,6 +23,16 @@ A medias / sin hacer: el modo cooperativo (aplazado a propósito — una sala en
 aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Última sesión
+
+- 2026-08-09 (claude-code): **consola de avisos**. El admin escribe un mensaje
+  y cuántos minutos se ve, y lo lee todo el que tenga el juego abierto —menú o
+  partida— en un cartel propio (baja unos píxeles si además hay cartel de
+  fiesta). Entidad `Anuncio` aparte de `Evento` —un aviso no reparte Florines
+  ni toca la pasarela— pero **viaja en la misma respuesta** de
+  `GET /api/v1/eventos/vivo`: los clientes ya sondean eso cada minuto y no
+  hacía falta un sondeo más. Si mandas dos seguidos manda el último.
+  Endpoints: `POST/GET /api/v1/eventos/anuncios`, `DELETE .../{id}`, todos con
+  `eventos.gestionar`. 47 pruebas de API.
 
 - 2026-08-09 (claude-code): **el cartel de la fiesta avisa ANTES y también en
   el menú**. Antes solo salía con la fiesta empezada, así que como aviso no
