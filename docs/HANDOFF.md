@@ -24,6 +24,20 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Última sesión
 
+- 2026-08-09 (claude-code): **el correo no cabía en su campo** de la portada.
+  Compartía fila con la contraseña y en pantalla estrecha quedaba en 150 px: se
+  escribía a ciegas. Ahora el correo y el apodo se llevan la línea entera
+  (`#cuentaEmail, #cuentaApodo{flex:1 1 100%}`) y el texto sube de 13 a 16 px —
+  por debajo de 16, Safari hace zoom al enfocar. Todo el CSS del juego es
+  inline en `index.html`, así que este arreglo viaja con el index y **no cambia
+  el hash del bundle**.
+
+  Próximo inmediato: `Admin__Email=miguel.gargurevich@outlook.com` ya está en
+  `/opt/florin-api/.env`, pero **esa cuenta todavía no existe** (hay 2 cuentas
+  en la base y ninguna es esa). En cuanto se registre, hay que **recrear el
+  contenedor** (`bash /opt/florin-api/arrancar-api.sh`) para que el seeder le
+  cuelgue el rol de admin, y con eso le sale el botón de programar fiestas.
+
 - 2026-08-09 (claude-code): **las fiestas**. Un admin las programa (hora,
   duración, qué Florines) y a esa hora, a todo el que esté jugando —con cuenta
   o sin ella— le baja por la pasarela lo que eligió, con focos y papelitos. A
