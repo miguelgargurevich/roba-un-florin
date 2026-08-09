@@ -8,9 +8,9 @@ Monorepo con workspaces npm:
 
 | Paquete | Qué es |
 |---|---|
-| `packages/engine` | el juego sin navegador: determinista, JSON serializable, 153 pruebas |
+| `packages/engine` | el juego sin navegador: determinista, JSON serializable, 162 pruebas |
 | `apps/web` | el cliente (Vite + canvas 2D). Solo dibuja y escucha teclas |
-| `apps/api` | cuentas, álbum y guardado (.NET 9, Clean Arch + CQRS), 32 pruebas |
+| `apps/api` | cuentas, álbum, guardado y fiestas (.NET 9, Clean Arch + CQRS), 43 pruebas |
 | `apps/salas` | servidor de salas autoritativo (Node + `ws`), 32 pruebas |
 
 Funciona: un jugador, salas online hasta 5 (aventura, versus y carrera) con
@@ -23,6 +23,42 @@ A medias / sin hacer: el modo cooperativo (aplazado a propósito — una sala en
 aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Última sesión
+
+- 2026-08-09 (claude-code): **las fiestas**. Un admin las programa (hora,
+  duración, qué Florines) y a esa hora, a todo el que esté jugando —con cuenta
+  o sin ella— le baja por la pasarela lo que eligió, con focos y papelitos. A
+  cada cuenta conectada le toca además uno de regalo, **una sola vez**.
+  Cómo está montado: el servidor NO simula; solo contesta `GET
+  /api/v1/eventos/vivo` con "qué baja y cuántos segundos quedan", y cada
+  cliente lo mete en su partida (`ponerFiesta` en el motor, `e.fiesta`, caduca
+  sola). Se sondea **cada minuto**. El regalo sí es del servidor, con una fila
+  por (fiesta, jugador) — si lo diera el cliente, recargar sería una máquina de
+  Florines.
+  **Quién es admin lo dice `Admin__Email` en `/opt/florin-api/.env`**, no un
+  endpoint. El seeder le pone el rol a esa cuenta en cada arranque.
+  El panel para programarlas está en la portada y solo sale si tu token trae
+  `eventos.gestionar`; el servidor lo revalida igual.
+  Gotchas: `OCHO_A`/`OCHO_B` NO están exportados al cliente —para dibujar sobre
+  la pasarela se usa `orbitaDelCentro(G)`, que sí—; y las pruebas de la API
+  comparten IP, así que el rate limit de auth (20/min) tumba la suite si cada
+  test abre sesión: en `EventosTests` hay UNA sesión de admin para toda la clase.
+
+- 2026-08-09 (claude-code): **ocho vecinos** en vez de seis (la Bodega de don
+  Wílber y la Casa de la Tía Charo), y la fila de "vecinos que juegan" llega a
+  cinco. Para que quepan: `acomodar` reparte por una rejilla fina de fuera
+  hacia dentro, las bases ya no nacen dentro del mar —pasaba desde antes— y
+  `crearPartida` topa los jugadores por las casas que ese mapa consiguió
+  colocar. `JUGADORES_MAX` pasa a 9 (lo que cabe en el mapa) y las salas se
+  quedan en 5 con **`SALA_MAX`**: cada asiento vacío lo mueve un bot en el
+  servidor. Las carreras siguen siendo de cinco.
+  Y los ladrones ahora salen más seguido cuantas más casas de vecino queden
+  (19 en 3 min con ocho, frente a 14). Solo acelera, nunca frena.
+
+- 2026-08-09 (claude-code): **La Tienda en la portada** — vehículos, patios y
+  vender Florines sin entrar a jugar. Gasta la plata de tu partida (la pausada
+  o la guardada), y comprar desde el menú reescribe la guardada. Con ella salió
+  el botón **"◂ Seguir jugando"**: al volver al inicio con el 🏠 la partida
+  quedaba viva pero sin forma de retomarla sin cuenta.
 
 - 2026-08-09 (claude-code): **los vecinos juegan solos**. En el menú de Aventura
   se elige cuántos salen (0 a 3, guardado en `florin_rivales`) y los mueve
