@@ -629,10 +629,15 @@
   }
   .cuenta .fila{display:flex;gap:7px;flex-wrap:wrap;align-items:center}
   .cuenta input{
-    flex:1 1 150px;min-width:0;padding:9px 11px;border-radius:11px;
+    flex:1 1 220px;min-width:0;padding:10px 12px;border-radius:11px;
     background:var(--plum-900);border:2px solid var(--plum-600);color:var(--cream);
-    font-family:var(--ui);font-size:13px;
+    /* 16px y no 13: un correo entero no cabía —se escribía a ciegas, viendo el
+       final— y por debajo de 16 Safari hace zoom al enfocar el campo. */
+    font-family:var(--ui);font-size:16px;
   }
+  /* El correo y el apodo, línea entera para ellos: son lo largo. La contraseña
+     se conforma con lo que quede. */
+  #cuentaEmail, #cuentaApodo{flex:1 1 100%}
   .cuenta input:focus{outline:none;border-color:var(--cosmo)}
   .cuentaBtn{
     padding:9px 14px;border-radius:11px;cursor:pointer;white-space:nowrap;
