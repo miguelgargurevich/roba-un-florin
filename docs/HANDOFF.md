@@ -24,6 +24,11 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Última sesión
 
+- 2026-08-08 (claude-code): **tres variantes nuevas de Florín** —Cristal (x6),
+  Lava (x8) y Galaxia (x12)— con su dibujo propio, y cuatro flores más. El álbum
+  pasa de 75 a 120 casillas y su lista de variantes sale del catálogo, no de una
+  lista a mano que se quedaba vieja.
+
 - 2026-08-08 (claude-code): promovido TODO a producción, incluido El Valle. Antes
   de subirlo salió un fallo del refactor: revivir una partida guardada no volvía
   a fijar el tamaño del mundo, así que retomarla después de jugar en El Valle la

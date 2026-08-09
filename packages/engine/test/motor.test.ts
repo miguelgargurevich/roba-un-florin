@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import {
   CIRCUITOS, ESCENARIOS, ESCUDO_DUR, FLORES, GARAJE, GOAL, HITO_R, JUGADORES_MAX,
   VEHICULOS, VUELTAS, ANCHO_PISTA, CASAS_POR_MAPA, PATIOS_PRECIO, TIERRA_DEL_ESPECIAL,
-  montarEscenario, esDeSuTierra,
+  montarEscenario, esDeSuTierra, VARIANTES,
   PORTAL_CADA, PORTAL_MAX, PORTAL_VUELTA, TRASTOS_ESCENARIO, CAJAS_EN_PISTA, ESPECIAL_NIVEL, darleVehiculo,
   enLaPista, esEspecial, potenciadorPorId, potenciadoresDe, trastoDe, usarPotenciador,
   vehiculoDelSitio,
@@ -481,11 +481,27 @@ describe("el catálogo de Florines", () => {
     }
   });
 
-  it("la casilla ??? es la única que da variantes, y da las cuatro", () => {
-    expect(RULETA.every(c => c.kind !== "florin" || true)).toBe(true);
+  it("la casilla ??? es la única que da variantes, y las da TODAS", () => {
+    /* Escrito contra el catálogo, no contra una lista: al añadir la Cristal, la
+       Lava y la Galaxia, una variante que no saliera de la Ruleta sería una
+       casilla del álbum imposible de conseguir. */
     const deIncognita = new Set(RULETA_INCOGNITA.map(f => f.variant));
-    for (const v of ["brillante", "arcoiris", "fantasma", "dorado"])
-      expect(deIncognita.has(v as any)).toBe(true);
+    for (const v of Object.keys(VARIANTES))
+      expect(deIncognita.has(v as any), v + " no sale de la casilla ???").toBe(true);
+  });
+
+  it("cuanto más rinde una variante, menos sale", () => {
+    /* Si la Galaxia (x12) saliera tanto como la Brillante (x2), el álbum se
+       llenaría al revés y el dinero se dispararía. */
+    const chance: Record<string, number> = {};
+    for (const f of RULETA_INCOGNITA)
+      if (f.variant) chance[f.variant] = (chance[f.variant] || 0) + f.p;
+    const orden = Object.keys(VARIANTES).sort(
+      (a, b) => (VARIANTES as any)[a].mult - (VARIANTES as any)[b].mult);
+    for (let i = 1; i < orden.length; i++)
+      expect(chance[orden[i]], orden[i] + " (x" + (VARIANTES as any)[orden[i]].mult +
+             ") sale tanto o más que " + orden[i-1])
+        .toBeLessThanOrEqual(chance[orden[i-1]]);
   });
 
   it("cada especie de flor tiene forma y nombre", () => {

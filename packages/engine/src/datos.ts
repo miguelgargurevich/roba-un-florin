@@ -320,7 +320,13 @@ export const RULETA_INCOGNITA: FilaIncognita[] = [
   { p:9,  tierMax:3,  variant:"dorado" },
   { p:5,  tierMax:12, variant:null },
   { p:4,  tier:14,    variant:null },
-  { p:2,  tier:14,    variant:"dorado" },      // el premio gordo
+  { p:2,  tier:14,    variant:"dorado" },
+  /* Las tres nuevas, con cuentagotas: juntas son el 4 % de las tiradas. La
+     Galaxia en el tier más alto es el premio gordo de verdad —una entre
+     doscientas— y por eso vale ×12. */
+  { p:2,  tierMax:7,  variant:"cristal" },
+  { p:1,  tierMax:5,  variant:"lava" },
+  { p:1,  tier:14,    variant:"galaxia" },
 ];
 
 export const LADRONES: Record<string, any> = {
@@ -370,6 +376,10 @@ export const FLORES = [
   { id:"pompon",     nombre:"Pompón",     n:11,   forma:"bolita",   R:6.2, centro:3,   hojas:1 },
   { id:"trebol",     nombre:"Trébol",     n:4,    forma:"corazon",  R:5.2, centro:2.4, hojas:2 },
   { id:"cantuta",    nombre:"Cantuta",    n:5,    forma:"copa",     R:5,   centro:2.2, hojas:2 },
+  { id:"ninfa",      nombre:"Ninfa",      n:8,    forma:"punta",    R:6.6, centro:3.8, hojas:1 },
+  { id:"jazmin",     nombre:"Jazmín",     n:5,    forma:"ovalo",    R:5.2, centro:2.2, hojas:2 },
+  { id:"dalia",      nombre:"Dalia",      n:16,   forma:"tira",     R:6.8, centro:3.2, hojas:1 },
+  { id:"heliconia",  nombre:"Heliconia",  n:4,    forma:"campana",  R:0,   centro:0,   hojas:1 },
   { id:"rosa",       nombre:"Rosa",       n:9,    forma:"rizo",     R:4.4, centro:1.6, hojas:2 },
   { id:"loto",       nombre:"Loto",       n:12,   forma:"punta",    R:6.6, centro:4,   hojas:0 },
   { id:"ave",        nombre:"Ave del Paraíso", n:4, forma:"abanico", R:6.2, centro:2, hojas:1 },
@@ -384,6 +394,12 @@ export const VARIANTES = {
   arcoiris:  { label:"Arcoíris",  icon:"🌈", mult:3, color:"#5CE1EA" },
   fantasma:  { label:"Fantasma",  icon:"👻", mult:4, color:"#B8C2FF" },
   dorado:    { label:"Dorado",    icon:"👑", mult:5, color:"#FFD84D" },
+  /* Las tres de arriba del todo. Salen de la casilla ??? igual que las otras,
+     pero mucho menos: son las que hacen que valga la pena seguir girando
+     cuando ya tienes el Dorado. */
+  cristal:   { label:"Cristal",   icon:"💎", mult:6, color:"#9FE8F0" },
+  lava:      { label:"Lava",      icon:"🌋", mult:8, color:"#FF6B2B" },
+  galaxia:   { label:"Galaxia",   icon:"🌌", mult:12, color:"#8B6BEE" },
 };
 /* Los escenarios: aquí solo va el REPARTO (lo que afecta al juego).
    El suelo, los colores y el decorado son cosa de quien dibuja. */

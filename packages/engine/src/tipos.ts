@@ -6,7 +6,8 @@
 import type { Dificultad } from "./datos.js";
 export type { Dificultad };
 
-export type Variante = "brillante" | "arcoiris" | "fantasma" | "dorado" | null;
+export type Variante = "brillante" | "arcoiris" | "fantasma" | "dorado"
+                     | "cristal" | "lava" | "galaxia" | null;
 
 /** Un Florín. `flor` es la especie (forma), `tier` la rareza (colores y valor). */
 export interface Florin {

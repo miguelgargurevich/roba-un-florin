@@ -390,7 +390,9 @@ window.addEventListener("blur", () => keys.clear());
 /* ============================================================
    Álbum de Florines: qué has llegado a tener, entre partidas
    ============================================================ */
-const ALBUM_VARIANTES = [null, "brillante", "arcoiris", "fantasma", "dorado"];
+/* Sale del catálogo del motor, no de una lista a mano: al añadir la Cristal, la
+   Lava y la Galaxia el álbum se quedó en 75 casillas y no las enseñaba. */
+const ALBUM_VARIANTES = [null, ...Object.keys(VARIANTES)];
 const ALBUM_TOTAL = TIERS.length * ALBUM_VARIANTES.length;
 let album = {};
 try { album = JSON.parse(localStorage.getItem("florin_album") || "{}") || {}; } catch (_){ album = {}; }
@@ -473,6 +475,11 @@ function renderAlbum(){
     });
   });
   document.getElementById("albumCuenta").textContent = n + " / " + ALBUM_TOTAL;
+  /* La lista de variantes se escribe sola: así no se queda vieja al añadir una. */
+  document.getElementById("albumSub").innerHTML =
+    "Las " + Object.keys(VARIANTES).length + " variantes — " +
+    Object.values(VARIANTES).map(v => v.icon + " " + v.label + " (×" + v.mult + ")").join(", ") +
+    " — solo salen de la casilla <b>???</b> de la Ruleta.";
   animarAlbum();
 }
 
@@ -6997,13 +7004,19 @@ function drawFlorinEn(ctx, x, y, s, f, t){
      fantasma casi no tiene aura, lo suyo es que se transparenta el bloque. */
   if (variant){
     const arco = variant === "arcoiris";
-    const pulso = REDUCED ? 1 : 1 + Math.sin(t*4)*(variant === "dorado" ? .2 : .12);
+    const lava = variant === "lava", galaxia = variant === "galaxia";
+    const pulso = REDUCED ? 1
+                : 1 + Math.sin(t*(lava ? 6 : 4))*(variant === "dorado" ? .2 : lava ? .26 : .12);
     const col = arco ? "hsl(" + ((t*90)%360|0) + " 90% 65%)"
               : variant === "dorado"   ? "#FFD84D"
               : variant === "fantasma" ? "#B8C2FF"
+              : variant === "cristal"  ? "#9FE8F0"
+              : lava    ? (Math.sin(t*6) > 0 ? "#FF6B2B" : "#FFB020")
+              : galaxia ? "hsl(" + (260 + Math.sin(t*.7)*40 | 0) + " 80% 62%)"
               : "#FFFFFF";
     ctx.save();
-    ctx.globalAlpha = arco ? .5 : variant === "dorado" ? .55 : variant === "fantasma" ? .3 : .38;
+    ctx.globalAlpha = arco ? .5 : variant === "dorado" ? .55 : variant === "fantasma" ? .3
+                    : lava ? .6 : galaxia ? .5 : variant === "cristal" ? .34 : .38;
     ctx.fillStyle = col;
     ctx.beginPath();
     ctx.ellipse(0, top + H*.45, (W+13)*pulso, (H*.72)*pulso, 0, 0, 6.283);
@@ -7415,10 +7428,80 @@ function drawFlorinEn(ctx, x, y, s, f, t){
   }
   if (variant === "fantasma") ctx.globalAlpha = 1;   // de aquí en adelante, sólido
 
+  /* ---- la firma de las tres nuevas, encima del bloque ----
+     El aura y las chispas solas no bastan para distinguirlas de un vistazo:
+     cada una necesita algo que solo tenga ella. */
+  if (variant === "cristal"){
+    /* facetas: dos triángulos claros y un brillo que recorre la cara */
+    ctx.save();
+    ctx.beginPath(); ctx.rect(-W, top, W*2, H); ctx.clip();
+    ctx.fillStyle = "rgba(223,248,252,.34)";
+    ctx.beginPath();
+    ctx.moveTo(-W, top+H*.2); ctx.lineTo(0, top); ctx.lineTo(0, top+H*.55); ctx.closePath(); ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(W, top+H*.35); ctx.lineTo(2, top+H*.1); ctx.lineTo(2, top+H*.8); ctx.closePath(); ctx.fill();
+    const bx = ((t*.5) % 1) * (W*3) - W*1.5;
+    ctx.fillStyle = "rgba(255,255,255,.5)";
+    ctx.beginPath();
+    ctx.moveTo(bx, top); ctx.lineTo(bx+5, top); ctx.lineTo(bx-6, top+H); ctx.lineTo(bx-11, top+H);
+    ctx.closePath(); ctx.fill();
+    ctx.restore();
+  } else if (variant === "lava"){
+    /* grietas encendidas, que laten */
+    const brasa = .55 + Math.sin(t*6)*.35;
+    ctx.save();
+    ctx.beginPath(); ctx.rect(-W, top, W*2, H); ctx.clip();
+    ctx.strokeStyle = "rgba(255,140,40," + brasa.toFixed(2) + ")";
+    ctx.lineWidth = 2.4; ctx.lineCap = "round";
+    for (let k = 0; k < 3; k++){
+      const y0 = top + H*(.22 + k*.26);
+      ctx.beginPath();
+      ctx.moveTo(-W+2, y0);
+      ctx.lineTo(-W*.3, y0 + (k%2 ? 4 : -4));
+      ctx.lineTo(W*.35, y0 + (k%2 ? -3 : 5));
+      ctx.lineTo(W-2, y0 + (k%2 ? 3 : -2));
+      ctx.stroke();
+    }
+    ctx.strokeStyle = "rgba(255,232,120," + (brasa*.7).toFixed(2) + ")";
+    ctx.lineWidth = 1; ctx.stroke();
+    ctx.restore();
+    /* y humo que sube */
+    if (!REDUCED) for (let k = 0; k < 3; k++){
+      const f = ((t*.5 + k/3) % 1);
+      ctx.globalAlpha = (1-f)*.35;
+      ctx.fillStyle = "#8A8478";
+      ctx.beginPath();
+      ctx.arc(Math.sin(t+k)*5, top - f*22, 2.5 + f*4, 0, 6.283); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+  } else if (variant === "galaxia"){
+    /* el bloque es un trozo de cielo: estrellas dentro y una nebulosa */
+    ctx.save();
+    ctx.beginPath(); ctx.rect(-W, top, W*2, H); ctx.clip();
+    ctx.fillStyle = "rgba(18,12,40,.72)";
+    ctx.fillRect(-W, top, W*2, H);
+    const neb = ctx.createRadialGradient(2, top+H*.4, 2, 2, top+H*.4, W*1.4);
+    neb.addColorStop(0, "rgba(139,107,238,.75)");
+    neb.addColorStop(.6, "rgba(255,158,196,.30)");
+    neb.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = neb;
+    ctx.fillRect(-W, top, W*2, H);
+    for (let k = 0; k < 16; k++){
+      const ex = -W + ((k*37) % (W*2));
+      const ey = top + ((k*53) % H);
+      const brillo = .35 + Math.abs(Math.sin(t*1.6 + k))*.65;
+      ctx.fillStyle = "rgba(255,255,255," + brillo.toFixed(2) + ")";
+      ctx.beginPath(); ctx.arc(ex, ey, k % 4 === 0 ? 1.5 : .9, 0, 6.283); ctx.fill();
+    }
+    ctx.restore();
+  }
+
   /* ---- destellos de la variante, por encima del bloque ---- */
   if (variant && !REDUCED){
     const arco = variant === "arcoiris", oro = variant === "dorado";
-    const n = arco ? 6 : oro ? 8 : variant === "fantasma" ? 3 : 4;
+    const lava = variant === "lava", galaxia = variant === "galaxia";
+    const n = arco ? 6 : oro ? 8 : variant === "fantasma" ? 3
+            : galaxia ? 10 : lava ? 7 : variant === "cristal" ? 5 : 4;
     for (let i=0;i<n;i++){
       const a = -t*(arco ? 2.2 : oro ? 1.1 : 1.6) + i*(6.283/n);
       const rr = 24 + Math.sin(t*3+i)*3;
@@ -7426,6 +7509,11 @@ function drawFlorinEn(ctx, x, y, s, f, t){
       ctx.fillStyle = arco ? "hsl(" + (((t*120)+i*60)%360|0) + " 95% 70%)"
                     : oro  ? (i%2 ? "#FFD84D" : "#FFF0A5")
                     : variant === "fantasma" ? "rgba(184,194,255,.9)"
+                    : variant === "cristal"  ? (i%2 ? "#DFF8FC" : "#7FD3F0")
+                    /* la lava chispea como una brasa: naranja, rojo y ceniza */
+                    : lava    ? ["#FFD84D","#FF6B2B","#C0452F"][i % 3]
+                    /* la galaxia son estrellas de verdad, cada una de un color */
+                    : galaxia ? ["#FFFFFF","#B8C2FF","#FF9EC4","#8FE8FF"][i % 4]
                     : "#FFFFFF";
       ctx.save();
       ctx.translate(px, py); ctx.rotate(a);
