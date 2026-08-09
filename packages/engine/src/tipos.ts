@@ -358,6 +358,9 @@ export interface Estado {
   ruletas: Circulo[];
   /** La Fusionadora: se meten dos Florines de la vitrina y sale uno. */
   fusion: Rect;
+  /** La cochera pegada a tu patio, con lo que has comprado en el Garaje.
+      `null` cuando no tienes nada comprado o el modo no la usa (carrera). */
+  cochera: Rect | null;
   portal: Portal;
 
   bolts: Bala[];

@@ -1447,6 +1447,101 @@ describe("la Fusionadora", () => {
   });
 });
 
+describe("la cochera del patio", () => {
+  const TODOS = GARAJE.map(g => g.tipo);
+  const enLaCochera = (e: Estado) =>
+    e.trastos.filter(v => e.cochera && inRect(v.x, v.y, e.cochera, 0));
+
+  it("sin nada comprado no hay cochera", () => {
+    const e = partida();
+    expect(e.cochera).toBe(null);
+  });
+
+  it("aparca lo comprado, uno por plaza", () => {
+    const e = partida({ garaje: ["ovni", "amaru", "trineo"] });
+    expect(e.cochera).not.toBe(null);
+    const dentro = enLaCochera(e);
+    expect(dentro.map(v => v.tipo).sort()).toEqual(["amaru", "ovni", "trineo"]);
+    // ninguno encima de otro: las plazas son de 96
+    for (const a of dentro) for (const b of dentro)
+      if (a !== b) expect(Math.hypot(a.x - b.x, a.y - b.y)).toBeGreaterThan(60);
+  });
+
+  /** Lo que separa la cochera del patio, por su lado más corto. */
+  const huecoAlPatio = (e: Estado) => {
+    const c = e.cochera!, r = e.bases.find(b => b.isPlayer)!.rect;
+    return Math.max(r.x - (c.x + c.w), c.x - (r.x + r.w),
+                    r.y - (c.y + c.h), c.y - (r.y + r.h));
+  };
+
+  it("con lo que se tiene de verdad, va pegada al patio", () => {
+    // tres vehículos es una partida larga ya; nueve es el caso extremo
+    for (const esc of ESCENARIOS) {
+      const e = partida({ escenario: esc.id, garaje: ["ovni", "amaru", "condor"] });
+      expect(huecoAlPatio(e), esc.id + ": la cochera se fue lejos del patio")
+        .toBeLessThan(130);
+    }
+  });
+
+  it("con el garaje entero sigue estando al lado y sin pisar a nadie", () => {
+    for (const esc of ESCENARIOS) {
+      const e = partida({ escenario: esc.id, garaje: TODOS });
+      const c = e.cochera!;
+      const r = e.bases.find(b => b.isPlayer)!.rect;
+      expect(c, esc.id).not.toBe(null);
+      /* Nueve vehículos ocupan lo que una casa entera: en un patio encajonado
+         se aparta lo justo, pero sigue siendo "la de tu casa" y no una cochera
+         al otro lado del mapa. */
+      expect(huecoAlPatio(e), esc.id + ": la cochera se fue lejos del patio")
+        .toBeLessThan(380);
+      // dentro del mundo y fuera del agua
+      expect(c.x, esc.id).toBeGreaterThanOrEqual(0);
+      expect(c.y, esc.id).toBeGreaterThanOrEqual(0);
+      expect(c.x + c.w, esc.id).toBeLessThanOrEqual(WORLD_W);
+      expect(c.y + c.h, esc.id).toBeLessThanOrEqual(WORLD_H);
+      if (e.esc.mar != null)
+        expect(c.y + c.h, esc.id + ": la cochera acabó en el mar").toBeLessThan(e.esc.mar);
+      expect(enLaCochera(e).length, esc.id).toBe(TODOS.length);
+      // y sin pisarle el terreno a nadie
+      for (const b of e.bases){
+        if (b.rect === r) continue;
+        const pisa = c.x < b.rect.x + b.rect.w && c.x + c.w > b.rect.x &&
+                     c.y < b.rect.y + b.rect.h && c.y + c.h > b.rect.y;
+        expect(pisa, esc.id + ": la cochera se metió en " + b.name).toBe(false);
+      }
+    }
+  });
+
+  it("los aparcados se montan como cualquier trasto", () => {
+    const e = partida({ garaje: ["ovni"] });
+    const p = e.players[0];
+    const v = e.trastos.find(t => t.tipo === "ovni")!;
+    p.x = v.x; p.y = v.y;
+    avanzar(e, nada(), 1 / 60);
+    expect(p.montado, "no me subí al ovni que compré").toBe(v.id);
+  });
+
+  it("en carrera no hay cochera: se sale de la parrilla", () => {
+    const e = crearPartida({ jugadores: 2, escenario: "circuito", semilla: 7,
+                             armas: idsDeArmas(), garaje: TODOS,
+                             reglas: { modo: "carrera", vecinos: false, puestos: false } });
+    expect(e.cochera).toBe(null);
+  });
+
+  it("no se siembra nada encima de lo aparcado", () => {
+    const e = partida({ garaje: TODOS });
+    const mios = new Set(enLaCochera(e).map(v => v.id));
+    for (const v of e.trastos){
+      if (mios.has(v.id)) continue;
+      for (const m of e.trastos){
+        if (!mios.has(m.id)) continue;
+        expect(Math.hypot(v.x - m.x, v.y - m.y),
+               "una " + v.tipo + " encima de mi " + m.tipo).toBeGreaterThan(50);
+      }
+    }
+  });
+});
+
 describe("carrera", () => {
   const carrera = (esc = "circuito", jugadores = 2) =>
     crearPartida({ jugadores, escenario: esc, semilla: 7, armas: idsDeArmas(),

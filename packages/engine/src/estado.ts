@@ -3,7 +3,7 @@
 
 import type {
   Base, DesfileItem, Estado, Evento, Florin, Jugador, Laser, Pedestal, RefObjetivo,
-  RefPed, Reglas, Sonido, Trasto, Variante,
+  Rect, RefPed, Reglas, Sonido, Trasto, Variante,
 } from "./tipos.js";
 import {
   ESCENARIOS, FLORES, GOAL, LASER_CARGA, PATIOS_PRECIO, TIERS, TRASTOS_ESCENARIO,
@@ -217,6 +217,10 @@ function sitioLibreTrasto(e: Estado, x: number, y: number, m: number): boolean {
   for (const P of [e.portal, e.portal.salida])
     if (choca({ x: P.x - 80, y: P.y - 80, w: 160, h: 160 })) return false;
   for (const otro of e.trastos) if (dist2(x, y, otro.x, otro.y) < 60 * 60) return false;
+  /* La cochera entera, no solo sus plazas: en la Edad Media caía un dragón
+     salvaje en el hueco del borde y parecía que el juego te regalaba uno. */
+  if (e.cochera && choca({ x: e.cochera.x - 10, y: e.cochera.y - 10,
+                           w: e.cochera.w + 20, h: e.cochera.h + 20 })) return false;
   return true;
 }
 
@@ -247,6 +251,177 @@ function sembrarTrastos(e: Estado): void {
       }
     }
   }
+}
+
+/* ---- la cochera ----
+   Lo que compras en el Garaje es tuyo para siempre, pero hasta ahora solo se
+   notaba en carrera, eligiéndolo del menú. En aventura seguías yendo a pie
+   mientras el ovni de 300 000 dormía en un `localStorage`. Ahora está aparcado
+   al lado de tu patio: sales de casa y lo montas.
+
+   Una plaza por vehículo, en rejilla de tres en fondo. */
+const PLAZA = 96;
+
+/** Las plazas puestas en `cols` columnas: cuánto ocupa eso. */
+export function medirCochera(n: number, cols = Math.min(3, Math.max(1, n))) {
+  const filas = Math.ceil(n / cols);
+  return { cols, filas, w: cols * PLAZA + 24, h: filas * PLAZA + 34 };
+}
+
+/** Cuántas columnas tiene una cochera ya montada, leyéndolo de su ancho. */
+export const colsDeCochera = (c: Rect) => Math.max(1, Math.round((c.w - 24) / PLAZA));
+
+/** Dónde caben las plazas: pegada al patio, por el lado que tenga sitio.
+    Si en ancho no cabe, se prueba más estrecha y más alta: en un patio
+    encajonado entre otros dos, tres en fondo no entran pero dos sí. */
+function ponerCochera(e: Estado, patio: Base, n: number): Rect | null {
+  if (n <= 0) return null;
+  const r = patio.rect, HUECO = 26;
+  /* El agua no vale ni para lo que flota: si la cochera naciera en el mar,
+     los especiales de tierra —la grúa, el monster— quedarían inalcanzables. */
+  const abajo = e.esc.mar != null ? e.esc.mar - 40 : WORLD_H - 40;
+  const chocaOtra = (x: number, y: number, w: number, h: number) =>
+    e.bases.some(b => b !== patio &&
+      x < b.rect.x + b.rect.w + 30 && x + w > b.rect.x - 30 &&
+      y < b.rect.y + b.rect.h + 30 && y + h > b.rect.y - 30) ||
+    e.armerias.some(a => x < a.x + a.w + 20 && x + w > a.x - 20 &&
+                         y < a.y + a.h + 20 && y + h > a.y - 20) ||
+    e.ruletas.some(c => x < c.x + c.r + 20 && x + w > c.x - c.r - 20 &&
+                        y < c.y + c.r + 20 && y + h > c.y - c.r - 20) ||
+    (x < e.fusion.x + e.fusion.w + 20 && x + w > e.fusion.x - 20 &&
+     y < e.fusion.y + e.fusion.h + 20 && y + h > e.fusion.y - 20);
+  const cabe = (x: number, y: number, w: number, h: number) =>
+    x >= 40 && y >= 60 && x + w <= WORLD_W - 40 && y + h <= abajo &&
+    !chocaOtra(x, y, w, h);
+
+  /** Lo lejos que queda del patio, por el lado más corto. */
+  const lejania = (x: number, y: number, w: number, h: number) =>
+    Math.max(r.x - (x + w), x - (r.x + r.w), r.y - (y + h), y - (r.y + r.h));
+
+  /* Formas posibles, de la que mejor queda a la que peor: tres en fondo es la
+     de referencia y de ahí se abre. Las torres —más de tres filas— van al
+     final: pegada al patio pero de nueve plazas de alto se ve peor que a un
+     palmo y cuadrada. Que haya formas MUY anchas importa: con un vecino a la
+     derecha y una casa arriba, la única franja libre es baja y larga. */
+  const formas = Array.from({ length: Math.min(n, 9) }, (_, k) => k + 1)
+    .sort((a, b) => Math.abs(a - 3) - Math.abs(b - 3));
+  const esTorre = (cols: number) => Math.ceil(n / cols) > 3;
+
+  /* Pegada a un lado del patio, deslizándola a lo largo de ese lado y, si no
+     hay manera, apartándola. Correrla es mucho mejor que alejarla: en La Italia
+     la Fusionadora cae justo a la derecha del patio y basta con subir la
+     cochera un palmo para que entre. */
+  const porLosLados = (juego: number[]): Rect | null => {
+    for (const d of [0, 70, 150, 250, 360]) {
+      for (const cols of juego) {
+        const { w, h } = medirCochera(n, cols);
+        const corrida = (a: number, largo: number, propio: number) =>
+          [0, 0.5, -0.5, 1, -1].map(f => a + (largo - propio) / 2 + f * (largo / 2 + propio / 2));
+        const aY = corrida(r.y, r.h, h), aX = corrida(r.x, r.w, w);
+        const sitios: [number, number][] = [
+          ...aY.map(y => [r.x + r.w + HUECO + d, y] as [number, number]),
+          ...aY.map(y => [r.x - w - HUECO - d, y] as [number, number]),
+          ...aX.map(x => [x, r.y + r.h + HUECO + d] as [number, number]),
+          ...aX.map(x => [x, r.y - h - HUECO - d] as [number, number]),
+        ];
+        const bueno = sitios.map(([x, y]) => [Math.round(x), Math.round(y)] as [number, number])
+                            .find(([x, y]) => cabe(x, y, w, h));
+        if (bueno) return { x: bueno[0], y: bueno[1], w, h };
+      }
+    }
+    return null;
+  };
+
+  /* Ningún lado del patio sirve: se barre la manzana entera y se coge el hueco
+     libre más cercano. Una cochera a un par de pasos de la puerta sigue siendo
+     la tuya; una encima del patio del vecino no la quiere nadie. */
+  const porLaManzana = (juego: number[]): Rect | null => {
+    let mejor: Rect | null = null, mejorD = Infinity;
+    const cx = r.x + r.w / 2, cy = r.y + r.h / 2;
+    juego.forEach((cols, orden) => {
+      const { w, h } = medirCochera(n, cols);
+      for (let dy = -700; dy <= 700; dy += 40) {
+        for (let dx = -700; dx <= 700; dx += 40) {
+          const x = Math.round(cx + dx - w / 2), y = Math.round(cy + dy - h / 2);
+          if (!cabe(x, y, w, h)) continue;
+          // lo cerca que queda, más un pellizco por usar una forma menos bonita
+          const d = lejania(x, y, w, h) + orden * 20;
+          if (d < mejorD){ mejor = { x, y, w, h }; mejorD = d; }
+        }
+      }
+    });
+    return mejor;
+  };
+
+  /* Se agotan las formas decentes por completo —al lado y por la manzana—
+     antes de admitir una torre. */
+  const decentes = formas.filter(c => !esTorre(c));
+  for (const juego of [decentes, formas]) {
+    if (!juego.length) continue;
+    const sitio = porLosLados(juego) || porLaManzana(juego);
+    if (sitio) return sitio;
+  }
+
+  /* Ni eso: se pone igualmente al lado, metida dentro del mundo. Solapar con
+     el vecino es feo; quedarse sin los vehículos que ya has pagado, peor. */
+  const { w, h } = medirCochera(n, 1);
+  return {
+    x: clamp(r.x + r.w + HUECO, 40, WORLD_W - 40 - w),
+    y: clamp(Math.round(r.y + (r.h - h) / 2), 60, Math.round(abajo - h)),
+    w, h,
+  };
+}
+
+/** La plaza número `k` de una cochera de `cols` columnas. */
+const plazaDe = (c: Rect, cols: number, k: number) => ({
+  x: c.x + 12 + (k % cols) * PLAZA + PLAZA / 2,
+  y: c.y + 22 + ((k / cols) | 0) * PLAZA + PLAZA / 2,
+});
+
+/** Aparca en la cochera lo que el jugador tenga comprado. */
+function aparcarEnLaCochera(e: Estado, tipos: string[]): void {
+  const patio = e.bases.find(b => b.isPlayer);
+  if (!patio) return;
+  const mios = tipos.filter(t => VEHICULOS[t]);
+  e.cochera = ponerCochera(e, patio, mios.length);
+  if (!e.cochera) return;
+  const cols = colsDeCochera(e.cochera);
+  mios.forEach((tipo, k) => {
+    const { x, y } = plazaDe(e.cochera!, cols, k);
+    e.trastos.push({
+      id: nuevoId(e), tipo: tipo as Trasto["tipo"], x, y,
+      vx: 0, vy: 0, montadoPor: null, pateadoPor: null,
+      giro: 0, variante: 0,          // aparcados rectos, que es lo que hace que parezca una cochera
+    });
+  });
+}
+
+/** Lo que está aparcado ahora mismo, en el orden de las plazas. */
+const aparcados = (e: Estado): Trasto[] =>
+  e.cochera
+    ? e.trastos.filter(v => v.montadoPor == null && inRect(v.x, v.y, e.cochera!, 0))
+    : [];
+
+/** Uno recién comprado en el Garaje: entra en la cochera sin esperar a la
+    siguiente partida. Si no cabe, la cochera crece y se recolocan las plazas
+    —los que estén aparcados están en casa, moverlos no le estorba a nadie. */
+export function aparcarNuevo(e: Estado, tipo: string): boolean {
+  if (e.reglas.modo !== "aventura" || !VEHICULOS[tipo]) return false;
+  const patio = e.bases.find(b => b.isPlayer);
+  if (!patio) return false;
+  const ya = aparcados(e);
+  if (ya.some(v => v.tipo === tipo)) return false;     // ya lo tienes en casa
+  const nuevo: Trasto = {
+    id: nuevoId(e), tipo: tipo as Trasto["tipo"], x: 0, y: 0,
+    vx: 0, vy: 0, montadoPor: null, pateadoPor: null, giro: 0, variante: 0,
+  };
+  const todos = [...ya, nuevo];
+  e.cochera = ponerCochera(e, patio, todos.length);
+  if (!e.cochera) return false;
+  const cols = colsDeCochera(e.cochera);
+  todos.forEach((v, k) => { const { x, y } = plazaDe(e.cochera!, cols, k); v.x = x; v.y = y; });
+  e.trastos.push(nuevo);
+  return true;
 }
 
 /* ---- construcción del mundo ---- */
@@ -308,6 +483,9 @@ export interface OpcionesPartida {
   armas: string[];
   /** Lo que no se diga, se rellena con lo de siempre (ver `reglasPara`). */
   reglas?: Partial<Reglas>;
+  /** Los especiales comprados en el Garaje. Vienen del cliente porque son del
+      jugador y no de la partida: se aparcan en la cochera de tu patio. */
+  garaje?: string[];
 }
 
 /** Los valores por defecto dependen de cuántos sean: solo o acompañado. */
@@ -458,7 +636,7 @@ export function crearPartida(op: OpcionesPartida): Estado {
 
   const e: Estado = {
     t: 0, reglas, esc, semilla, rngEstado: semilla | 0,
-    bases, players: jugadores, armerias, ruletas, fusion, portal,
+    bases, players: jugadores, armerias, ruletas, fusion, cochera: null, portal,
     bolts: [], blasts: [], cascaras: [], trastos: [], perros: [], slowmo: 0,
     thieves: [], ground: [], thiefTimer: 14,
     girando: null, ultimoPremio: null, cajas: [],
@@ -486,6 +664,11 @@ export function crearPartida(op: OpcionesPartida): Estado {
     };
   }
 
+  /* Antes de sembrar: los que ya están aparcados cuentan como ocupados, así
+     que no aparece una bici tirada encima del trineo de Santa. Solo en
+     aventura: en carrera sales de la parrilla y el especial se elige en el
+     menú, y en el duelo de sofá darle un ovni a uno de los dos no es un duelo. */
+  if (reglas.modo === "aventura") aparcarEnLaCochera(e, op.garaje || []);
   sembrarTrastos(e);       // después de las bases: necesita saber dónde no caben
   if (reglas.modo === "carrera") aLaLineaDeSalida(e);
   return e;

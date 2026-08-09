@@ -16,7 +16,7 @@ import {
   VEHICULOS, bajarse, enElMar, trastoDe, nivelDeVitrina, vitrinaDe, nombreDeHito,
   venderFlorin, precioDeVenta, soltarCarga, puestoDe, puestosDeCarrera,
   VUELTAS, CIRCUITOS, JUGADORES_MAX, pensarBot, GARAJE, TRASTOS_ESCENARIO,
-  darleVehiculo, vehiculoDelSitio, esEspecial, ANCHO_PISTA, enLaPista,
+  darleVehiculo, vehiculoDelSitio, esEspecial, ANCHO_PISTA, enLaPista, aparcarNuevo,
   usarPotenciador, potenciadoresDe, potenciadorPorId, colocarPuestos,
   DIFICULTADES, dificultadDe, fijarMundo, MUNDO_NORMAL, fundir, queSaleDeFundir,
 } from "@florin/engine";
@@ -33,7 +33,7 @@ export {
   VEHICULOS, bajarse, enElMar, trastoDe, nivelDeVitrina, vitrinaDe, nombreDeHito,
   venderFlorin, precioDeVenta, soltarCarga, puestoDe, puestosDeCarrera,
   VUELTAS, CIRCUITOS, JUGADORES_MAX, pensarBot, GARAJE, TRASTOS_ESCENARIO,
-  darleVehiculo, vehiculoDelSitio, esEspecial, ANCHO_PISTA, enLaPista, DIFICULTADES, dificultadDe,
+  darleVehiculo, vehiculoDelSitio, esEspecial, ANCHO_PISTA, enLaPista, DIFICULTADES, dificultadDe, aparcarNuevo,
   fundir, queSaleDeFundir,
   usarPotenciador, potenciadoresDe, potenciadorPorId, colocarPuestos,
 };
@@ -230,7 +230,8 @@ function conAtajos(G) {
 /* `local2` es el duelo de sofá: dos personas en un teclado. Es una decisión del
    cliente, no del motor — para el motor son dos jugadores y unas reglas. Vive
    como bandera del cliente al lado de `started` y `paused`. */
-export function nuevaPartidaMotor(modo, escenarioId, carrera = false, dificultad = "normal") {
+export function nuevaPartidaMotor(modo, escenarioId, carrera = false, dificultad = "normal",
+                                  garaje = []) {
   const local2 = modo === 2;
   /* Una carrera solo contra nadie no es una carrera: los otros cuatro asientos
      se llenan de bots, que es para lo que `pensarBot` vive en el motor. */
@@ -240,6 +241,7 @@ export function nuevaPartidaMotor(modo, escenarioId, carrera = false, dificultad
     jugadores: carrera ? JUGADORES_MAX : (local2 ? 2 : 1),
     escenario: esc,
     armas: idsDeArmas(),
+    garaje,                       // lo comprado en el Garaje, aparcado junto a tu patio
     reglas: carrera
       ? { patiosExtra: false, puestos: false, modo: "carrera", vecinos: false, dificultad }
       : local2

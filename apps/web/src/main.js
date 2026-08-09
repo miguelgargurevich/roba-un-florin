@@ -20,7 +20,7 @@ import {
   bajarse, conAtajosDeSala as conAtajosMotor, nombreDeHito, patiosDe, precioDeVenta,
   puestoDe, puestosDeCarrera, VUELTAS, CIRCUITOS, pensarBot, GARAJE, VEHICULOS,
   fundir, queSaleDeFundir,
-  TRASTOS_ESCENARIO, darleVehiculo, esEspecial, ANCHO_PISTA,
+  TRASTOS_ESCENARIO, darleVehiculo, esEspecial, ANCHO_PISTA, aparcarNuevo,
   usarPotenciador, potenciadoresDe, potenciadorPorId,
   soltarCarga, trastoDe,
   venderFlorin,
@@ -127,7 +127,11 @@ const modoElegido = () =>
 
 function nuevaPartida(modo){
   pops = []; puffs = [];
-  const G2 = nuevaPartidaMotor(modo, ESCENARIOS[escSel].id, modoElegido() === "carrera", difSel);
+  /* En el orden del catálogo del Garaje, no el de compra: así cada vehículo
+     tiene siempre la misma plaza y te acostumbras a dónde está el tuyo. */
+  const misTrastos = GARAJE.map(g => g.tipo).filter(tengoVehiculo);
+  const G2 = nuevaPartidaMotor(modo, ESCENARIOS[escSel].id, modoElegido() === "carrera", difSel,
+                               misTrastos);
   if (modoElegido() === "carrera" && vehSel) darleVehiculo(G2, G2.players[0], vehSel);
   G2.started = false; G2.paused = false;    // banderas del cliente, no del motor
   return G2;
@@ -424,6 +428,9 @@ function ganarVehiculo(tipo, comoLoDigo){
   guardarGaraje();
   const v = VEHICULOS[tipo];
   pop(G.player.x, G.player.y - 96, comoLoDigo || ("🔧 " + v.icon + " ¡" + v.label + " al Garaje!"), "#8B6BEE");
+  /* Aparcado ya, sin esperar a la siguiente partida: si compras el ovni y no
+     aparece hasta que reinicies, parece que no lo compraste. */
+  if (aparcarNuevo(G, tipo)) invalidarSuelo();
   pintarGaraje();
   return true;
 }
@@ -600,16 +607,63 @@ for (const t of ["pointerup", "pointercancel"]) window.addEventListener(t, joyEn
 window.addEventListener("blur", () => joyEnd({ pointerId: joy.id }));
 
 /* Botón de arma: un toque lanza hacia donde caminas; si arrastras, apuntas */
-const tiro = { id:null, ox:0, oy:0, apuntando:false };
+/* ---- la lista rápida de armas ----
+   Dejando apretado el botón de lanzar sale la fila de armas justo encima, que
+   es donde ya está el pulgar. Antes había que ir a la barra de arriba a buscar
+   el selector: dos gestos y mirar a otro lado en mitad de una pelea. */
+const elArmas = document.getElementById("armasRapidas");
+const LARGO = 320;                       // ms de aguante para que cuente como "dejar apretado"
+
+function pintarArmasRapidas(){
+  elArmas.innerHTML = "";
+  WEAPONS.forEach((w, i) => {
+    const inf = w.id === "chancla";
+    const balas = inf ? Infinity : G.ammo[w.id];
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "arApr" + (G.wsel === i ? " sel" : "") + (balas <= 0 ? " locked" : "");
+    b.innerHTML = '<span class="ic">' + w.icon + '</span>' +
+                  '<span class="n">' + (inf ? "∞" : balas) + '</span>';
+    b.setAttribute("role", "option");
+    b.setAttribute("aria-selected", String(G.wsel === i));
+    /* `pointerdown` y no `click`: viniendo de una pulsación larga, el `click`
+       de iOS llega tarde o no llega. */
+    b.addEventListener("pointerdown", ev => {
+      ev.preventDefault(); ev.stopPropagation();
+      if (balas > 0) elegirArma(i);        // pasa por aquí para que en una sala lo decida el servidor
+      cerrarArmasRapidas();
+      Snd.unlock();
+    });
+    elArmas.appendChild(b);
+  });
+}
+function abrirArmasRapidas(){
+  if (!G || !G.started || G.over) return;
+  pintarArmasRapidas();
+  elArmas.hidden = false;
+}
+function cerrarArmasRapidas(){ elArmas.hidden = true; }
+
+const tiro = { id:null, ox:0, oy:0, apuntando:false, reloj:0, abrio:false };
 el.throwB.addEventListener("pointerdown", e => {
   e.preventDefault(); Snd.unlock();
-  tiro.id = e.pointerId; tiro.ox = e.clientX; tiro.oy = e.clientY; tiro.apuntando = false;
+  tiro.id = e.pointerId; tiro.ox = e.clientX; tiro.oy = e.clientY;
+  tiro.apuntando = false; tiro.abrio = false;
   try { el.throwB.setPointerCapture?.(e.pointerId); } catch (_){}
+  clearTimeout(tiro.reloj);
+  tiro.reloj = setTimeout(() => {
+    /* Aguantaste sin arrastrar: es "elegir arma", no "lanzar". */
+    if (tiro.id !== e.pointerId || tiro.apuntando) return;
+    tiro.abrio = true;
+    abrirArmasRapidas();
+  }, LARGO);
 });
 el.throwB.addEventListener("pointermove", e => {
   if (e.pointerId !== tiro.id) return;
   const dx = e.clientX - tiro.ox, dy = e.clientY - tiro.oy, m = Math.hypot(dx, dy);
   if (m < 14) return;                     // margen para que un toque simple no cuente como apuntar
+  if (tiro.abrio) return;                 // ya está eligiendo arma: no apunta
+  clearTimeout(tiro.reloj);               // arrastrar es apuntar, no aguantar
   tiro.apuntando = true;
   const p = G.player, a = p.apunta;
   a.on = true;
@@ -618,10 +672,21 @@ el.throwB.addEventListener("pointermove", e => {
 el.throwB.addEventListener("pointerup", e => {
   if (e.pointerId !== tiro.id) return;
   tiro.id = null;
+  clearTimeout(tiro.reloj);
+  /* Si la pulsación abrió la lista, soltar NO lanza: sería tirar la chancla
+     cada vez que quieres cambiar de arma. */
+  if (tiro.abrio){ tiro.abrio = false; return; }
   usarArma(G, G.player);
   if (tiro.apuntando) G.player.apunta.on = false;   // el apuntado táctil dura un lanzamiento
 });
-el.throwB.addEventListener("pointercancel", () => { tiro.id = null; });
+el.throwB.addEventListener("pointercancel", () => {
+  tiro.id = null; clearTimeout(tiro.reloj); tiro.abrio = false;
+});
+/* Tocar fuera la cierra, como cualquier menú. */
+document.addEventListener("pointerdown", e => {
+  if (!elArmas.hidden && !elArmas.contains(e.target) && e.target !== el.throwB)
+    cerrarArmasRapidas();
+});
 el.throwB.addEventListener("keydown", e => {
   if (e.key === "Enter" || e.key === " "){ e.preventDefault(); usarArma(G, G.player); }
 });
@@ -7750,6 +7815,63 @@ function drawFlorinEn(ctx, x, y, s, f, t){
 /** El de siempre, en el lienzo del juego. */
 function drawFlorin(x, y, s, f, t){ drawFlorinEn(ctx, x, y, s, f, t); }
 
+/* ---- la cochera ----
+   El suelo de tu garaje, pegado al patio: cemento, sus plazas pintadas y el
+   techo de calamina al fondo. Los vehículos los dibuja `drawTrastos` como
+   cualquier otro, así que aquí solo va lo que está DEBAJO de ellos. */
+function drawCochera(){
+  const c = G.cochera;
+  if (!c) return;
+  const { x, y, w, h } = c;
+  ctx.save();
+
+  // la losa de cemento
+  ctx.fillStyle = "rgba(24,16,24,.34)";
+  roundRect(x, y, w, h, 14); ctx.fill();
+  ctx.strokeStyle = "rgba(61,220,151,.55)"; ctx.lineWidth = 4;
+  roundRect(x, y, w, h, 14); ctx.stroke();
+
+  /* Las rayas de las plazas. Van a la medida del motor (96 px, 12 de borde y
+     22 arriba por el techo): si aquí se pintaran a ojo, los vehículos
+     aparcarían fuera de su raya. */
+  const PL = 96;
+  const cols = Math.max(1, Math.min(3, Math.round((w - 24) / PL)));
+  const filas = Math.max(1, Math.round((h - 34) / PL));
+  ctx.strokeStyle = "rgba(255,255,255,.16)"; ctx.lineWidth = 3;
+  for (let k = 1; k < cols; k++){
+    const px = x + 12 + k * PL;
+    ctx.beginPath(); ctx.moveTo(px, y + 26); ctx.lineTo(px, y + 22 + filas * PL); ctx.stroke();
+  }
+  for (let k = 1; k < filas; k++){
+    const py = y + 22 + k * PL;
+    ctx.beginPath(); ctx.moveTo(x + 14, py); ctx.lineTo(x + 12 + cols * PL, py); ctx.stroke();
+  }
+
+  // el techo de calamina y sus dos postes
+  ctx.fillStyle = "#5C4A52";
+  roundRect(x + 4, y - 6, w - 8, 22, 7); ctx.fill();
+  ctx.strokeStyle = "rgba(0,0,0,.3)"; ctx.lineWidth = 2;
+  for (let px = x + 14; px < x + w - 10; px += 14){
+    ctx.beginPath(); ctx.moveTo(px, y - 5); ctx.lineTo(px, y + 15); ctx.stroke();
+  }
+  ctx.fillStyle = "#463840";
+  ctx.fillRect(x + 8, y + 14, 8, h - 20);
+  ctx.fillRect(x + w - 16, y + 14, 8, h - 20);
+
+  // el letrero, igual que el de las bases
+  const rot = "TU COCHERA";
+  const lw = rot.length * 11 + 34;
+  ctx.fillStyle = "#2A1226";
+  roundRect(x + w/2 - lw/2, y - 44, lw, 30, 11); ctx.fill();
+  ctx.strokeStyle = "#3DDC97"; ctx.lineWidth = 3;
+  roundRect(x + w/2 - lw/2, y - 44, lw, 30, 11); ctx.stroke();
+  ctx.fillStyle = "#3DDC97";
+  ctx.font = "700 15px system-ui, sans-serif";
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillText(rot, x + w/2, y - 29);
+  ctx.restore();
+}
+
 /* ---- la Fusionadora ----
    Una máquina de barrio: dos tolvas arriba por donde entran los Florines, un
    tambor que gira y una boca abajo por donde sale el que resulta. */
@@ -8334,6 +8456,7 @@ function draw(){
   } else {
     drawRuta();                      // la alfombra va debajo de todo
     for (const b of G.bases) drawBase(b);
+    drawCochera();                   // debajo de los vehículos, que los pinta drawTrastos
     drawArmeria();
     drawFusion();
     drawPortal();
@@ -8789,6 +8912,7 @@ function hud(){
     el.lost.textContent = G.stats.hits;
     el.alarma.hidden = true;
     bau.boton.hidden = true; bau.soltar.hidden = true; bau.bajar.hidden = true;
+    cerrarArmasRapidas();
     const w0 = WEAPONS[G.wsel];
     el.throwB.classList.toggle("cool", G.cd > 0 ||
       (w0.id === "chancla" ? G.chancla.state !== "held" : G.ammo[w0.id] <= 0));

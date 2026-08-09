@@ -109,15 +109,18 @@
   .iconbtn.on{border-color:var(--gold);background:color-mix(in srgb,var(--gold) 26%, var(--plum-800))}
 
   .vgap{flex:1 1 auto;min-height:0}
-  .bottom{display:flex;align-items:flex-end;gap:10px}
+  /* El minimapa va centrado abajo: en una esquina se comía el patio o la
+     cochera justo cuando estás en casa, que es donde más se juega. */
+  .bottom{display:flex;align-items:flex-end;justify-content:center;gap:10px}
 
   #minimap{
     width:150px;height:100px;border-radius:12px;display:block;
-    /* traslúcido a propósito: tapa una esquina del patio, así que se ve a través */
-    background:color-mix(in srgb, var(--plum-900) 30%, transparent);
-    border:2px solid color-mix(in srgb, var(--plum-600) 65%, transparent);
-    box-shadow:0 6px 0 rgba(0,0,0,.22);
-    backdrop-filter:blur(2px);opacity:.8;
+    /* Muy traslúcido: está encima del mapa, y lo que hay debajo importa más
+       que el propio minimapa. Se lee por las manchas de color, no por el fondo. */
+    background:color-mix(in srgb, var(--plum-900) 14%, transparent);
+    border:2px solid color-mix(in srgb, var(--plum-600) 34%, transparent);
+    box-shadow:none;
+    backdrop-filter:blur(1px);opacity:.5;
   }
 
   .k{font-family:var(--num);font-size:11px;background:var(--plum-700);border-radius:5px;padding:1px 5px;border:1px solid var(--plum-600)}
@@ -168,6 +171,28 @@
   /* En el celular no hay teclado: la pista de la tecla sobra. */
   @media (pointer:coarse){ #dropBtn small{display:none} }
   #dropBtn[hidden]{display:none}
+  /* ---- la lista rápida de armas ----
+     Sale del botón de lanzar hacia arriba, en una fila. Encima del pulgar, que
+     es donde ya está la mano: no hay que ir a buscar nada a la barra. */
+  #armasRapidas{
+    position:absolute;right:16px;bottom:150px;z-index:26;
+    display:flex;gap:6px;padding:8px;border-radius:18px;
+    background:color-mix(in srgb,var(--plum-900) 94%,transparent);
+    border:3px solid var(--gold);box-shadow:0 8px 0 rgba(0,0,0,.45);
+    pointer-events:auto;max-width:calc(100vw - 32px);overflow-x:auto;
+    touch-action:pan-x;-webkit-overflow-scrolling:touch;
+  }
+  #armasRapidas[hidden]{display:none}
+  #app.zurdo #armasRapidas{left:16px;right:auto}
+  .arApr{
+    flex:0 0 auto;width:60px;padding:6px 4px;border-radius:14px;cursor:pointer;
+    background:var(--plum-700);border:2px solid var(--plum-600);color:var(--cream);
+    display:grid;place-items:center;gap:1px;font-family:var(--ui);
+  }
+  .arApr .ic{font-size:21px;line-height:1}
+  .arApr .n{font-family:var(--num);font-size:11px;color:var(--gold)}
+  .arApr.sel{border-color:var(--leaf);background:color-mix(in srgb,var(--leaf) 18%,var(--plum-700))}
+  .arApr.locked{opacity:.4}
   /* El de bajarse, encima del de soltar y en verde para no confundirlos. */
   #bajarBtn{
     position:absolute;right:24px;bottom:280px;width:56px;height:56px;border-radius:50%;
@@ -707,8 +732,10 @@
     background:var(--plum-700);border:1px solid var(--plum-600);border-radius:5px;padding:1px 5px;
   }
 
-  /* En táctil el botón del arma se aparta del botón rosa de lanzar. */
-  @media (min-width:561px){ #app.touch .wsel{max-width:calc(100% - 122px)} }
+  /* En táctil el selector de arma sobra: se elige dejando pulsado el botón de
+     lanzar, que despliega la fila de armas justo donde ya está el pulgar. Se
+     queda solo en teclado y ratón, donde no hay botón que mantener pulsado. */
+  #app.touch .wsel{display:none}
 
   /* modo zurdo: espeja los controles — botón de chancla a la izquierda,
      armas y minimapa a la derecha, y el joystick pasa al lado contrario */
@@ -828,7 +855,6 @@
     #minimap{width:112px;height:65px}
     .rack{grid-template-columns:repeat(2,1fr)}
     #app.zurdo #throwBtn{left:14px;right:auto}
-    #app.touch.zurdo .bottom{padding-left:104px}
     /* El margen inferior levanta el selector sobre el botón redondo de chancla,
        cuya área táctil llegaba hasta su esquina. Los nombres se quedan: dentro
        del menú son justo lo que se viene a leer. */
@@ -1084,6 +1110,9 @@
     <div id="joyring"></div>
     <div id="joynub"></div>
     <button id="nameBtn" hidden aria-label="Ponerle nombre a este Florín">✏️</button>
+    <!-- La lista de armas que sale al DEJAR APRETADO el botón de lanzar, en una
+         sola línea encima de él. Se elige y se cierra sola. -->
+    <div id="armasRapidas" role="listbox" aria-label="Elegir arma" hidden></div>
     <button id="throwBtn" aria-label="Usar arma">
       <span class="wicon" id="wIcon" hidden></span>
       <svg viewBox="0 0 100 100" aria-hidden="true" id="wSvg">

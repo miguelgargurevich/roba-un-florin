@@ -1,6 +1,6 @@
 # Handoff — Roba un Florín
 
-> Actualizado: 2026-08-08 por claude-code
+> Actualizado: 2026-08-09 por claude-code
 
 ## Estado actual
 
@@ -8,7 +8,7 @@ Monorepo con workspaces npm:
 
 | Paquete | Qué es |
 |---|---|
-| `packages/engine` | el juego sin navegador: determinista, JSON serializable, 127 pruebas |
+| `packages/engine` | el juego sin navegador: determinista, JSON serializable, 145 pruebas |
 | `apps/web` | el cliente (Vite + canvas 2D). Solo dibuja y escucha teclas |
 | `apps/api` | cuentas, álbum y guardado (.NET 9, Clean Arch + CQRS), 32 pruebas |
 | `apps/salas` | servidor de salas autoritativo (Node + `ws`), 32 pruebas |
@@ -24,19 +24,28 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Última sesión
 
+- 2026-08-09 (claude-code): **la fila de armas al dejar pulsado el botón de
+  lanzar** (320 ms; soltar entonces NO lanza) y **la cochera junto a tu patio**
+  con los especiales comprados, que ya se montan en aventura y no solo se
+  eligen en carrera. De paso: fuera el selector de arma en táctil —lo sustituye
+  la fila— y el minimapa centrado abajo y mucho más traslúcido.
+  Gotchas nuevos:
+  - la selección de arma tiene que pasar por `elegirArma(i)`, no por
+    `seleccionarArma`: en una sala la decide el servidor;
+  - la cochera busca sitio en dos vueltas (formas decentes por los lados y por
+    la manzana, y solo entonces la torre de una columna). Con los nueve
+    especiales comprados hay patios donde no hay hueco pegado: se aparta hasta
+    96 px, que sigue siendo "al lado";
+  - `sembrarTrastos` esquiva la cochera entera, o en la Edad Media aparece un
+    dragón salvaje en la plaza de al lado y parece un regalo del juego.
+
+  Con esto no queda nada pendiente de la tanda anterior. **Sin desplegar.**
+
 - 2026-08-08 (claude-code): trineo de Santa y alfombra voladora en el Garaje;
   **Florín Wiracocha (Supremo)**, que SOLO sale de fundir dos Amaru; botón para
   bajarse de lo que montas; los cuatro mapas de marca renombrados; y el arreglo
   de que en Aventura se veían las filas de carrera (una clase con `display`
   ganaba al atributo `hidden`).
-
-## Pendiente de la última tanda
-
-- [ ] **El panel de armas al mantener pulsado el botón de lanzar**, desplegado
-      en una línea sobre el propio botón y que se cierre al elegir. Pedido y no
-      hecho todavía.
-- [ ] **Un garaje junto a tu patio** con los vehículos que has comprado. Pedido
-      y no hecho todavía.
 
 - 2026-08-08 (claude-code): **La Fusionadora**: se meten dos Florines de la
   vitrina y sale uno, el promedio de los dos subido un escalón, con la mejor
