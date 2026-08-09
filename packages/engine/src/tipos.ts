@@ -205,6 +205,7 @@ export type TipoTrasto =
   | "motonieve" | "elefante" | "chocon" | "hoverboard"
   // los especiales: no se encuentran tirados, se ganan o se compran
   | "ovni" | "chancla" | "condor" | "amaru" | "dragon" | "monster" | "grua"
+  | "trineo" | "alfombra"
   // se patean
   | "pelota" | "mata" | "coco" | "piedra" | "dado" | "caparazon"
   | "ladrillo" | "barril" | "anfora" | "cofre"

@@ -83,6 +83,12 @@ export const TIERS = [
   { name:"Florín Amaru",       rar:"Ancestral", price:265000, income:5800, n:6,  style:"amaru",
     top:"#1E5E4A", strip:"#17493A", side:"#123A2E", sideDark:"#0B2620",
     petal:"#3DDC97", petal2:"#1E9A66", center:"#FFD84D" },
+  /* El de más arriba de todo, y el único que NO se encuentra ni sale de la
+     Ruleta: solo aparece fundiendo dos Amaru en la Fusionadora. Por eso vale
+     lo que vale — es el final del juego, no una tirada con suerte. */
+  { name:"Florín Wiracocha",   rar:"Supremo",   price:1_200_000, income:26000, n:8, style:"supremo",
+    top:"#F2E4C0", strip:"#E0CFA0", side:"#8A6A3C", sideDark:"#5A4526",
+    petal:"#FFD84D", petal2:"#FF8A2B", center:"#FFF6E1" },
 ];
 
 /** Cuánto dura abierto el paraguas, en segundos. */
@@ -190,6 +196,9 @@ export const VEHICULOS: Record<string, Vehiculo> = {
   dragon:     { mult:2.15, agua:true,  label:"dragón",        icon:"🐲" },
   monster:    { mult:2.0,  agua:false, label:"monster truck", icon:"🛻" },
   grua:       { mult:1.95, agua:false, label:"grúa",          icon:"🏗️" },
+  /* Los dos de fantasía pura: no tienen tierra, solo se compran. */
+  trineo:     { mult:2.3,  agua:true,  label:"trineo de Santa", icon:"🛷" },
+  alfombra:   { mult:2.4,  agua:true,  label:"alfombra voladora", icon:"🧞" },
 };
 
 /** Lo que cuesta cada especial en el Garaje, y qué hay que haber hecho antes.
@@ -206,6 +215,8 @@ export const GARAJE: { tipo: string; precio: number; comoSale: string }[] = [
   { tipo:"monster", precio: 60_000,  comoSale:"El de las ruedas gigantes. En La Construcción hay uno; comprarlo es sacarlo de la obra." },
   { tipo:"grua",    precio: 90_000,  comoSale:"El camión con la pluma y los fierros colgando. Vive en La Construcción." },
   { tipo:"dragon",  precio: 500_000, comoSale:"El de la Edad Media. Escupe fuego, vuela y no le teme al agua." },
+  { tipo:"trineo",  precio: 900_000,   comoSale:"El trineo de Santa, con sus renos y los cascabeles. Vuela de noche y de día." },
+  { tipo:"alfombra",precio: 1_200_000, comoSale:"La alfombra voladora, con el genio de la lámpara al timón. Lo más rápido del juego." },
 ];
 
 /* Los tres de arriba SÍ se encuentran tirados, pero solo en su tierra: hay
@@ -288,6 +299,9 @@ export const RULETA_PRECIO = 1200;
    Amaru: la máquina no te deja hacerte eso. */
 export const fusionTier = (a: number, b: number, tope: number) =>
   Math.min(tope, Math.round((a + b) / 2) + 1);
+
+/** El de más arriba, que solo sale de la Fusionadora juntando dos Amaru. */
+export const TIER_SUPREMO = TIERS.length - 1;
 
 /** Lo que cuesta la fusión: la mitad de lo que vale lo que sale. */
 export const fusionPrecio = (tierResultado: number) =>
@@ -380,7 +394,7 @@ export const RAR_COLOR: Record<string, string> = {
   "Legendario":"#FF5C86","Mítico":"#FFD84D","Cósmico":"#5CE1EA",
   "Sabrosón":"#C6E86B","Hincha":"#FF6B4A","Mensajero":"#D9A066",
   "Cibernético":"#8FA9C4","Milenario":"#E0D3AE","Orbital":"#7FA8FF",
-  "Imperial":"#FF8A00","Ancestral":"#3DDC97"
+  "Imperial":"#FF8A00","Ancestral":"#3DDC97","Supremo":"#FFD84D"
 };
 
 export const FLORES = [
@@ -894,23 +908,23 @@ export const ESCENARIOS: Escenario[] = ([
   /* Los cuatro de juguete: el suelo del cuarto convertido en cuadra. El
      reparto es el de siempre —cuatro casas, un patio y los dos comprables al
      lado— porque el sitio cambia el decorado, no las reglas. */
-  { id:"pista",    nombre:"Hot Wheels",
+  { id:"pista",    nombre:"La Pista Naranja",
     casas:[sitio(0,0.008),sitio(1,0.008),sitio(1,0.508),sitio(1,0.992)],
     patios:[sitio(0,0.992),sitio(0.216,0.992),sitio(0,0.672)],
     // la pista de plástico ya era un circuito: solo faltaba decirlo
     trazado: trazar(HORQUILLA, medioX(), alto(0.5), ancho(0.885), alto(0.8), true) },
-  { id:"tablero",  nombre:"Monopoly",
+  { id:"tablero",  nombre:"El Tablero",
     casas:[sitio(0,0.008),sitio(0.236,0.008),sitio(0.745,0.008),sitio(0.99,0.008)],
     patios:[sitio(0,0.992),sitio(0.216,0.992),sitio(0,0.672)],
     // por el anillo de casillas: el tablero ya era una pista, con sus esquinas
     trazado: trazar(ZIGZAG, medioX(), alto(0.5), ancho(0.885), alto(0.8), true) },
   /* En el Mirador las casas van todas a la derecha y arriba: la esquina
      noroeste se deja libre a propósito para que quepa la montaña. */
-  { id:"mirador",  nombre:"Thomas y el Mirador",
+  { id:"mirador",  nombre:"El Mirador del Tren",
     casas:[sitio(1,0.008),sitio(1,0.508),sitio(1,0.992),sitio(0.745,0.008)],
     patios:[sitio(0,0.992),sitio(0.216,0.992),sitio(0,0.656)],
     trazado: trazar(TREBOL, medioX(), alto(0.5), ancho(0.885), alto(0.8), true) },
-  { id:"circuito", nombre:"Mario Kart",
+  { id:"circuito", nombre:"El Circuito de Setas",
     casas:[sitio(0,0.008),sitio(1,0.008),sitio(0.236,0.008),sitio(1,0.443)],
     patios:[sitio(0,0.852),sitio(0.216,0.852),sitio(0,0.557)],
     trazado: trazar(CHICANA, medioX(), alto(0.5), ancho(0.885), alto(0.8), true) },

@@ -1402,6 +1402,7 @@ const bau = {
   titulo: document.getElementById("bautizoTitulo"),
   boton:  document.getElementById("nameBtn"),
   soltar: document.getElementById("dropBtn"),
+  bajar:  document.getElementById("bajarBtn"),
   vender: document.getElementById("bautizoVender"),
   ped: null,
 };
@@ -1476,6 +1477,14 @@ function refDelPedestal(ped){
 }
 
 bau.soltar.addEventListener("click", soltarLoQueLlevo);
+/* Bajarse de lo que montas, con botón propio. Antes solo estaba la tecla, que
+   en tableta no existe: te subías a un elefante y ya no te bajabas. */
+function bajarmeYa(){
+  if (!G || !G.started || G.over || G.player.montado == null) return;
+  bajarseDelTrasto();          // la de siempre: en sala lo manda el servidor
+  Snd.unlock();
+}
+bau.bajar.addEventListener("click", bajarmeYa);
 bau.vender.addEventListener("click", venderElDeAlLado);
 document.getElementById("bautizoOk").addEventListener("click", guardarNombre);
 document.getElementById("bautizoCancelar").addEventListener("click", cerrarBautizo);
@@ -2717,6 +2726,138 @@ function dibujarCarabela(c, x, y, giro, i, trote){
   c.restore();
 }
 
+/* ---- el trineo de Santa ----
+   Dos renos tirando, el trineo rojo con el saco y los cascabeles. Vuela, así
+   que flota sobre su sombra y va dejando polvo de nieve. */
+function dibujarTrineo(c, x, y, giro, i, trote){
+  const mira = Math.cos(giro) >= 0 ? 1 : -1;
+  const flota = Math.sin(G.t * 2 + i) * 4;
+  const paso = G.t * 8;
+  c.fillStyle = "rgba(0,0,0,.2)";
+  c.beginPath(); c.ellipse(x, y + 22, 40, 10, 0, 0, 6.283); c.fill();
+  c.save(); c.translate(x, y + flota); c.scale(mira, 1);
+  /* los dos renos, delante y en fila */
+  [[34, 0], [62, Math.PI]].forEach(([rx, fase]) => {
+    c.strokeStyle = "#6E4526"; c.lineWidth = 3.4; c.lineCap = "round";
+    for (const px of [-6, 6]){
+      const sw = trote ? Math.sin(paso + fase + px) * .5 : 0;
+      c.save(); c.translate(rx + px, -6); c.rotate(sw);
+      c.beginPath(); c.moveTo(0, 0); c.lineTo(0, 13); c.stroke();
+      c.restore();
+    }
+    c.fillStyle = "#8A6A4E";
+    c.beginPath(); c.ellipse(rx, -16, 15, 9, 0, 0, 6.283); c.fill();
+    c.fillRect(rx + 10, -30, 5, 16);
+    c.beginPath(); c.ellipse(rx + 15, -33, 8, 6, .2, 0, 6.283); c.fill();
+    c.strokeStyle = "#5A3E22"; c.lineWidth = 2;          // la cornamenta
+    for (const d of [-1, 1]){
+      c.beginPath();
+      c.moveTo(rx + 12, -38); c.lineTo(rx + 12 + d*6, -48);
+      c.moveTo(rx + 12 + d*3, -43); c.lineTo(rx + 12 + d*9, -45); c.stroke();
+    }
+    c.fillStyle = "#E2453C";                              // la nariz
+    c.beginPath(); c.arc(rx + 22, -33, 3.4, 0, 6.283); c.fill();
+  });
+  /* las riendas */
+  c.strokeStyle = "#8A5A32"; c.lineWidth = 2;
+  c.beginPath(); c.moveTo(10, -12); c.lineTo(28, -18); c.stroke();
+  /* el patín */
+  c.strokeStyle = "#C9C2D8"; c.lineWidth = 4; c.lineCap = "round";
+  c.beginPath();
+  c.moveTo(-30, 12); c.lineTo(18, 12); c.quadraticCurveTo(28, 12, 26, 2); c.stroke();
+  /* el cuerpo del trineo */
+  c.fillStyle = "#C0452F";
+  c.beginPath();
+  c.moveTo(-30, 8); c.lineTo(16, 8); c.lineTo(14, -12);
+  c.quadraticCurveTo(-6, -18, -30, -12); c.closePath(); c.fill();
+  c.fillStyle = "#FFD84D";
+  c.fillRect(-30, -4, 46, 4);
+  /* el saco de regalos */
+  c.fillStyle = "#8A5A32";
+  c.beginPath(); c.ellipse(-18, -20, 14, 12, .2, 0, 6.283); c.fill();
+  c.fillStyle = "#3DDC97";
+  c.beginPath(); c.arc(-24, -28, 5, 0, 6.283); c.fill();
+  c.fillStyle = "#5CE1EA";
+  c.beginPath(); c.arc(-13, -30, 4.5, 0, 6.283); c.fill();
+  /* cascabeles y nieve que va dejando */
+  if (!REDUCED) for (let k = 0; k < 4; k++){
+    const f = ((G.t * .6 + k / 4) % 1);
+    c.globalAlpha = (1 - f) * .8;
+    c.fillStyle = "#FFFFFF";
+    c.beginPath(); c.arc(-34 - f * 26, 4 + Math.sin(G.t * 3 + k) * 6, 2.6, 0, 6.283); c.fill();
+    c.globalAlpha = 1;
+  }
+  c.restore();
+}
+
+/* ---- la alfombra voladora ----
+   Con el genio saliendo de la lámpara al timón. Ondea como una tela de verdad:
+   el borde va en onda y con retraso respecto al centro. */
+function dibujarAlfombra(c, x, y, giro, i, trote){
+  const mira = Math.cos(giro) >= 0 ? 1 : -1;
+  const flota = Math.sin(G.t * 2.4 + i) * 4;
+  c.fillStyle = "rgba(0,0,0,.2)";
+  c.beginPath(); c.ellipse(x, y + 20, 34, 9, 0, 0, 6.283); c.fill();
+  c.save(); c.translate(x, y + flota); c.scale(mira, 1);
+  /* la tela: una banda que ondula de punta a punta */
+  const alto = (px) => Math.sin(G.t * 4 + px * 0.09) * 5;
+  const grad = c.createLinearGradient(-34, 0, 34, 0);
+  grad.addColorStop(0, "#8B2E5E"); grad.addColorStop(.5, "#C0452F"); grad.addColorStop(1, "#8B2E5E");
+  c.fillStyle = grad;
+  c.beginPath();
+  c.moveTo(-34, alto(-34));
+  for (let px = -34; px <= 34; px += 6) c.lineTo(px, alto(px));
+  for (let px = 34; px >= -34; px -= 6) c.lineTo(px, alto(px) + 11);
+  c.closePath(); c.fill();
+  /* la greca dorada */
+  c.strokeStyle = "#FFD84D"; c.lineWidth = 2;
+  c.beginPath();
+  for (let px = -34; px <= 34; px += 6) c[px === -34 ? "moveTo" : "lineTo"](px, alto(px) + 3);
+  c.stroke();
+  c.beginPath();
+  for (let px = -34; px <= 34; px += 6) c[px === -34 ? "moveTo" : "lineTo"](px, alto(px) + 8);
+  c.stroke();
+  /* los flecos de las puntas */
+  c.strokeStyle = "#FFD84D"; c.lineWidth = 1.6;
+  for (const px of [-34, 34]) for (let k = 0; k < 4; k++){
+    c.beginPath();
+    c.moveTo(px, alto(px) + 2 + k * 3);
+    c.lineTo(px + (px < 0 ? -5 : 5), alto(px) + 4 + k * 3);
+    c.stroke();
+  }
+  /* la lámpara, delante */
+  c.fillStyle = "#FFD84D";
+  c.beginPath(); c.ellipse(22, alto(22) - 8, 9, 6, 0, 0, 6.283); c.fill();
+  c.beginPath();
+  c.moveTo(29, alto(29) - 10); c.lineTo(38, alto(38) - 13); c.lineTo(30, alto(30) - 6);
+  c.closePath(); c.fill();
+  /* el genio, saliendo de ella en humo azul */
+  const g = c.createLinearGradient(0, -52, 0, -6);
+  g.addColorStop(0, "#7FD3F0"); g.addColorStop(1, "rgba(127,211,240,.25)");
+  c.fillStyle = g;
+  c.beginPath();
+  c.moveTo(24, alto(24) - 12);
+  c.quadraticCurveTo(6, -30, 8, -44);
+  c.quadraticCurveTo(12, -54, 22, -50);
+  c.quadraticCurveTo(30, -44, 26, -30);
+  c.quadraticCurveTo(24, -20, 30, alto(30) - 12);
+  c.closePath(); c.fill();
+  c.fillStyle = "#5FB8D8";                                 // el torso
+  c.beginPath(); c.ellipse(16, -44, 11, 9, 0, 0, 6.283); c.fill();
+  c.fillStyle = "#7FD3F0";
+  c.beginPath(); c.arc(17, -56, 8, 0, 6.283); c.fill();    // la cabeza
+  c.fillStyle = "#2A1226";                                 // el turbante
+  c.beginPath(); c.arc(17, -60, 8, Math.PI, 0); c.fill();
+  c.fillStyle = "#FF6B90";
+  c.beginPath(); c.arc(17, -66, 3, 0, 6.283); c.fill();
+  c.fillStyle = "#1A1410";                                 // los ojos
+  c.beginPath(); c.arc(14, -56, 1.5, 0, 6.283); c.fill();
+  c.beginPath(); c.arc(20, -56, 1.5, 0, 6.283); c.fill();
+  c.strokeStyle = "#5FB8D8"; c.lineWidth = 4; c.lineCap = "round";
+  c.beginPath(); c.moveTo(24, -46); c.lineTo(34, -40 + Math.sin(G.t * 3) * 3); c.stroke();
+  c.restore();
+}
+
 /* ---- los especiales ----
    No se encuentran tirados: se ganan en la Ruleta o se compran en el Garaje.
    Se dibujan más grandes y con brillo propio: si te costaron 300 000, tienen
@@ -3390,6 +3531,9 @@ const MONTURA = {
   monster:    { baja: 3,  sube: 26, sombra: 32, atras: 0 },
   /* En la grúa vas en la cabina, que está adelante y alta. */
   grua:       { baja: 4,  sube: 24, sombra: 36, atras: -14 },
+  /* En el trineo vas sentado dentro del saco; en la alfombra, cruzado encima. */
+  trineo:     { baja: 2,  sube: 22, sombra: 34, atras: 16 },
+  alfombra:   { baja: 6,  sube: 14, sombra: 30, atras: 0 },
   /* En el carrito y en la vagoneta vas metido dentro: subes poco y te sientas
      atrás, que es donde está el hueco. */
   carrito:    { baja: 5,  sube: 12, sombra: 26, atras: 6 },
@@ -3457,6 +3601,8 @@ function dibujarTrasto(v, x, y, giro, trote){
     else if (v.tipo === "dragon")     dibujarDragon(ctx, x, y, giro, i, trote);
     else if (v.tipo === "monster")    dibujarMonster(ctx, x, y, giro, i, trote);
     else if (v.tipo === "grua")       dibujarGrua(ctx, x, y, giro, i, trote);
+    else if (v.tipo === "trineo")     dibujarTrineo(ctx, x, y, giro, i, trote);
+    else if (v.tipo === "alfombra")   dibujarAlfombra(ctx, x, y, giro, i, trote);
     else if (v.tipo === "ladrillo")   dibujarLadrillo(ctx, x, y, giro, i);
     else if (v.tipo === "barril")     dibujarBarril(ctx, x, y, giro, i);
     else if (v.tipo === "anfora")     dibujarAnfora(ctx, x, y, giro, i);
@@ -8620,6 +8766,8 @@ function hud(){
     el.lost.textContent  = a.stats.lost + " / " + b.stats.lost;
     bau.boton.hidden = !(isTouch && florinAlLado() && bau.caja.hidden);
     bau.soltar.hidden = !(G.player.carry && bau.caja.hidden);
+  bau.bajar.hidden = !(G.player.montado != null && bau.caja.hidden);
+    bau.bajar.hidden = !(G.player.montado != null && bau.caja.hidden);
     return;
   }
   el.j2.hidden = true;
@@ -8640,7 +8788,7 @@ function hud(){
     el.goalCard.classList.toggle("fiesta", r.fin >= 0);
     el.lost.textContent = G.stats.hits;
     el.alarma.hidden = true;
-    bau.boton.hidden = true; bau.soltar.hidden = true;
+    bau.boton.hidden = true; bau.soltar.hidden = true; bau.bajar.hidden = true;
     const w0 = WEAPONS[G.wsel];
     el.throwB.classList.toggle("cool", G.cd > 0 ||
       (w0.id === "chancla" ? G.chancla.state !== "held" : G.ammo[w0.id] <= 0));

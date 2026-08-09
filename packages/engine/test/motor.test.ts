@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import {
   CIRCUITOS, ESCENARIOS, ESCUDO_DUR, FLORES, GARAJE, GOAL, HITO_R, JUGADORES_MAX,
   VEHICULOS, VUELTAS, ANCHO_PISTA, CASAS_POR_MAPA, PATIOS_PRECIO, TIERRA_DEL_ESPECIAL,
-  montarEscenario, esDeSuTierra, VARIANTES, fundir, queSaleDeFundir,
+  montarEscenario, esDeSuTierra, VARIANTES, fundir, queSaleDeFundir, TIER_SUPREMO,
   PORTAL_CADA, PORTAL_MAX, PORTAL_VUELTA, TRASTOS_ESCENARIO, CAJAS_EN_PISTA, ESPECIAL_NIVEL, darleVehiculo,
   enLaPista, esEspecial, potenciadorPorId, potenciadoresDe, trastoDe, usarPotenciador,
   vehiculoDelSitio,
@@ -344,7 +344,7 @@ describe("los hitos son de vitrina, no de dinero", () => {
     llenar(e, 0, TIERS.length - 1);
     avanzar(e, nada(), 1 / 60);
     expect(e.players[0].hitoN).toBe(HITOS_MAX);
-    expect(nombreDeHito(HITOS_MAX)).toContain("Ancestral");
+    expect(nombreDeHito(HITOS_MAX)).toContain(TIERS[TIERS.length - 1].rar);
   });
 });
 
@@ -420,10 +420,20 @@ describe("el desfile del portal", () => {
     expect(cuenta["Común"]).toBeGreaterThan(80);
   });
 
-  it("la tabla del portal cubre TODAS las rarezas y va de más a menos", () => {
-    // Sin esto, agregar una rareza al catálogo y olvidarla en la tabla la deja
-    // imposible de conseguir del desfile, y nadie se entera.
-    expect(PORTAL_RAREZAS.map(f => f.tier)).toEqual(TIERS.map((_, i) => i));
+  it("la tabla del portal cubre todas las rarezas menos el Supremo", () => {
+    /* Sin esto, agregar una rareza al catálogo y olvidarla en la tabla la deja
+       imposible de conseguir del desfile, y nadie se entera.
+
+       El Supremo es la excepción a propósito: es el ÚNICO que no se encuentra
+       ni sale de la Ruleta, solo de fundir dos Amaru. Si algún día apareciera
+       en el desfile dejaría de ser el final del juego. */
+    expect(PORTAL_RAREZAS.map(f => f.tier))
+      .toEqual(TIERS.slice(0, TIER_SUPREMO).map((_, i) => i));
+    expect(PORTAL_RAREZAS.some(f => f.tier === TIER_SUPREMO),
+           "el Supremo se coló en el desfile").toBe(false);
+    expect(RULETA_INCOGNITA.some(f => (f.tier ?? -1) >= TIER_SUPREMO ||
+                                      (f.tierMax ?? -1) >= TIER_SUPREMO),
+           "el Supremo se coló en la Ruleta").toBe(false);
     for (let i = 1; i < PORTAL_RAREZAS.length; i++)
       expect(PORTAL_RAREZAS[i].p).toBeLessThanOrEqual(PORTAL_RAREZAS[i - 1].p);
     const total = PORTAL_RAREZAS.reduce((s, f) => s + f.p, 0);
@@ -433,14 +443,16 @@ describe("el desfile del portal", () => {
   it("hasta lo más raro llega a salir si esperas lo suficiente", () => {
     const e = partida({ semilla: 3 });
     const vistos = new Set<number>();
-    for (let i = 0; i < 20000 && vistos.size < TIERS.length; i++) {
+    for (let i = 0; i < 20000 && vistos.size < TIER_SUPREMO; i++) {
       e.portal.desfile.length = 0;
       e.portal.timer = 0;
       avanzar(e, nada(), 1 / 60);
       const d = e.portal.desfile[0];
       if (d) vistos.add(d.florin.tier);
     }
-    expect(vistos.size).toBe(TIERS.length);
+    // todas menos el Supremo, que solo sale de la Fusionadora
+    expect(vistos.size).toBe(TIER_SUPREMO);
+    expect(vistos.has(TIER_SUPREMO)).toBe(false);
   });
 });
 
@@ -1389,11 +1401,30 @@ describe("la Fusionadora", () => {
     expect(occupiedDe(e, p).length, "se comió los Florines igual").toBe(2);
   });
 
-  it("en lo más alto no se puede fundir", () => {
-    const tope = TIERS.length - 1;
-    const { e, p } = conDos(tope, null, tope, null);
+  it("dos Amaru dan el Supremo, que no sale de ninguna otra parte", () => {
+    /* Es el final del juego: el único Florín que no se encuentra, no lo trae el
+       desfile y no sale de la Ruleta. Solo de juntar los dos más altos. */
+    const amaru = TIER_SUPREMO - 1;
+    const { e, p } = conDos(amaru, null, amaru, null);
+    expect(fundir(e, p, 0, 1)).toBe(true);
+    const q = occupiedDe(e, p)[0].florin!;
+    expect(q.tier).toBe(TIER_SUPREMO);
+    expect(TIERS[q.tier].rar).toBe("Supremo");
+  });
+
+  it("y en el Supremo ya no se puede fundir más", () => {
+    const { e, p } = conDos(TIER_SUPREMO, null, TIER_SUPREMO, null);
     expect(fundir(e, p, 0, 1)).toBe(false);
     expect(occupiedDe(e, p).length).toBe(2);
+  });
+
+  it("dos Amaru Galaxia dan el Supremo Galaxia", () => {
+    const amaru = TIER_SUPREMO - 1;
+    const { e, p } = conDos(amaru, "galaxia", amaru, "galaxia");
+    expect(fundir(e, p, 0, 1)).toBe(true);
+    const q = occupiedDe(e, p)[0].florin!;
+    expect(q.tier).toBe(TIER_SUPREMO);
+    expect(q.variant).toBe("galaxia");
   });
 
   it("cobra, y sin plata no funde", () => {

@@ -24,6 +24,20 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Última sesión
 
+- 2026-08-08 (claude-code): trineo de Santa y alfombra voladora en el Garaje;
+  **Florín Wiracocha (Supremo)**, que SOLO sale de fundir dos Amaru; botón para
+  bajarse de lo que montas; los cuatro mapas de marca renombrados; y el arreglo
+  de que en Aventura se veían las filas de carrera (una clase con `display`
+  ganaba al atributo `hidden`).
+
+## Pendiente de la última tanda
+
+- [ ] **El panel de armas al mantener pulsado el botón de lanzar**, desplegado
+      en una línea sobre el propio botón y que se cierre al elegir. Pedido y no
+      hecho todavía.
+- [ ] **Un garaje junto a tu patio** con los vehículos que has comprado. Pedido
+      y no hecho todavía.
+
 - 2026-08-08 (claude-code): **La Fusionadora**: se meten dos Florines de la
   vitrina y sale uno, el promedio de los dos subido un escalón, con la mejor
   variante de las dos. Trabaja sobre la VITRINA y no sobre lo que llevas en

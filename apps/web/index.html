@@ -168,6 +168,21 @@
   /* En el celular no hay teclado: la pista de la tecla sobra. */
   @media (pointer:coarse){ #dropBtn small{display:none} }
   #dropBtn[hidden]{display:none}
+  /* El de bajarse, encima del de soltar y en verde para no confundirlos. */
+  #bajarBtn{
+    position:absolute;right:24px;bottom:280px;width:56px;height:56px;border-radius:50%;
+    background:radial-gradient(circle at 35% 30%,#9BE8AE,#3DDC97 60%,#1E8F62);
+    border:4px solid #14664A;box-shadow:0 6px 0 #0B4630;z-index:23;line-height:1;
+    pointer-events:auto;cursor:pointer;font-size:24px;display:grid;place-items:center;
+  }
+  #bajarBtn small{
+    position:absolute;bottom:-3px;right:-3px;width:19px;height:19px;border-radius:50%;
+    background:#2A1226;color:var(--cream);font:800 10px/19px var(--ui);text-align:center;
+  }
+  @media (pointer:coarse){ #bajarBtn small{display:none} }
+  #bajarBtn[hidden]{display:none}
+  #bajarBtn:active{transform:translateY(3px);box-shadow:0 3px 0 #0B4630}
+  #app.zurdo #bajarBtn{left:24px;right:auto}
   #dropBtn:active{transform:translateY(3px);box-shadow:0 3px 0 #5C3610}
   #app.zurdo #dropBtn{left:24px;right:auto}
   #nameBtn:active{transform:translateY(3px);box-shadow:0 3px 0 #0B4630}
@@ -512,6 +527,10 @@
     color:var(--cream-dim);font-weight:800;
   }
   .escFila{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}
+  /* Una clase con `display` gana al atributo `hidden`, así que sin esto las
+     filas de dificultad y de vehículos seguían viéndose en Aventura —y encima
+     sin su título, que sí se ocultaba: parecía el menú roto. */
+  .escFila[hidden]{display:none}
   @media (max-width:460px){ .escFila{grid-template-columns:repeat(2,minmax(0,1fr))} }
   .escBtn{
     display:flex;flex-direction:column;align-items:center;gap:3px;
@@ -914,6 +933,10 @@
   <!-- Soltar lo que llevas. Fuera de #touch: en escritorio también hace falta. -->
   <button id="dropBtn" type="button" hidden title="Soltar el Florín (tecla F)"
           aria-label="Soltar el Florín que llevas">👐<small>F</small></button>
+  <!-- Bajarse de lo que montas. Hermano del de soltar: mismo sitio, un piso más
+       arriba, para que se aprendan juntos. -->
+  <button id="bajarBtn" type="button" hidden title="Bajarte (tecla G)"
+          aria-label="Bajarte de lo que montas">🦵<small>G</small></button>
 
   <div class="hud">
     <div class="topbar">
@@ -1101,7 +1124,7 @@
         <li><span class="pip">🧰</span><span>La <b>Armería</b> está en el centro, rodeada por el desfile, y vende doce gadgets: 🧊 congeladora, 💨 secadora, ⚡ chicharra, 🥤 refresco, 👻 capa, 🍌 cáscaras, 🐕 chihuahua, ⏱️ reloj, 🧲 imán, 🛸 rayo alien, 🕸️ red y ☂️ paraguas.</span></li>
         <li><span class="pip">📖</span><span>El <b>álbum</b> (botón 📖 o tecla <span class="k">B</span>) lleva la cuenta de las <b>75 láminas</b> (15 rarezas × 5 variantes) que has llegado a tener.</span></li>
         <li><span class="pip">🚨</span><span>Si un vecino te está robando salta una <b>alarma</b>: te dice quién y de qué patio, y una <b>flecha</b> en el borde te marca por dónde correr.</span></li>
-        <li><span class="pip">🗺️</span><span>Hay <b>doce escenarios</b> con su propio suelo y su reparto de casas: el <b>Barrio</b>, el colegio <b>Santa Teresita</b>, la <b>Playa</b>, el <b>Desierto</b>, <b>Machu Picchu</b>, <b>Nueva York</b>, <b>Egipto</b>, <b>el Amazonas</b>, y los cuatro de juguete: <b>Hot Wheels</b>, <b>Monopoly</b>, <b>Thomas y el Mirador</b> y <b>Mario Kart</b>. Elígelo abajo.</span></li>
+        <li><span class="pip">🗺️</span><span>Hay <b>25 escenarios</b> con su propio suelo, su decorado y su reparto de casas: de <b>La Catarata</b> a <b>La Luna</b>, pasando por <b>Machu Picchu</b>, <b>Egipto</b>, <b>La Edad Media</b>, <b>el Zoológico</b>, <b>la Nave Espacial</b> y <b>El Valle</b>, que son tres sitios cosidos en un mapa. Elígelo abajo.</span></li>
         <li><span class="pip">🏆</span><span>La partida <b>no se acaba</b>: los hitos son por <b>vitrina llena</b>. Cuando todos tus huecos tengan Florines subes de nivel, y cuanto más raro sea el peor de ellos, más alto llegas. Lo divertido es coleccionar, así que juega hasta que te aburras.</span></li>
       </ul>
       </details>
