@@ -1542,6 +1542,9 @@ function refDelPedestal(ped){
 }
 
 bau.soltar.addEventListener("click", soltarLoQueLlevo);
+/** ¿Vas montado en algo y sin ningún panel encima? Es lo que decide si se ve
+    el botón de bajarse, y lo preguntan las dos ramas del HUD. */
+const montado = () => G.player.montado != null && bau.caja.hidden;
 /* Bajarse de lo que montas, con botón propio. Antes solo estaba la tecla, que
    en tableta no existe: te subías a un elefante y ya no te bajabas. */
 function bajarmeYa(){
@@ -8889,8 +8892,7 @@ function hud(){
     el.lost.textContent  = a.stats.lost + " / " + b.stats.lost;
     bau.boton.hidden = !(isTouch && florinAlLado() && bau.caja.hidden);
     bau.soltar.hidden = !(G.player.carry && bau.caja.hidden);
-  bau.bajar.hidden = !(G.player.montado != null && bau.caja.hidden);
-    bau.bajar.hidden = !(G.player.montado != null && bau.caja.hidden);
+    bau.bajar.hidden = !montado();
     return;
   }
   el.j2.hidden = true;
@@ -8944,6 +8946,7 @@ function hud(){
   const alLado = florinAlLado();
   bau.boton.hidden = !(isTouch && alLado && bau.caja.hidden);
   bau.soltar.hidden = !(G.player.carry && bau.caja.hidden);
+  bau.bajar.hidden = !montado();
 
   const w = WEAPONS[G.wsel];
   const notReady = G.cd > 0 ||
