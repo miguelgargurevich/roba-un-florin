@@ -176,6 +176,12 @@ export const nube = {
   programarFiesta(datos){ return conSesion("/api/v1/eventos", { metodo: "POST", cuerpo: datos }); },
   cancelarFiesta(id){ return conSesion("/api/v1/eventos/" + id, { metodo: "DELETE" }); },
 
+  /* Los avisos del admin. Van por la misma puerta que las fiestas: el `vivo`
+     los trae juntos, así que el que juega no pregunta dos veces. */
+  mandarAviso(datos){ return conSesion("/api/v1/eventos/anuncios", { metodo: "POST", cuerpo: datos }); },
+  avisosMandados(){ return conSesion("/api/v1/eventos/anuncios"); },
+  cancelarAviso(id){ return conSesion("/api/v1/eventos/anuncios/" + id, { metodo: "DELETE" }); },
+
   guardarPreferencias(apodo, escenarioPreferido, zurdo){
     return conSesion("/api/v1/perfil", {
       metodo: "PUT", cuerpo: { apodo, escenarioPreferido, zurdo },

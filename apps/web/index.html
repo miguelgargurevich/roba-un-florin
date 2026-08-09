@@ -320,10 +320,30 @@
   .adminForm{display:grid;gap:8px;margin:10px 0}
   .adminForm label{display:grid;gap:4px;font-size:12px;color:var(--cream-dim);
     text-transform:uppercase;letter-spacing:.06em;font-weight:800}
-  .adminForm input{
+  .adminForm input, .adminForm textarea{
     background:var(--plum-900);border:2px solid var(--plum-600);border-radius:10px;
-    padding:9px 11px;color:var(--cream);font-family:var(--ui);font-size:15px;
+    padding:9px 11px;color:var(--cream);font-family:var(--ui);font-size:16px;
   }
+  .adminForm textarea{resize:vertical;line-height:1.4}
+  #adminAvisos .fila{
+    display:flex;gap:8px;align-items:center;justify-content:space-between;
+    border-top:1px solid var(--plum-700);padding:7px 2px;font-size:12.5px;
+  }
+  #adminAvisos button{
+    background:var(--plum-700);border:2px solid var(--plum-600);border-radius:9px;
+    color:var(--cream);padding:5px 9px;font-family:var(--ui);font-size:12px;cursor:pointer;
+  }
+  /* El aviso del admin, para todos: pegado bajo el cartel de la fiesta. */
+  #avisoCartel{
+    position:absolute;left:50%;top:8px;transform:translateX(-50%);z-index:33;
+    max-width:min(560px,92vw);padding:8px 16px;border-radius:14px;pointer-events:none;
+    background:var(--plum-800);border:2px solid var(--cosmo);color:var(--cream);
+    font-family:var(--ui);font-weight:700;font-size:13px;line-height:1.35;text-align:center;
+    box-shadow:0 6px 0 rgba(0,0,0,.35);
+  }
+  #avisoCartel[hidden]{display:none}
+  /* Si hay fiesta anunciada, el aviso baja para no taparla. */
+  #avisoCartel.conFiesta{top:52px}
   .adminGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:6px;margin-bottom:6px}
   .adminCel{
     background:var(--plum-800);border:2px solid var(--plum-600);border-radius:10px;
@@ -1156,6 +1176,7 @@
 
   <!-- El cartel de la fiesta. Va sobre todo, dentro y fuera del juego. -->
   <div id="fiestaCartel" hidden></div>
+  <div id="avisoCartel" hidden></div>
 
   <!-- Programar fiestas. Solo sale si tu cuenta tiene el permiso; el servidor
        lo vuelve a comprobar en cada llamada, esto es para no enseñar un botón
@@ -1171,6 +1192,18 @@
         <label>Empieza <input id="adminCuando" type="datetime-local"></label>
         <label>Dura (minutos) <input id="adminDura" type="number" min="1" max="360" value="15"></label>
       </div>
+
+      <h2 class="garajeTitulo">📣 Mandar un aviso <small>lo lee todo el que tenga el juego abierto</small></h2>
+      <div class="adminForm">
+        <label>Mensaje
+          <textarea id="adminMsg" maxlength="280" rows="2"
+                    placeholder="En cinco minutos empieza la fiesta 🎉"></textarea></label>
+        <label>Se ve durante (minutos) <input id="adminMsgDura" type="number" min="1" max="240" value="5"></label>
+      </div>
+      <div class="bautizoBtns">
+        <button class="bautizoBtn ok" id="adminMandar">Mandar el aviso</button>
+      </div>
+      <div id="adminAvisos"></div>
 
       <h2 class="garajeTitulo">🪴 Lo que baja por la pasarela <small>toca para elegir</small></h2>
       <div class="adminGrid" id="adminFlorines"></div>

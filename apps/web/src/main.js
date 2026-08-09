@@ -645,10 +645,25 @@ function segundosDeFiesta(){
   return { viva, proxima };
 }
 
+/* El aviso del admin. Viaja en la misma respuesta que la fiesta, así que no
+   hay un sondeo más: lo que llega, se pinta. */
+const elAviso = document.getElementById("avisoCartel");
+function pintarAviso(){
+  const a = fiestaViva?.anuncio;
+  const quedan = a ? fiestaViva.segundosDeAnuncio - (Date.now() - fiestaDesde) / 1000 : -1;
+  const hay = !!a && quedan > 0;
+  elAviso.hidden = !hay;
+  if (!hay) return;
+  elAviso.textContent = "📣 " + a.texto;
+  // si además hay cartel de fiesta, este baja para no taparlo
+  elAviso.classList.toggle("conFiesta", !elFiestaCartel.hidden);
+}
+
 function pintarCartelFiesta(){
   const { viva, proxima } = segundosDeFiesta();
   const f = viva > 0 ? fiestaViva.ahora : (proxima > 0 ? fiestaViva.siguiente : null);
   elFiestaCartel.hidden = !f;
+  pintarAviso();
   if (!f) return;
   const empezada = viva > 0;
   elFiestaCartel.classList.toggle("avisa", !empezada);
@@ -656,6 +671,7 @@ function pintarCartelFiesta(){
     f.nombre.replace(/[<>&]/g, "") + "</b> · " +
     (empezada ? "por la pasarela · " + mmss(viva)
               : "empieza en " + mmss(proxima));
+  pintarAviso();                       // otra vez: ya se sabe si el de arriba está puesto
 }
 
 /* Un tic por segundo para el cartel. El HUD ya repinta jugando, pero en el menú
@@ -721,6 +737,43 @@ function pintarAdmin(){
     adminSel.size ? adminSel.size + " elegidos" : "elige al menos uno";
 }
 
+async function pintarListaAvisos(){
+  const caja = document.getElementById("adminAvisos");
+  const filas = await nube.avisosMandados();
+  caja.innerHTML = "";
+  if (!filas || !filas.length) return;
+  for (const a of filas.slice(0, 6)){
+    const div = document.createElement("div");
+    div.className = "fila";
+    const hasta = new Date(a.terminaEn);
+    const vivo = !a.cancelado && hasta > new Date();
+    div.innerHTML = '<span>' + (vivo ? "🟢 " : "⚪️ ") +
+      a.texto.replace(/[<>&]/g, "").slice(0, 70) + '</span>';
+    if (vivo){
+      const b = document.createElement("button");
+      b.textContent = "Quitar";
+      b.addEventListener("click", async () => {
+        await nube.cancelarAviso(a.id); pintarListaAvisos(); mirarSiHayFiesta();
+      });
+      div.appendChild(b);
+    }
+    caja.appendChild(div);
+  }
+}
+
+document.getElementById("adminMandar").addEventListener("click", async () => {
+  const caja = document.getElementById("adminMsg");
+  const texto = caja.value.trim();
+  const minutos = +document.getElementById("adminMsgDura").value || 5;
+  if (!texto){ decir("Escribe el mensaje.", "mal"); return; }
+  const r = await nube.mandarAviso({ texto, duraSegundos: Math.round(minutos * 60), empiezaEn: null });
+  if (!r){ decir("No se pudo mandar. ¿Sigue tu sesión abierta?", "mal"); return; }
+  caja.value = "";
+  decir("📣 Aviso mandado.", "bien");
+  pintarListaAvisos();
+  mirarSiHayFiesta();                  // para verlo tú también, sin esperar al minuto
+});
+
 async function pintarListaFiestas(){
   const caja = document.getElementById("adminLista");
   const filas = await nube.fiestasProgramadas();
@@ -753,6 +806,7 @@ function abrirAdmin(){
   }
   pintarAdmin();
   pintarListaFiestas();
+  pintarListaAvisos();
   elAdmin.hidden = false;
 }
 function cerrarAdmin(){ elAdmin.hidden = true; }

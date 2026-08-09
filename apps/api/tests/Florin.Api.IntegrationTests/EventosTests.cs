@@ -21,6 +21,12 @@ public class EventosTests(ApiDePrueba api)
 
     private record Sesion(string AccessToken, string RefreshToken);
 
+    /* Igual que el admin: una sola cuenta de jugador para toda la clase. Cada
+       registro es una llamada a auth, y auth va con rate limit por IP. */
+    private static Lazy<Task<(HttpClient http, string email)>>? _jugador;
+    private Task<(HttpClient http, string email)> JugadorAsync() =>
+        (_jugador ??= new Lazy<Task<(HttpClient, string)>>(NuevoJugadorAsync)).Value;
+
     private async Task<(HttpClient http, string email)> NuevoJugadorAsync()
     {
         var http = api.CreateClient();
@@ -85,7 +91,7 @@ public class EventosTests(ApiDePrueba api)
     [Fact]
     public async Task Un_jugador_normal_no_puede_programar_fiestas()
     {
-        var (http, _) = await NuevoJugadorAsync();
+        var (http, _) = await JugadorAsync();
         var r = await http.PostAsJsonAsync("/api/v1/eventos", UnaFiesta(60));
         r.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
@@ -124,7 +130,7 @@ public class EventosTests(ApiDePrueba api)
         var evento = await creada.Content.ReadFromJsonAsync<Dictionary<string, System.Text.Json.JsonElement>>();
         var id = evento!["id"].GetString();
 
-        var (jugador, _) = await NuevoJugadorAsync();
+        var (jugador, _) = await JugadorAsync();
 
         var primera = await jugador.PostAsync($"/api/v1/eventos/{id}/regalo", null);
         primera.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -153,6 +159,57 @@ public class EventosTests(ApiDePrueba api)
         var sigue = vivo!["ahora"].ValueKind != System.Text.Json.JsonValueKind.Null
                     && vivo["ahora"].GetProperty("id").GetString() == id;
         sigue.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task El_admin_manda_un_aviso_y_lo_lee_todo_el_mundo()
+    {
+        var admin = await ComoAdminAsync();
+        var r = await admin.PostAsJsonAsync("/api/v1/eventos/anuncios",
+            new { texto = "En cinco minutos empieza la fiesta 🎉", duraSegundos = 300, empiezaEn = (DateTime?)null });
+        r.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // sin sesión: el aviso viaja en la misma respuesta que la fiesta
+        var vivo = await api.CreateClient()
+            .GetFromJsonAsync<Dictionary<string, System.Text.Json.JsonElement>>("/api/v1/eventos/vivo");
+        vivo!["anuncio"].GetProperty("texto").GetString().Should().Be("En cinco minutos empieza la fiesta 🎉");
+        vivo["segundosDeAnuncio"].GetInt32().Should().BeGreaterThan(0);
+    }
+
+    [Fact]
+    public async Task Un_jugador_normal_no_puede_mandar_avisos()
+    {
+        var (http, _) = await JugadorAsync();
+        var r = await http.PostAsJsonAsync("/api/v1/eventos/anuncios",
+            new { texto = "hola a todos", duraSegundos = 60, empiezaEn = (DateTime?)null });
+        r.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task Un_aviso_cancelado_deja_de_leerse()
+    {
+        var admin = await ComoAdminAsync();
+        var creado = await admin.PostAsJsonAsync("/api/v1/eventos/anuncios",
+            new { texto = "esto se va a cancelar", duraSegundos = 600, empiezaEn = (DateTime?)null });
+        var a = await creado.Content.ReadFromJsonAsync<Dictionary<string, System.Text.Json.JsonElement>>();
+        var id = a!["id"].GetString();
+
+        (await admin.DeleteAsync($"/api/v1/eventos/anuncios/{id}")).StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        var vivo = await api.CreateClient()
+            .GetFromJsonAsync<Dictionary<string, System.Text.Json.JsonElement>>("/api/v1/eventos/vivo");
+        var sigue = vivo!["anuncio"].ValueKind != System.Text.Json.JsonValueKind.Null
+                    && vivo["anuncio"].GetProperty("id").GetString() == id;
+        sigue.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Un_aviso_vacio_no_se_manda()
+    {
+        var admin = await ComoAdminAsync();
+        var r = await admin.PostAsJsonAsync("/api/v1/eventos/anuncios",
+            new { texto = "   ", duraSegundos = 60, empiezaEn = (DateTime?)null });
+        r.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
     [Fact]

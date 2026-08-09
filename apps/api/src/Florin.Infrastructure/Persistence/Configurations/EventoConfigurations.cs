@@ -29,3 +29,14 @@ public class EventoRegaloEntregadoConfiguration : IEntityTypeConfiguration<Event
         b.HasIndex(x => new { x.EventoId, x.PerfilId }).IsUnique();
     }
 }
+
+public class AnuncioConfiguration : IEntityTypeConfiguration<Anuncio>
+{
+    public void Configure(EntityTypeBuilder<Anuncio> b)
+    {
+        b.ToTable("anuncios");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.Texto).HasMaxLength(280).IsRequired();
+        b.HasIndex(x => x.EmpiezaEn);
+    }
+}

@@ -22,6 +22,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<AlbumEntrada> Album => Set<AlbumEntrada>();
     public DbSet<Evento> Eventos => Set<Evento>();
     public DbSet<EventoRegaloEntregado> EventoRegalos => Set<EventoRegaloEntregado>();
+    public DbSet<Anuncio> Anuncios => Set<Anuncio>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

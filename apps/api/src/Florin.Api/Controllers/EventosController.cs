@@ -42,4 +42,25 @@ public class EventosController(ISender mediator) : ControllerBase
         await mediator.Send(new CancelarEventoCommand(id), ct);
         return NoContent();
     }
+
+    /* Los avisos. Van bajo /eventos porque salen por la misma puerta —el
+       `GET vivo` los trae con la fiesta— y los gobierna el mismo permiso. */
+
+    [HttpPost("anuncios")]
+    [Authorize(Policy = Permissions.EventosGestion)]
+    public async Task<IActionResult> Anunciar(EnviarAnuncioCommand command, CancellationToken ct)
+        => Ok(await mediator.Send(command, ct));
+
+    [HttpGet("anuncios")]
+    [Authorize(Policy = Permissions.EventosGestion)]
+    public async Task<IActionResult> ListarAnuncios(CancellationToken ct)
+        => Ok(await mediator.Send(new ListarAnunciosQuery(), ct));
+
+    [HttpDelete("anuncios/{id:guid}")]
+    [Authorize(Policy = Permissions.EventosGestion)]
+    public async Task<IActionResult> CancelarAnuncio(Guid id, CancellationToken ct)
+    {
+        await mediator.Send(new CancelarAnuncioCommand(id), ct);
+        return NoContent();
+    }
 }

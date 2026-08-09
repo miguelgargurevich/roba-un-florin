@@ -20,9 +20,15 @@ public record EventoDto(
     Guid Id, string Nombre, DateTime EmpiezaEn, DateTime TerminaEn, int DuraSegundos,
     IReadOnlyList<FlorinDeFiesta> Florines, FlorinDeFiesta? Regalo, bool Cancelado);
 
-/// <summary>Lo que ve el cliente: la fiesta de AHORA, y la siguiente si no hay.</summary>
+public record AnuncioDto(Guid Id, string Texto, DateTime EmpiezaEn, DateTime TerminaEn,
+                         int DuraSegundos, bool Cancelado);
+
+/// <summary>Lo que ve el cliente: la fiesta de AHORA, la siguiente si no hay, y
+/// el aviso que el admin tenga puesto. Todo en la MISMA respuesta: los clientes
+/// ya preguntan por esto cada minuto y no hacía falta un sondeo más.</summary>
 public record EventoVivoDto(EventoDto? Ahora, int SegundosQueQuedan, EventoDto? Siguiente,
-                            int SegundosParaLaSiguiente, bool RegaloPendiente);
+                            int SegundosParaLaSiguiente, bool RegaloPendiente,
+                            AnuncioDto? Anuncio, int SegundosDeAnuncio);
 
 internal static class Fiestas
 {
@@ -68,12 +74,21 @@ public class GetEventoVivoQueryHandler(IApplicationDbContext db, ICurrentUser ac
                 .AnyAsync(r => r.EventoId == viva.Id && r.PerfilId == perfil.Id, ct);
         }
 
+        /* El aviso más reciente que esté vivo: si el admin manda dos seguidos,
+           manda el último — corregir un mensaje es escribir otro. */
+        var aviso = await db.Anuncios.AsNoTracking()
+            .Where(a => !a.Cancelado && a.EmpiezaEn <= ahora)
+            .OrderByDescending(a => a.EmpiezaEn)
+            .FirstOrDefaultAsync(a => a.EmpiezaEn.AddSeconds(a.DuraSegundos) > ahora, ct);
+
         return new EventoVivoDto(
             viva is null ? null : Fiestas.ADto(viva),
             viva is null ? 0 : (int)Math.Max(0, (viva.TerminaEn - ahora).TotalSeconds),
             proxima is null ? null : Fiestas.ADto(proxima),
             proxima is null ? 0 : (int)Math.Max(0, (proxima.EmpiezaEn - ahora).TotalSeconds),
-            pendiente);
+            pendiente,
+            aviso is null ? null : Avisos.ADto(aviso),
+            aviso is null ? 0 : (int)Math.Max(0, (aviso.TerminaEn - ahora).TotalSeconds));
     }
 }
 
@@ -167,6 +182,71 @@ public class CancelarEventoCommandHandler(IApplicationDbContext db)
         var e = await db.Eventos.FirstOrDefaultAsync(x => x.Id == request.Id, ct)
                 ?? throw new NotFoundException("Esa fiesta no existe.");
         e.Cancelar();
+        await db.SaveChangesAsync(ct);
+    }
+}
+
+
+/* ---- los avisos del admin ---- */
+
+internal static class Avisos
+{
+    public static AnuncioDto ADto(Anuncio a) =>
+        new(a.Id, a.Texto, a.EmpiezaEn, a.TerminaEn, a.DuraSegundos, a.Cancelado);
+}
+
+public record EnviarAnuncioCommand(string Texto, int DuraSegundos, DateTime? EmpiezaEn)
+    : IRequest<AnuncioDto>;
+
+public class EnviarAnuncioCommandValidator : AbstractValidator<EnviarAnuncioCommand>
+{
+    public EnviarAnuncioCommandValidator()
+    {
+        RuleFor(x => x.Texto).NotEmpty().MaximumLength(280);
+        RuleFor(x => x.DuraSegundos).InclusiveBetween(10, 24 * 60 * 60);
+    }
+}
+
+public class EnviarAnuncioCommandHandler(IApplicationDbContext db, ICurrentUser actual)
+    : IRequestHandler<EnviarAnuncioCommand, AnuncioDto>
+{
+    public async Task<AnuncioDto> Handle(EnviarAnuncioCommand request, CancellationToken ct)
+    {
+        var a = new Anuncio(request.Texto, request.EmpiezaEn, request.DuraSegundos,
+                            actual.UserId ?? Guid.Empty);
+        db.Anuncios.Add(a);
+        await db.SaveChangesAsync(ct);
+        return Avisos.ADto(a);
+    }
+}
+
+public record ListarAnunciosQuery : IRequest<IReadOnlyList<AnuncioDto>>;
+
+public class ListarAnunciosQueryHandler(IApplicationDbContext db)
+    : IRequestHandler<ListarAnunciosQuery, IReadOnlyList<AnuncioDto>>
+{
+    public async Task<IReadOnlyList<AnuncioDto>> Handle(ListarAnunciosQuery request, CancellationToken ct)
+    {
+        var desde = DateTime.UtcNow.AddDays(-3);
+        var filas = await db.Anuncios.AsNoTracking()
+            .Where(a => a.EmpiezaEn > desde)
+            .OrderByDescending(a => a.EmpiezaEn)
+            .Take(20)
+            .ToListAsync(ct);
+        return filas.Select(Avisos.ADto).ToList();
+    }
+}
+
+public record CancelarAnuncioCommand(Guid Id) : IRequest;
+
+public class CancelarAnuncioCommandHandler(IApplicationDbContext db)
+    : IRequestHandler<CancelarAnuncioCommand>
+{
+    public async Task Handle(CancelarAnuncioCommand request, CancellationToken ct)
+    {
+        var a = await db.Anuncios.FirstOrDefaultAsync(x => x.Id == request.Id, ct)
+                ?? throw new NotFoundException("Ese aviso no existe.");
+        a.Cancelar();
         await db.SaveChangesAsync(ct);
     }
 }

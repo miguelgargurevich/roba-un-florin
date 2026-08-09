@@ -19,6 +19,7 @@ public interface IApplicationDbContext
     DbSet<AlbumEntrada> Album { get; }
     DbSet<Evento> Eventos { get; }
     DbSet<EventoRegaloEntregado> EventoRegalos { get; }
+    DbSet<Anuncio> Anuncios { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }
