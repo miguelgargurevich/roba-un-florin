@@ -241,8 +241,12 @@ export function nuevaPartidaMotor(modo, escenarioId, carrera = false, dificultad
      duelo de sofá el segundo asiento es del que tienes al lado, y en carrera
      los rivales ya son los cuatro de la parrilla. */
   const bots = carrera || local2 ? 0 : Math.max(0, Math.min(JUGADORES_MAX - 1, rivales | 0));
+  /* La parrilla se queda en cinco aunque el mapa dé para nueve: las tres
+     dificultades se midieron contra cuatro rivales, y meter ocho cambiaría
+     todas las carreras sin que nadie lo haya pedido. */
+  const PARRILLA = 5;
   const G = conAtajos(crearPartida({
-    jugadores: carrera ? JUGADORES_MAX : (local2 ? 2 : 1 + bots),
+    jugadores: carrera ? PARRILLA : (local2 ? 2 : 1 + bots),
     bots,
     escenario: esc,
     armas: idsDeArmas(),

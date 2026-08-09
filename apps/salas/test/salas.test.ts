@@ -4,7 +4,7 @@
    reglas del juego ya las cubren los tests del motor. */
 
 import { describe, expect, it } from "vitest";
-import { JUGADORES_MAX, RULETA_PRECIO, WEAPONS } from "@florin/engine";
+import { SALA_MAX, RULETA_PRECIO, WEAPONS } from "@florin/engine";
 import { Registro, type Sala } from "../src/salas.js";
 import { ESPERA_VUELTA, fotoMovil, TICKS_POR_SEG } from "../src/protocolo.js";
 import type { DeLaSala } from "../src/protocolo.js";
@@ -64,7 +64,7 @@ describe("sentarse en una sala", () => {
   it("caben cinco y el sexto se queda fuera", () => {
     const { r } = registro();
     const s = r.crear();
-    for (let i = 0; i < JUGADORES_MAX; i++)
+    for (let i = 0; i < SALA_MAX; i++)
       expect(s.sentar("u" + i, "J" + i, cliente().enviar)?.idx).toBe(i);
     expect(s.sentar("u9", "Tarde", cliente().enviar)).toBeNull();
   });
@@ -91,8 +91,8 @@ describe("sentarse en una sala", () => {
   it("los cinco sitios existen desde el principio, con o sin gente", () => {
     const { r } = registro();
     const s = r.crear();
-    expect(s.estado.players.length).toBe(JUGADORES_MAX);
-    expect(s.estado.bases.filter(b => b.isPlayer).length).toBe(JUGADORES_MAX);
+    expect(s.estado.players.length).toBe(SALA_MAX);
+    expect(s.estado.bases.filter(b => b.isPlayer).length).toBe(SALA_MAX);
   });
 });
 

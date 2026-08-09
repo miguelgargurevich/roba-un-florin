@@ -5,7 +5,7 @@
    está en @florin/engine y se prueba sin red. */
 
 import {
-  JUGADORES_MAX, avanzar, bajarse, comprarArma, crearPartida, darleVehiculo, girarRuleta,
+  SALA_MAX, avanzar, bajarse, comprarArma, crearPartida, darleVehiculo, girarRuleta,
   idsDeArmas, usarPotenciador,
   pensarBot,
   seleccionarArma, soltarCarga, usarArma, venderFlorin,
@@ -66,7 +66,7 @@ export class Sala {
        mundo: solo le asigna un patio que ya existe. Rehacerlo al entrar cada
        amigo tiraría la partida de los que ya estaban jugando. */
     this.estado = crearPartida({
-      jugadores: JUGADORES_MAX,
+      jugadores: SALA_MAX,
       escenario,
       armas: idsDeArmas(),
       // en carrera no hay vecinos: lo dice la regla, no un montón de ifs
@@ -89,7 +89,7 @@ export class Sala {
       suyo.ultimaSeñal = this.reloj();
       return suyo;
     }
-    if (this.asientos.length >= JUGADORES_MAX) return null;
+    if (this.asientos.length >= SALA_MAX) return null;
     const asiento: Asiento = {
       idx: this.asientos.length, userId, apodo, enviar,
       entrada: { mover: { x: 0, y: 0 }, apunta: null }, ultimaSeñal: this.reloj(),

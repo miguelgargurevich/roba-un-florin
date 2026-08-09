@@ -934,16 +934,21 @@ function pintarVehiculos(){
    Jugando solo, el barrio era tuyo: nadie más robaba. Ahora los vecinos pueden
    salir a jugar ellos mismos —los lleva `pensarBot`, el mismo de las salas— y
    cada uno que juega se queda con SU casa: deja de tener Florines que robarle y
-   pasa a competir contigo. Por eso son como mucho tres: con cuatro quedan dos
-   casas en todo el mapa y la aventura se queda sin nada que robar. */
+   pasa a competir contigo. Por eso el tope es cinco y no ocho: con los ocho
+   jugando no quedaría una sola casa a la que robar, que es el juego entero.
+   (El motor sí admite llenar el mapa —nueve— porque entre personas es una
+   partida legítima; el que se planta en cinco es este menú.) */
 const RIVALES = [
   { n: 0, label: "Ninguno",  icon: "🙅", desc: "El barrio para ti solo: los vecinos se quedan en casa y solo salen ladrones." },
   { n: 1, label: "Uno",      icon: "🧒", desc: "El Marciano sale a jugar. Su nave deja de tener Florines: ahora te los roba a ti." },
   { n: 2, label: "Dos",      icon: "👦", desc: "El Marciano y Mayo. Dos que van a por los mismos Florines que tú." },
-  { n: 3, label: "Tres",     icon: "👧", desc: "El Marciano, Mayo y la Sobri. Quedan tres casas con Florines y mucha pelea." },
+  { n: 3, label: "Tres",     icon: "👧", desc: "El Marciano, Mayo y la Sobri: tres rivales y cinco casas todavía llenas." },
+  { n: 4, label: "Cuatro",   icon: "👨‍👦", desc: "Con Yuli, que corre más que nadie. Medio barrio jugando." },
+  { n: 5, label: "Cinco",    icon: "👨‍👩‍👧‍👦", desc: "Y Doña Meche. El barrio entero detrás de los mismos Florines: no queda casa tranquila." },
 ];
+const RIV_MAX = RIVALES[RIVALES.length - 1].n;
 let rivSel = 0;
-try { rivSel = Math.min(3, Math.max(0, +localStorage.getItem("florin_rivales") || 0)); } catch (_){}
+try { rivSel = Math.min(RIV_MAX, Math.max(0, +localStorage.getItem("florin_rivales") || 0)); } catch (_){}
 const rivFila = document.getElementById("rivFila");
 const rivTitulo = document.getElementById("rivTitulo");
 const rivDesc = document.getElementById("rivDesc");

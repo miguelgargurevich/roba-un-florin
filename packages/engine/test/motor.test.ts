@@ -11,7 +11,7 @@ import {
   PORTAL_CADA, PORTAL_MAX, PORTAL_VUELTA, TRASTOS_ESCENARIO, CAJAS_EN_PISTA, ESPECIAL_NIVEL, darleVehiculo,
   enLaPista, esEspecial, potenciadorPorId, potenciadoresDe, trastoDe, usarPotenciador,
   vehiculoDelSitio,
-  puestosDeCarrera, puestoDe, pensarBot, LASER_DUR, LASER_PRECIO, PORTAL_RAREZAS, RAR_COLOR,
+  puestosDeCarrera, puestoDe, pensarBot, LASER_DUR, LASER_PRECIO, PORTAL_RAREZAS, RAR_COLOR, SALA_MAX,
   reglasPara,
   RULETA, RULETA_INCOGNITA, RULETA_PRECIO, TIERS, WEAPONS, varMult,
   avanzar, bajarse, cargar, crearPartida, girarRuleta, idsDeArmas, inRect,
@@ -105,7 +105,18 @@ describe("el mundo se monta bien", () => {
     for (const esc of ESCENARIOS) {
       const e = partida({ escenario: esc.id });
       expect(e.esc.id, esc.id).toBe(esc.id);
-      expect(e.bases.length, esc.id).toBe(1 + CASAS_POR_MAPA + PATIOS_PRECIO.length);
+      /* Las ocho casas caben en tierra firme; donde hay mar, alguna se queda
+         fuera antes que nacer con los pies en el agua. Los patios comprables no
+         se negocian: se reparten primero. */
+      const casas = e.bases.filter(b => b.who != null).length;
+      expect(casas, esc.id + ": pocas casas").toBeGreaterThanOrEqual(6);
+      expect(casas, esc.id + ": demasiadas casas").toBeLessThanOrEqual(CASAS_POR_MAPA);
+      expect(e.bases.length, esc.id).toBe(1 + casas + PATIOS_PRECIO.length);
+      // y ninguna con los pies en el mar
+      if (e.esc.mar != null)
+        for (const b of e.bases)
+          expect(b.rect.y + b.rect.h, esc.id + " " + b.name + " en el agua")
+            .toBeLessThanOrEqual(e.esc.mar);
       // las bases tienen que caber en el mundo, no salirse por un borde
       for (const b of e.bases) {
         expect(b.rect.x, esc.id + " " + b.name).toBeGreaterThanOrEqual(0);
@@ -140,25 +151,41 @@ describe("cada jugador de más reemplaza a un bot", () => {
   const botsDe = (e: Estado) => e.bases.filter(b => !b.isPlayer && b.who).length;
   const patiosDe_ = (e: Estado) => e.bases.filter(b => b.isPlayer && !b.locked).length;
 
-  it("de 1 a 5 jugadores, los vecinos bajan uno a uno", () => {
-    /* Cada jugador de más se queda una casa de vecino. Con seis casas y cinco
-       jugadores como mucho, siempre quedan al menos dos vecinos a los que
-       robar — antes, con cuatro casas, la sala llena dejaba el mapa sin nadie
-       a quien robarle. */
+  it("cada jugador de más se queda una casa, y siempre queda a quién robar", () => {
     for (let n = 1; n <= JUGADORES_MAX; n++) {
       const e = partida({ jugadores: n });
       expect(e.players.length, `${n} jugadores`).toBe(n);
       expect(botsDe(e), `${n} jugadores`).toBe(CASAS_POR_MAPA - (n - 1));
       expect(patiosDe_(e)).toBe(n);
     }
-    expect(botsDe(partida({ jugadores: JUGADORES_MAX })),
-           "la sala llena se queda sin vecinos").toBeGreaterThan(0);
   });
 
-  it("la sala llena son 5 y no se puede pedir más", () => {
-    expect(JUGADORES_MAX).toBe(5);
-    expect(partida({ jugadores: 99 }).players.length).toBe(5);
+  it("con los cinco vecinos que deja elegir el menú, siempre queda a quién robar", () => {
+    /* El motor admite llenar el mapa entero —nueve, sin nadie a quien robar—
+       porque es una partida legítima entre personas. Lo que no puede pasar es
+       que la aventura de un jugador se quede sin barrio, y eso lo garantiza el
+       tope de la fila de "vecinos que juegan": cinco. */
+    for (const esc of ESCENARIOS){
+      const e = partida({ escenario: esc.id, jugadores: 6, bots: 5 });
+      expect(botsDe(e), esc.id + ": sin vecinos a los que robar").toBeGreaterThan(0);
+    }
+  });
+
+  it("el mapa da para nueve y una sala para cinco", () => {
+    expect(JUGADORES_MAX).toBe(9);
+    expect(SALA_MAX, "una sala no puede crecer sin querer").toBe(5);
+    expect(partida({ jugadores: 99 }).players.length).toBe(JUGADORES_MAX);
     expect(partida({ jugadores: 0 }).players.length).toBe(1);
+  });
+
+  it("donde no caben las ocho casas, tampoco caben tantos jugadores", () => {
+    /* La Playa pierde casas por el mar. Sin este tope, un jugador de más
+       apuntaba a una casa que no existe. */
+    const e = partida({ escenario: "playa", jugadores: JUGADORES_MAX });
+    const casas = montarEscenario(ESCENARIOS.find(x => x.id === "playa")!).casas.length;
+    expect(casas).toBeLessThan(CASAS_POR_MAPA);
+    expect(e.players.length).toBe(1 + casas);
+    for (const p of e.players) expect(baseDe(e, p.baseId), "un patio inventado").toBeTruthy();
   });
 
   it("cada uno tiene su patio, su color y nadie comparte", () => {

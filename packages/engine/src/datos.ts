@@ -387,6 +387,16 @@ export const LADRONES: Record<string, any> = {
   chato:  { label:"El Chato",  shirt:"#9BD97F", skin:"#B57A50", hair:"#1A1008",
             cap:"#3DDC97", ears:null,      spd:1.30, greedy:false, maxTier:3,
             frase:"El Chato se llevó" },
+  /* Los dos que faltaban para las ocho casas. Don Wílber es el de la bodega:
+     el más lento del barrio y el más descarado — solo se agacha por lo caro,
+     y cuando se lo lleva ya lo tenía apuntado en la libreta. */
+  wilber: { label:"Don Wílber", shirt:"#E8734A", skin:"#C98B62", hair:"#4A3A2A",
+            cap:"#B4532E", ears:null,      spd:0.76, greedy:true,
+            frase:"Don Wílber se llevó" },
+  /* La Tía Charo va rápido y carga lo que sea: es la que más veces vuelve. */
+  charo:  { label:"La Tía Charo", shirt:"#6B8CFF", skin:"#E8B08A", hair:"#2A1226",
+            cap:null,      ears:null,      spd:1.22, greedy:false,
+            frase:"La Tía Charo se llevó" },
 };
 
 export const RAR_COLOR: Record<string, string> = {
@@ -785,7 +795,7 @@ export function sitioAPixel([fx, fy]: [number, number]): [number, number] {
 }
 
 /** Cuántas casas de vecino y cuántos patios hay en cada mapa. */
-export const CASAS_POR_MAPA = 6, PATIOS_POR_MAPA = 5;
+export const CASAS_POR_MAPA = 8, PATIOS_POR_MAPA = 5;
 
 /* Los sitios escritos a mano en cada escenario son su carácter: en Nueva York
    las casas van arriba en fila, en el colegio pegadas a la izquierda. Con el
@@ -793,10 +803,16 @@ export const CASAS_POR_MAPA = 6, PATIOS_POR_MAPA = 5;
    acomodan solos en los huecos del borde, que es donde no estorban.
 
    Determinista: recorre los mismos candidatos en el mismo orden siempre. */
-function acomodar(puestos: [number, number][], cuantos: number): [number, number][] {
+function acomodar(puestos: [number, number][], cuantos: number,
+                  mar: number | null = null): [number, number][] {
   const { cx, cy } = { cx: WORLD_W / 2, cy: WORLD_H / 2 };
-  const HOLGURA = 60;
+  const HOLGURA = 36;
   const cabe = (p: [number, number]) => {
+    /* Ni con los pies en el agua. La fila de abajo cae dentro del mar en los
+       cinco escenarios que lo tienen, y ya se colaba antes de que hubiera ocho
+       casas: una casa medio hundida se veía rara y su vitrina quedaba donde no
+       se puede llegar andando. */
+    if (mar != null && p[1] + BASE_H > mar - 20) return false;
     for (const q of puestos)
       if (Math.abs(p[0] - q[0]) < BASE_W + HOLGURA && Math.abs(p[1] - q[1]) < BASE_H + HOLGURA)
         return false;
@@ -810,13 +826,24 @@ function acomodar(puestos: [number, number][], cuantos: number): [number, number
        rectas verticales que van de borde a borde. */
     return !(p[0] < cx + 90 && p[0] + BASE_W > cx - 90);
   };
-  /* Por los cuatro bordes, de fuera hacia dentro. */
-  /* En PÍXELES: `acomodar` corre al montar, cuando el mundo ya está fijado. */
-  const candidatos: [number, number][] = [];
-  for (const fy of [0, 0.5, 0.25, 0.75, 1]) for (const fx of [0, 1])
-    candidatos.push(sitioAPixel([fx, fy]));
-  for (const fx of [0.5, 0.25, 0.75]) for (const fy of [0, 1])
-    candidatos.push(sitioAPixel([fx, fy]));
+  /* Una rejilla entera, recorrida de fuera hacia dentro: primero el borde y lo
+     de más adentro solo si hace falta. Antes eran los cuatro bordes a dedo y
+     daban justo para once bases; con ocho vecinos son trece, y en los cinco
+     mapas con mar la fila de abajo no cuenta —está en el agua—, así que se
+     quedaban sin patios. Ordenar por lejanía del centro mantiene el reparto de
+     siempre: los mismos sitios y en el mismo orden, solo que ahora hay más
+     detrás por si se acaban.
+
+     En PÍXELES: `acomodar` corre al montar, cuando el mundo ya está fijado. */
+  const rejilla: [number, number][] = [];
+  const PASO = 16;                     // fina: los sitios escritos a mano dejan huecos raros
+  for (let iy = 0; iy <= PASO; iy++) for (let ix = 0; ix <= PASO; ix++)
+    rejilla.push([ix / PASO, iy / PASO]);
+  const lejos = ([fx, fy]: [number, number]) =>
+    Math.max(Math.abs(fx - 0.5), Math.abs(fy - 0.5));
+  const candidatos = rejilla
+    .sort((a, b) => lejos(b) - lejos(a))
+    .map(sitioAPixel);
   const nuevos: [number, number][] = [];
   for (const c of candidatos) {
     if (nuevos.length >= cuantos) break;
@@ -837,9 +864,15 @@ export function montarEscenario(base: Escenario): Escenario {
   e.casas = base.casas.map(sitioAPixel);
   e.patios = base.patios.map(sitioAPixel);
   const puestos: [number, number][] = [...e.casas, ...e.patios];
-  e.casas = [...e.casas, ...acomodar(puestos, CASAS_POR_MAPA - e.casas.length)];
-  e.patios = [...e.patios, ...acomodar(puestos, PATIOS_POR_MAPA - e.patios.length)];
+  /* El mar se calcula ANTES de repartir: es lo que dice qué mitad de abajo no
+     existe para las casas. */
   if (base.mar != null) e.mar = Math.round(WORLD_H * base.mar);
+  /* Los patios primero. En los cinco mapas con mar no caben las trece bases
+     —media mitad de abajo es agua—, y de las dos cosas que sobran es peor
+     quedarse sin patios que comprar (son TUYOS y son la forma de crecer) que
+     con un vecino menos al que robarle. */
+  e.patios = [...e.patios, ...acomodar(puestos, PATIOS_POR_MAPA - e.patios.length, e.mar ?? null)];
+  e.casas = [...e.casas, ...acomodar(puestos, CASAS_POR_MAPA - e.casas.length, e.mar ?? null)];
   if (base.puente) e.puente = { x: Math.round(WORLD_W * base.puente.x),
                                 w: Math.round(WORLD_W * base.puente.w) };
   if (base.trazado) e.circuito = trazadoAPuntos(base.trazado);

@@ -459,10 +459,10 @@ const clampEntero = (v: number, a: number, b: number) =>
   Math.max(a, Math.min(b, Math.round(v) || a));
 
 /* ---- los sitios de los jugadores ----
-   El mapa no cambia: hay un patio y cuatro casas de vecinos. El primer jugador
-   toma el patio; **cada jugador de más ocupa una casa vecina, y el bot que
-   vivía ahí deja de existir**. Así una sala llena son 5 humanos y ningún bot,
-   y jugar solo son 4 bots, sin mover una piedra del escenario.
+   El mapa no cambia: hay un patio y ocho casas de vecinos. El primer jugador
+   toma el patio; **cada jugador de más ocupa una casa vecina, y el vecino que
+   vivía ahí sale a jugar en vez de quedarse a que le roben**. Así se reparte
+   sin mover una piedra del escenario.
 
    Los Marcianos van primeros a propósito: es el sitio que ya usaba el J2 del
    duelo de sofá, así que dos jugadores siguen empezando donde empezaban. */
@@ -472,13 +472,23 @@ const SLOTS: { casa: number | null; shirt: string }[] = [
   { casa: 0,    shirt: "#FF5C86" },
   { casa: 1,    shirt: "#37D6E0" },
   { casa: 2,    shirt: "#B57BE0" },
+  { casa: 4,    shirt: "#F2A65A" },
+  { casa: 5,    shirt: "#7FE0C4" },
+  { casa: 6,    shirt: "#E86BA0" },
+  { casa: 7,    shirt: "#9AA8FF" },
 ];
+/** Cuántos caben en un mapa: uno por patio y uno por casa de vecino. */
 export const JUGADORES_MAX = SLOTS.length;
+/** Cuántos caben en una SALA. Menos que el mapa a propósito: cada asiento
+    vacío lo mueve un bot en el servidor, y nueve simulados por sala es pedirle
+    al VPS algo que nadie ha pedido todavía. */
+export const SALA_MAX = 5;
 
 /** Cómo se llama el que vive en cada casa, para cuando sale a jugar él mismo. */
 const APODOS: Record<string, string> = {
   marcia: "el Marciano", mayo: "Mayo", sobri: "la Sobri",
   yuli: "Yuli", meche: "Meche", chato: "el Chato",
+  wilber: "don Wílber", charo: "la Tía Charo",
 };
 
 export interface OpcionesPartida {
@@ -572,8 +582,6 @@ export function colocarPuestos(bases: Base[]) {
 }
 
 export function crearPartida(op: OpcionesPartida): Estado {
-  const n = clampEntero(op.jugadores ?? 1, 1, JUGADORES_MAX);
-  const reglas: Reglas = { ...reglasPara(n), ...(op.reglas || {}) };
   /* Montar el escenario es lo PRIMERO: fija el tamaño del mundo y pasa sus
      fracciones a píxeles. Todo lo que viene después —las bases, los trastos,
      la pasarela, la pista— se coloca con ese mundo ya puesto. */
@@ -581,12 +589,16 @@ export function crearPartida(op: OpcionesPartida): Estado {
   const semilla = op.semilla ?? 1;
   const C = esc.casas, P = esc.patios;
 
+  /* Cuántos caben AQUÍ: uno por patio y uno por cada casa que este mapa haya
+     conseguido colocar. En los cinco escenarios con mar no entran las ocho
+     —media parte de abajo es agua—, y sin este tope un jugador de más apuntaba
+     a una casa que no existe. */
+  const n = clampEntero(op.jugadores ?? 1, 1, Math.min(JUGADORES_MAX, 1 + C.length));
+  const reglas: Reglas = { ...reglasPara(n), ...(op.reglas || {}) };
+
   /* Las bases se montan siempre igual y en el mismo orden: `baseDe` indexa por
-     id, así que estos índices son un contrato y no se pueden reordenar. */
-  /* Los cuatro de siempre van primero y en este orden: los índices son el
-     contrato de `baseDe` y los `SLOTS` de los jugadores apuntan a ellos. Las
-     dos casas del final son las que trajo el mapa grande, y son siempre de
-     vecino: `JUGADORES_MAX` sigue en 5. */
+     id, así que estos índices son un contrato y no se pueden reordenar. Los
+     `SLOTS` de los jugadores apuntan a ellos por posición. */
   const VECINOS: [string, string, string][] = [
     ["Casa de Mayo", "#FFD84D", "mayo"],
     ["Doña Chancla", "#FF9EC4", "sobri"],
@@ -594,6 +606,8 @@ export function crearPartida(op: OpcionesPartida): Estado {
     ["Nave de los Marcianos", "#8B6BEE", "marcia"],
     ["Quiosco de Doña Meche", "#5CE1EA", "meche"],
     ["Casa del Chato", "#9BD97F", "chato"],
+    ["Bodega de don Wílber", "#E8734A", "wilber"],
+    ["Casa de la Tía Charo", "#6B8CFF", "charo"],
   ];
   /* "Patio del J1" solo cuando hay OTRO humano al que distinguir. Con vecinos
      que juegan solos sigue siendo tu patio: nadie lo va a confundir. */
@@ -603,7 +617,9 @@ export function crearPartida(op: OpcionesPartida): Estado {
   ];
   VECINOS.forEach(([nombre, color, quien], k) => {
     if (!C[k]) return;
-    bases.push(makeBase(k + 1, nombre, C[k][0], C[k][1], false, color, quien));
+    /* El id es la posición en la lista, no `k`: `baseDe` es `e.bases[id]`, y en
+       un mapa con menos casas de las ocho un hueco descolocaría todo. */
+    bases.push(makeBase(bases.length, nombre, C[k][0], C[k][1], false, color, quien));
   });
 
   if (reglas.patiosExtra) {
