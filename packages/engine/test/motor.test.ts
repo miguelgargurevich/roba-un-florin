@@ -1564,6 +1564,38 @@ describe("vecinos que juegan solos", () => {
   });
 });
 
+describe("cuantos más vecinos, más ladrones", () => {
+  /** Cuántos ladrones distintos salen en `segundos` con la vitrina llena. */
+  function cuantosSalen(bots: number, segundos = 180){
+    const e = partida({ jugadores: 1 + bots, bots, reglas: { patiosExtra: true } });
+    for (const b of patiosDe(e, e.players[0]))
+      b.peds.forEach(p => { p.florin = nuevoFlorin(e, 2, {}); });
+    const ent = nada(e.players.length);
+    const vistos = new Set<number>();
+    for (let k = 0; k < 60 * segundos; k++){
+      avanzar(e, ent, 1 / 60);
+      for (const t of e.thieves) vistos.add(t.id);
+      // reponer, que si la vitrina se vacía dejan de venir y no se mide nada
+      for (const b of patiosDe(e, e.players[0]))
+        b.peds.forEach(p => { if (!p.florin) p.florin = nuevoFlorin(e, 2, {}); });
+    }
+    return vistos.size;
+  }
+
+  it("con el barrio entero salen más que con medio barrio fuera", () => {
+    const lleno = cuantosSalen(0);        // ocho casas de vecino
+    const medio = cuantosSalen(5);        // tres, el resto están jugando
+    expect(lleno, "ocho vecinos no mandan más gente que tres").toBeGreaterThan(medio);
+  });
+
+  it("sacar vecinos a jugar NO deja el barrio en silencio", () => {
+    /* El ritmo solo acelera. Si además frenara, elegir vecinos en el menú
+       saldría gratis: menos ladrones y encima el mapa más tranquilo. */
+    const medio = cuantosSalen(5, 120);
+    expect(medio, "se quedó sin ladrones").toBeGreaterThanOrEqual(6);
+  });
+});
+
 describe("la cochera del patio", () => {
   const TODOS = GARAJE.map(g => g.tipo);
   const enLaCochera = (e: Estado) =>

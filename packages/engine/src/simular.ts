@@ -760,7 +760,13 @@ export function avanzar(e: Estado, entradas: Record<number, EntradaJugador>, dt:
       const masCaro = mios.reduce((m, q) => Math.max(m, q.florin!.tier), 0);
       peor = Math.min(peor, 26 - Math.min(mios.length, 8) * 2.0 - masCaro * 0.7);
     }
-    e.thiefTimer = clamp(peor, 10, 26);
+    /* Cuántas casas de vecino quedan importa: un barrio de ocho manda más
+       gente que uno de cuatro. Solo acelera —nunca frena— para que sacar
+       vecinos a jugar no deje el mapa en silencio: los que quedan vienen
+       igual de seguido, y encima tienes rivales sueltos. */
+    const casas = e.bases.filter(b => !b.isPlayer && b.who).length;
+    const ritmo = Math.min(1, 6 / Math.max(1, casas));
+    e.thiefTimer = clamp(peor * ritmo, 6, 26);
   }
 
   for (let i = e.thieves.length - 1; i >= 0; i--) {

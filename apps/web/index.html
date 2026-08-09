@@ -304,10 +304,18 @@
   @media (prefers-reduced-motion:reduce){ #accion{animation:none} }
 
   /* ---------- álbum de Florines ---------- */
-  #album{
+  #album, #tienda{
     position:absolute;inset:0;z-index:31;display:grid;place-items:start center;padding:18px;
     background:rgba(15,7,14,.9);overflow:auto;
+    /* el `body` tiene `touch-action:none` para que el juego no haga zoom con
+       dos pulgares, y se hereda: sin esto no hay forma de desplazar en tableta */
+    touch-action:pan-y;-webkit-overflow-scrolling:touch;
   }
+  #tienda[hidden]{display:none}
+  #tienda .rack{grid-template-columns:repeat(2,minmax(0,1fr))}
+  @media (max-width:560px){ #tienda .rack{grid-template-columns:1fr} }
+  .play.tienda{background:var(--plum-700);box-shadow:0 6px 0 rgba(0,0,0,.4);font-size:15px;padding:12px}
+  .play.tienda:active{transform:translateY(3px);box-shadow:0 3px 0 rgba(0,0,0,.4)}
   /* margin:auto lo centra cuando cabe; con 75 láminas ya no cabe y se puede
      hacer scroll hasta arriba, que con place-items:center era imposible. */
   .albumCaja{margin:auto}
@@ -1094,6 +1102,28 @@
     </div>
   </div>
 
+  <!-- La Tienda: el Garaje, pero desde el inicio. Se gasta la plata de tu
+       partida sin tener que entrar a jugar y cruzar el mapa hasta el puesto. -->
+  <div id="tienda" hidden>
+    <div class="albumCaja">
+      <button class="cerrarX" data-cerrar="tienda" aria-label="Cerrar la Tienda">✕</button>
+      <h3>🛒 La Tienda <small id="tiendaMoney">$0</small></h3>
+      <p class="albumSub" id="tiendaSub">Lo que compres aquí es tuyo para siempre, en todas las partidas.</p>
+
+      <h2 class="garajeTitulo">🔧 Vehículos <small>especiales, para siempre</small></h2>
+      <div class="rack" id="tiendaGrid"></div>
+
+      <h2 class="garajeTitulo">🏡 Patios <small>más pedestales, más ingresos</small></h2>
+      <div class="rack" id="tiendaPatios"></div>
+
+      <h2 class="garajeTitulo">💰 Tus Florines <small>véndelos por lo que valen</small></h2>
+      <div class="rack" id="tiendaVender"></div>
+      <div class="bautizoBtns">
+        <button class="bautizoBtn ok" id="tiendaCerrar">Volver al inicio</button>
+      </div>
+    </div>
+  </div>
+
   <div id="album" hidden>
     <div class="albumCaja">
       <button class="cerrarX" data-cerrar="album" aria-label="Cerrar el álbum">✕</button>
@@ -1185,8 +1215,12 @@
       <p class="escDesc" id="escDesc"></p>
 
       <div class="modos">
+        <!-- La partida que dejaste pausada con el 🏠. Sin esto, entrar al inicio
+             a comprar en la Tienda era abandonarla. -->
+        <button class="play seguir" id="btnVolver" hidden>◂ Seguir jugando</button>
         <button class="play seguir" id="btnSeguir" hidden>Seguir donde quedaste ▸</button>
         <button class="play" id="btnStart">Jugar solo ▸</button>
+        <button class="play tienda" id="btnTienda">🛒 La Tienda</button>
       </div>
 
       <p class="escTitulo">Tu cuenta <span style="text-transform:none;letter-spacing:0;font-weight:600">— opcional: sirve para no perder el álbum</span></p>

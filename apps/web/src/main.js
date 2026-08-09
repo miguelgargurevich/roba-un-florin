@@ -20,7 +20,7 @@ import {
   bajarse, conAtajosDeSala as conAtajosMotor, nombreDeHito, patiosDe, precioDeVenta,
   puestoDe, puestosDeCarrera, VUELTAS, CIRCUITOS, pensarBot, GARAJE, VEHICULOS,
   fundir, queSaleDeFundir,
-  TRASTOS_ESCENARIO, darleVehiculo, esEspecial, ANCHO_PISTA, aparcarNuevo,
+  TRASTOS_ESCENARIO, darleVehiculo, esEspecial, ANCHO_PISTA, aparcarNuevo, comprarPatio,
   usarPotenciador, potenciadoresDe, potenciadorPorId,
   soltarCarga, trastoDe,
   venderFlorin,
@@ -381,6 +381,7 @@ window.addEventListener("keydown", e => {
   if (k === "t") togglePanel("arm");
   if (k === "r") togglePanel("rul");
   if (k === "escape" && !document.getElementById("album").hidden) cerrarAlbum();
+  if (k === "escape" && !elTienda.hidden) cerrarTienda();
   if (k === "escape" && !document.getElementById("salirAviso").hidden) cerrarSalir();
   if (k >= "1" && k <= "9") elegirArma(+k - 1);
   if (k === "0") elegirArma(9);
@@ -434,6 +435,141 @@ function ganarVehiculo(tipo, comoLoDigo){
   pintarGaraje();
   return true;
 }
+
+/* ============================================================
+   La Tienda del inicio
+   ============================================================
+   El Garaje, los patios y la venta de Florines siempre estuvieron DENTRO de la
+   partida: para gastar lo acumulado había que entrar a jugar y cruzar el mapa
+   hasta el puesto. Aquí es lo mismo, desde la portada.
+
+   La plata NO es un monedero aparte: es la de tu partida. Un saldo que solo
+   viviera en el menú sería otra economía que cuadrar, y los precios están
+   pensados contra lo que se junta jugando. De dónde sale, por orden: la partida
+   que dejaste pausada al volver al inicio, y si no, la guardada en la nube. */
+let menuG = null;                 // la guardada, revivida, cuando no hay partida viva
+
+function partidaDelMenu(){
+  if (sala) return null;          // en una sala manda el servidor: aquí no se toca nada
+  if (G && G.started && !G.over && !G.local2) return { g: G, de: "tu partida" };
+  if (guardadaEnLaNube){
+    if (!menuG) menuG = revivirPartida(guardadaEnLaNube.estado);
+    if (menuG) return { g: menuG, de: "tu partida guardada" };
+  }
+  return null;
+}
+
+/** Deja por escrito lo que se acaba de comprar o vender. */
+function guardarDelMenu(g){
+  const datos = {
+    escenario: g.esc.id, dinero: Math.round(g.player.money),
+    hito: g.hitoN, segundos: g.t, estado: JSON.stringify(g),
+  };
+  if (guardadaEnLaNube) Object.assign(guardadaEnLaNube, datos);
+  if (nube.hayCuenta) nube.guardarPartida(datos);
+  pintarBotonSeguir();
+}
+
+/** Una tarjeta de la Tienda, con el mismo aspecto que las del Armería. */
+function tarjeta(grid, { icon, nombre, precio, desc, tuyo, puedo, alTocar }){
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "buy" + (tuyo ? " tuyo" : "");
+  b.disabled = !!tuyo || !puedo;
+  b.innerHTML =
+    '<span class="ic">' + icon + '</span>' +
+    '<span><span class="nm">' + nombre + '</span><br>' +
+    (tuyo ? '<span class="ya">✔ ' + tuyo + '</span>'
+          : '<span class="pr">' + precio + '</span>') +
+    '<br><span class="ds">' + desc + '</span></span>';
+  if (!b.disabled) b.addEventListener("click", () => { alTocar(); Snd.unlock(); });
+  grid.appendChild(b);
+  return b;
+}
+
+function pintarTienda(){
+  const p = partidaDelMenu();
+  const g = p && p.g;
+  const plata = g ? g.player.money : 0;
+  document.getElementById("tiendaMoney").textContent = money(plata);
+  document.getElementById("tiendaSub").textContent = p
+    ? "Se paga con la plata de " + p.de + ", y lo que compres se guarda en ella."
+    : "Aquí se gasta la plata de tu partida. Empieza una —o entra a tu cuenta para recuperar la guardada— y vuelve.";
+
+  /* ---- vehículos: son del JUGADOR, valen para todas las partidas ---- */
+  const gridV = document.getElementById("tiendaGrid");
+  gridV.innerHTML = "";
+  for (const item of GARAJE){
+    const v = VEHICULOS[item.tipo];
+    tarjeta(gridV, {
+      icon: v.icon, nombre: v.label, precio: money(item.precio), desc: item.comoSale,
+      tuyo: tengoVehiculo(item.tipo) ? "ya es tuyo" : null,
+      puedo: !!g && plata >= item.precio,
+      alTocar: () => {
+        g.player.money -= item.precio;
+        garaje[item.tipo] = 1;
+        guardarGaraje();
+        if (g === G) aparcarNuevo(G, item.tipo);     // a su plaza en la cochera
+        guardarDelMenu(g);
+        pintarGaraje(); pintarVehiculos(); pintarTienda();
+      },
+    });
+  }
+
+  /* ---- patios: eso sí es de ESTA partida ---- */
+  const gridP = document.getElementById("tiendaPatios");
+  gridP.innerHTML = "";
+  const enVenta = g ? g.bases.filter(b => b.locked) : [];
+  if (!g || !enVenta.length){
+    gridP.innerHTML = '<p class="albumSub">' +
+      (g ? "Ya son tuyos todos los patios de esta partida." :
+           "Los patios se compran dentro de una partida.") + '</p>';
+  } else for (const b of enVenta){
+    tarjeta(gridP, {
+      icon: "🏡", nombre: b.name, precio: money(b.price),
+      desc: "Seis pedestales más para tu vitrina. Sube la meta y sube los ingresos.",
+      tuyo: null, puedo: plata >= b.price,
+      alTocar: () => {
+        comprarPatio(g, g.player, b);
+        guardarDelMenu(g);
+        if (g === G) invalidarSuelo();
+        pintarTienda();
+      },
+    });
+  }
+
+  /* ---- vender: lo que tienes puesto en la vitrina ---- */
+  const gridS = document.getElementById("tiendaVender");
+  gridS.innerHTML = "";
+  const mios = [];
+  if (g) for (const b of patiosDe(g, g.player))
+    b.peds.forEach((ped, i) => { if (ped.florin) mios.push({ b, i, ped }); });
+  if (!mios.length){
+    gridS.innerHTML = '<p class="albumSub">' +
+      (g ? "Tu vitrina está vacía. Roba unos cuantos y vuelve." :
+           "Aquí saldrán los Florines de tu vitrina.") + '</p>';
+  } else for (const m of mios){
+    const f = m.ped.florin, T = TIERS[f.tier];
+    tarjeta(gridS, {
+      icon: "🪴", nombre: f.nombre || T.name,
+      precio: "+" + money(precioDeVenta(f)),
+      desc: (f.variant ? varLabel(f.variant) + " · " : "") + T.rar +
+            " · " + money(florinIncome(f)) + "/s",
+      tuyo: null, puedo: true,
+      alTocar: () => {
+        venderFlorin(g, g.player, { tipo: "ped", b: m.b.id, i: m.i });
+        guardarDelMenu(g);
+        pintarTienda();
+      },
+    });
+  }
+}
+
+function abrirTienda(){ menuG = null; pintarTienda(); elTienda.hidden = false; }
+function cerrarTienda(){ elTienda.hidden = true; menuG = null; }
+const elTienda = document.getElementById("tienda");
+document.getElementById("btnTienda").addEventListener("click", abrirTienda);
+document.getElementById("tiendaCerrar").addEventListener("click", cerrarTienda);
 
 function vistoEnAlbum(tier, variant){
   const k = albumKey(tier, variant);
@@ -697,6 +833,7 @@ for (const b of document.querySelectorAll(".cerrarX")){
   b.addEventListener("click", () => {
     if (qué === "arm" || qué === "rul" || qué === "fus") cerrarPanel(qué);
     else if (qué === "album") cerrarAlbum();
+    else if (qué === "tienda") cerrarTienda();
     else if (qué === "bautizo") cerrarBautizo();
   });
 }
@@ -1229,8 +1366,28 @@ async function buscarPartidaGuardada(){
   // Solo se guarda una partida por jugador, así que empezar otra pisa la vieja.
   // Que el botón lo diga es más honesto que un cartel de confirmación.
   rotularBotonJugar();
-  if (!hay) return;
+  pintarBotonSeguir();
+}
+
+/* Volver a la partida que sigue viva y pausada. Vale con y sin cuenta: es la
+   que tienes en la mano, no la de la nube. */
+const btnVolver = document.getElementById("btnVolver");
+function pintarBotonVolver(){
+  btnVolver.hidden = !(G && G.started && !G.over && !sala);
+}
+btnVolver.addEventListener("click", () => {
+  if (!G || !G.started || G.over) return;
+  cerrarTienda();
+  aLaCancha();
+  Snd.unlock();
+});
+
+/** El rótulo del botón, aparte: la Tienda lo repinta al cobrar o al pagar sin
+    tener que volver a preguntarle al servidor. */
+function pintarBotonSeguir(){
   const g = guardadaEnLaNube;
+  btnSeguir.hidden = !g;
+  if (!g) return;
   btnSeguir.textContent =
     "Seguir donde quedaste ▸ " + money(g.dinero) + " · " + mmss(g.segundos);
 }
@@ -1367,6 +1524,7 @@ function volverAlInicio(){
   document.getElementById("album").hidden = true;
   if (!G.paused) togglePause();
   el.title.hidden = false;
+  pintarBotonVolver();
   buscarPartidaGuardada();
 }
 
