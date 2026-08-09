@@ -29,6 +29,10 @@ function guardarSesion(s){
 const desdeAuth = r => ({
   accessToken: r.accessToken, refreshToken: r.refreshToken,
   apodo: r.user?.apodo || "", email: r.user?.email || "",
+  /* Los permisos vienen en el login: son los que deciden si sale el botón de
+     admin. El servidor los vuelve a comprobar en cada llamada, así que esto es
+     solo para no enseñar un botón que va a dar 403. */
+  permisos: r.user?.permissions || [],
 });
 
 class ErrorApi extends Error {
@@ -120,6 +124,8 @@ async function conSesion(ruta, opciones = {}){
 export const nube = {
   get jugador(){ return sesion ? { apodo: sesion.apodo, email: sesion.email } : null; },
   get hayCuenta(){ return !!sesion; },
+  /** ¿Esta cuenta puede programar fiestas? */
+  get esAdmin(){ return !!sesion?.permisos?.includes("eventos.gestionar"); },
   /** El servidor no contestó hace poco: lo que juegues ahora solo queda aquí. */
   get desconectado(){ return !hayServidor(); },
 
@@ -157,6 +163,18 @@ export const nube = {
   },
 
   cargarPartida(){ return conSesion("/api/v1/partida"); },
+
+  /* ---- las fiestas ----
+     La de ahora la puede preguntar cualquiera, con cuenta o sin ella: el juego
+     se puede jugar sin registrarse y la fiesta también se ve. */
+  async fiestaViva(){
+    try { return await crudo("/api/v1/eventos/vivo", { token: sesion?.accessToken }); }
+    catch (_){ return null; }
+  },
+  recogerRegalo(id){ return conSesion("/api/v1/eventos/" + id + "/regalo", { metodo: "POST" }); },
+  fiestasProgramadas(){ return conSesion("/api/v1/eventos"); },
+  programarFiesta(datos){ return conSesion("/api/v1/eventos", { metodo: "POST", cuerpo: datos }); },
+  cancelarFiesta(id){ return conSesion("/api/v1/eventos/" + id, { metodo: "DELETE" }); },
 
   guardarPreferencias(apodo, escenarioPreferido, zurdo){
     return conSesion("/api/v1/perfil", {

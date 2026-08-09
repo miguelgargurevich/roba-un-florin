@@ -257,6 +257,16 @@ export interface CajaItem { id: number; x: number; y: number; listo: number }
 
 export interface Girando { t: number; dur: number; premio: Premio; jugadorIdx: number }
 
+/** Un evento en marcha: qué baja por la pasarela y hasta cuándo. */
+export interface Fiesta {
+  /** Cómo se llama, para el cartel: "Noche de Wiracochas". */
+  nombre: string;
+  /** Los segundos de PARTIDA en que se acaba (`e.t`), no la hora del reloj. */
+  hasta: number;
+  /** De aquí sale lo que trae el desfile. Sin pesos: todos igual de probables. */
+  florines: { tier: number; variant: Variante }[];
+}
+
 export interface Alarma {
   quien: string; color: string; patio: string;
   x: number; y: number;
@@ -382,6 +392,11 @@ export interface Estado {
   ultimoPremio: Premio | null;
 
   alarma: Alarma | null;
+
+  /** La fiesta: mientras dura, la pasarela deja de traer Florines al azar y
+      trae los que se hayan anunciado. La pone el cliente cuando el servidor
+      dice que hay evento; el motor solo la respeta y la deja caducar. */
+  fiesta: Fiesta | null;
 
   over: boolean;
   winnerIdx: number | null;

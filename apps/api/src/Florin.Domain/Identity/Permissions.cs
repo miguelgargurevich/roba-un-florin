@@ -13,6 +13,8 @@ public static class Permissions
     public const string AlbumLeer      = "album.leer";
     public const string AlbumRegistrar = "album.registrar";
     public const string UsersManage    = "users.manage";
+    public const string EventosVer     = "eventos.ver";
+    public const string EventosGestion = "eventos.gestionar";
 
     public static readonly IReadOnlyDictionary<string, string> All = new Dictionary<string, string>
     {
@@ -23,11 +25,13 @@ public static class Permissions
         [AlbumLeer]      = "Ver el álbum de Florines",
         [AlbumRegistrar] = "Registrar un Florín en el álbum",
         [UsersManage]    = "Administrar usuarios, roles y permisos",
+        [EventosVer]     = "Ver la fiesta que esté programada",
+        [EventosGestion] = "Programar y cancelar fiestas",
     };
 
     /// <summary>Lo que se le da a cualquiera que se registra a jugar.</summary>
     public static readonly string[] DeJugador =
-        [PerfilLeer, PerfilEditar, PartidaLeer, PartidaGuardar, AlbumLeer, AlbumRegistrar];
+        [PerfilLeer, PerfilEditar, PartidaLeer, PartidaGuardar, AlbumLeer, AlbumRegistrar, EventosVer];
 }
 
 public static class Roles

@@ -312,6 +312,47 @@
     touch-action:pan-y;-webkit-overflow-scrolling:touch;
   }
   #tienda[hidden]{display:none}
+  #admin{
+    position:absolute;inset:0;z-index:32;display:grid;place-items:start center;padding:18px;
+    background:rgba(15,7,14,.92);overflow:auto;touch-action:pan-y;-webkit-overflow-scrolling:touch;
+  }
+  #admin[hidden]{display:none}
+  .adminForm{display:grid;gap:8px;margin:10px 0}
+  .adminForm label{display:grid;gap:4px;font-size:12px;color:var(--cream-dim);
+    text-transform:uppercase;letter-spacing:.06em;font-weight:800}
+  .adminForm input{
+    background:var(--plum-900);border:2px solid var(--plum-600);border-radius:10px;
+    padding:9px 11px;color:var(--cream);font-family:var(--ui);font-size:15px;
+  }
+  .adminGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:6px;margin-bottom:6px}
+  .adminCel{
+    background:var(--plum-800);border:2px solid var(--plum-600);border-radius:10px;
+    padding:7px 6px;color:var(--cream);font-family:var(--ui);font-size:11px;cursor:pointer;
+    display:grid;gap:2px;place-items:center;line-height:1.2;text-align:center;
+  }
+  .adminCel .rr{color:var(--cream-dim);font-size:10px}
+  .adminCel.sel{border-color:var(--leaf);background:color-mix(in srgb,var(--leaf) 22%,var(--plum-800))}
+  #adminLista .fila{
+    display:flex;gap:8px;align-items:center;justify-content:space-between;
+    border-top:1px solid var(--plum-700);padding:8px 2px;font-size:13px;
+  }
+  #adminLista .fila b{color:var(--gold)}
+  #adminLista button{
+    background:var(--plum-700);border:2px solid var(--plum-600);border-radius:9px;
+    color:var(--cream);padding:5px 9px;font-family:var(--ui);font-size:12px;cursor:pointer;
+  }
+  /* El cartel de la fiesta: arriba y en medio, encima de todo. */
+  #fiestaCartel{
+    position:absolute;left:50%;top:8px;transform:translateX(-50%);z-index:33;
+    padding:8px 16px;border-radius:999px;pointer-events:none;white-space:nowrap;
+    background:linear-gradient(90deg,#FF3D6E,#FFC53D,#5CE1EA,#8B6BEE,#FF3D6E);
+    background-size:300% 100%;animation:fiestaLuces 3s linear infinite;
+    color:#2A1226;font-family:var(--ui);font-weight:800;font-size:13px;
+    box-shadow:0 6px 0 rgba(0,0,0,.35);
+  }
+  #fiestaCartel[hidden]{display:none}
+  @keyframes fiestaLuces{ from{background-position:0 0} to{background-position:300% 0} }
+  @media (prefers-reduced-motion:reduce){ #fiestaCartel{animation:none} }
   #tienda .rack{grid-template-columns:repeat(2,minmax(0,1fr))}
   @media (max-width:560px){ #tienda .rack{grid-template-columns:1fr} }
   .play.tienda{background:var(--plum-700);box-shadow:0 6px 0 rgba(0,0,0,.4);font-size:15px;padding:12px}
@@ -1102,6 +1143,40 @@
     </div>
   </div>
 
+  <!-- El cartel de la fiesta. Va sobre todo, dentro y fuera del juego. -->
+  <div id="fiestaCartel" hidden></div>
+
+  <!-- Programar fiestas. Solo sale si tu cuenta tiene el permiso; el servidor
+       lo vuelve a comprobar en cada llamada, esto es para no enseñar un botón
+       que va a dar 403. -->
+  <div id="admin" hidden>
+    <div class="albumCaja">
+      <button class="cerrarX" data-cerrar="admin" aria-label="Cerrar">✕</button>
+      <h3>🎪 Fiestas <small id="adminAviso"></small></h3>
+      <p class="albumSub">A la hora que digas, a todo el que esté jugando le baja por la pasarela lo que elijas aquí.</p>
+
+      <div class="adminForm">
+        <label>Nombre <input id="adminNombre" type="text" maxlength="60" placeholder="Noche de Wiracochas"></label>
+        <label>Empieza <input id="adminCuando" type="datetime-local"></label>
+        <label>Dura (minutos) <input id="adminDura" type="number" min="1" max="360" value="15"></label>
+      </div>
+
+      <h2 class="garajeTitulo">🪴 Lo que baja por la pasarela <small>toca para elegir</small></h2>
+      <div class="adminGrid" id="adminFlorines"></div>
+
+      <h2 class="garajeTitulo">🎁 El de regalo <small>uno por cuenta conectada</small></h2>
+      <div class="adminGrid" id="adminRegalo"></div>
+
+      <div class="bautizoBtns">
+        <button class="bautizoBtn ok" id="adminCrear">Programar la fiesta</button>
+        <button class="bautizoBtn" id="adminCerrar">Cerrar</button>
+      </div>
+
+      <h2 class="garajeTitulo">📅 Programadas</h2>
+      <div id="adminLista"></div>
+    </div>
+  </div>
+
   <!-- La Tienda: el Garaje, pero desde el inicio. Se gasta la plata de tu
        partida sin tener que entrar a jugar y cruzar el mapa hasta el puesto. -->
   <div id="tienda" hidden>
@@ -1171,7 +1246,7 @@
       <ul class="rules">
         <li><span class="pip">🌷</span><span>Cada Florín en tu vitrina paga por segundo, y solo si está en tu patio. Hay <b>15 rarezas</b>, del bloque de tierra <b>Común</b> al <b>Amaru</b>, pasando por el Cebichero, el Chasqui, la Momia y el Inca de Oro. Y <b>siete variantes</b>: ✨ Brillante (×2), 🌈 Arcoíris (×3), 👻 Fantasma (×4), 👑 Dorado (×5), 💎 Cristal (×6), 🌋 Lava (×8) y 🌌 Galaxia (×12).</span></li>
         <li><span class="pip">🏃</span><span>Métete a las bases vecinas y <b>quédate junto a un Florín</b> hasta llenar el aro para llevártelo.</span></li>
-        <li><span class="pip">😼</span><span>Seis vecinos vienen por los tuyos: <b style="color:#FFD84D">Mayo</b> agarra el más caro, <b style="color:#FF9EC4">El Sobri</b> agarra lo que pilla, <b style="color:#FF5C86">la Prima Yuli</b> vuela pero solo carga lo barato, <b style="color:#8B6BEE">los Marcianos</b> se teletransportan, <b style="color:#5CE1EA">Doña Meche</b> va despacio pero solo por lo caro, y <b style="color:#9BD97F">El Chato</b> corre muchísimo y carga de todo.</span></li>
+        <li><span class="pip">😼</span><span>Ocho vecinos vienen por los tuyos: <b style="color:#FFD84D">Mayo</b> agarra el más caro, <b style="color:#FF9EC4">El Sobri</b> agarra lo que pilla, <b style="color:#FF5C86">la Prima Yuli</b> vuela pero solo carga lo barato, <b style="color:#8B6BEE">los Marcianos</b> se teletransportan, <b style="color:#5CE1EA">Doña Meche</b> va despacio pero solo por lo caro, <b style="color:#9BD97F">El Chato</b> corre muchísimo y carga de todo, <b style="color:#E8734A">don Wílber</b> es el más lento y el más descarado, y <b style="color:#6B8CFF">la Tía Charo</b> va rápido y carga lo que sea. En Aventura puedes sacar a <b>hasta cinco</b> a jugar contra ti.</span></li>
         <li><span class="pip">👵</span><span>Cada base tiene su <b>abuela</b>. Si te alcanza, sueltas el Florín y quedas mareado.</span></li>
         <li><span class="pip">🩴</span><span>Lanza la chancla para <b>noquear abuelas y ladrones</b>. Regresa como bumerán: espérala para volver a lanzar.</span></li>
         <li><span class="pip">🎯</span><span><b>Apunta antes de tirar:</b> con ratón, hacia donde pongas el cursor (la línea punteada te lo muestra). En celular o iPad, <b>arrastra desde el botón rosa</b> y suelta.</span></li>
@@ -1221,6 +1296,7 @@
         <button class="play seguir" id="btnSeguir" hidden>Seguir donde quedaste ▸</button>
         <button class="play" id="btnStart">Jugar solo ▸</button>
         <button class="play tienda" id="btnTienda">🛒 La Tienda</button>
+        <button class="play tienda" id="btnAdmin" hidden>🎪 Programar una fiesta</button>
       </div>
 
       <p class="escTitulo">Tu cuenta <span style="text-transform:none;letter-spacing:0;font-weight:600">— opcional: sirve para no perder el álbum</span></p>

@@ -17,7 +17,7 @@ import {
   avanzar, bajarse, cargar, crearPartida, girarRuleta, idsDeArmas, inRect,
   occupiedDe, playerIncome, spawnThief, usarArma, comprarArma, seleccionarArma,
   nuevoFlorin, baseDe, patiosDe, zap, multDeMontura, puntoDelDesfile, puntoDelOcho,
-  centroDelMapa, WORLD_W, WORLD_H, OCHO_A, colocarPuestos,
+  centroDelMapa, WORLD_W, WORLD_H, OCHO_A, colocarPuestos, ponerFiesta, enFiesta,
   nivelDeVitrina, nombreDeHito, HITOS_MAX, vitrinaDe, venderFlorin, precioDeVenta, soltarCarga,
   type EntradaJugador, type Estado,
 } from "../src/index.js";
@@ -1561,6 +1561,66 @@ describe("vecinos que juegan solos", () => {
     for (const ped of casa.peds) ped.florin = nuevoFlorin(e, 3, {});
     avanzar(e, nada(2), 1 / 60);
     expect(e.over, "la aventura terminó sola").toBe(false);
+  });
+});
+
+describe("la fiesta de la pasarela", () => {
+  const LOS_BUENOS = [
+    { tier: TIERS.length - 1, variant: "galaxia" as const },
+    { tier: TIERS.length - 2, variant: "dorado" as const },
+  ];
+  /** Deja correr el desfile y devuelve lo que bajó por la pasarela. */
+  function loQueBaja(e: Estado, segundos: number){
+    const visto: { tier: number; variant: any }[] = [];
+    const ids = new Set<number>();
+    for (let k = 0; k < 60 * segundos; k++){
+      avanzar(e, nada(), 1 / 60);
+      for (const d of e.portal.desfile)
+        if (!ids.has(d.id)){ ids.add(d.id); visto.push({ tier: d.florin.tier, variant: d.florin.variant }); }
+    }
+    return visto;
+  }
+
+  it("sin fiesta baja de todo, y casi todo del montón", () => {
+    const e = partida();
+    const v = loQueBaja(e, 120);
+    expect(v.length, "no bajó nadie").toBeGreaterThan(3);
+    expect(v.every(f => f.variant == null), "salieron variantes sin ruleta").toBe(true);
+  });
+
+  it("en fiesta baja SOLO lo anunciado", () => {
+    const e = partida();
+    ponerFiesta(e, "Noche de Wiracochas", LOS_BUENOS, 60);
+    expect(enFiesta(e)).toBe(true);
+    const v = loQueBaja(e, 50);
+    expect(v.length, "la pasarela se quedó vacía").toBeGreaterThan(3);
+    for (const f of v)
+      expect(LOS_BUENOS.some(b => b.tier === f.tier && b.variant === f.variant),
+             "bajó un tier " + f.tier + " que nadie anunció").toBe(true);
+  });
+
+  it("la fiesta se acaba sola y vuelve lo de siempre", () => {
+    const e = partida();
+    ponerFiesta(e, "Cinco segundos", LOS_BUENOS, 5);
+    for (let k = 0; k < 60 * 6; k++) avanzar(e, nada(), 1 / 60);
+    expect(enFiesta(e), "la fiesta no caducó").toBe(false);
+    const v = loQueBaja(e, 120);
+    expect(v.some(f => f.variant == null), "todo lo que baja sigue siendo de fiesta").toBe(true);
+  });
+
+  it("sin Florines anunciados no hay fiesta", () => {
+    const e = partida();
+    ponerFiesta(e, "Vacía", [], 60);
+    expect(e.fiesta).toBe(null);
+    expect(enFiesta(e)).toBe(false);
+  });
+
+  it("una fiesta viaja por la red como el resto del estado", () => {
+    const e = partida();
+    ponerFiesta(e, "Noche de Wiracochas", LOS_BUENOS, 60);
+    const ida = JSON.parse(JSON.stringify(e));
+    expect(ida.fiesta.nombre).toBe("Noche de Wiracochas");
+    expect(ida.fiesta.florines).toEqual(LOS_BUENOS);
   });
 });
 

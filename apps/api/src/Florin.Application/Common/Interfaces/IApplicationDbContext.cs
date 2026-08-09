@@ -1,4 +1,5 @@
 using Florin.Domain.Identity;
+using Florin.Domain.Eventos;
 using Florin.Domain.Jugadores;
 using Microsoft.EntityFrameworkCore;
 
@@ -16,6 +17,8 @@ public interface IApplicationDbContext
     DbSet<PerfilJugador> Perfiles { get; }
     DbSet<PartidaGuardada> Partidas { get; }
     DbSet<AlbumEntrada> Album { get; }
+    DbSet<Evento> Eventos { get; }
+    DbSet<EventoRegaloEntregado> EventoRegalos { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

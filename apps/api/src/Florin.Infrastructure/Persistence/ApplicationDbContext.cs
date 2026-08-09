@@ -1,6 +1,7 @@
 using System.Reflection;
 using Florin.Application.Common.Interfaces;
 using Florin.Domain.Identity;
+using Florin.Domain.Eventos;
 using Florin.Domain.Jugadores;
 using Microsoft.EntityFrameworkCore;
 
@@ -19,6 +20,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<PerfilJugador> Perfiles => Set<PerfilJugador>();
     public DbSet<PartidaGuardada> Partidas => Set<PartidaGuardada>();
     public DbSet<AlbumEntrada> Album => Set<AlbumEntrada>();
+    public DbSet<Evento> Eventos => Set<Evento>();
+    public DbSet<EventoRegaloEntregado> EventoRegalos => Set<EventoRegaloEntregado>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

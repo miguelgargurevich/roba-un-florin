@@ -21,6 +21,7 @@ import {
   puestoDe, puestosDeCarrera, VUELTAS, CIRCUITOS, pensarBot, GARAJE, VEHICULOS,
   fundir, queSaleDeFundir,
   TRASTOS_ESCENARIO, darleVehiculo, esEspecial, ANCHO_PISTA, aparcarNuevo, comprarPatio,
+  ponerFiesta, enFiesta,
   usarPotenciador, potenciadoresDe, potenciadorPorId,
   soltarCarga, trastoDe,
   venderFlorin,
@@ -571,6 +572,181 @@ const elTienda = document.getElementById("tienda");
 document.getElementById("btnTienda").addEventListener("click", abrirTienda);
 document.getElementById("tiendaCerrar").addEventListener("click", cerrarTienda);
 
+/* ============================================================
+   Las fiestas
+   ============================================================
+   El servidor no simula nada: solo dice "hay fiesta, esto es lo que baja y
+   hasta cuándo". Cada cliente lo aplica en SU partida, que es lo que permite
+   que la fiesta llegue igual al que juega solo sin cuenta y al que está en una
+   sala. Se pregunta cada minuto: un evento empieza a una hora, no a un segundo.
+
+   El regalo va aparte, contra el servidor y una sola vez por cuenta: si lo
+   diera el cliente, recargar la página sería una máquina de Florines. */
+const FIESTA_CADA = 60_000;
+let fiestaViva = null;             // lo último que dijo el servidor
+let fiestaPuestaEn = null;         // el id que ya está aplicado a esta partida
+
+async function mirarSiHayFiesta(){
+  const r = await nube.fiestaViva();
+  if (!r) return;
+  fiestaViva = r;
+  aplicarFiesta();
+  pintarCartelFiesta();
+}
+
+/** Mete la fiesta en la partida que esté en marcha. */
+function aplicarFiesta(){
+  if (!G || !G.started || G.over) return;
+  const f = fiestaViva?.ahora;
+  if (!f){ fiestaPuestaEn = null; return; }
+  if (fiestaPuestaEn === f.id && enFiesta(G)) return;    // ya está puesta
+  ponerFiesta(G, f.nombre, f.florines.map(x => ({ tier: x.tier, variant: x.variante || null })),
+              fiestaViva.segundosQueQuedan);
+  fiestaPuestaEn = f.id;
+  pop(G.player.x, G.player.y - 110, "🎉 ¡" + f.nombre + "!", "#FFD84D");
+  Snd.win();
+  recogerRegaloSiToca();
+}
+
+/** El regalo del evento: lo entrega el servidor y lo coloca el cliente. */
+async function recogerRegaloSiToca(){
+  const f = fiestaViva?.ahora;
+  if (!f || !fiestaViva.regaloPendiente || !nube.hayCuenta) return;
+  if (!G || !G.started || G.over) return;
+  const r = await nube.recogerRegalo(f.id);
+  const premio = r && r.florin;
+  if (!premio) return;
+  fiestaViva.regaloPendiente = false;
+  const hueco = freePedDe(G, G.player);
+  const fl = nuevoFlorin(G, premio.tier, { variant: premio.variante || null });
+  if (hueco){ hueco.florin = fl; hueco.pop = 1; }
+  else if (!G.player.carry) G.player.carry = fl;
+  else { pop(G.player.x, G.player.y - 90, "El regalo no cabe: haz sitio en la vitrina", "#FF6B90"); return; }
+  vistoEnAlbum(premio.tier, premio.variante || null);
+  pop(G.player.x, G.player.y - 90, "🎁 ¡Regalo de la fiesta!", "#FFD84D");
+  guardarPartidaAhora();
+}
+
+const elFiestaCartel = document.getElementById("fiestaCartel");
+function pintarCartelFiesta(){
+  const f = fiestaViva?.ahora;
+  const hay = !!f && (!G || !G.started || enFiesta(G));
+  elFiestaCartel.hidden = !hay;
+  if (!hay) return;
+  const quedan = G && G.started && G.fiesta
+    ? Math.max(0, G.fiesta.hasta - G.t) : fiestaViva.segundosQueQuedan;
+  elFiestaCartel.innerHTML =
+    '<b>🎉 ' + f.nombre.replace(/[<>&]/g, "") + '</b> · por la pasarela · ' + mmss(quedan);
+}
+
+/* ---- el panel de admin ----
+   Elegir qué baja por la pasarela es elegir de una parrilla de rareza × variante:
+   la misma que el álbum, que es donde ya se sabe qué existe. */
+const elAdmin = document.getElementById("admin");
+const adminSel = new Set();                   // "tier:variante" de lo que baja
+let adminRegalo = null;
+
+const claveFlorin = (tier, v) => tier + ":" + (v || "");
+const partesFlorin = k => ({ tier: +k.split(":")[0], variante: k.split(":")[1] || null });
+
+function celdaFlorin(grid, tier, variante, elegida, alTocar){
+  const T = TIERS[tier];
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "adminCel" + (elegida ? " sel" : "");
+  b.innerHTML = (variante ? VARIANTES[variante].icon : "🪴") +
+    '<span>' + T.name.replace("Florín ", "") + '</span>' +
+    '<span class="rr">' + (variante ? VARIANTES[variante].label : T.rar) + '</span>';
+  b.addEventListener("click", () => { alTocar(); Snd.unlock(); });
+  grid.appendChild(b);
+}
+
+function pintarAdmin(){
+  const rejilla = document.getElementById("adminFlorines");
+  const regalo = document.getElementById("adminRegalo");
+  rejilla.innerHTML = ""; regalo.innerHTML = "";
+  /* De la rareza más alta hacia abajo: lo que se manda en una fiesta es lo
+     bueno, y tenerlo primero ahorra desplazarse. */
+  const variantes = [null, ...ALBUM_VARIANTES.filter(Boolean)];
+  for (let tier = TIERS.length - 1; tier >= 0; tier--){
+    for (const v of variantes){
+      const k = claveFlorin(tier, v);
+      celdaFlorin(rejilla, tier, v, adminSel.has(k), () => {
+        if (adminSel.has(k)) adminSel.delete(k); else adminSel.add(k);
+        pintarAdmin();
+      });
+    }
+  }
+  for (let tier = TIERS.length - 1; tier >= 0; tier--){
+    for (const v of variantes){
+      const k = claveFlorin(tier, v);
+      celdaFlorin(regalo, tier, v, adminRegalo === k, () => {
+        adminRegalo = adminRegalo === k ? null : k;
+        pintarAdmin();
+      });
+    }
+  }
+  document.getElementById("adminAviso").textContent =
+    adminSel.size ? adminSel.size + " elegidos" : "elige al menos uno";
+}
+
+async function pintarListaFiestas(){
+  const caja = document.getElementById("adminLista");
+  const filas = await nube.fiestasProgramadas();
+  caja.innerHTML = "";
+  if (!filas || !filas.length){ caja.innerHTML = '<p class="albumSub">Todavía no hay ninguna.</p>'; return; }
+  for (const f of filas){
+    const d = new Date(f.empiezaEn);
+    const div = document.createElement("div");
+    div.className = "fila";
+    div.innerHTML = '<span><b>' + f.nombre.replace(/[<>&]/g, "") + '</b><br>' +
+      d.toLocaleString() + " · " + Math.round(f.duraSegundos / 60) + " min · " +
+      f.florines.length + " Florines" + (f.cancelado ? " · cancelada" : "") + '</span>';
+    if (!f.cancelado){
+      const b = document.createElement("button");
+      b.textContent = "Cancelar";
+      b.addEventListener("click", async () => { await nube.cancelarFiesta(f.id); pintarListaFiestas(); });
+      div.appendChild(b);
+    }
+    caja.appendChild(div);
+  }
+}
+
+function abrirAdmin(){
+  if (!nube.esAdmin) return;
+  if (!document.getElementById("adminCuando").value){
+    /* Por defecto, dentro de cinco minutos: el `datetime-local` quiere la hora
+       LOCAL sin zona, así que se le resta el desfase antes de recortarlo. */
+    const d = new Date(Date.now() + 5 * 60_000 - new Date().getTimezoneOffset() * 60_000);
+    document.getElementById("adminCuando").value = d.toISOString().slice(0, 16);
+  }
+  pintarAdmin();
+  pintarListaFiestas();
+  elAdmin.hidden = false;
+}
+function cerrarAdmin(){ elAdmin.hidden = true; }
+document.getElementById("btnAdmin").addEventListener("click", abrirAdmin);
+document.getElementById("adminCerrar").addEventListener("click", cerrarAdmin);
+
+document.getElementById("adminCrear").addEventListener("click", async () => {
+  const nombre = document.getElementById("adminNombre").value.trim() || "Fiesta en la pasarela";
+  const cuando = document.getElementById("adminCuando").value;
+  const minutos = +document.getElementById("adminDura").value || 15;
+  if (!adminSel.size){ decir("Elige al menos un Florín para la pasarela.", "mal"); return; }
+  if (!cuando){ decir("Ponle hora a la fiesta.", "mal"); return; }
+  const r = await nube.programarFiesta({
+    nombre,
+    empiezaEn: new Date(cuando).toISOString(),   // el servidor lo guarda en UTC
+    duraSegundos: Math.round(minutos * 60),
+    florines: [...adminSel].map(partesFlorin),
+    regalo: adminRegalo ? partesFlorin(adminRegalo) : null,
+  });
+  if (!r){ decir("No se pudo programar. ¿Sigue tu sesión abierta?", "mal"); return; }
+  decir("🎪 " + nombre + " programada.", "bien");
+  pintarListaFiestas();
+  mirarSiHayFiesta();
+});
+
 function vistoEnAlbum(tier, variant){
   const k = albumKey(tier, variant);
   if (album[k]) return;
@@ -834,6 +1010,7 @@ for (const b of document.querySelectorAll(".cerrarX")){
     if (qué === "arm" || qué === "rul" || qué === "fus") cerrarPanel(qué);
     else if (qué === "album") cerrarAlbum();
     else if (qué === "tienda") cerrarTienda();
+    else if (qué === "admin") cerrarAdmin();
     else if (qué === "bautizo") cerrarBautizo();
   });
 }
@@ -1605,7 +1782,14 @@ function pintarCuentaAtras(en){
 
 /* Recién acá, con todo el formulario montado, se enchufa la cuenta. */
 nube.alCambiar(alEntrarOSalir);
+/* El botón de programar fiestas aparece y desaparece con la sesión. */
+nube.alCambiar(() => { document.getElementById("btnAdmin").hidden = !nube.esAdmin; });
 despertarCuenta();
+
+/* La fiesta se pregunta al entrar y cada minuto. Un evento empieza a una hora,
+   no a un segundo: sondear más seguido sería gastar batería por nada. */
+mirarSiHayFiesta();
+setInterval(mirarSiHayFiesta, FIESTA_CADA);
 
 document.getElementById("btnStart").addEventListener("click", () => startGame(1));
 document.getElementById("btnAgain").addEventListener("click", () => startGame());
@@ -8026,6 +8210,55 @@ function drawFlorinEn(ctx, x, y, s, f, t){
 /** El de siempre, en el lienzo del juego. */
 function drawFlorin(x, y, s, f, t){ drawFlorinEn(ctx, x, y, s, f, t); }
 
+/* ---- las luces de la fiesta ----
+   Focos de colores barriendo la pasarela y papelitos cayendo sobre el ocho.
+   Va todo con `G.t`, así que no hace falta guardar ni una partícula: dos
+   clientes con la misma fiesta ven lo mismo, y apagarla no deja rastro. */
+function drawFiesta(){
+  if (!G.fiesta || !enFiesta(G)) return;
+  /* La caja del ocho, que es por donde pasa el desfile: la fiesta ilumina la
+     pasarela, no el mapa entero. */
+  const { cx, cy, rx, ry } = orbitaDelCentro(G);
+  const COLORES = ["#FF3D6E", "#FFC53D", "#5CE1EA", "#8B6BEE", "#3DDC97"];
+  ctx.save();
+
+  // los focos: cinco haces girando desde el centro del ocho
+  ctx.globalCompositeOperation = "lighter";
+  for (let i = 0; i < COLORES.length; i++){
+    const a = G.t * 0.5 + (i / COLORES.length) * 6.283;
+    const largo = rx * 1.35;
+    const g = ctx.createLinearGradient(cx, cy, cx + Math.cos(a) * largo, cy + Math.sin(a) * largo);
+    g.addColorStop(0, COLORES[i] + (REDUCED ? "18" : "30"));
+    g.addColorStop(1, COLORES[i] + "00");
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, largo, a - 0.13, a + 0.13);
+    ctx.closePath(); ctx.fill();
+  }
+  ctx.globalCompositeOperation = "source-over";
+
+  /* Los papelitos. Determinista con `az`: cada uno cae a su ritmo y vuelve a
+     empezar arriba, sin lista que mantener. */
+  if (!REDUCED){
+    const ALTO = ry * 4.4;
+    for (let i = 0; i < 90; i++){
+      const px = cx - rx * 1.2 + az(i * 7) * rx * 2.4;
+      const vel = 60 + az(i * 13) * 90;
+      const py = cy - ALTO / 2 + ((G.t * vel + az(i * 5) * ALTO) % ALTO);
+      ctx.save();
+      ctx.translate(px, py);
+      ctx.rotate(G.t * (1 + az(i * 3) * 3) + i);
+      ctx.fillStyle = COLORES[i % COLORES.length];
+      ctx.globalAlpha = 0.75;
+      ctx.fillRect(-4, -2.5, 8, 5);
+      ctx.restore();
+    }
+    ctx.globalAlpha = 1;
+  }
+  ctx.restore();
+}
+
 /* ---- la cochera ----
    El suelo de tu garaje, pegado al patio: cemento, sus plazas pintadas y el
    techo de calamina al fondo. Los vehículos los dibuja `drawTrastos` como
@@ -8676,7 +8909,7 @@ function draw(){
   drawCascaras();
   drawTrastos();
   drawFauna();
-  if (!corriendo){ for (const b of G.bases) drawLaser(b); drawDesfile(); }
+  if (!corriendo){ for (const b of G.bases) drawLaser(b); drawFiesta(); drawDesfile(); }
   drawGrabRing();
   drawAim();
 
@@ -9171,6 +9404,7 @@ function hud(){
      nadie volvía a mirar `G.girando`. */
   if (!el.rul.hidden) renderRuleta();
   if (!el.arm.hidden) renderRack();
+  if (!elFiestaCartel.hidden || (G.fiesta && enFiesta(G))) pintarCartelFiesta();
 }
 
 /* ============================================================
@@ -9188,6 +9422,8 @@ function startGame(modo){
 function aLaCancha(){
   G.paused = false;
   G.over = false;
+  fiestaPuestaEn = null;          // partida nueva: la fiesta hay que volver a ponerla
+  aplicarFiesta();
   guardaEn = GUARDA_CADA;
   pops = []; puffs = [];
   document.getElementById("app").classList.toggle("dos", !!G.local2);
@@ -9329,6 +9565,18 @@ if (import.meta.env.DEV) {
     dinero: n => { G.player.money = n; },
     vehiculo: (tipo, quien = 0) => { darleVehiculo(G, G.players[quien], tipo); return tipo; },
     cargar: tier => { G.player.carry = nuevoFlorin(G, tier ?? 3); },
+    /* El panel de fiestas sin ser admin: para mirar cómo queda. Las llamadas
+       a la API las sigue rechazando el servidor, que es quien manda. */
+    panelDeFiestas: () => { pintarAdmin(); elAdmin.hidden = false; },
+    /* Una fiesta sin servidor, para ver las luces y lo que baja. */
+    fiesta: (segundos = 120, florines = [{ tier: TIERS.length - 1, variant: "galaxia" }]) => {
+      fiestaViva = { ahora: { id: "prueba", nombre: "Noche de prueba",
+                              florines: florines.map(f => ({ tier: f.tier, variante: f.variant })) },
+                     segundosQueQuedan: segundos, regaloPendiente: false };
+      fiestaPuestaEn = null;
+      aplicarFiesta(); pintarCartelFiesta();
+      return enFiesta(G);
+    },
     yo: () => ({ x: Math.round(G.player.x), y: Math.round(G.player.y),
                  dinero: Math.round(G.player.money), carry: !!G.player.carry,
                  suelo: G.ground.length, montado: G.player.montado,

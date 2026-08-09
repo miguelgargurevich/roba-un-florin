@@ -17,6 +17,7 @@ import {
   venderFlorin, precioDeVenta, soltarCarga, puestoDe, puestosDeCarrera,
   VUELTAS, CIRCUITOS, JUGADORES_MAX, pensarBot, GARAJE, TRASTOS_ESCENARIO,
   darleVehiculo, vehiculoDelSitio, esEspecial, ANCHO_PISTA, enLaPista, aparcarNuevo, comprarPatio,
+  ponerFiesta, enFiesta,
   usarPotenciador, potenciadoresDe, potenciadorPorId, colocarPuestos,
   DIFICULTADES, dificultadDe, fijarMundo, MUNDO_NORMAL, fundir, queSaleDeFundir,
 } from "@florin/engine";
@@ -34,6 +35,7 @@ export {
   venderFlorin, precioDeVenta, soltarCarga, puestoDe, puestosDeCarrera,
   VUELTAS, CIRCUITOS, JUGADORES_MAX, pensarBot, GARAJE, TRASTOS_ESCENARIO,
   darleVehiculo, vehiculoDelSitio, esEspecial, ANCHO_PISTA, enLaPista, DIFICULTADES, dificultadDe, aparcarNuevo, comprarPatio,
+  ponerFiesta, enFiesta,
   fundir, queSaleDeFundir,
   usarPotenciador, potenciadoresDe, potenciadorPorId, colocarPuestos,
 };

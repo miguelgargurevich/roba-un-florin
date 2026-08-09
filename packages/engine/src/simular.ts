@@ -128,14 +128,33 @@ export function comprarPatio(e: Estado, p: Jugador, b: Base) {
   sonar(e, "buy");
 }
 
+/** ¿Hay fiesta ahora mismo? Caduca sola: nadie tiene que apagarla. */
+export const enFiesta = (e: Estado): boolean => !!e.fiesta && e.t < e.fiesta.hasta;
+
+/** Poner (o quitar) la fiesta que anuncia el servidor. `segundos` es lo que le
+    queda de vida a partir de AHORA. */
+export function ponerFiesta(e: Estado, nombre: string,
+                            florines: { tier: number; variant: Variante }[],
+                            segundos: number): void {
+  if (!florines.length || segundos <= 0) { e.fiesta = null; return; }
+  e.fiesta = { nombre, hasta: e.t + segundos, florines: florines.slice() };
+}
+
 export function sacarDelPortal(e: Estado) {
   const P = e.portal;
   if (P.desfile.length >= PORTAL_MAX) return;
+  /* En fiesta la tabla de rarezas no manda: bajan los que anunció el evento,
+     que es de lo que va la fiesta. */
+  const deFiesta = enFiesta(e)
+    ? e.fiesta!.florines[(azar(e) * e.fiesta!.florines.length) | 0]
+    : null;
   const fila = tiraDeTabla(e, PORTAL_RAREZAS);
   const p0 = puntoDelDesfile(e, 0);
   P.desfile.push({
     id: nuevoId(e),
-    florin: nuevoFlorin(e, fila.tier, { bob: rnd(e, 0, 6.28) }),
+    florin: deFiesta
+      ? nuevoFlorin(e, deFiesta.tier, { variant: deFiesta.variant, bob: rnd(e, 0, 6.28) })
+      : nuevoFlorin(e, fila.tier, { bob: rnd(e, 0, 6.28) }),
     k: 0, x: p0.x, y: p0.y,
     /* El camino se echa a suertes AQUÍ, al salir del portal, no en el cruce:
        el resultado es el mismo y así el recorrido entero es una función de `k`,

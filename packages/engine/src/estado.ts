@@ -678,7 +678,7 @@ export function crearPartida(op: OpcionesPartida): Estado {
     bolts: [], blasts: [], cascaras: [], trastos: [], perros: [], slowmo: 0,
     thieves: [], ground: [], thiefTimer: 14,
     girando: null, ultimoPremio: null, cajas: [],
-    alarma: null,
+    alarma: null, fiesta: null,
     over: false, winnerIdx: null, proximoId: 0,
     eventos: [],
   };
