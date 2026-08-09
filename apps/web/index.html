@@ -299,6 +299,32 @@
   .avisoBtns{display:flex;gap:10px;flex-wrap:wrap}
   .avisoBtns .play{flex:1 1 180px;font-size:18px;padding:14px}
 
+  /* ---------- la Fusionadora ---------- */
+  #fusion{
+    position:relative;align-self:center;flex:0 0 auto;
+    width:min(560px,100%);margin-bottom:8px;pointer-events:auto;
+    background:linear-gradient(180deg,color-mix(in srgb,var(--plum-800) 96%,transparent),var(--plum-900));
+    border:3px solid var(--cosmo,#8B6BEE);border-radius:18px;padding:12px;
+    box-shadow:0 12px 0 rgba(0,0,0,.4);
+    max-height:calc(100vh - 120px);
+    overflow-y:auto;overscroll-behavior:contain;
+    touch-action:pan-y;-webkit-overflow-scrolling:touch;
+  }
+  #fusion[hidden]{display:none}
+  #fusion h2{font-family:var(--display);font-size:20px;margin:0 0 4px;color:var(--cream);
+             display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+  #fusion h2 small{font-family:var(--num);font-size:14px;color:var(--gold)}
+  .fusSub{margin:0 0 10px;font-size:12.5px;color:var(--cream-dim);line-height:1.4}
+  .fusRejilla{display:grid;grid-template-columns:repeat(auto-fill,minmax(76px,1fr));gap:8px;margin-bottom:10px}
+  .fusCel{
+    border:2px solid var(--plum-600);border-radius:12px;background:var(--plum-700);
+    padding:5px;cursor:pointer;display:grid;place-items:center;gap:2px;
+  }
+  .fusCel .nm{font-size:10.5px;color:var(--cream-dim);text-align:center;line-height:1.15}
+  .fusCel.sel{border-color:var(--cosmo,#8B6BEE);background:color-mix(in srgb,#8B6BEE 22%,var(--plum-700));
+              box-shadow:0 0 0 2px rgba(139,107,238,.4)}
+  .fusPie{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+
   .albumGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
   @media (max-width:520px){ .albumGrid{grid-template-columns:repeat(2,1fr)} }
   /* En fila: el Florín dibujado a la izquierda y su ficha a la derecha. */
@@ -949,13 +975,24 @@
       <div class="rack" id="garaje"></div>
     </div>
 
+    <div id="fusion" hidden>
+      <button class="cerrarX" data-cerrar="fus" aria-label="Cerrar la Fusionadora">✕</button>
+      <h2>⚗️ Fusionadora <small id="fusMoney">$0</small></h2>
+      <p class="fusSub">Elige <b>dos Florines</b> de tu vitrina. Sale uno del promedio de los dos, subido un escalón, y se queda con la mejor variante.</p>
+      <div class="fusRejilla" id="fusRejilla"></div>
+      <div class="fusPie">
+        <button class="rulBtn" id="fusBtn" disabled>Elige dos</button>
+        <span class="rulMsg" id="fusMsg"></span>
+      </div>
+    </div>
+
     <div id="ruleta" hidden>
       <button class="cerrarX" data-cerrar="rul" aria-label="Cerrar la Ruleta">✕</button>
       <h2>🎰 Ruleta de Florines <small id="rulMoney">$0</small></h2>
       <div class="rulTira"><div class="rulStrip" id="rulStrip"></div><i class="rulMarca"></i></div>
       <div class="rulPie">
         <button class="rulBtn" id="rulGirar">Girar · $1 200</button>
-        <span class="rulMsg" id="rulMsg">Hay casillas <b>???</b>: de ahí salen las cuatro variantes ✨ 🌈 👻 👑.</span>
+        <span class="rulMsg" id="rulMsg">Hay casillas <b>???</b>: de ahí salen las siete variantes ✨ 🌈 👻 👑 💎 🌋 🌌.</span>
       </div>
     </div>
 
@@ -1050,12 +1087,13 @@
       <details class="comoSeJuega" id="comoSeJuega">
         <summary>📖 Cómo se juega</summary>
       <ul class="rules">
-        <li><span class="pip">🌷</span><span>Cada Florín en tu vitrina paga por segundo, y solo si está en tu patio. Hay <b>15 rarezas</b>, del bloque de tierra <b>Común</b> al <b>Amaru</b>, pasando por el Cebichero, el Chasqui, la Momia y el Inca de Oro. Y cuatro variantes: ✨ <b>Brillante</b> (×2), 🌈 <b>Arcoíris</b> (×3), 👻 <b>Fantasma</b> (×4) y 👑 <b>Dorado</b> (×5).</span></li>
+        <li><span class="pip">🌷</span><span>Cada Florín en tu vitrina paga por segundo, y solo si está en tu patio. Hay <b>15 rarezas</b>, del bloque de tierra <b>Común</b> al <b>Amaru</b>, pasando por el Cebichero, el Chasqui, la Momia y el Inca de Oro. Y <b>siete variantes</b>: ✨ Brillante (×2), 🌈 Arcoíris (×3), 👻 Fantasma (×4), 👑 Dorado (×5), 💎 Cristal (×6), 🌋 Lava (×8) y 🌌 Galaxia (×12).</span></li>
         <li><span class="pip">🏃</span><span>Métete a las bases vecinas y <b>quédate junto a un Florín</b> hasta llenar el aro para llevártelo.</span></li>
         <li><span class="pip">😼</span><span>Seis vecinos vienen por los tuyos: <b style="color:#FFD84D">Mayo</b> agarra el más caro, <b style="color:#FF9EC4">El Sobri</b> agarra lo que pilla, <b style="color:#FF5C86">la Prima Yuli</b> vuela pero solo carga lo barato, <b style="color:#8B6BEE">los Marcianos</b> se teletransportan, <b style="color:#5CE1EA">Doña Meche</b> va despacio pero solo por lo caro, y <b style="color:#9BD97F">El Chato</b> corre muchísimo y carga de todo.</span></li>
         <li><span class="pip">👵</span><span>Cada base tiene su <b>abuela</b>. Si te alcanza, sueltas el Florín y quedas mareado.</span></li>
         <li><span class="pip">🩴</span><span>Lanza la chancla para <b>noquear abuelas y ladrones</b>. Regresa como bumerán: espérala para volver a lanzar.</span></li>
         <li><span class="pip">🎯</span><span><b>Apunta antes de tirar:</b> con ratón, hacia donde pongas el cursor (la línea punteada te lo muestra). En celular o iPad, <b>arrastra desde el botón rosa</b> y suelta.</span></li>
+        <li><span class="pip">⚗️</span><span>En la <b>Fusionadora</b> metes <b>dos Florines de tu patio</b> y sale uno solo: el promedio de los dos subido un escalón, y se queda con la mejor variante. No te deja si lo que saliera fuese peor que lo que metes.</span></li>
         <li><span class="pip">🏡</span><span>Puedes <b>comprar cuatro patios más</b> (de $4 000 a $70 000) para guardar más Florines: métete en la reja para comprarlos.</span></li>
         <li><span class="pip">🛡️</span><span>Cada patio tuyo tiene su <b>placa de láseres</b>: párate encima un segundo, paga $800 y nadie entra por 60 s. Luego tarda 30 s en recargar.</span></li>
         <li><span class="pip">💃</span><span>Del <b>portal</b> del centro sale un Florín cada 6 s: le da una vuelta a la Armería y se vuelve a meter. No es de nadie — <b>atrápalo al pasar</b> como si lo robaras. Así consigues tus Florines, y los raros salen poco: corre por ellos.</span></li>

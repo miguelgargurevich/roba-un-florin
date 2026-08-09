@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import {
   CIRCUITOS, ESCENARIOS, ESCUDO_DUR, FLORES, GARAJE, GOAL, HITO_R, JUGADORES_MAX,
   VEHICULOS, VUELTAS, ANCHO_PISTA, CASAS_POR_MAPA, PATIOS_PRECIO, TIERRA_DEL_ESPECIAL,
-  montarEscenario, esDeSuTierra, VARIANTES,
+  montarEscenario, esDeSuTierra, VARIANTES, fundir, queSaleDeFundir,
   PORTAL_CADA, PORTAL_MAX, PORTAL_VUELTA, TRASTOS_ESCENARIO, CAJAS_EN_PISTA, ESPECIAL_NIVEL, darleVehiculo,
   enLaPista, esEspecial, potenciadorPorId, potenciadoresDe, trastoDe, usarPotenciador,
   vehiculoDelSitio,
@@ -1261,6 +1261,19 @@ describe("el reparto del mapa", () => {
     }
   });
 
+  it("la Fusionadora no cae encima de una casa", () => {
+    for (const esc of ESCENARIOS) {
+      const e = partida({ escenario: esc.id });
+      const m = e.fusion;
+      expect(m, esc.id + ": no hay Fusionadora").toBeTruthy();
+      for (const b of e.bases) {
+        const r = b.rect;
+        expect(m.x < r.x + r.w && m.x + m.w > r.x && m.y < r.y + r.h && m.y + m.h > r.y,
+               esc.id + ": la Fusionadora cae dentro de la base " + b.id).toBe(false);
+      }
+    }
+  });
+
   it("los circuitos caben en el mundo", () => {
     for (const base of CIRCUITOS) {
       const esc = montarEscenario(base);
@@ -1333,6 +1346,73 @@ describe("lo brava que es la carrera", () => {
     const asfalto = rec(true), cesped = rec(false);
     expect(cesped, `asfalto ${Math.round(asfalto)} vs césped ${Math.round(cesped)}`)
       .toBeLessThan(asfalto * 0.85);
+  });
+});
+
+describe("la Fusionadora", () => {
+  /** Deja dos Florines en la vitrina y mete al jugador en la máquina. */
+  function conDos(tierA: number, varA: any, tierB: number, varB: any) {
+    const e = partida();
+    const p = e.players[0];
+    p.money = 999999;
+    const peds = baseDe(e, p.baseId).peds;
+    peds[0].florin = nuevoFlorin(e, tierA, { variant: varA });
+    peds[1].florin = nuevoFlorin(e, tierB, { variant: varB });
+    p.x = e.fusion.x + e.fusion.w / 2; p.y = e.fusion.y + e.fusion.h / 2;
+    avanzar(e, nada(), 1 / 60);
+    return { e, p };
+  }
+
+  it("dos del montón suben de rareza", () => {
+    const { e, p } = conDos(0, null, 0, null);
+    expect(p.inFusion, "no me deja entrar").toBe(true);
+    expect(fundir(e, p, 0, 1)).toBe(true);
+    const quedan = occupiedDe(e, p);
+    expect(quedan.length, "deberían quedar uno, no dos").toBe(1);
+    expect(quedan[0].florin!.tier, "dos Comunes no dieron un Fiestero").toBe(1);
+  });
+
+  it("se queda con la mejor variante de las dos", () => {
+    const { e, p } = conDos(2, "dorado", 2, null);
+    expect(fundir(e, p, 0, 1)).toBe(true);
+    const q = occupiedDe(e, p)[0].florin!;
+    expect(q.tier).toBe(3);
+    expect(q.variant, "se perdió el Dorado por el camino").toBe("dorado");
+  });
+
+  it("no deja fundir si el resultado sería peor que lo que metes", () => {
+    /* Un Amaru con un Común daría algo de media tabla: la máquina no te deja
+       cargarte el Amaru. */
+    const { e, p } = conDos(TIERS.length - 1, null, 0, null);
+    expect(queSaleDeFundir(nuevoFlorin(e, TIERS.length - 1), nuevoFlorin(e, 0)).ok).toBe(false);
+    expect(fundir(e, p, 0, 1)).toBe(false);
+    expect(occupiedDe(e, p).length, "se comió los Florines igual").toBe(2);
+  });
+
+  it("en lo más alto no se puede fundir", () => {
+    const tope = TIERS.length - 1;
+    const { e, p } = conDos(tope, null, tope, null);
+    expect(fundir(e, p, 0, 1)).toBe(false);
+    expect(occupiedDe(e, p).length).toBe(2);
+  });
+
+  it("cobra, y sin plata no funde", () => {
+    const { e, p } = conDos(0, null, 0, null);
+    const precio = queSaleDeFundir(nuevoFlorin(e, 0), nuevoFlorin(e, 0)).precio;
+    expect(precio).toBeGreaterThan(0);
+    p.money = precio - 1;
+    expect(fundir(e, p, 0, 1), "fundió sin pagar").toBe(false);
+    p.money = precio;
+    expect(fundir(e, p, 0, 1)).toBe(true);
+    expect(p.money).toBe(0);
+  });
+
+  it("fuera de la máquina no se funde nada", () => {
+    const { e, p } = conDos(0, null, 0, null);
+    p.x = 50; p.y = 50;
+    avanzar(e, nada(), 1 / 60);
+    expect(p.inFusion).toBe(false);
+    expect(fundir(e, p, 0, 1)).toBe(false);
   });
 });
 

@@ -270,7 +270,7 @@ function mkJugador(idx: number, base: Base, shirt: string, ammoIds: string[]): J
     x: base.rect.x + base.rect.w / 2, y: base.rect.y + base.rect.h / 2,
     vx: 0, vy: 0, face: 1, walk: 0, dirx: 1, diry: 0,
     carry: null, stun: 0, boost: 0, invis: 0, escudo: 0, inmune: 0,
-    money: 260, ammo, wsel: 0, cd: 0, inShop: false, inRuleta: false, fullWarn: 0,
+    money: 260, ammo, wsel: 0, cd: 0, inShop: false, inRuleta: false, inFusion: false, fullWarn: 0,
     chancla: { state: "held", x: 0, y: 0, vx: 0, vy: 0, spin: 0, travel: 0 },
     montado: null, trastoUsado: null,
     grab: { ped: null, t: 0 },
@@ -370,11 +370,16 @@ export function colocarPuestos(bases: Base[]) {
   const arm0 = { x: cx - 450, y: cy - 75, w: 300, h: 150 };
   const rul0 = { x: cx + 300, y: cy, r: 92 };
   // la Armería de fuera empieza a buscar por abajo-derecha y la Ruleta por arriba-izquierda
+  /* La Fusionadora busca sitio como los demás. Puesta a dedo encima del centro
+     caía justo sobre la poza de La Catarata: el sitio bueno depende del mapa. */
+  const fusion = buscar(260, 140, { x: cx, y: cy },
+                        anillo(Math.PI * 0.5), (x, y) => ({ x, y, w: 260, h: 140 }));
   return {
     armerias: [arm0, buscar(300, 150, { x: arm0.x + 150, y: arm0.y + 75 },
                             anillo(Math.PI / 4), (x, y) => ({ x, y, w: 300, h: 150 }))],
     ruletas: [rul0, buscar(184, 184, rul0,
                            anillo(-Math.PI * 0.75), (x, y) => ({ x: x + 92, y: y + 92, r: 92 }))],
+    fusion,
   };
 }
 
@@ -440,7 +445,7 @@ export function crearPartida(op: OpcionesPartida): Estado {
      Armería a la izquierda y la Ruleta a la derecha. El desfile les da la
      vuelta a los dos, así que el centro del mapa es de verdad el centro. */
   const { cx, cy } = centroDelMapa();
-  const { armerias, ruletas } = colocarPuestos(bases);
+  const { armerias, ruletas, fusion } = colocarPuestos(bases);
   /* El portal de salida se aparta de la orilla. Con el margen fijo de siempre
      medido desde abajo acababa dentro del agua en cuanto el mapa creció —el mar
      va en fracción del alto y el margen no—, y los Florines del desfile salían
@@ -453,7 +458,7 @@ export function crearPartida(op: OpcionesPartida): Estado {
 
   const e: Estado = {
     t: 0, reglas, esc, semilla, rngEstado: semilla | 0,
-    bases, players: jugadores, armerias, ruletas, portal,
+    bases, players: jugadores, armerias, ruletas, fusion, portal,
     bolts: [], blasts: [], cascaras: [], trastos: [], perros: [], slowmo: 0,
     thieves: [], ground: [], thiefTimer: 14,
     girando: null, ultimoPremio: null, cajas: [],

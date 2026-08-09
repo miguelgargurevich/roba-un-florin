@@ -125,6 +125,8 @@ export interface Jugador {
   cd: number;
   inShop: boolean;
   inRuleta: boolean;
+  /** ¿está dentro de la Fusionadora? */
+  inFusion: boolean;
   fullWarn: number;
   chancla: Chancla;
   /** id del trasto que lleva debajo, o null si va a pie */
@@ -353,6 +355,8 @@ export interface Estado {
      centro, el de siempre. */
   armerias: Rect[];
   ruletas: Circulo[];
+  /** La Fusionadora: se meten dos Florines de la vitrina y sale uno. */
+  fusion: Rect;
   portal: Portal;
 
   bolts: Bala[];

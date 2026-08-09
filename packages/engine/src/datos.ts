@@ -5,7 +5,7 @@
    los Marcianos) y los de los Florines viven SOLO en estas tablas. Cambiarlos es
    editar este archivo, no tocar reglas. */
 
-import type { Escenario , Trazado} from "./tipos.js";
+import type { Escenario, Trazado, Variante } from "./tipos.js";
 
 /* El tamaño del mundo ya NO es una constante: lo fija cada escenario al empezar
    la partida. Casi todos miden 3600 x 2100, pero El Valle es tres zonas cosidas
@@ -275,6 +275,23 @@ export const TRASTOS_ESCENARIO: Record<string, { tipo: string; n: number }[]> = 
 };
 
 export const RULETA_PRECIO = 1200;
+
+/* ---- La Fusionadora ----
+   Se meten dos Florines de tu vitrina y sale uno solo. La regla es el PROMEDIO
+   de los dos subido un escalón, redondeando hacia arriba: dos Comunes dan un
+   Fiestero, un Fiestero y un Común dan un Girasolón. Es lo bastante predecible
+   como para hacer planes y lo bastante generoso como para que juntar cosas
+   sueltas valga la pena.
+
+   Y solo se deja fundir si el resultado MEJORA al mejor de los dos. Sin eso,
+   meter un Amaru con un Común daría algo de media tabla y te habrías cargado el
+   Amaru: la máquina no te deja hacerte eso. */
+export const fusionTier = (a: number, b: number, tope: number) =>
+  Math.min(tope, Math.round((a + b) / 2) + 1);
+
+/** Lo que cuesta la fusión: la mitad de lo que vale lo que sale. */
+export const fusionPrecio = (tierResultado: number) =>
+  Math.round((TIERS[tierResultado]?.price ?? 0) * 0.5);
 export type CasillaRuleta =
   | { p: number; kind: "florin"; tier: number }
   | { p: number; kind: "dinero"; monto: number }
@@ -307,7 +324,9 @@ export const RULETA: CasillaRuleta[] = [
 ];
 export interface FilaIncognita {
   p: number; tier?: number; tierMax?: number;
-  variant: "brillante" | "arcoiris" | "fantasma" | "dorado" | null;
+  /* Del tipo del motor, no de una lista repetida: al añadir tres variantes esta
+     copia se quedó vieja y el compilador las rechazaba. */
+  variant: Variante;
 }
 /* La casilla ??? es de donde salen TODAS las variantes. Cuanto mejor la
    variante, más baja la rareza que la acompaña: un Dorado ×5 sobre un Cósmico

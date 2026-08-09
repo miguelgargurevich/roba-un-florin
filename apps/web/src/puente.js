@@ -18,7 +18,7 @@ import {
   VUELTAS, CIRCUITOS, JUGADORES_MAX, pensarBot, GARAJE, TRASTOS_ESCENARIO,
   darleVehiculo, vehiculoDelSitio, esEspecial, ANCHO_PISTA, enLaPista,
   usarPotenciador, potenciadoresDe, potenciadorPorId, colocarPuestos,
-  DIFICULTADES, dificultadDe, fijarMundo, MUNDO_NORMAL,
+  DIFICULTADES, dificultadDe, fijarMundo, MUNDO_NORMAL, fundir, queSaleDeFundir,
 } from "@florin/engine";
 
 export {
@@ -34,6 +34,7 @@ export {
   venderFlorin, precioDeVenta, soltarCarga, puestoDe, puestosDeCarrera,
   VUELTAS, CIRCUITOS, JUGADORES_MAX, pensarBot, GARAJE, TRASTOS_ESCENARIO,
   darleVehiculo, vehiculoDelSitio, esEspecial, ANCHO_PISTA, enLaPista, DIFICULTADES, dificultadDe,
+  fundir, queSaleDeFundir,
   usarPotenciador, potenciadoresDe, potenciadorPorId, colocarPuestos,
 };
 

@@ -24,6 +24,12 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Última sesión
 
+- 2026-08-08 (claude-code): **La Fusionadora**: se meten dos Florines de la
+  vitrina y sale uno, el promedio de los dos subido un escalón, con la mejor
+  variante de las dos. Trabaja sobre la VITRINA y no sobre lo que llevas en
+  brazos porque solo se carga uno a la vez. Está en el centro, con la Armería y
+  la Ruleta, y busca sitio como ellas.
+
 - 2026-08-08 (claude-code): **tres variantes nuevas de Florín** —Cristal (x6),
   Lava (x8) y Galaxia (x12)— con su dibujo propio, y cuatro flores más. El álbum
   pasa de 75 a 120 casillas y su lista de variantes sale del catálogo, no de una

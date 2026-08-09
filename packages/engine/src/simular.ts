@@ -10,11 +10,12 @@
 
 import type {
   Base, Bala, DesfileItem, EntradaJugador, Estado, Florin, Jugador, Ladron,
-  Pedestal, Premio, Abuela, RefObjetivo, RefPed, Trasto,
+  Pedestal, Premio, Abuela, RefObjetivo, RefPed, Trasto, Variante,
 } from "./tipos.js";
 import {
   ESCUDO_DUR, GARAJE, GOAL, LADRONES, LASER_CARGA, RULETA, RULETA_INCOGNITA, RULETA_PRECIO,
   PATADA, PORTAL_CADA, PORTAL_MAX, PORTAL_RAREZAS, PORTAL_VUELTA, dificultadDe,
+  fusionTier, fusionPrecio,
   LASER_DUR, LASER_PRECIO, LASER_RECARGA, RODAR_ROCE, TRASTO_ALCANCE, HITO_R, VUELTAS,
   PORTAL_VEL, CAJA_GIRA, CAJA_VUELVE, potenciadoresDe, potenciadorPorId,
   TIERS, VARIANTES, VEHICULOS, WEAPONS, WORLD_H, WORLD_W, esVehiculo, varLabel, varMult,
@@ -282,6 +283,58 @@ export function girarRuleta(e: Estado, p: Jugador, dur = 2.2): boolean {
   p.money -= RULETA_PRECIO;
   e.girando = { t: 0, dur, premio: premioDeRuleta(e), jugadorIdx: p.idx };
   e.ultimoPremio = null;
+  return true;
+}
+
+/* ---- La Fusionadora ----
+   Se meten dos Florines de la vitrina y sale uno. Trabaja sobre la vitrina y no
+   sobre lo que llevas en brazos porque solo se puede cargar UNO a la vez: pedir
+   dos serían dos viajes, y nadie haría el segundo. */
+
+/** Qué saldría de fundir estos dos, o por qué no se puede. */
+export function queSaleDeFundir(a: Florin, b: Florin): {
+  ok: boolean; tier: number; variant: Variante; precio: number; motivo?: string;
+} {
+  const tope = TIERS.length - 1;
+  const tier = fusionTier(a.tier, b.tier, tope);
+  /* La mejor variante de las dos: fundir un Dorado con uno pelado te sube de
+     rareza y te lo conserva. */
+  const variant = varMult(a.variant) >= varMult(b.variant) ? a.variant : b.variant;
+  const precio = fusionPrecio(tier);
+  /* Y solo si MEJORA al mejor de los dos. Sin esto, meter un Amaru con un Común
+     daría algo de media tabla y te habrías cargado el Amaru. */
+  const mejorTier = Math.max(a.tier, b.tier);
+  const mejorVar = Math.max(varMult(a.variant), varMult(b.variant));
+  if (tier < mejorTier || (tier === mejorTier && varMult(variant) <= mejorVar))
+    return { ok: false, tier, variant, precio,
+             motivo: mejorTier >= tope ? "Ya es lo más alto que hay"
+                                       : "De aquí no sale nada mejor" };
+  return { ok: true, tier, variant, precio };
+}
+
+/** Funde dos Florines de la vitrina. `i` y `j` son índices de `occupiedDe`. */
+export function fundir(e: Estado, p: Jugador, i: number, j: number): boolean {
+  if (!p.inFusion || i === j) return false;
+  const llenos = occupiedDe(e, p);
+  const A = llenos[i], B = llenos[j];
+  if (!A?.florin || !B?.florin) return false;
+  const r = queSaleDeFundir(A.florin, B.florin);
+  if (!r.ok) { texto(e, p.x, p.y - 62, r.motivo || "No se puede", "#FF6B90"); return false; }
+  if (p.money < r.precio) {
+    texto(e, p.x, p.y - 62, "Te falta plata: " + money(r.precio), "#FF6B90");
+    return false;
+  }
+  p.money -= r.precio;
+  /* El nuevo se queda en el pedestal del primero y el segundo queda libre: así
+     la vitrina no se descoloca y se ve dónde apareció. */
+  const nuevo = nuevoFlorin(e, r.tier, { variant: r.variant, bob: A.florin.bob });
+  A.florin = nuevo;
+  B.florin = null;
+  A.pop = 1;
+  e.eventos.push({ tipo: "album", tier: r.tier, variant: r.variant } as any);
+  sonar(e, "win");
+  polvo(e, A.x, A.y, VARIANTES[r.variant as keyof typeof VARIANTES]?.color || "#FFEFE2", 22);
+  texto(e, A.x, A.y - 50, "¡" + TIERS[r.tier].name + "!", "#3DDC97");
   return true;
 }
 
@@ -1399,5 +1452,6 @@ function avanzarJugador(e: Estado, p: Jugador, ent: EntradaJugador | undefined, 
   if (e.reglas.puestos) {
     p.inShop = e.armerias.some(a => inRect(p.x, p.y, a, 30));
     p.inRuleta = e.ruletas.some(r => dist2(p.x, p.y, r.x, r.y) < (r.r + 30) ** 2);
+    p.inFusion = !!e.fusion && inRect(p.x, p.y, e.fusion, 30);
   }
 }

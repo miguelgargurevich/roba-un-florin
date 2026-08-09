@@ -19,6 +19,7 @@ import {
   occupiedDe, orbitaDelCentro, playerIncome, puntoDelDesfile, rumboDeTiro,
   bajarse, conAtajosDeSala as conAtajosMotor, nombreDeHito, patiosDe, precioDeVenta,
   puestoDe, puestosDeCarrera, VUELTAS, CIRCUITOS, pensarBot, GARAJE, VEHICULOS,
+  fundir, queSaleDeFundir,
   TRASTOS_ESCENARIO, darleVehiculo, esEspecial, ANCHO_PISTA,
   usarPotenciador, potenciadoresDe, potenciadorPorId,
   soltarCarga, trastoDe,
@@ -319,6 +320,7 @@ const el = {
   wSvg:   document.getElementById("wSvg"),
   btnInicio: document.getElementById("btnInicio"),
   rul:     document.getElementById("ruleta"),
+  fus:     document.getElementById("fusion"),
   rulStrip:document.getElementById("rulStrip"),
   rulMon:  document.getElementById("rulMoney"),
   rulBtn:  document.getElementById("rulGirar"),
@@ -628,7 +630,7 @@ el.throwB.addEventListener("keydown", e => {
 for (const b of document.querySelectorAll(".cerrarX")){
   const qué = b.dataset.cerrar;
   b.addEventListener("click", () => {
-    if (qué === "arm" || qué === "rul") cerrarPanel(qué);
+    if (qué === "arm" || qué === "rul" || qué === "fus") cerrarPanel(qué);
     else if (qué === "album") cerrarAlbum();
     else if (qué === "bautizo") cerrarBautizo();
   });
@@ -639,33 +641,104 @@ el.hand.addEventListener("click", () => { toggleZurdo(); empujarPreferencias(); 
 /* ---- paneles de Armería y Ruleta: se abren con su botón, no al pasar ---- */
 function panelDisponible(cual){
   if (!G || !G.started || G.over || G.local2) return false;
-  return cual === "arm" ? !!G.player.inShop : !!G.player.inRuleta;
+  return cual === "arm" ? !!G.player.inShop
+       : cual === "fus" ? !!G.player.inFusion
+       : !!G.player.inRuleta;
 }
+const cajaDe = cual => cual === "arm" ? el.arm : cual === "fus" ? el.fus : el.rul;
 function cerrarPanel(cual){
-  (cual === "arm" ? el.arm : el.rul).hidden = true;
+  cajaDe(cual).hidden = true;
   renderBotonesPanel();
 }
 function togglePanel(cual){
   if (!panelDisponible(cual)){
     if (G && G.started && !G.over && !G.local2){
       const p = G.player;
-      const donde = cual === "arm" ? "la Armería" : "la Ruleta";
+      const donde = cual === "arm" ? "la Armería" : cual === "fus" ? "la Fusionadora" : "la Ruleta";
       pop(p.x, p.y-62, "Tienes que estar en " + donde, "#FF6B90");
     }
     return;
   }
-  const caja = cual === "arm" ? el.arm : el.rul;
+  const caja = cajaDe(cual);
   const abrir = caja.hidden;
   // solo un panel a la vez: si están pegados, uno taparía al otro
-  el.arm.hidden = true; el.rul.hidden = true;
+  el.arm.hidden = true; el.rul.hidden = true; el.fus.hidden = true;
   caja.hidden = !abrir;
   if (abrir){
     if (cual === "arm") renderRack();
+    else if (cual === "fus"){ fusElegidos = []; renderFusion(); }
     else { G.ultimoPremio = null; construirTira(null); renderRuleta(); }
     Snd.unlock();
   }
   renderBotonesPanel();
 }
+/* ---- el panel de la Fusionadora ----
+   Trabaja sobre la vitrina, no sobre lo que llevas en brazos: solo se carga un
+   Florín a la vez, así que pedir dos serían dos viajes. */
+let fusElegidos = [];
+
+function renderFusion(){
+  const rejilla = document.getElementById("fusRejilla");
+  const btn = document.getElementById("fusBtn");
+  const msg = document.getElementById("fusMsg");
+  document.getElementById("fusMoney").textContent = money(G.player.money);
+  const llenos = occupiedDe(G, G.player);
+  rejilla.innerHTML = "";
+  fusElegidos = fusElegidos.filter(i => i < llenos.length);
+  llenos.forEach((ped, i) => {
+    const f = ped.florin;
+    const cel = document.createElement("button");
+    cel.type = "button";
+    cel.className = "fusCel" + (fusElegidos.includes(i) ? " sel" : "");
+    const cv = document.createElement("canvas");
+    cv.width = 60; cv.height = 60;
+    drawFlorinEn(cv.getContext("2d"), 30, 36, .95, f, performance.now() / 1000 + i);
+    cel.appendChild(cv);
+    const nm = document.createElement("span");
+    nm.className = "nm";
+    nm.textContent = TIERS[f.tier].name.replace("Florín ", "") +
+                     (f.variant ? " " + VARIANTES[f.variant].icon : "");
+    cel.appendChild(nm);
+    cel.addEventListener("click", () => {
+      const k = fusElegidos.indexOf(i);
+      if (k >= 0) fusElegidos.splice(k, 1);
+      else if (fusElegidos.length < 2) fusElegidos.push(i);
+      else fusElegidos = [fusElegidos[1], i];      // el más viejo cede el sitio
+      renderFusion();
+      Snd.unlock();
+    });
+    rejilla.appendChild(cel);
+  });
+  if (!llenos.length){
+    rejilla.innerHTML = '<span class="rulMsg">Tu vitrina está vacía. Trae Florines primero.</span>';
+  }
+  /* El botón dice exactamente qué va a salir, para que nadie funda a ciegas. */
+  if (fusElegidos.length < 2){
+    btn.disabled = true; btn.textContent = "Elige dos";
+    msg.textContent = llenos.length < 2 ? "Hacen falta dos Florines en la vitrina." : "";
+    return;
+  }
+  const A = llenos[fusElegidos[0]].florin, B = llenos[fusElegidos[1]].florin;
+  const r = queSaleDeFundir(A, B);
+  if (!r.ok){
+    btn.disabled = true; btn.textContent = "No se puede";
+    msg.textContent = r.motivo || "";
+    return;
+  }
+  const nombre = TIERS[r.tier].name + (r.variant ? " " + VARIANTES[r.variant].icon : "");
+  btn.disabled = G.player.money < r.precio;
+  btn.textContent = "Fundir · " + money(r.precio);
+  msg.innerHTML = "Sale un <b>" + nombre + "</b>" +
+    (G.player.money < r.precio ? " — te falta plata" : "");
+}
+
+document.getElementById("fusBtn").addEventListener("click", () => {
+  if (fusElegidos.length !== 2) return;
+  const ok = fundir(G, G.player, fusElegidos[0], fusElegidos[1]);
+  if (ok){ fusElegidos = []; guardarPartidaAhora(); }
+  renderFusion();
+});
+
 /* ---- el "entra aquí" que sale sobre tu cabeza ----
    La pista de antes decía "entra y toca 🧰 arriba": había que adivinar cuál de
    los seis iconos de la barra era ese. Encima del personaje no hay nada que
@@ -678,13 +751,14 @@ function pintarAccion(){
   const puedo = G && G.started && !G.over && !G.paused && !G.local2;
   const cual = !puedo ? null
     : panelDisponible("arm") ? "arm"
+    : panelDisponible("fus") ? "fus"
     : panelDisponible("rul") ? "rul" : null;
-  const yaAbierto = !el.arm.hidden || !el.rul.hidden;
+  const yaAbierto = !el.arm.hidden || !el.rul.hidden || !el.fus.hidden;
   if (!cual || yaAbierto){ elAccion.hidden = true; accionActual = null; return; }
   if (cual !== accionActual){
     accionActual = cual;
-    elAccion.textContent = cual === "arm"
-      ? "🧰 Entrar a la Armería"
+    elAccion.textContent = cual === "arm" ? "🧰 Entrar a la Armería"
+      : cual === "fus" ? "⚗️ Abrir la Fusionadora"
       : "🎰 Girar la Ruleta · " + money(RULETA_PRECIO);
   }
   const p = G.player;
@@ -7530,6 +7604,68 @@ function drawFlorinEn(ctx, x, y, s, f, t){
 /** El de siempre, en el lienzo del juego. */
 function drawFlorin(x, y, s, f, t){ drawFlorinEn(ctx, x, y, s, f, t); }
 
+/* ---- la Fusionadora ----
+   Una máquina de barrio: dos tolvas arriba por donde entran los Florines, un
+   tambor que gira y una boca abajo por donde sale el que resulta. */
+function drawFusion(){
+  const m = G.fusion;
+  if (!m) return;
+  const x = m.x, y = m.y, w = m.w, h = m.h;
+  const dentro = !!G.player.inFusion;
+  ctx.save();
+  ctx.fillStyle = "rgba(0,0,0,.28)";
+  ctx.beginPath(); ctx.ellipse(x + w/2, y + h + 6, w*.52, 14, 0, 0, 6.283); ctx.fill();
+  /* el cuerpo */
+  ctx.fillStyle = "#5A4E6E";
+  roundRect(x, y, w, h, 14); ctx.fill();
+  ctx.fillStyle = "#6E6088";
+  roundRect(x + 6, y + 6, w - 12, h - 12, 10); ctx.fill();
+  /* las dos tolvas de arriba */
+  ctx.fillStyle = "#8B6BEE";
+  for (const tx of [x + w*.24, x + w*.66]){
+    ctx.beginPath();
+    ctx.moveTo(tx - 26, y - 30); ctx.lineTo(tx + 26, y - 30);
+    ctx.lineTo(tx + 12, y + 4);  ctx.lineTo(tx - 12, y + 4);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "rgba(0,0,0,.28)";
+    ctx.beginPath(); ctx.ellipse(tx, y - 30, 26, 7, 0, 0, 6.283); ctx.fill();
+    ctx.fillStyle = "#8B6BEE";
+  }
+  /* el tambor, que gira más rápido cuando estás dentro */
+  const gira = G.t * (dentro ? 3.2 : 1.1);
+  ctx.save();
+  ctx.translate(x + w/2, y + h*.5);
+  ctx.fillStyle = "#2A2236";
+  ctx.beginPath(); ctx.arc(0, 0, 30, 0, 6.283); ctx.fill();
+  ctx.fillStyle = "#C9C2D8";
+  for (let k = 0; k < 6; k++){
+    const a = gira + k * 1.047;
+    ctx.save(); ctx.rotate(a);
+    ctx.fillRect(-3, -27, 6, 14);
+    ctx.restore();
+  }
+  ctx.fillStyle = "#8B6BEE";
+  ctx.beginPath(); ctx.arc(0, 0, 9, 0, 6.283); ctx.fill();
+  ctx.restore();
+  /* la boca de salida y las luces */
+  ctx.fillStyle = "#2A2236";
+  roundRect(x + w*.5 - 26, y + h - 16, 52, 22, 6); ctx.fill();
+  for (let k = 0; k < 3; k++){
+    const on = Math.sin(G.t * 4 + k * 2) > 0;
+    ctx.fillStyle = on ? ["#FFD84D","#3DDC97","#FF6B90"][k] : "rgba(255,255,255,.18)";
+    ctx.beginPath(); ctx.arc(x + 18 + k * 16, y + 16, 4.5, 0, 6.283); ctx.fill();
+  }
+  /* el cartel */
+  ctx.fillStyle = dentro ? "#FFEFE2" : "#C9C2D8";
+  ctx.font = "800 15px system-ui, sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText("FUSIONADORA", x + w/2, y - 42);
+  ctx.font = "600 11px system-ui, sans-serif";
+  ctx.fillStyle = "rgba(201,194,216,.85)";
+  ctx.fillText(dentro ? "toca el botón" : "métete para juntar dos Florines", x + w/2, y - 26);
+  ctx.restore();
+}
+
 function drawArmeria(){ for (const a of G.armerias) unaArmeria(a); }
 function unaArmeria(a){
   ctx.save();
@@ -8053,6 +8189,7 @@ function draw(){
     drawRuta();                      // la alfombra va debajo de todo
     for (const b of G.bases) drawBase(b);
     drawArmeria();
+    drawFusion();
     drawPortal();
     if (!G.local2) drawRuleta();
   }
