@@ -341,7 +341,7 @@ function resize(){
   /* El alto sale de la proporción del mundo. Con 200 fijos y un mapa más
      apaisado, el minimapa estiraba el mundo a lo alto y las distancias que
      enseñaba eran mentira. */
-  mm.width = 300; mm.height = Math.round(300 * WORLD_H / WORLD_W);
+  mm.width = 300; mm.height = Math.round(300 * WORLD_H / miniAncho());
 }
 window.addEventListener("resize", resize);
 
@@ -2245,6 +2245,10 @@ let vetoDeco = [];
    los decorados —que se escribieron pensando "0 a WORLD_W"— caen donde toca
    sin tocarles una línea. */
 let DECO_W = 0, DECO_H = 0, DECO_X = 0;
+/* El mar de la caja que se está pintando. En un mapa de zonas cada una trae el
+   suyo —o ninguno—, así que un decorado con agua no puede leerlo del escenario:
+   `G.esc.mar` no existe en el Multiverso y salía NaN. */
+let DECO_MAR = null;
 
 function libreDeco(x, y, m){
   const caja = { x:x-m, y:y-m, w:m*2, h:m*2 };
@@ -6666,7 +6670,7 @@ function decoItalia(c, E){
    La costa: las tres carabelas fondeadas, chozas de los nativos, hogueras,
    tótems y palmeras. */
 function decoAmerica(c, E){
-  const mar = G.esc.mar;
+  const mar = DECO_MAR ?? (DECO_H - 300);
   c.fillStyle = E.mancha;
   for (let i=0;i<16;i++){
     const x = azEntre(i+17,0,DECO_W), y = azEntre(i+47,0,mar-60), r = 44+az(i)*60;
@@ -7420,11 +7424,25 @@ function unTope(cual, x, y, ang, i){
 }
 
 /** El mosaico (cx,cy), pintándolo si es la primera vez que se ve. */
+/* Cuántos mosaicos se guardan a la vez. Un lienzo de 1024x1024 ocupa unos 4 MB,
+   así que la caché NO puede crecer con el mapa: recorrer el Multiverso de punta
+   a punta toca 255 trozos —un giga de memoria— y una tableta se cae mucho antes.
+   En pantalla caben seis (tres columnas de dos), así que con doce hay una
+   columna de margen a cada lado: andando no se repinta nada y la cuenta se queda
+   en 48 MB en vez de crecer sin freno. */
+const MOSAICOS_MAX = 12;
+
 function trozoDeSuelo(cx, cy){
   const clave = cx + "," + cy;
   if (mosaicoDe !== G.esc.id){ mosaicos = new Map(); mosaicoDe = G.esc.id; }
   const ya = mosaicos.get(clave);
-  if (ya) return ya;
+  if (ya){
+    /* Sacar y volver a meter lo pone al final del Map, que en JS conserva el
+       orden de inserción: así el primero es siempre el más viejo sin llevar
+       ninguna cuenta aparte. */
+    mosaicos.delete(clave); mosaicos.set(clave, ya);
+    return ya;
+  }
   const cv = document.createElement("canvas");
   cv.width = MOSAICO; cv.height = MOSAICO;
   const c = cv.getContext("2d");
@@ -7433,6 +7451,14 @@ function trozoDeSuelo(cx, cy){
   c.translate(-cx * MOSAICO, -cy * MOSAICO);
   pintarDecorado(c);
   mosaicos.set(clave, cv);
+  while (mosaicos.size > MOSAICOS_MAX){
+    const viejo = mosaicos.keys().next().value;
+    const lienzo = mosaicos.get(viejo);
+    /* Encogerlo antes de soltarlo: en Safari el lienzo suelto puede tardar en
+       irse, y lo que ocupa es el mapa de píxeles, no el objeto. */
+    lienzo.width = lienzo.height = 1;
+    mosaicos.delete(viejo);
+  }
   return cv;
 }
 
@@ -7444,22 +7470,36 @@ function pintarSuelo(){
   pintarDecorado(c);
 }
 
+/* ---- qué trozo de mundo enseña el minimapa ----
+   Normalmente el mundo entero. En un mapa muy apaisado, no: el Multiverso mide
+   86 400 x 2 100 y el minimapa salía de 300 x 7 px — una raya donde no se
+   distingue nada. Ahí se enseña una VENTANA del ancho de un mapa normal y pico,
+   que es lo que se puede recorrer sin que se haga de noche.
+
+   Lo usan el `resize` (para el alto del lienzo) y el dibujo, así que vive aquí y
+   no en ninguno de los dos. */
+const MINI_VENTANA = 3600 * 1.6;
+const miniLargo = () => WORLD_W / WORLD_H > 3;
+const miniAncho = () => (miniLargo() ? MINI_VENTANA : WORLD_W);
+
 /** Todo el decorado del escenario, en coordenadas de mundo. */
 function pintarDecorado(c){
   vetoDeco = [];
   const zonas = G.esc.zonas;
   if (!zonas){
     DECO_W = WORLD_W; DECO_H = WORLD_H; DECO_X = 0;
+    DECO_MAR = G.esc.mar ?? null;
     unDecorado(c, G.esc.id);
     bordeDelMapa(c, G.esc.id);
     return;
   }
-  /* El Valle: cada zona con su decorado, en su franja. */
+  /* El Multiverso: cada zona con su decorado, en su franja. */
   for (const z of zonas){
     c.save();
     c.beginPath(); c.rect(z.x0, 0, z.x1 - z.x0, WORLD_H); c.clip();
     c.translate(z.x0, 0);
     DECO_W = z.x1 - z.x0; DECO_H = WORLD_H; DECO_X = z.x0;
+    DECO_MAR = z.mar ?? null;
     unDecorado(c, z.id);
     c.restore();
   }
@@ -9205,8 +9245,17 @@ function draw(){
 
 function drawMinimap(){
   const w = mm.width, h = mm.height;
-  const sx = w/WORLD_W, sy = h/WORLD_H;
+  /* Normalmente el mundo entero. En un mapa muy largo, no: el Multiverso mide
+     86 400 x 2 100, y metido en 300 px de ancho sale una raya de cuarenta y uno
+     a uno donde tu patio no llega ni a un píxel. Ahí se enseña una VENTANA
+     alrededor de ti, del ancho de un mapa normal, que es lo que se puede
+     recorrer sin que se te haga de noche. */
+  const vw = miniAncho();
+  const ox = miniLargo() ? clamp((G.player?.x ?? 0) - vw/2, 0, Math.max(0, WORLD_W - vw)) : 0;
+  const sx = w/vw, sy = h/WORLD_H;
   mctx.clearRect(0,0,w,h);
+  mctx.save();
+  mctx.translate(-ox*sx, 0);
   mctx.fillStyle = "rgba(27,12,26,.6)";
   mctx.fillRect(0,0,w,h);
   for (const b of G.bases){
@@ -9275,6 +9324,22 @@ function drawMinimap(){
     mctx.fillStyle = jug.shirt;
     mctx.beginPath(); mctx.arc(jug.x*sx, jug.y*sy, 6, 0, 6.283); mctx.fill();
     mctx.strokeStyle = "#0F070E"; mctx.lineWidth = 2; mctx.stroke();
+  }
+  mctx.restore();
+
+  /* En qué zona estás. Sin esto, la ventana del minimapa del Multiverso es un
+     trozo de mundo sin nombre: te dice dónde hay casas, no dónde estás tú. */
+  if (G.esc.zonas && G.player){
+    const z = G.esc.zonas.find(q => G.player.x >= q.x0 && G.player.x < q.x1);
+    if (z){
+      const nom = (ESCENARIOS.find(x => x.id === z.id)?.nombre || z.id).toUpperCase();
+      mctx.font = "800 15px system-ui, sans-serif";
+      mctx.textAlign = "center"; mctx.textBaseline = "top";
+      mctx.lineWidth = 4; mctx.strokeStyle = "rgba(15,7,14,.92)";
+      mctx.strokeText(nom, mm.width/2, 4);
+      mctx.fillStyle = "#FFEFE2";
+      mctx.fillText(nom, mm.width/2, 4);
+    }
   }
 }
 
@@ -9650,6 +9715,20 @@ if (import.meta.env.DEV) {
     dinero: n => { G.player.money = n; },
     vehiculo: (tipo, quien = 0) => { darleVehiculo(G, G.players[quien], tipo); return tipo; },
     cargar: tier => { G.player.carry = nuevoFlorin(G, tier ?? 3); },
+    /* Cuántos mosaicos de suelo hay guardados y cuánto pesan: es lo que se
+       sale de las manos en un mapa enorme. */
+    suelo: () => ({ mosaicos: mosaicos.size, mb: +(mosaicos.size * 4).toFixed(1) }),
+    /* Pintar de verdad un tramo del mundo, para medir. */
+    barrer: (desde, hasta, paso = 900) => {
+      const t0 = performance.now();
+      let trozos = 0;
+      for (let x = desde; x < hasta; x += paso){
+        G.player.x = x;
+        const cx = Math.floor(x / 1024);
+        for (let cy = 0; cy < Math.ceil(WORLD_H / 1024); cy++){ trozoDeSuelo(cx, cy); trozos++; }
+      }
+      return { ms: Math.round(performance.now() - t0), trozos, guardados: mosaicos.size };
+    },
     /* El panel de fiestas sin ser admin: para mirar cómo queda. Las llamadas
        a la API las sigue rechazando el servidor, que es quien manda. */
     panelDeFiestas: () => { pintarAdmin(); elAdmin.hidden = false; },

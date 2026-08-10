@@ -269,9 +269,8 @@ export const TRASTOS_ESCENARIO: Record<string, { tipo: string; n: number }[]> = 
      donde encontrarla. En un camino de cerro, una de montaña pega. */
   /* El Valle reparte lo de sus tres zonas: bicis y llamas del cerro, grúas y
      monsters de la obra, elefantes del zoológico. */
-  valle:       [{ tipo:"bici", n:3 },       { tipo:"llama", n:3 },    { tipo:"grua", n:2 },
-                { tipo:"monster", n:2 },    { tipo:"elefante", n:2 }, { tipo:"piedra", n:6 },
-                { tipo:"ladrillo", n:6 },   { tipo:"banano", n:6 }],
+  /* El Multiverso no tiene receta propia: cada zona siembra la suya (ver
+     `sembrarTrastos`). Una lista para 86 400 px sería un almacén. */
   catarata:    [{ tipo:"bici", n:3 },       { tipo:"llama", n:3 },
                 { tipo:"balsa", n:2 },      { tipo:"piedra", n:8 }],
   nevado:      [{ tipo:"motonieve", n:3 },  { tipo:"tablaArena", n:3 },{ tipo:"bolaNieve", n:9 }],
@@ -760,16 +759,41 @@ const BASE_W = 380, BASE_H = 330;
    descampado. Con esto ocupa el 41 % del ancho (antes el 48 %), y el sitio que
    sobra alrededor es justo donde caben las casas nuevas. */
 export let OCHO_A = 0, OCHO_B = 0;
+/* Dónde está "el centro" para lo que vive en el centro: la pasarela, el portal y
+   el anillo de puestos. En un mapa normal es la mitad del mundo. En uno de zonas
+   es la mitad de la PRIMERA zona, la de tu casa: una pasarela en el kilómetro 43
+   del Multiverso la vería una vez cada jugador, y de casualidad. */
+export let CENTRO_X = 0;
 
 /** Fija el tamaño del mundo y recalcula todo lo que sale de él. Se llama al
     crear la partida, antes de colocar nada. */
-export function fijarMundo(w: number, h: number): void {
+/* Lo que crece con el mapa tiene tope. Con el mapa grande (3600) todo esto
+   escalaba bien, pero el Multiverso son 86 400 px de ancho: sin tope saldrían
+   246 Florines a la vez por una pasarela de 17 800 px de ancho que tardaría
+   catorce minutos en dar una vuelta. La pasarela es un sitio del mapa, no el
+   mapa entero, así que se queda del tamaño que tiene sentido andando. */
+const TOPE_ANCHO = 3600;                 // a partir de aquí, la pasarela no crece más
+
+/** El centro "de casa" de un escenario: la mitad de su primera zona, o la del
+    mundo si no tiene zonas. */
+export const centroDeEscenario = (esc: { mundo?: { w: number }; zonas?: { x0: number; x1: number }[] }) => {
+  const z = esc.zonas?.[0];
+  return z ? Math.round((z.x0 + z.x1) / 2) : Math.round((esc.mundo?.w ?? MUNDO_NORMAL.w) / 2);
+};
+
+export function fijarMundo(w: number, h: number, centroX?: number): void {
   WORLD_W = w; WORLD_H = h;
+  CENTRO_X = centroX ?? Math.round(w / 2);
   ESCALA_MAPA = (w * h) / (2600 * 1700);
-  PORTAL_CADA = 6 / ESCALA_MAPA;
-  PORTAL_MAX = Math.round(6 * ESCALA_MAPA);
-  PORTAL_VUELTA = Math.round(26 * (w / 2600));
-  OCHO_A = Math.round(w * 0.206);
+  /* El ritmo del desfile se mide contra el mapa grande, con tope: en un mundo
+     enorme lo que hace falta no es un río de Florines, es que siga habiendo
+     desfile cuando pasas por el centro. */
+  const escalaDesfile = Math.min(ESCALA_MAPA, (TOPE_ANCHO * 2100) / (2600 * 1700));
+  PORTAL_CADA = 6 / escalaDesfile;
+  PORTAL_MAX = Math.round(6 * escalaDesfile);
+  const anchoUtil = Math.min(w, TOPE_ANCHO);
+  PORTAL_VUELTA = Math.round(26 * (anchoUtil / 2600));
+  OCHO_A = Math.round(anchoUtil * 0.206);
   OCHO_B = Math.round(h * 0.32);
 }
 fijarMundo(MUNDO_NORMAL.w, MUNDO_NORMAL.h);
@@ -859,7 +883,8 @@ function acomodar(puestos: [number, number][], cuantos: number,
     Devuelve una COPIA. El catálogo `ESCENARIOS` se queda siempre en fracciones,
     que es lo que permite montar el mismo sitio en mundos de distinto tamaño. */
 export function montarEscenario(base: Escenario): Escenario {
-  fijarMundo(base.mundo?.w ?? MUNDO_NORMAL.w, base.mundo?.h ?? MUNDO_NORMAL.h);
+  fijarMundo(base.mundo?.w ?? MUNDO_NORMAL.w, base.mundo?.h ?? MUNDO_NORMAL.h,
+             centroDeEscenario(base));
   const e: Escenario = { ...base };
   e.casas = base.casas.map(sitioAPixel);
   e.patios = base.patios.map(sitioAPixel);
@@ -867,6 +892,14 @@ export function montarEscenario(base: Escenario): Escenario {
   /* El mar se calcula ANTES de repartir: es lo que dice qué mitad de abajo no
      existe para las casas. */
   if (base.mar != null) e.mar = Math.round(WORLD_H * base.mar);
+  /* Y en un mapa de zonas, el mar de cada zona sale del escenario que
+     representa: en el Multiverso La Playa trae su orilla y el desierto no. */
+  if (base.zonas?.length) {
+    e.zonas = base.zonas.map(z => {
+      const suyo: Escenario | undefined = ESCENARIOS.find(x => x.id === z.id);
+      return suyo?.mar != null ? { ...z, mar: Math.round(WORLD_H * suyo.mar) } : { ...z };
+    });
+  }
   /* Los patios primero. En los cinco mapas con mar no caben las trece bases
      —media mitad de abajo es agua—, y de las dos cosas que sobran es peor
      quedarse sin patios que comprar (son TUYOS y son la forma de crecer) que
@@ -1030,17 +1063,51 @@ export const ESCENARIOS: Escenario[] = ([
      el tamaño del mundo lo pide cada escenario.
 
      No tiene circuito: no es un sitio para dar vueltas, es un sitio para andar. */
-  { id:"valle",      nombre:"El Valle",
-    mundo: { w: 10800, h: 2100 },
+  /* ---- El Multiverso ----
+     Los veinticuatro escenarios cosidos en fila, cada uno con su decorado, sus
+     trastos y su gente, y sin menú para pasar de uno a otro: se anda. Veinticuatro
+     veces el ancho de siempre — 86 400 px, cinco minutos y medio de punta a punta
+     a pie— y solo es posible porque el suelo va por mosaicos y el tamaño del
+     mundo lo pide cada escenario.
+
+     Sustituye a El Valle, que fue la prueba de tres zonas.
+
+     Dos decisiones que lo hacen jugable y no un pasillo:
+     · una casa de vecino POR ZONA, así que siempre hay a quién robarle cerca;
+     · tus patios van todos en la primera zona. Tu casa es tu casa: una vitrina
+       repartida por veinticuatro mundos no se defiende.
+
+     No tiene circuito: no es un sitio para dar vueltas. */
+  { id:"multiverso", nombre:"El Multiverso",
+    mundo: { w: 86400, h: 2100 },
     zonas: [
-      { id:"catarata",     x0: 0,    x1: 3600 },
-      { id:"construccion", x0: 3600, x1: 7200 },
-      { id:"zoo",          x0: 7200, x1: 10800 },
+      { id:"catarata",      x0: 0, x1: 3600 },
+      { id:"colegio",       x0: 3600, x1: 7200 },
+      { id:"playa",         x0: 7200, x1: 10800 },
+      { id:"desierto",      x0: 10800, x1: 14400 },
+      { id:"machupicchu",   x0: 14400, x1: 18000 },
+      { id:"nuevayork",     x0: 18000, x1: 21600 },
+      { id:"egipto",        x0: 21600, x1: 25200 },
+      { id:"amazonas",      x0: 25200, x1: 28800 },
+      { id:"pista",         x0: 28800, x1: 32400 },
+      { id:"tablero",       x0: 32400, x1: 36000 },
+      { id:"mirador",       x0: 36000, x1: 39600 },
+      { id:"circuito",      x0: 39600, x1: 43200 },
+      { id:"costaverde",    x0: 43200, x1: 46800 },
+      { id:"prehistoria",   x0: 46800, x1: 50400 },
+      { id:"volcan",        x0: 50400, x1: 54000 },
+      { id:"construccion",  x0: 54000, x1: 57600 },
+      { id:"medieval",      x0: 57600, x1: 61200 },
+      { id:"italia",        x0: 61200, x1: 64800 },
+      { id:"america",       x0: 64800, x1: 68400 },
+      { id:"nevado",        x0: 68400, x1: 72000 },
+      { id:"zoo",           x0: 72000, x1: 75600 },
+      { id:"feria",         x0: 75600, x1: 79200 },
+      { id:"nave",          x0: 79200, x1: 82800 },
+      { id:"luna",          x0: 82800, x1: 86400 },
     ],
-    /* Repartidas por las tres zonas: la gracia es que para robarle a todos hay
-       que cruzar el valle entero. */
-    casas:[sitio(0.06,0.008),sitio(0.30,0.9),sitio(0.60,0.008),sitio(0.78,0.9)],
-    patios:[sitio(0.02,0.5),sitio(0.40,0.5),sitio(0.94,0.5)] },
+    casas:[sitio(0.0208,0.02),sitio(0.0625,0.9),sitio(0.1042,0.02),sitio(0.1458,0.9),sitio(0.1875,0.02),sitio(0.2292,0.9),sitio(0.2708,0.02),sitio(0.3125,0.9),sitio(0.3542,0.02),sitio(0.3958,0.9),sitio(0.4375,0.02),sitio(0.4792,0.9),sitio(0.5208,0.02),sitio(0.5625,0.9),sitio(0.6042,0.02),sitio(0.6458,0.9),sitio(0.6875,0.02),sitio(0.7292,0.9),sitio(0.7708,0.02),sitio(0.8125,0.9),sitio(0.8542,0.02),sitio(0.8958,0.9),sitio(0.9375,0.02),sitio(0.9792,0.9)],
+    patios:[sitio(0.004,0.5),sitio(0.004,0.02),sitio(0.004,0.9),sitio(0.028,0.02),sitio(0.028,0.9)] },
 
   { id:"luna",       nombre:"La Luna",
     casas:[sitio(0,0.008),sitio(1,0.008),sitio(1,0.508),sitio(1,0.992)],

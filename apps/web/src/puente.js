@@ -176,9 +176,9 @@ export const VISUALES = {
     suelo: "#3E4A5C", loseta: "rgba(150,190,230,.07)", mancha: "rgba(24,30,40,.34)",
     borde: "#26303E", deco: "nave", topes: "bidones",
   },
-  valle: {
-    icono: "🗺️",
-    desc: "Tres sitios cosidos en un mapa: del cerro de la catarata a la obra, y de la obra al zoológico. Se cruza andando, sin volver al menú.",
+  multiverso: {
+    icono: "🌌",
+    desc: "Los veinticuatro sitios cosidos en un solo mapa, de la catarata a la Luna: 86 400 px que se cruzan andando, sin volver al menú. Tu casa está en la primera zona; el resto del multiverso es para robar.",
     suelo: "#8E9A66", loseta: "rgba(255,255,255,.05)", mancha: "rgba(60,72,40,.24)",
     borde: "#4A5432", deco: "catarata", topes: "cantos",
   },

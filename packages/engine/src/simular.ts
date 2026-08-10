@@ -22,7 +22,7 @@ import {
 } from "./datos.js";
 import { azar, clamp, dist2, inRect, lerp, money, pick, rnd, tiraDeTabla } from "./util.js";
 import {
-  baseDe, bloqueadoPorLaser, desfileDe, enElMar, enElPuente, esMiPatio, florinIncome, freePed,
+  baseDe, bloqueadoPorLaser, desfileDe, enElMar, enElPuente, marEn, esMiPatio, florinIncome, freePed,
   freePedDe, jugadorDe, laserActivo, mismoFlorin, nivelDeVitrina, nombreDeHito,
   nuevoFlorin, nuevoId, occupied, occupiedDe, patiosDe, pedDe, playerIncome,
   polvo, ponerLaser, puedeMojarse, puntoDelDesfile, sonar, texto, trastoDe, dentroDeLaPista,
@@ -172,8 +172,19 @@ export function spawnThief(e: Estado) {
   const victim = pick(e, victimas);
   const patios = patiosDe(e, victim).filter(b => occupied(b).length);
   if (!patios.length) return;
-  const ladronas = e.bases.filter(b => !b.isPlayer && b.who);
+  let ladronas = e.bases.filter(b => !b.isPlayer && b.who);
   if (!ladronas.length) return;
+  /* De los vecinos de al lado, no de los del otro extremo del mundo. En el
+     Multiverso hay casas a 80 000 px: un ladrón de allí tardaba cinco minutos en
+     llegar a tu patio, así que en la práctica no había ladrones. Se mira quién
+     vive a menos de un mapa normal de la víctima; si no vive nadie cerca, vale
+     cualquiera —mejor un ladrón lento que ninguno. */
+  /* La víctima se sortea UNA vez: sirve para elegir vecino cercano y es la casa
+     a la que va el ladrón. Sortearla dos veces gastaba dos tiradas del azar
+     —adiós determinismo— y podía mandarlo a un patio distinto del que miró. */
+  const victima = pick(e, patios);
+  const cerca = ladronas.filter(b => Math.abs(b.rect.x - victima.rect.x) < 3600);
+  if (cerca.length) ladronas = cerca;
   const from = pick(e, ladronas);
   const K = LADRONES[from.who!];
   const spd = (150 + Math.min(70, e.t * 0.28)) * K.spd;
@@ -181,7 +192,7 @@ export function spawnThief(e: Estado) {
     id: nuevoId(e),
     x: from.rect.x + from.rect.w / 2 + rnd(e, -90, 90),
     y: from.rect.y + from.rect.h / 2 + rnd(e, -70, 70),
-    homeId: from.id, victimId: pick(e, patios).id, state: "go", target: null, carry: null,
+    homeId: from.id, victimId: victima.id, state: "go", target: null, carry: null,
     stun: 0, frozen: 0, abducido: 0, kx: 0, ky: 0, grabT: 0,
     spd, walk: 0, face: 1,
     salto: K.salta ? K.salta : 0, saltoT: 0,
@@ -779,11 +790,19 @@ export function avanzar(e: Estado, entradas: Record<number, EntradaJugador>, dt:
       const masCaro = mios.reduce((m, q) => Math.max(m, q.florin!.tier), 0);
       peor = Math.min(peor, 26 - Math.min(mios.length, 8) * 2.0 - masCaro * 0.7);
     }
-    /* Cuántas casas de vecino quedan importa: un barrio de ocho manda más
+    /* Cuántas casas de vecino hay EN TU BARRIO importa: uno de ocho manda más
        gente que uno de cuatro. Solo acelera —nunca frena— para que sacar
        vecinos a jugar no deje el mapa en silencio: los que quedan vienen
-       igual de seguido, y encima tienes rivales sueltos. */
-    const casas = e.bases.filter(b => !b.isPlayer && b.who).length;
+       igual de seguido, y encima tienes rivales sueltos.
+
+       "En tu barrio" y no "en el mundo": el Multiverso tiene veinticuatro casas
+       repartidas en 86 400 px, y contándolas todas salía un ladrón cada seis
+       segundos —veintiocho en tres minutos, midiendo— cuando solo pueden venir
+       las dos o tres que viven cerca. Se cuenta con el mismo radio con el que
+       `spawnThief` elige quién sale. */
+    const patios = e.players.flatMap(q => q.patios.map(id => baseDe(e, id).rect.x));
+    const casas = e.bases.filter(b => !b.isPlayer && b.who &&
+      patios.some(px => Math.abs(b.rect.x - px) < 3600)).length;
     const ritmo = Math.min(1, 6 / Math.max(1, casas));
     e.thiefTimer = clamp(peor * ritmo, 6, 26);
   }
@@ -793,7 +812,8 @@ export function avanzar(e: Estado, entradas: Record<number, EntradaJugador>, dt:
     const casa = baseDe(e, t.homeId), victima = baseDe(e, t.victimId);
     let objetivo = pedDe(e, t.target);
     applyKnock(t, dt);
-    if (e.esc.mar != null && !enElPuente(e, t.x) && t.y > e.esc.mar) t.y = e.esc.mar;
+    const marT = marEn(e, t.x);
+    if (marT != null && !enElPuente(e, t.x) && t.y > marT) t.y = marT;
     if (t.abducido > 0) {
       t.abducido -= dt;
       if (t.abducido <= 0) {
@@ -911,7 +931,8 @@ export function avanzar(e: Estado, entradas: Record<number, EntradaJugador>, dt:
   for (const b of e.bases) {
     const g = b.guard; if (!g) continue;
     applyKnock(g, dt);
-    if (e.esc.mar != null && !enElPuente(e, g.x) && g.y > e.esc.mar) g.y = e.esc.mar;
+    const marG = marEn(e, g.x);
+    if (marG != null && !enElPuente(e, g.x) && g.y > marG) g.y = marG;
     if (g.abducido > 0) {
       g.abducido -= dt;
       if (g.abducido <= 0) {
@@ -1183,7 +1204,7 @@ export function multDeMontura(e: Estado, p: Jugador): number {
   if (!v) return 1;
   const info = VEHICULOS[v.tipo];
   if (!info) return 1;
-  return info.agua === enElMar(e, p.y) ? info.mult : 0.9;
+  return info.agua === enElMar(e, p.x, p.y) ? info.mult : 0.9;
 }
 
 /* Montarse es automático al pisarlo, pero solo una vez por visita: sin el
@@ -1303,8 +1324,9 @@ function avanzarJugador(e: Estado, p: Jugador, ent: EntradaJugador | undefined, 
   /* ---- la orilla ----
      A pie el agua te para en seco; con tabla o flotador se entra. Si te bajas
      estando dentro, el mismo tope te devuelve a la arena. */
-  if (e.esc.mar != null && !puedeMojarse(e, p) && !enElPuente(e, p.x) && p.y > e.esc.mar) {
-    p.y = e.esc.mar;
+  const marP = marEn(e, p.x);
+  if (marP != null && !puedeMojarse(e, p) && !enElPuente(e, p.x) && p.y > marP) {
+    p.y = marP;
     if (p.vy > 0) p.vy = 0;
   }
 

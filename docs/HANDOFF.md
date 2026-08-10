@@ -8,7 +8,7 @@ Monorepo con workspaces npm:
 
 | Paquete | Qué es |
 |---|---|
-| `packages/engine` | el juego sin navegador: determinista, JSON serializable, 162 pruebas |
+| `packages/engine` | el juego sin navegador: determinista, JSON serializable, 171 pruebas |
 | `apps/web` | el cliente (Vite + canvas 2D). Solo dibuja y escucha teclas |
 | `apps/api` | cuentas, álbum, guardado, fiestas y avisos (.NET 9, Clean Arch + CQRS), 47 pruebas |
 | `apps/salas` | servidor de salas autoritativo (Node + `ws`), 32 pruebas |
@@ -23,6 +23,36 @@ A medias / sin hacer: el modo cooperativo (aplazado a propósito — una sala en
 aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Última sesión
+
+- 2026-08-09 (claude-code): **El Multiverso** en lugar de El Valle: los
+  veinticuatro escenarios cosidos en fila, 86 400 x 2 100, cinco minutos y medio
+  de punta a punta a pie. Cada zona con su decorado, sus trastos y su mar.
+  Lo que hubo que arreglar para que fuera jugable y no un pasillo (todo medido):
+  - **lo que crecía con el mundo, con tope** (`TOPE_ANCHO` en `fijarMundo`): sin
+    él salían 246 Florines a la vez por un ∞ de 17 800 px que tardaba catorce
+    minutos en dar la vuelta;
+  - **`CENTRO_X`**: la pasarela, el portal y los puestos de casa viven en el
+    centro de la PRIMERA zona, no del mundo. Una pasarela en el kilómetro 43 la
+    vería cada jugador una vez y de casualidad;
+  - **una casa de vecino por zona** (24) y **tus cinco patios en la primera**:
+    una vitrina repartida por veinticuatro mundos no se defiende;
+  - **un par de Armería+Ruleta cada tres zonas**: con dos para todo el mapa, la
+    más cercana quedaba a 158 s ANDANDO. Ahora a 3 s;
+  - **trastos por zona** (`sembrarTrastos` recorre `zonas`): dinosaurios en La
+    Prehistoria y grúas en la obra, y de paso la densidad no se multiplica por 41;
+  - **mar por zona** (`marEn(e, x)`, `enElMar(e, x, y)`): agua en cinco zonas y
+    tierra seca en diecinueve;
+  - **ladrones de tu barrio**: `spawnThief` elige vecino a menos de 3 600 px, y el
+    ritmo cuenta las casas CERCANAS. Contando las 24 salía uno cada 6 s (28 en 3
+    min, medido); ahora 14, como un barrio normal;
+  - **caché de mosaicos con tope** (`MOSAICOS_MAX = 12`, 48 MB): recorrer el
+    mundo guardaba 255 lienzos de 1024² — más de un giga, y una tableta se cae
+    mucho antes. Se sueltan los más viejos encogiéndolos a 1x1 primero;
+  - **minimapa con ventana**: el mundo entero salía de 300x7 px. Ahora enseña
+    5 760 px alrededor de ti y rotula en qué zona estás.
+  Gotcha: para un especial, `VEHICULOS[x].agua` significa "también sobre el
+  agua" (vuela), no "solo en el agua" — un guardia nuevo se cargó los dragones
+  de la Edad Media hasta que se separaron los dos sentidos.
 
 - 2026-08-09 (claude-code): **consola de avisos**. El admin escribe un mensaje
   y cuántos minutos se ve, y lo lee todo el que tenga el juego abierto —menú o

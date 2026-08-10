@@ -17,7 +17,7 @@ import {
   avanzar, bajarse, cargar, crearPartida, girarRuleta, idsDeArmas, inRect,
   occupiedDe, playerIncome, spawnThief, usarArma, comprarArma, seleccionarArma,
   nuevoFlorin, baseDe, patiosDe, zap, multDeMontura, puntoDelDesfile, puntoDelOcho,
-  centroDelMapa, WORLD_W, WORLD_H, OCHO_A, colocarPuestos, ponerFiesta, enFiesta,
+  centroDelMapa, WORLD_W, WORLD_H, OCHO_A, colocarPuestos, ponerFiesta, enFiesta, enElMar,
   nivelDeVitrina, nombreDeHito, HITOS_MAX, vitrinaDe, venderFlorin, precioDeVenta, soltarCarga,
   type EntradaJugador, type Estado,
 } from "../src/index.js";
@@ -110,7 +110,10 @@ describe("el mundo se monta bien", () => {
          se negocian: se reparten primero. */
       const casas = e.bases.filter(b => b.who != null).length;
       expect(casas, esc.id + ": pocas casas").toBeGreaterThanOrEqual(6);
-      expect(casas, esc.id + ": demasiadas casas").toBeLessThanOrEqual(CASAS_POR_MAPA);
+      /* El Multiverso trae una casa por zona (veinticuatro): sin eso, ocho casas
+         repartidas en 86 400 px dejarían el mundo vacío. */
+      const tope = esc.zonas?.length ? esc.zonas.length : CASAS_POR_MAPA;
+      expect(casas, esc.id + ": demasiadas casas").toBeLessThanOrEqual(tope);
       expect(e.bases.length, esc.id).toBe(1 + casas + PATIOS_PRECIO.length);
       // y ninguna con los pies en el mar
       if (e.esc.mar != null)
@@ -1194,17 +1197,17 @@ describe("el reparto del mapa", () => {
     a[1] < b[1] + CASA_H && a[1] + CASA_H > b[1];
 
   it("cada escenario trae su tamaño de mundo, y no se contagia al siguiente", () => {
-    /* El Valle mide 10 800 de ancho y los demás 3 600. Si al cambiar de sitio
+    /* El Multiverso mide 86 400 de ancho y los demás 3 600. Si al cambiar de sitio
        no se volviera a fijar, el mapa siguiente se jugaría con el mundo del
        anterior: el jugador se saldría del mapa y la cámara se iría a un lado.
        Lo mismo al REVIVIR una partida guardada, que no pasa por `crearPartida`
        — de eso se encarga `revivirPartida` en el cliente llamando a
        `fijarMundo` con lo que trae el escenario guardado. */
-    const valle = partida({ escenario: "valle" });
-    expect(WORLD_W).toBe(10800);
-    expect(valle.esc.mundo).toEqual({ w: 10800, h: 2100 });
+    const multi = partida({ escenario: "multiverso" });
+    expect(WORLD_W).toBe(86400);
+    expect(multi.esc.mundo).toEqual({ w: 86400, h: 2100 });
     const normal = partida({ escenario: "catarata" });
-    expect(WORLD_W, "el mundo del valle se contagió al mapa siguiente").toBe(3600);
+    expect(WORLD_W, "el mundo del Multiverso se contagió al mapa siguiente").toBe(3600);
     expect(normal.esc.mundo).toBeUndefined();
     // y todo lo del mapa normal cabe en el mapa normal
     for (const b of normal.bases)
@@ -1276,17 +1279,25 @@ describe("el reparto del mapa", () => {
        encima de una casa tapa el botón de entrar. */
     for (const esc of ESCENARIOS) {
       const e = partida({ escenario: esc.id });
-      expect(e.armerias.length).toBe(2);
-      expect(e.ruletas.length).toBe(2);
+      /* Dos en un mapa normal. En uno de zonas, además, un par por cada tramo de
+         tres zonas: con dos para 86 400 px la más cercana quedaba a dos minutos
+         y medio ANDANDO. */
+      const tramos = esc.zonas?.length ? Math.ceil((esc.zonas.length - 3) / 3) : 0;
+      expect(e.armerias.length, esc.id).toBe(2 + tramos);
+      expect(e.ruletas.length, esc.id).toBe(2 + tramos);
       const lejos = (a: { x: number; y: number }, b: { x: number; y: number }) =>
         Math.hypot(a.x - b.x, a.y - b.y);
       /* Lo intocable es que no caigan dentro de una casa (taparían el botón de
          entrar). Lo de estar lejos cede si no hay hueco, así que se pide un
          mínimo más flojo: lo bastante como para que el viaje valga la pena. */
+      /* El par de casa se mide contra un mapa NORMAL: en el Multiverso los dos
+         viven en la primera zona, cerca de tu patio, y los demás pares están
+         repartidos por los otros tramos. */
+      const suelo = Math.min(WORLD_W, 3600) * 0.22;
       expect(lejos(e.armerias[0], e.armerias[1]),
-             esc.id + ": las dos Armerías están juntas").toBeGreaterThan(WORLD_W * 0.22);
+             esc.id + ": las dos Armerías están juntas").toBeGreaterThan(suelo);
       expect(lejos(e.ruletas[0], e.ruletas[1]),
-             esc.id + ": las dos Ruletas están juntas").toBeGreaterThan(WORLD_W * 0.22);
+             esc.id + ": las dos Ruletas están juntas").toBeGreaterThan(suelo);
       for (const b of e.bases) {
         const r = b.rect;
         for (const a of e.armerias)
@@ -1564,6 +1575,113 @@ describe("vecinos que juegan solos", () => {
   });
 });
 
+describe("el Multiverso", () => {
+  const multi = () => partida({ escenario: "multiverso" });
+
+  it("son los veinticuatro escenarios cosidos, en orden y sin huecos", () => {
+    const esc = ESCENARIOS.find(x => x.id === "multiverso")!;
+    const ids = ESCENARIOS.filter(x => !x.zonas).map(x => x.id);
+    expect(esc.zonas!.map(z => z.id)).toEqual(ids);
+    // sin huecos ni solapes: cada zona empieza donde acaba la anterior
+    esc.zonas!.forEach((z, i) => {
+      if (i > 0) expect(z.x0, z.id).toBe(esc.zonas![i - 1].x1);
+    });
+    expect(esc.mundo!.w).toBe(esc.zonas!.length * 3600);
+  });
+
+  it("hay una casa de vecino en cada zona", () => {
+    const e = multi();
+    for (const z of e.esc.zonas!){
+      const enZona = e.bases.filter(b => b.who &&
+        b.rect.x + b.rect.w / 2 >= z.x0 && b.rect.x + b.rect.w / 2 < z.x1);
+      expect(enZona.length, z.id + " se quedó sin vecino").toBe(1);
+    }
+  });
+
+  it("los vecinos repetidos dicen en qué zona viven", () => {
+    const e = multi();
+    const nombres = e.bases.filter(b => b.who).map(b => b.name);
+    expect(new Set(nombres).size, "dos casas con el mismo cartel").toBe(nombres.length);
+  });
+
+  it("tu patio, la pasarela y los puestos de casa están en la primera zona", () => {
+    const e = multi();
+    const mio = baseDe(e, e.players[0].baseId);
+    expect(mio.rect.x).toBeLessThan(3600);
+    expect(e.portal.x, "la pasarela se fue lejos de casa").toBeLessThan(3600);
+    expect(Math.min(...e.armerias.map(a => a.x)), "ninguna Armería cerca").toBeLessThan(3600);
+    expect(Math.min(...e.ruletas.map(r => r.x)), "ninguna Ruleta cerca").toBeLessThan(3600);
+    expect(e.fusion.x, "la Fusionadora se fue lejos").toBeLessThan(3600);
+  });
+
+  it("cada zona siembra lo suyo: dinosaurios en la Prehistoria, grúas en la obra", () => {
+    const e = multi();
+    const zona = (id: string) => e.esc.zonas!.find(z => z.id === id)!;
+    const dentro = (t: { x: number }, z: { x0: number; x1: number }) => t.x >= z.x0 && t.x < z.x1;
+    expect(e.trastos.some(t => t.tipo === "dino" && dentro(t, zona("prehistoria"))),
+           "sin dinosaurios en la Prehistoria").toBe(true);
+    expect(e.trastos.some(t => t.tipo === "grua" && dentro(t, zona("construccion"))),
+           "sin grúas en la obra").toBe(true);
+    expect(e.trastos.some(t => t.tipo === "dino" && !dentro(t, zona("prehistoria"))),
+           "un dinosaurio fuera de su zona").toBe(false);
+  });
+
+  it("el mar es de cada zona: hay agua en La Playa y tierra seca en el desierto", () => {
+    const e = multi();
+    const playa = e.esc.zonas!.find(z => z.id === "playa")!;
+    const desierto = e.esc.zonas!.find(z => z.id === "desierto")!;
+    expect(playa.mar, "La Playa sin mar").toBeGreaterThan(0);
+    expect(desierto.mar, "el desierto con mar").toBeUndefined();
+    // y a pie, el agua de la playa frena
+    expect(enElMar(e, (playa.x0 + playa.x1) / 2, WORLD_H - 50)).toBe(true);
+    expect(enElMar(e, (desierto.x0 + desierto.x1) / 2, WORLD_H - 50)).toBe(false);
+  });
+
+  it("los ladrones salen de un vecino cercano, no del otro extremo del mundo", () => {
+    const e = multi();
+    const mio = baseDe(e, e.players[0].baseId);
+    for (const ped of mio.peds) ped.florin = nuevoFlorin(e, 2, {});
+    for (let i = 0; i < 40; i++) spawnThief(e);
+    expect(e.thieves.length).toBeGreaterThan(0);
+    for (const t of e.thieves){
+      const casa = baseDe(e, t.homeId);
+      expect(Math.abs(casa.rect.x - mio.rect.x),
+             casa.name + " manda ladrones desde la otra punta").toBeLessThan(3600);
+    }
+  });
+
+  it("los ladrones vienen a un ritmo de barrio, no de mundo entero", () => {
+    /* El ritmo sube con las casas de vecino que hay CERCA. Contando las
+       veinticuatro del Multiverso salía un ladrón cada seis segundos, cuando solo
+       pueden venir las dos o tres que viven a mano. */
+    const cuantos = (esc: string) => {
+      const e = partida({ escenario: esc, reglas: { patiosExtra: true } });
+      const mio = baseDe(e, e.players[0].baseId);
+      const vistos = new Set<number>();
+      for (let k = 0; k < 60 * 180; k++){
+        for (const ped of mio.peds) if (!ped.florin) ped.florin = nuevoFlorin(e, 2, {});
+        avanzar(e, nada(), 1 / 60);
+        for (const t of e.thieves) vistos.add(t.id);
+      }
+      return vistos.size;
+    };
+    const normal = cuantos("catarata");
+    const multi = cuantos("multiverso");
+    expect(multi, "el Multiverso manda más ladrones que un barrio entero")
+      .toBeLessThanOrEqual(normal);
+    expect(multi, "en el Multiverso no llega ningún ladrón").toBeGreaterThan(5);
+  });
+
+  it("una vuelta entera del desfile no crece con el mundo", () => {
+    partida({ escenario: "multiverso" });
+    const enElMulti = PORTAL_VUELTA;
+    partida({ escenario: "catarata" });
+    const enElNormal = PORTAL_VUELTA;
+    expect(enElMulti, "la pasarela del Multiverso tarda una eternidad")
+      .toBe(enElNormal);
+  });
+});
+
 describe("la fiesta de la pasarela", () => {
   const LOS_BUENOS = [
     { tier: TIERS.length - 1, variant: "galaxia" as const },
@@ -1760,7 +1878,7 @@ describe("carrera", () => {
     /* Todos menos El Valle, que no es un sitio para dar vueltas sino para
        andar de una zona a otra. */
     const sinPista = ESCENARIOS.filter(e => !CIRCUITOS.includes(e)).map(e => e.id);
-    expect(sinPista, "hay escenarios de más sin circuito").toEqual(["valle"]);
+    expect(sinPista, "hay escenarios de más sin circuito").toEqual(["multiverso"]);
     for (const base of CIRCUITOS) {
       const esc = montarEscenario(base);
       const e = carrera(esc.id, 4);

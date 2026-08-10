@@ -317,7 +317,7 @@ export interface Escenario {
   mundo?: { w: number; h: number };
   /** Si es un valle de varias zonas, dónde empieza cada una y qué decorado usa.
       Lo lee el cliente para pintar; el motor solo lo lleva de paseo. */
-  zonas?: { id: string; x0: number; x1: number }[];
+  zonas?: { id: string; x0: number; x1: number; mar?: number }[];
   casas: [number, number][];
   patios: [number, number][];
   /** y desde la que empieza el agua: a pie te frena en la orilla, y con tabla

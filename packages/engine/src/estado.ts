@@ -7,7 +7,7 @@ import type {
 } from "./tipos.js";
 import {
   ESCENARIOS, FLORES, GOAL, LASER_CARGA, PATIOS_PRECIO, TIERS, TRASTOS_ESCENARIO,
-  ANCHO_PISTA, CAJAS_EN_PISTA, ESCALA_MAPA, OCHO_A, OCHO_B, VARIANTES, dificultadDe, montarEscenario, VEHICULOS, WORLD_H, WORLD_W, esVehiculo, varMult,
+  ANCHO_PISTA, CAJAS_EN_PISTA, CENTRO_X, ESCALA_MAPA, OCHO_A, OCHO_B, VARIANTES, dificultadDe, montarEscenario, VEHICULOS, WORLD_H, WORLD_W, esEspecial, esVehiculo, varMult,
 } from "./datos.js";
 import { azar, clamp, dist2, inRect, rnd } from "./util.js";
 
@@ -55,10 +55,24 @@ export const trastoDe = (e: Estado, id: number | null): Trasto | null =>
   id == null ? null : e.trastos.find(x => x.id === id) || null;
 
 /* ---- el mar ----
-   Solo la playa lo tiene. A pie te frena en la orilla; con tabla o flotador se
-   entra, y el agua pasa a ser un carril rápido por el sur del mapa. */
-export const hayMar = (e: Estado) => e.esc.mar != null;
-export const enElMar = (e: Estado, y: number) => e.esc.mar != null && y > e.esc.mar;
+   A pie te frena en la orilla; con tabla o flotador se entra, y el agua pasa a
+   ser un carril rápido por el sur del mapa.
+
+   En un mapa de zonas el mar es de CADA ZONA: en el Multiverso hay agua en La
+   Playa, Nueva York, el Amazonas, la Costa Verde y El Descubrimiento, y tierra
+   seca en las otras diecinueve. Por eso todo lo que pregunta por el mar pregunta
+   también por la `x`. */
+export function marEn(e: Estado, x: number): number | null {
+  const zonas = e.esc.zonas;
+  if (!zonas?.length) return e.esc.mar ?? null;
+  const z = zonas.find(q => x >= q.x0 && x < q.x1);
+  return z?.mar ?? null;
+}
+export const hayMar = (e: Estado) => e.esc.mar != null || !!e.esc.zonas?.some(z => z.mar != null);
+export const enElMar = (e: Estado, x: number, y: number) => {
+  const mar = marEn(e, x);
+  return mar != null && y > mar;
+};
 
 /** ¿Está sobre el puente? Ahí se pasa a pie, aunque debajo haya agua. */
 export const enElPuente = (e: Estado, x: number) => {
@@ -160,7 +174,7 @@ export function bloqueadoPorLaser(e: Estado, x: number, y: number, quien: Jugado
 export { OCHO_A, OCHO_B } from "./datos.js";
 
 export function centroDelMapa() {
-  return { cx: WORLD_W / 2, cy: WORLD_H / 2 };
+  return { cx: CENTRO_X, cy: WORLD_H / 2 };
 }
 
 /** Un punto del ocho, con f de 0 a 1. Empieza y acaba en el cruce del centro.
@@ -225,32 +239,59 @@ function sitioLibreTrasto(e: Estado, x: number, y: number, m: number): boolean {
 }
 
 function sembrarTrastos(e: Estado): void {
-  const receta = TRASTOS_ESCENARIO[e.esc.id] || [];
-  for (const { tipo, n: base } of receta) {
+  /* Un mapa de zonas siembra ZONA POR ZONA con la receta de cada una: en el
+     Multiverso eso es lo que hace que en La Prehistoria haya dinosaurios y en
+     La Construcción grúas, y de paso lo que evita que la densidad del mapa
+     entero se multiplique por cuarenta y uno. Un mapa normal es una sola zona
+     que ocupa todo. */
+  const franjas = e.esc.zonas?.length
+    ? e.esc.zonas.map(z => ({ id: z.id, x0: z.x0, x1: z.x1 }))
+    : [{ id: e.esc.id, x0: 0, x1: WORLD_W }];
+
+  for (const franja of franjas) {
+    const receta = TRASTOS_ESCENARIO[franja.id] || [];
+    const ancho = franja.x1 - franja.x0;
     /* Las recetas se escribieron para el mapa chico. Se reparte la MISMA
        densidad, no la misma cantidad: con las cuatro bicis de siempre, un mapa
        casi el doble de grande se cruza andando. */
-    const n = Math.max(1, Math.round(base * ESCALA_MAPA));
-    const aguaOnly = VEHICULOS[tipo]?.agua;
-    for (let k = 0; k < n; k++) {
-      for (let intento = 0; intento < 40; intento++) {
-        const x = rnd(e, 90, WORLD_W - 90);
-        /* Lo que flota nace en la orilla, no mar adentro: si naciera dentro del
-           agua sería inalcanzable, porque a pie el tope de la orilla te frena
-           antes de llegar. */
-        const y = e.esc.mar != null
-          ? (aguaOnly ? rnd(e, e.esc.mar - 70, e.esc.mar - 10) : rnd(e, 90, e.esc.mar - 110))
-          : rnd(e, 90, WORLD_H - 90);
-        if (!sitioLibreTrasto(e, x, y, 34)) continue;
-        e.trastos.push({
-          id: nuevoId(e), tipo: tipo as Trasto["tipo"], x, y, vx: 0, vy: 0,
-          montadoPor: null, pateadoPor: null,
-          giro: rnd(e, -0.6, 0.6), variante: (azar(e) * 5) | 0,
-        });
-        break;
+    const escala = (ancho * WORLD_H) / (2600 * 1700);
+    for (const { tipo, n: base } of receta) {
+      const n = Math.max(1, Math.round(base * escala));
+      /* `agua` quiere decir dos cosas según qué sea: en una tabla o una balsa es
+         "SOLO en el agua", y en un especial —el dragón, el ovni— es "también
+         sobre el agua", que vuela. Así que solo los normales necesitan orilla. */
+      const aguaOnly = !!VEHICULOS[tipo]?.agua && !esEspecial(tipo);
+      for (let k = 0; k < n; k++) {
+        for (let intento = 0; intento < 40; intento++) {
+          const x = rnd(e, franja.x0 + 90, franja.x1 - 90);
+          const mar = marEn(e, x);
+          /* Lo que flota nace en la orilla, no mar adentro: si naciera dentro del
+             agua sería inalcanzable, porque a pie el tope de la orilla te frena
+             antes de llegar. */
+          const y = mar != null
+            ? (aguaOnly ? rnd(e, mar - 70, mar - 10) : rnd(e, 90, mar - 110))
+            : rnd(e, 90, WORLD_H - 90);
+          /* Lo que solo funciona en el agua no tiene sentido en una zona seca:
+             una tabla de surf tirada en el desierto no la monta nadie. */
+          if (aguaOnly && mar == null) break;
+          if (!sitioLibreTrasto(e, x, y, 34)) continue;
+          e.trastos.push({
+            id: nuevoId(e), tipo: tipo as Trasto["tipo"], x, y, vx: 0, vy: 0,
+            montadoPor: null, pateadoPor: null,
+            giro: rnd(e, -0.6, 0.6), variante: (azar(e) * 5) | 0,
+          });
+          break;
+        }
       }
     }
   }
+}
+
+/** Cómo se llama la zona en la que cae esa `x`, para los carteles. */
+function zonaDeX(esc: Estado["esc"], x: number): string | null {
+  const z = esc.zonas?.find((q: { id: string; x0: number; x1: number }) => x >= q.x0 && x < q.x1);
+  if (!z) return null;
+  return ESCENARIOS.find(e => e.id === z.id)?.nombre?.replace(/^(El|La|Los|Las) /, "") || z.id;
 }
 
 /* ---- la cochera ----
@@ -279,7 +320,10 @@ function ponerCochera(e: Estado, patio: Base, n: number): Rect | null {
   const r = patio.rect, HUECO = 26;
   /* El agua no vale ni para lo que flota: si la cochera naciera en el mar,
      los especiales de tierra —la grúa, el monster— quedarían inalcanzables. */
-  const abajo = e.esc.mar != null ? e.esc.mar - 40 : WORLD_H - 40;
+  /* El mar de la zona del patio: en el Multiverso el agua es de cinco zonas y
+     no del mapa entero. */
+  const marAqui = marEn(e, r.x + r.w / 2);
+  const abajo = marAqui != null ? marAqui - 40 : WORLD_H - 40;
   const chocaOtra = (x: number, y: number, w: number, h: number) =>
     e.bases.some(b => b !== patio &&
       x < b.rect.x + b.rect.w + 30 && x + w > b.rect.x - 30 &&
@@ -529,7 +573,7 @@ export function reglasPara(jugadores: number): Reglas {
     partida guardada: las de antes del mapa grande traen un solo puesto de cada
     y en el centro de un mundo que ya no existe, así que el desfile —que sí pasa
     por el centro nuevo— les pasaba a 400 px de la Ruleta. */
-export function colocarPuestos(bases: Base[]) {
+export function colocarPuestos(bases: Base[], zonas?: { x0: number; x1: number }[]) {
   const { cx, cy } = centroDelMapa();
   const chocaBase = (x: number, y: number, w: number, h: number) =>
     bases.some(b => x < b.rect.x + b.rect.w + 40 && x + w > b.rect.x - 40 &&
@@ -545,8 +589,13 @@ export function colocarPuestos(bases: Base[]) {
      otro solo es menos cómodo. */
   const buscar = <T>(w: number, h: number, centro: { x: number; y: number },
                      orden: [number, number][], hacer: (x: number, y: number) => T): T => {
+    /* Las fracciones son de un mapa NORMAL alrededor del centro de casa, no del
+       mundo entero: en el Multiverso, `WORLD_W * fx` mandaba la Fusionadora al
+       kilómetro 43 — libre, sí, pero a dos minutos y medio andando. */
+    const ancho = Math.min(WORLD_W, 3600);
     const sitios = orden.map(([fx, fy]) =>
-      [Math.round(WORLD_W * fx - w / 2), Math.round(WORLD_H * fy - h / 2)] as [number, number]);
+      [Math.round(CENTRO_X + (fx - 0.5) * ancho - w / 2),
+       Math.round(WORLD_H * fy - h / 2)] as [number, number]);
     const libres = sitios.filter(([x, y]) => !chocaBase(x, y, w, h));
     const lejos = (p: [number, number]) =>
       Math.hypot(p[0] + w / 2 - centro.x, p[1] + h / 2 - centro.y);
@@ -572,13 +621,31 @@ export function colocarPuestos(bases: Base[]) {
      caía justo sobre la poza de La Catarata: el sitio bueno depende del mapa. */
   const fusion = buscar(260, 140, { x: cx, y: cy },
                         anillo(Math.PI * 0.5), (x, y) => ({ x, y, w: 260, h: 140 }));
-  return {
-    armerias: [arm0, buscar(300, 150, { x: arm0.x + 150, y: arm0.y + 75 },
-                            anillo(Math.PI / 4), (x, y) => ({ x, y, w: 300, h: 150 }))],
-    ruletas: [rul0, buscar(184, 184, rul0,
-                           anillo(-Math.PI * 0.75), (x, y) => ({ x: x + 92, y: y + 92, r: 92 }))],
-    fusion,
-  };
+  const armerias = [arm0, buscar(300, 150, { x: arm0.x + 150, y: arm0.y + 75 },
+                                 anillo(Math.PI / 4), (x, y) => ({ x, y, w: 300, h: 150 }))];
+  const ruletas = [rul0, buscar(184, 184, rul0,
+                                anillo(-Math.PI * 0.75), (x, y) => ({ x: x + 92, y: y + 92, r: 92 }))];
+
+  /* ---- los puestos de las otras zonas ----
+     Con dos Armerías para 86 400 px, la más cercana quedaba a dos minutos y
+     medio ANDANDO: comprar dejaba de ser una decisión y pasaba a ser un viaje.
+     Así que cada tramo de tres zonas tiene los suyos, y de paso el Multiverso
+     deja de tener un único centro comercial en el kilómetro 43.
+
+     Se ponen a dedo y no buscando sitio: buscar cuesta 36 pruebas por puesto
+     contra todas las bases, y esto corre al crear la partida. A dedo caen en el
+     medio de su tramo, que es tierra de nadie — las casas van al centro de cada
+     zona y los patios al principio del mapa. */
+  const TRAMO = 3;
+  if (zonas && zonas.length > TRAMO) {
+    for (let i = TRAMO; i < zonas.length; i += TRAMO) {
+      const z0 = zonas[i], z1 = zonas[Math.min(i + TRAMO, zonas.length) - 1];
+      const mx = Math.round((z0.x0 + z1.x1) / 2);
+      armerias.push({ x: mx - 460, y: cy - 75, w: 300, h: 150 });
+      ruletas.push({ x: mx + 320, y: cy, r: 92 });
+    }
+  }
+  return { armerias, ruletas, fusion };
 }
 
 export function crearPartida(op: OpcionesPartida): Estado {
@@ -615,11 +682,20 @@ export function crearPartida(op: OpcionesPartida): Estado {
   const bases: Base[] = [
     makeBase(0, humanos > 1 ? "Patio del J1" : "Tu patio", P[0][0], P[0][1], true, "#3DDC97"),
   ];
-  VECINOS.forEach(([nombre, color, quien], k) => {
-    if (!C[k]) return;
+  /* Una base por sitio que traiga el escenario, con el vecino que le toque. La
+     lista de vecinos se recorre en círculo: el mapa normal trae ocho casas y sale
+     cada uno una vez, y el Multiverso trae veinticuatro y salen tres veces cada
+     uno —los mismos vecinos repartidos por veinticuatro mundos, que es justo el
+     chiste—. Al que repite se le añade en qué zona vive, o el cartel del mapa y
+     el aviso de la alarma dirían lo mismo en tres sitios distintos. */
+  C.forEach(([cx0, cy0], k) => {
+    const [nombre, color, quien] = VECINOS[k % VECINOS.length];
+    const repite = k >= VECINOS.length;
+    const zona = repite ? zonaDeX(esc, cx0) : null;
     /* El id es la posición en la lista, no `k`: `baseDe` es `e.bases[id]`, y en
        un mapa con menos casas de las ocho un hueco descolocaría todo. */
-    bases.push(makeBase(bases.length, nombre, C[k][0], C[k][1], false, color, quien));
+    bases.push(makeBase(bases.length, zona ? nombre + " · " + zona : nombre,
+                        cx0, cy0, false, color, quien));
   });
 
   if (reglas.patiosExtra) {
@@ -661,12 +737,15 @@ export function crearPartida(op: OpcionesPartida): Estado {
      Armería a la izquierda y la Ruleta a la derecha. El desfile les da la
      vuelta a los dos, así que el centro del mapa es de verdad el centro. */
   const { cx, cy } = centroDelMapa();
-  const { armerias, ruletas, fusion } = colocarPuestos(bases);
+  const { armerias, ruletas, fusion } = colocarPuestos(bases, esc.zonas);
   /* El portal de salida se aparta de la orilla. Con el margen fijo de siempre
      medido desde abajo acababa dentro del agua en cuanto el mapa creció —el mar
      va en fracción del alto y el margen no—, y los Florines del desfile salían
      nadando mar adentro, donde no los alcanza nadie. */
-  const finca = esc.mar != null ? esc.mar - 90 : WORLD_H - 240;
+  const marCentro = esc.zonas?.length
+    ? (esc.zonas.find(z => cx >= z.x0 && cx < z.x1)?.mar ?? null)
+    : (esc.mar ?? null);
+  const finca = marCentro != null ? marCentro - 90 : WORLD_H - 240;
   const portal = {
     x: cx, y: 240, r: 34, timer: 2.5, desfile: [],
     salida: { x: cx, y: Math.min(WORLD_H - 240, finca), r: 34 },
