@@ -1,6 +1,6 @@
 # Handoff — Roba un Florín
 
-> Actualizado: 2026-08-09 por claude-code
+> Actualizado: 2026-08-10 por claude-code
 
 ## Estado actual
 
@@ -24,7 +24,7 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Última sesión
 
-- 2026-08-09 (claude-code): **El Multiverso** en lugar de El Valle: los
+- 2026-08-10 (claude-code): **El Multiverso** en lugar de El Valle: los
   veinticuatro escenarios cosidos en fila, 86 400 x 2 100, cinco minutos y medio
   de punta a punta a pie. Cada zona con su decorado, sus trastos y su mar.
   Lo que hubo que arreglar para que fuera jugable y no un pasillo (todo medido):
@@ -53,6 +53,18 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
   Gotcha: para un especial, `VEHICULOS[x].agua` significa "también sobre el
   agua" (vuela), no "solo en el agua" — un guardia nuevo se cargó los dragones
   de la Edad Media hasta que se separaron los dos sentidos.
+
+  **Próximos pasos del Multiverso** (nada de esto bloquea jugarlo):
+  - probarlo en un **iPad de verdad**: los 12 mosaicos son 48 MB y cada trozo
+    cuesta 10,6 ms de pintar (medido en Mac), así que cruzar zonas puede dar un
+    tirón en tableta. Es lo único que no se puede simular desde aquí;
+  - una partida guardada con `escenario: "valle"` sigue abriéndose (el estado
+    trae su propio mundo), pero empezar una nueva con ese id cae al escenario por
+    defecto. Si molesta: alias `valle → multiverso` en `crearPartida`;
+  - los patios comprables del Multiverso están los cinco en la primera zona;
+    queda por ver si tiene más gracia poder comprar patio en otras zonas;
+  - sigue abierto lo de antes: bots contra un humano en red, dos personas de
+    verdad en dos aparatos, dificultad en las salas y el modo cooperativo.
 
 - 2026-08-09 (claude-code): **consola de avisos**. El admin escribe un mensaje
   y cuántos minutos se ve, y lo lee todo el que tenga el juego abierto —menú o
