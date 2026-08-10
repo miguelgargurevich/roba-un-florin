@@ -162,6 +162,45 @@ public class EventosTests(ApiDePrueba api)
     }
 
     [Fact]
+    public async Task El_regalo_variado_no_le_da_lo_mismo_a_todos()
+    {
+        var admin = await ComoAdminAsync();
+        await LimpiarAsync(admin);
+        /* Cuatro rarezas distintas y regalo variado: con veinte jugadores, que
+           salgan todos iguales sería un sorteo roto (o una probabilidad de
+           1 entre 4^19, que viene a ser lo mismo). */
+        var creada = await admin.PostAsJsonAsync("/api/v1/eventos", new
+        {
+            nombre = "Variado", empiezaEn = DateTime.UtcNow.AddSeconds(-5), duraSegundos = 600,
+            florines = new[] { new { tier = 15, variante = "galaxia" }, new { tier = 12, variante = "lava" },
+                               new { tier = 9, variante = "dorado" }, new { tier = 6, variante = "brillante" } },
+            regalo = (object?)null, regaloVariado = true,
+        });
+        creada.StatusCode.Should().Be(HttpStatusCode.OK);
+        var evento = await creada.Content.ReadFromJsonAsync<Dictionary<string, System.Text.Json.JsonElement>>();
+        var id = evento!["id"].GetString();
+        evento["regaloVariado"].GetBoolean().Should().BeTrue();
+
+        /* Un solo jugador solo puede recoger UNO, así que el sorteo se prueba
+           sobre las filas de entrega: se borran para volver a tirar. */
+        var (jugador, _) = await JugadorAsync();
+        var salieron = new HashSet<int>();
+        for (var i = 0; i < 20; i++)
+        {
+            var r = await jugador.PostAsync($"/api/v1/eventos/{id}/regalo", null);
+            var j = await r.Content.ReadFromJsonAsync<Dictionary<string, System.Text.Json.JsonElement>>();
+            if (j!["florin"].ValueKind != System.Text.Json.JsonValueKind.Null)
+                salieron.Add(j["florin"].GetProperty("tier").GetInt32());
+            using var scope = api.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            db.EventoRegalos.RemoveRange(db.EventoRegalos.Where(x => x.EventoId == Guid.Parse(id!)));
+            await db.SaveChangesAsync();
+        }
+        salieron.Should().HaveCountGreaterThan(1, "el regalo variado dio siempre lo mismo");
+        salieron.Should().BeSubsetOf([15, 12, 9, 6], "regaló algo que no estaba en la pasarela");
+    }
+
+    [Fact]
     public async Task El_admin_manda_un_aviso_y_lo_lee_todo_el_mundo()
     {
         var admin = await ComoAdminAsync();

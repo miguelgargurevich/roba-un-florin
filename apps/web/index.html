@@ -344,6 +344,11 @@
   #avisoCartel[hidden]{display:none}
   /* Si hay fiesta anunciada, el aviso baja para no taparla. */
   #avisoCartel.conFiesta{top:52px}
+  .adminCheck{
+    display:flex;gap:9px;align-items:center;margin:2px 0 9px;
+    font-size:13px;color:var(--cream);font-family:var(--ui);cursor:pointer;
+  }
+  .adminCheck input{width:20px;height:20px;accent-color:var(--leaf);flex:0 0 auto}
   .adminGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:6px;margin-bottom:6px}
   .adminCel{
     background:var(--plum-800);border:2px solid var(--plum-600);border-radius:10px;
@@ -1209,6 +1214,10 @@
       <div class="adminGrid" id="adminFlorines"></div>
 
       <h2 class="garajeTitulo">🎁 El de regalo <small>uno por cuenta conectada</small></h2>
+      <label class="adminCheck">
+        <input type="checkbox" id="adminVariado">
+        <span>Variado: a cada uno le toca uno al azar de los que bajan por la pasarela</span>
+      </label>
       <div class="adminGrid" id="adminRegalo"></div>
 
       <div class="bautizoBtns">

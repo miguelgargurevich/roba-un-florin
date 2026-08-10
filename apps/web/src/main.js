@@ -724,13 +724,17 @@ function pintarAdmin(){
       });
     }
   }
-  for (let tier = TIERS.length - 1; tier >= 0; tier--){
-    for (const v of variantes){
-      const k = claveFlorin(tier, v);
-      celdaFlorin(regalo, tier, v, adminRegalo === k, () => {
-        adminRegalo = adminRegalo === k ? null : k;
-        pintarAdmin();
-      });
+  const variado = document.getElementById("adminVariado").checked;
+  regalo.hidden = variado;                 // variado: no hay uno que elegir
+  if (!variado){
+    for (let tier = TIERS.length - 1; tier >= 0; tier--){
+      for (const v of variantes){
+        const k = claveFlorin(tier, v);
+        celdaFlorin(regalo, tier, v, adminRegalo === k, () => {
+          adminRegalo = adminRegalo === k ? null : k;
+          pintarAdmin();
+        });
+      }
     }
   }
   document.getElementById("adminAviso").textContent =
@@ -810,6 +814,7 @@ function abrirAdmin(){
   elAdmin.hidden = false;
 }
 function cerrarAdmin(){ elAdmin.hidden = true; }
+document.getElementById("adminVariado").addEventListener("change", pintarAdmin);
 document.getElementById("btnAdmin").addEventListener("click", abrirAdmin);
 document.getElementById("adminCerrar").addEventListener("click", cerrarAdmin);
 
@@ -825,6 +830,7 @@ document.getElementById("adminCrear").addEventListener("click", async () => {
     duraSegundos: Math.round(minutos * 60),
     florines: [...adminSel].map(partesFlorin),
     regalo: adminRegalo ? partesFlorin(adminRegalo) : null,
+    regaloVariado: document.getElementById("adminVariado").checked,
   });
   if (!r){ decir("No se pudo programar. ¿Sigue tu sesión abierta?", "mal"); return; }
   decir("🎪 " + nombre + " programada.", "bien");

@@ -18,7 +18,8 @@ public record FlorinDeFiesta(int Tier, string? Variante);
 
 public record EventoDto(
     Guid Id, string Nombre, DateTime EmpiezaEn, DateTime TerminaEn, int DuraSegundos,
-    IReadOnlyList<FlorinDeFiesta> Florines, FlorinDeFiesta? Regalo, bool Cancelado);
+    IReadOnlyList<FlorinDeFiesta> Florines, FlorinDeFiesta? Regalo, bool RegaloVariado,
+    bool Cancelado);
 
 public record AnuncioDto(Guid Id, string Texto, DateTime EmpiezaEn, DateTime TerminaEn,
                          int DuraSegundos, bool Cancelado);
@@ -43,7 +44,7 @@ internal static class Fiestas
     public static EventoDto ADto(Evento e) => new(
         e.Id, e.Nombre, e.EmpiezaEn, e.TerminaEn, e.DuraSegundos, Leer(e.Florines),
         e.RegaloTier is null ? null : new FlorinDeFiesta(e.RegaloTier.Value, e.RegaloVariante),
-        e.Cancelado);
+        e.RegaloVariado, e.Cancelado);
 }
 
 /* ---- lo que pregunta cualquier jugador ---- */
@@ -67,7 +68,8 @@ public class GetEventoVivoQueryHandler(IApplicationDbContext db, ICurrentUser ac
         var proxima = cerca.FirstOrDefault(e => e.EmpiezaEn > ahora);
 
         var pendiente = false;
-        if (viva is not null && viva.RegaloTier is not null && actual.UserId is not null)
+        if (viva is not null && (viva.RegaloTier is not null || viva.RegaloVariado)
+            && actual.UserId is not null)
         {
             var perfil = await PerfilDeSesion.ObtenerAsync(db, actual, ct);
             pendiente = !await db.EventoRegalos
@@ -105,16 +107,24 @@ public class RecogerRegaloCommandHandler(IApplicationDbContext db, ICurrentUser 
         var ahora = DateTime.UtcNow;
         if (e.Cancelado || e.EmpiezaEn > ahora || e.TerminaEn <= ahora)
             throw new AppException("Esa fiesta no está en marcha.");
-        if (e.RegaloTier is null) return null;
+        if (e.RegaloTier is null && !e.RegaloVariado) return null;
 
         var perfil = await PerfilDeSesion.ObtenerAsync(db, actual, ct);
         var yaLoTiene = await db.EventoRegalos
             .AnyAsync(r => r.EventoId == e.Id && r.PerfilId == perfil.Id, ct);
         if (yaLoTiene) return null;               // null = no hay nada que darte
 
+        /* Variado: a cada uno le toca uno al azar de los que bajan por la
+           pasarela. El sorteo es AQUÍ y no en el cliente, porque el cliente
+           sortearía hasta que le saliera el bueno. */
+        var lista = Fiestas.Leer(e.Florines);
+        var premio = e.RegaloVariado && lista.Count > 0
+            ? lista[Random.Shared.Next(lista.Count)]
+            : new FlorinDeFiesta(e.RegaloTier!.Value, e.RegaloVariante);
+
         db.EventoRegalos.Add(new EventoRegaloEntregado(e.Id, perfil.Id));
         await db.SaveChangesAsync(ct);
-        return new FlorinDeFiesta(e.RegaloTier.Value, e.RegaloVariante);
+        return premio;
     }
 }
 
@@ -122,7 +132,8 @@ public class RecogerRegaloCommandHandler(IApplicationDbContext db, ICurrentUser 
 
 public record ProgramarEventoCommand(
     string Nombre, DateTime EmpiezaEn, int DuraSegundos,
-    IReadOnlyList<FlorinDeFiesta> Florines, FlorinDeFiesta? Regalo) : IRequest<EventoDto>;
+    IReadOnlyList<FlorinDeFiesta> Florines, FlorinDeFiesta? Regalo,
+    bool RegaloVariado = false) : IRequest<EventoDto>;
 
 public class ProgramarEventoCommandValidator : AbstractValidator<ProgramarEventoCommand>
 {
@@ -149,7 +160,7 @@ public class ProgramarEventoCommandHandler(IApplicationDbContext db, ICurrentUse
             request.Nombre, request.EmpiezaEn, request.DuraSegundos,
             Fiestas.Escribir(request.Florines),
             request.Regalo?.Tier, request.Regalo?.Variante,
-            actual.UserId ?? Guid.Empty);
+            actual.UserId ?? Guid.Empty, request.RegaloVariado);
         db.Eventos.Add(evento);
         await db.SaveChangesAsync(ct);
         return Fiestas.ADto(evento);

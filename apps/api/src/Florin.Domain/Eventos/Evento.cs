@@ -20,6 +20,12 @@ public class Evento : Entity
     /// <summary>El de regalo para todo el que se conecte, o null si no hay.</summary>
     public int? RegaloTier { get; private set; }
     public string? RegaloVariante { get; private set; }
+    /// <summary>
+    /// Regalo VARIADO: en vez de darle a todos el mismo, a cada uno le toca uno
+    /// al azar de los que bajan por la pasarela. Es un sorteo por jugador, no
+    /// por fiesta: dos que entren a la vez pueden sacar cosas distintas.
+    /// </summary>
+    public bool RegaloVariado { get; private set; }
     public bool Cancelado { get; private set; }
     public Guid CreadoPor { get; private set; }
 
@@ -28,7 +34,8 @@ public class Evento : Entity
     private Evento() { }
 
     public Evento(string nombre, DateTime empiezaEn, int duraSegundos, string florines,
-                  int? regaloTier, string? regaloVariante, Guid creadoPor)
+                  int? regaloTier, string? regaloVariante, Guid creadoPor,
+                  bool regaloVariado = false)
     {
         if (string.IsNullOrWhiteSpace(nombre)) throw new DomainException("La fiesta necesita un nombre.");
         if (duraSegundos < 30) throw new DomainException("Una fiesta de menos de medio minuto no la ve nadie.");
@@ -43,6 +50,7 @@ public class Evento : Entity
         Florines = florines;
         RegaloTier = regaloTier;
         RegaloVariante = regaloVariante;
+        RegaloVariado = regaloVariado;
         CreadoPor = creadoPor;
     }
 
