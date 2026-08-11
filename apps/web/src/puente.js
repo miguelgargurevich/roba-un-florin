@@ -211,7 +211,12 @@ export const VISUALES = {
 };
 
 /** La lista para el selector de la portada: reparto del motor + aspecto local. */
-export const ESCENARIOS = ESC_MOTOR.map(e => ({ ...e, ...VISUALES[e.id] }));
+/* Los escenarios de la AVENTURA. Las canchas de fútbol (`soloFutbol`) llevan su
+   aspecto igual —hacen falta para dibujarlas— pero no salen aquí: el selector de
+   la portada es para elegir dónde robar Florines, y en el estadio no hay a quién.
+   Se eligen en su propia fila, la de "dónde se juega". */
+export const ESCENARIOS = ESC_MOTOR.filter(e => !e.soloFutbol)
+  .map(e => ({ ...e, ...VISUALES[e.id] }));
 export const visualDe = id => VISUALES[id] || VISUALES.barrio;
 
 /* ---- azar del cliente ----
