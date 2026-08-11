@@ -1216,26 +1216,64 @@ document.getElementById("fusBtn").addEventListener("click", () => {
    adivinar, y en el celular queda al alcance del pulgar. */
 const elAccion = document.getElementById("accion");
 let accionActual = null;
-elAccion.addEventListener("click", () => { if (accionActual) togglePanel(accionActual); });
+elAccion.addEventListener("click", () => {
+  if (accionActual === "cancha") armarPichanga();
+  else if (accionActual) togglePanel(accionActual);
+});
 
 function pintarAccion(){
   const puedo = G && G.started && !G.over && !G.paused && !G.local2;
   const cual = !puedo ? null
     : panelDisponible("arm") ? "arm"
     : panelDisponible("fus") ? "fus"
-    : panelDisponible("rul") ? "rul" : null;
+    : panelDisponible("rul") ? "rul"
+    : (G.player.enLaCancha && G.reglas?.modo !== "futbol") ? "cancha" : null;
   const yaAbierto = !el.arm.hidden || !el.rul.hidden || !el.fus.hidden;
   if (!cual || yaAbierto){ elAccion.hidden = true; accionActual = null; return; }
   if (cual !== accionActual){
     accionActual = cual;
     elAccion.textContent = cual === "arm" ? "🧰 Entrar a la Armería"
       : cual === "fus" ? "⚗️ Abrir la Fusionadora"
+      : cual === "cancha" ? "⚽ Armar la pichanga · " + ladoSel + " contra " + ladoSel
       : "🎰 Girar la Ruleta · " + money(RULETA_PRECIO);
   }
   const p = G.player;
   elAccion.style.left = ((p.x - cam.x) * ZOOM) + "px";
   elAccion.style.top  = ((p.y - cam.y) * ZOOM - 58) + "px";
   elAccion.hidden = false;
+}
+
+/* ---- la pichanga desde el mundo ----
+   Metiéndote a la canchita se arma el partido sin pasar por el menú. Tu partida
+   queda GUARDADA aquí mismo —no en la nube, que puede no haberla— y al acabar el
+   partido se vuelve a ella con todo donde estaba: el dinero, la vitrina, los
+   ladrones a medio camino. La pichanga es un rato en el patio, no mudarse. */
+let aventuraEnEspera = null;
+
+function armarPichanga(){
+  if (!G || !G.started || G.over || G.local2 || !G.player.enLaCancha) return;
+  aventuraEnEspera = { estado: JSON.stringify(G), esc: G.esc.id };
+  guardarPartidaAhora();                    // y en la nube también, si hay cuenta
+  const G2 = nuevaPartidaMotor(1, "colegio", false, "normal", [], 0, ladoSel);
+  G = G2;
+  G.started = true;
+  aLaCancha();
+  invalidarSuelo();
+  decir("⚽ ¡Pichanga en el patio! Al terminar vuelves a lo tuyo.", "bien");
+  Snd.unlock();
+}
+
+/** De vuelta al barrio tras el partido, con la aventura como la dejaste. */
+function volverDeLaPichanga(){
+  if (!aventuraEnEspera) return false;
+  const G2 = revivirPartida(aventuraEnEspera.estado);
+  aventuraEnEspera = null;
+  if (!G2){ decir("No se pudo volver a tu partida.", "mal"); return false; }
+  G = G2;
+  G.started = true;
+  aLaCancha();
+  invalidarSuelo();
+  return true;
 }
 
 /* Quedó sin botones que repintar: la Armería y la Ruleta ya solo se abren
@@ -1924,6 +1962,12 @@ document.getElementById("btnAgain").addEventListener("click", () => startGame())
    único botón que repetía carrera: para pasarte a aventura había que recargar
    la página, porque el panel de fin tapa la barra de arriba con el 🏠. */
 document.getElementById("btnMenu").addEventListener("click", volverAlInicio);
+/* Tras una pichanga armada desde el patio, la salida natural es volver a lo que
+   estabas haciendo, no al menú. */
+document.getElementById("btnVolverBarrio").addEventListener("click", () => {
+  el.end.hidden = true;
+  if (!volverDeLaPichanga()) volverAlInicio();
+});
 /* El duelo de dos en un teclado se retiró al llegar las salas: jugar con gente
    es online. El motor sigue sabiendo de N jugadores, así que no se perdió nada
    — lo que se fue es el reparto de teclas de un solo teclado. */
@@ -2294,6 +2338,13 @@ let DECO_MAR = null;
 
 function libreDeco(x, y, m){
   const caja = { x:x-m, y:y-m, w:m*2, h:m*2 };
+  /* Dentro de la canchita no se siembra nada: una palmera en el área no es
+     decorado, es un obstáculo que además no lo es. */
+  if (G && G.cancha){
+    const c = G.cancha;
+    if (caja.x < c.x+c.w+30 && caja.x+caja.w > c.x-30 &&
+        caja.y < c.y+c.h+30 && caja.y+caja.h > c.y-30) return false;
+  }
   const choca = r => caja.x < r.x+r.w && caja.x+caja.w > r.x &&
                      caja.y < r.y+r.h && caja.y+caja.h > r.y;
   for (const r of vetoDeco) if (choca(r)) return false;
@@ -8377,6 +8428,47 @@ function drawFlorinEn(ctx, x, y, s, f, t){
 /** El de siempre, en el lienzo del juego. */
 function drawFlorin(x, y, s, f, t){ drawFlorinEn(ctx, x, y, s, f, t); }
 
+/* ---- la canchita del colegio, en la aventura ----
+   Un sitio del mundo, como la Ruleta: se ve desde lejos, dice para qué sirve y
+   metiéndote se arma la pichanga. */
+function drawCanchita(){
+  const c = G.cancha;
+  if (!c) return;
+  ctx.save();
+  ctx.fillStyle = "rgba(94,154,82,.55)";
+  ctx.fillRect(c.x, c.y, c.w, c.h);
+  ctx.strokeStyle = "rgba(255,255,255,.7)"; ctx.lineWidth = 5;
+  ctx.strokeRect(c.x, c.y, c.w, c.h);
+  ctx.beginPath();
+  ctx.moveTo(c.x + c.w/2, c.y); ctx.lineTo(c.x + c.w/2, c.y + c.h); ctx.stroke();
+  ctx.beginPath(); ctx.arc(c.x + c.w/2, c.y + c.h/2, 78, 0, 6.283); ctx.stroke();
+  // los dos arquitos de fierro
+  for (const lado of [0, 1]){
+    const ax = lado ? c.x + c.w - 12 : c.x - 22;
+    ctx.fillStyle = "#D8CFD4";
+    ctx.fillRect(ax, c.y + c.h/2 - 90, 34, 12);
+    ctx.fillRect(ax, c.y + c.h/2 + 78, 34, 12);
+    ctx.fillRect(lado ? ax + 24 : ax, c.y + c.h/2 - 90, 10, 180);
+    ctx.strokeStyle = "rgba(255,255,255,.45)"; ctx.lineWidth = 2;
+    for (let y = c.y + c.h/2 - 84; y < c.y + c.h/2 + 84; y += 16){
+      ctx.beginPath(); ctx.moveTo(ax + 2, y); ctx.lineTo(ax + 32, y); ctx.stroke();
+    }
+  }
+  // el cartel
+  const dentro = !!G.player.enLaCancha;
+  const rot = dentro ? "⚽ TOCA EL BOTÓN Y SE ARMA" : "⚽ LA PICHANGA";
+  const lw = rot.length * 11 + 30;
+  ctx.fillStyle = "#2A1226";
+  roundRect(c.x + c.w/2 - lw/2, c.y - 44, lw, 32, 12); ctx.fill();
+  ctx.strokeStyle = dentro ? "#FFC53D" : "#3DDC97"; ctx.lineWidth = 3;
+  roundRect(c.x + c.w/2 - lw/2, c.y - 44, lw, 32, 12); ctx.stroke();
+  ctx.fillStyle = dentro ? "#FFC53D" : "#3DDC97";
+  ctx.font = "700 15px system-ui, sans-serif";
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillText(rot, c.x + c.w/2, c.y - 28);
+  ctx.restore();
+}
+
 /* ---- la cancha del partido ----
    Las líneas y los dos arcos. Se pinta sobre el suelo del colegio: la pichanga
    se juega en el patio de siempre, con la cancha marcada a lo grande. */
@@ -9128,6 +9220,7 @@ function draw(){
     drawCircuito();                  // la pista es lo único que importa
   } else {
     drawRuta();                      // la alfombra va debajo de todo
+    drawCanchita();                  // debajo de la gente, encima del suelo
     for (const b of G.bases) drawBase(b);
     drawCochera();                   // debajo de los vehículos, que los pinta drawTrastos
     drawArmeria();
@@ -9582,6 +9675,14 @@ function pintarGaraje(){
 /* ============================================================
    HUD
    ============================================================ */
+/** Los tres rótulos de arriba: los de siempre, o los del partido. */
+function rotularTarjetas(enPartido){
+  document.querySelector(".card.money .label").textContent = enPartido ? "Tiempo" : "Dinero";
+  document.querySelector(".card.rate .label").textContent = enPartido ? "Cómo va" : "Ingresos";
+  document.querySelector(".card.stolen .label").textContent =
+    enPartido ? "Chancletazos" : "Te robaron";
+}
+
 function hud(){
   if (G.local2){
     const a = G.players[0], b = G.players[1];
@@ -9601,20 +9702,15 @@ function hud(){
     return;
   }
   el.j2.hidden = true;
-  const inc = playerIncome(G, G.player);
-  el.money.textContent = money(G.money);
-  el.rate.textContent = money(inc) + "/s";
-  /* La barra mide la VITRINA, no el dinero: cuántos huecos llenos de cuántos.
-     El dinero ya no sirve de meta — entre la vitrina más pobre y la más rica
-     hay 174 000× y ninguna cifra es interesante en los dos extremos. */
   /* ---- el marcador de la pichanga ----
      Se cuelga de la tarjeta de la meta, que es la que sobra en un partido: no
      hay vitrina que llenar. */
+  /* Los rótulos de las tarjetas cambian en un partido y hay que DEVOLVERLOS al
+     salir: volviendo al barrio, el dinero seguía debajo de un cartel que decía
+     "Tiempo". */
+  rotularTarjetas(G.reglas?.modo === "futbol");
   if (G.reglas?.modo === "futbol"){
     const f = G.futbol;
-    document.querySelector(".card.money .label").textContent = "Tiempo";
-    document.querySelector(".card.rate .label").textContent = "Cómo va";
-    document.querySelector(".card.stolen .label").textContent = "Chancletazos";
     el.goalLabel.textContent = f.saque > 0 ? "¡Saque del centro!" : "Primero a " + f.meta;
     el.goal.textContent = f.goles[0] + " – " + f.goles[1];
     el.bar.style.width = clamp((1 - f.reloj / 240) * 100, 0, 100).toFixed(1) + "%";
@@ -9632,6 +9728,13 @@ function hud(){
     pintarAccion();
     return;
   }
+
+  const inc = playerIncome(G, G.player);
+  el.money.textContent = money(G.money);
+  el.rate.textContent = money(inc) + "/s";
+  /* La barra mide la VITRINA, no el dinero: cuántos huecos llenos de cuántos.
+     El dinero ya no sirve de meta — entre la vitrina más pobre y la más rica
+     hay 174 000× y ninguna cifra es interesante en los dos extremos. */
 
   if (G.reglas?.modo === "carrera"){
     /* Corriendo, la barra de la vitrina no dice nada: lo que importa es en qué
@@ -9737,34 +9840,13 @@ function nombreDeCorredor(p){
 function endGame(ganador){
   G.over = true;
   const won = !!ganador;
+  /* Los rótulos del cartel se reponen SIEMPRE al entrar: hay cuatro finales
+     distintos (aventura, duelo, carrera y pichanga) y cada uno rotula lo suyo.
+     Sin esto, una carrera después de un partido decía "Del otro equipo". */
+  document.getElementById("lbHits").textContent = "Vecinos noqueados";
 
   /* Una carrera no se cuenta en Florines robados: se cuenta en puesto y en
      tiempo. Con el mismo cartel de siempre parecía que habías perdido. */
-  /* ---- el marcador de la pichanga ----
-     Se cuelga de la tarjeta de la meta, que es la que sobra en un partido: no
-     hay vitrina que llenar. */
-  if (G.reglas?.modo === "futbol"){
-    const f = G.futbol;
-    document.querySelector(".card.money .label").textContent = "Tiempo";
-    document.querySelector(".card.rate .label").textContent = "Cómo va";
-    document.querySelector(".card.stolen .label").textContent = "Chancletazos";
-    el.goalLabel.textContent = f.saque > 0 ? "¡Saque del centro!" : "Primero a " + f.meta;
-    el.goal.textContent = f.goles[0] + " – " + f.goles[1];
-    el.bar.style.width = clamp((1 - f.reloj / 240) * 100, 0, 100).toFixed(1) + "%";
-    el.goalCard.classList.toggle("fiesta", f.ultimoGol != null && f.saque > 0);
-    el.money.textContent = mmss(Math.max(0, f.reloj));
-    el.rate.textContent = f.goles[0] > f.goles[1] ? "Vas ganando"
-                        : f.goles[0] < f.goles[1] ? "Vas perdiendo" : "Empate";
-    el.lost.textContent = G.stats.hits;
-    el.alarma.hidden = true;
-    bau.boton.hidden = true; bau.soltar.hidden = true; bau.bajar.hidden = true;
-    cerrarArmasRapidas();
-    const w1 = WEAPONS[G.wsel];
-    el.throwB.classList.toggle("cool", G.cd > 0 ||
-      (w1.id === "chancla" ? G.chancla.state !== "held" : G.ammo[w1.id] <= 0));
-    pintarAccion();
-    return;
-  }
 
   if (G.reglas?.modo === "carrera"){
     /* En una sala el resultado lo dice el mundo del SERVIDOR, no `G`: `G` se
@@ -9812,7 +9894,36 @@ function endGame(ganador){
     Snd.win();
     return;
   }
+  /* ---- cómo acabó la pichanga ----
+     Un partido no se cuenta en Florines robados: se cuenta en goles. Con el
+     cartel de siempre, ganar 3-1 decía "Te dejaron pelado". */
+  if (G.reglas?.modo === "futbol"){
+    const f = G.futbol;
+    const mio = G.player.equipo ?? 0;
+    const ganaste = f.ganador === mio;
+    const empate = f.ganador == null;
+    document.getElementById("lbSteals").textContent = "Goles de tu equipo";
+    document.getElementById("lbHits").textContent = "Del otro equipo";
+    document.getElementById("lbRate").textContent = "Chancletazos que diste";
+    document.getElementById("endEyebrow").textContent = "Se acabó la pichanga";
+    document.getElementById("endTitle").innerHTML = empate
+      ? "Quedaron <em>iguales</em>"
+      : ganaste ? "¡<em>Ganaron</em> ustedes!" : "Ganaron <em>ellos</em>";
+    document.getElementById("endSub").textContent = empate
+      ? "Cuatro minutos y nadie se llevó nada. Otra y desempatan."
+      : ganaste ? "A cobrar en el recreo." : "La revancha es ahí mismo, en el patio.";
+    document.getElementById("stSteals").textContent = f.goles[mio];
+    document.getElementById("stHits").textContent = f.goles[1 - mio];
+    document.getElementById("stTime").textContent = mmss(G.t);
+    document.getElementById("stRate").textContent = G.stats.hits;
+    document.getElementById("btnVolverBarrio").hidden = !aventuraEnEspera;
+    el.end.hidden = false;
+    if (ganaste) Snd.win();
+    return;
+  }
+
   document.getElementById("lbSteals").textContent = "Los que robaste tú";
+  document.getElementById("lbHits").textContent = "Vecinos noqueados";
   document.getElementById("lbRate").textContent = "Ingresos finales";
   document.getElementById("endEyebrow").textContent = won ? "Meta cumplida" : "Fin del patio";
   document.getElementById("endTitle").innerHTML = won ? "¡Vitrina <em>llena</em>!" : "Te dejaron <em>pelado</em>";
@@ -9823,6 +9934,7 @@ function endGame(ganador){
   document.getElementById("stHits").textContent = G.stats.hits;
   document.getElementById("stTime").textContent = mmss(G.t);
   document.getElementById("stRate").textContent = money(playerIncome(G, G.player)) + "/s";
+  document.getElementById("btnVolverBarrio").hidden = !aventuraEnEspera;
   el.end.hidden = false;
   if (won) Snd.win();
 }

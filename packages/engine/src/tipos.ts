@@ -132,6 +132,8 @@ export interface Jugador {
   inRuleta: boolean;
   /** ¿está dentro de la Fusionadora? */
   inFusion: boolean;
+  /** ¿está pisando la canchita del colegio? */
+  enLaCancha: boolean;
   fullWarn: number;
   chancla: Chancla;
   /** id del trasto que lleva debajo, o null si va a pie */
@@ -423,6 +425,9 @@ export interface Estado {
 
   /** El partido, cuando el modo es fútbol. */
   futbol: Futbol | null;
+  /** La canchita del colegio: un sitio del mundo, no un modo. Metiéndote se
+      arma la pichanga sin pasar por el menú. `null` donde no hay colegio. */
+  cancha: Rect | null;
 
   /** La fiesta: mientras dura, la pasarela deja de traer Florines al azar y
       trae los que se hayan anunciado. La pone el cliente cuando el servidor

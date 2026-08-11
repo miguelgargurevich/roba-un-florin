@@ -1667,6 +1667,52 @@ describe("fútbol", () => {
   });
 });
 
+describe("la canchita del colegio", () => {
+  it("está en el colegio y en su zona del Multiverso, y en ningún otro sitio", () => {
+    expect(partida({ escenario: "colegio" }).cancha, "el colegio sin canchita").not.toBe(null);
+    const multi = partida({ escenario: "multiverso" });
+    expect(multi.cancha, "el Multiverso sin canchita").not.toBe(null);
+    const zona = multi.esc.zonas!.find(z => z.id === "colegio")!;
+    expect(multi.cancha!.x, "la canchita se fue de la zona del colegio")
+      .toBeGreaterThanOrEqual(zona.x0);
+    expect(multi.cancha!.x + multi.cancha!.w).toBeLessThanOrEqual(zona.x1);
+    expect(partida({ escenario: "luna" }).cancha, "una cancha en la Luna").toBe(null);
+  });
+
+  it("no pisa casas, puestos ni el desfile", () => {
+    for (const id of ["colegio", "multiverso"]){
+      const e = partida({ escenario: id });
+      const c = e.cancha!;
+      const choca = (r: { x: number; y: number; w: number; h: number }) =>
+        c.x < r.x + r.w && c.x + c.w > r.x && c.y < r.y + r.h && c.y + c.h > r.y;
+      for (const b of e.bases) expect(choca(b.rect), id + ": pisa " + b.name).toBe(false);
+      for (const a of e.armerias) expect(choca(a), id + ": pisa una Armería").toBe(false);
+      for (const r of e.ruletas)
+        expect(choca({ x: r.x - r.r, y: r.y - r.r, w: r.r * 2, h: r.r * 2 }),
+               id + ": pisa una Ruleta").toBe(false);
+      for (const P of [e.portal, e.portal.salida])
+        expect(choca({ x: P.x - 90, y: P.y - 90, w: 180, h: 180 }),
+               id + ": pisa un portal").toBe(false);
+    }
+  });
+
+  it("estar dentro se nota, y en un partido no hay canchita que armar", () => {
+    const e = partida({ escenario: "colegio" });
+    const c = e.cancha!;
+    const p = e.players[0];
+    p.x = c.x + c.w / 2; p.y = c.y + c.h / 2;
+    avanzar(e, nada(), 1 / 60);
+    expect(p.enLaCancha).toBe(true);
+    p.x = 60; p.y = 60;
+    avanzar(e, nada(), 1 / 60);
+    expect(p.enLaCancha).toBe(false);
+
+    const match = crearPartida({ jugadores: 6, escenario: "colegio", semilla: 7,
+                                 armas: idsDeArmas(), reglas: { modo: "futbol" } });
+    expect(match.cancha, "un partido no necesita canchita dentro").toBe(null);
+  });
+});
+
 describe("el Multiverso", () => {
   const multi = () => partida({ escenario: "multiverso" });
 
