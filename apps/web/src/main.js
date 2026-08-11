@@ -1570,9 +1570,13 @@ function elegirModoLocal(m){
   pintarRivales();
   pintarFutbol();
   rotularBotonJugar();
+  /* El modo de la portada y el de las salas se siguen: si eliges Carrera o
+     Fútbol arriba, la sala que crees es de eso. */
   const sel = document.getElementById("salaModo");
-  if (sel && m === "carrera") sel.value = "carrera";
-  if (sel && m !== "carrera" && sel.value === "carrera") sel.value = "aventura";
+  if (sel){
+    if (m === "carrera" || m === "futbol") sel.value = m;
+    else if (sel.value === "carrera" || sel.value === "futbol") sel.value = "aventura";
+  }
   Snd.unlock();
 }
 
@@ -1952,7 +1956,10 @@ function salirDeLaSala(){
 }
 
 elSala.crear.addEventListener("click", () => {
-  conectar({ modo: elSala.modo.value, escenario: ESCENARIOS[escSel].id });
+  /* En un partido, el "escenario" es la CANCHA: el estadio y la calle no están
+     en el selector de la portada, que es para elegir dónde robar Florines. */
+  const modo = elSala.modo.value;
+  conectar({ modo, escenario: modo === "futbol" ? canchaSel : ESCENARIOS[escSel].id });
 });
 elSala.entrar.addEventListener("click", () => {
   const c = elSala.codigo.value.trim().toUpperCase();
