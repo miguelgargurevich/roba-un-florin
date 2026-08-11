@@ -209,6 +209,69 @@ describe("los bots de los asientos libres", () => {
   });
 });
 
+describe("una sala de fútbol", () => {
+  it("caben diez y se reparten en dos equipos", () => {
+    const { r } = registro();
+    const s = r.crear("estadio", "futbol");
+    expect(s.cupo, "un 5v5 necesita diez sitios").toBe(10);
+    for (let i = 0; i < 10; i++)
+      expect(s.sentar("u" + i, "J" + i, cliente().enviar), "no cupo el " + i).not.toBeNull();
+    expect(s.sentar("u10", "J10", cliente().enviar), "entró un onceavo").toBeNull();
+
+    const equipos = s.estado.players.map(p => p.equipo);
+    expect(equipos.filter(q => q === 0).length).toBe(5);
+    expect(equipos.filter(q => q === 1).length).toBe(5);
+    expect(s.estado.futbol, "la sala no montó el partido").not.toBe(null);
+  });
+
+  it("en un partido no hay vecinos ni puestos que valgan", () => {
+    const { r } = registro();
+    const s = r.crear("estadio", "futbol");
+    expect(s.estado.reglas.vecinos).toBe(false);
+    expect(s.estado.reglas.puestos).toBe(false);
+    expect(s.estado.trastos.filter(t => t.tipo === "pelota").length,
+           "en la cancha hay UNA pelota").toBe(1);
+  });
+
+  it("patear manda la pelota, y con más fuerza va más lejos", () => {
+    const { r, avanzar } = registro();
+    const s = r.crear("estadio", "futbol");
+    const a = s.sentar("ana", "Ana", cliente().enviar)!;
+    const f = s.estado.futbol!;
+    f.saque = 0;
+    const b = s.estado.trastos.find(t => t.id === f.balon)!;
+    const p = s.estado.players[a.idx];
+    p.x = b.x - 40; p.y = b.y;
+    p.apunta = { on: true, wx: b.x + 900, wy: b.y };
+    s.patear(a, 1);
+    const fuerte = Math.hypot(b.vx, b.vy);
+    expect(fuerte, "la patada no movió la pelota").toBeGreaterThan(0);
+
+    /* Y el mismo golpe sin cargar sale más flojo. */
+    b.vx = 0; b.vy = 0; b.z = 0; b.vz = 0;
+    b.x = p.x + 40; b.y = p.y;
+    s.patear(a, 0);
+    expect(Math.hypot(b.vx, b.vy), "cargar no sirvió de nada").toBeLessThan(fuerte);
+    avanzar(1);
+  });
+
+  it("una fuerza inventada por el cliente no llega más lejos que el tope", () => {
+    const { r } = registro();
+    const s = r.crear("estadio", "futbol");
+    const a = s.sentar("ana", "Ana", cliente().enviar)!;
+    const f = s.estado.futbol!;
+    f.saque = 0;
+    const b = s.estado.trastos.find(t => t.id === f.balon)!;
+    const p = s.estado.players[a.idx];
+    p.x = b.x - 40; p.y = b.y; p.apunta = { on: true, wx: b.x + 900, wy: b.y };
+    s.patear(a, 1);
+    const tope = Math.hypot(b.vx, b.vy);
+    b.vx = 0; b.vy = 0; b.z = 0; b.vz = 0; b.x = p.x + 40; b.y = p.y;
+    s.patear(a, 99);
+    expect(Math.hypot(b.vx, b.vy), "un cliente mentiroso llegó más lejos").toBeCloseTo(tope, 5);
+  });
+});
+
 describe("la parrilla de una carrera", () => {
   it("nadie se mueve hasta que alguien da la salida", () => {
     const { r, avanzar } = registro();

@@ -5,7 +5,8 @@
    está en @florin/engine y se prueba sin red. */
 
 import {
-  SALA_MAX, avanzar, bajarse, comprarArma, crearPartida, darleVehiculo, girarRuleta,
+  SALA_MAX, FUTBOL_MAX, avanzar, bajarse, comprarArma, crearPartida, darleVehiculo, girarRuleta,
+  patear,
   idsDeArmas, usarPotenciador,
   pensarBot,
   seleccionarArma, soltarCarga, usarArma, venderFlorin,
@@ -46,7 +47,7 @@ export class Sala {
   /* El reloj se inyecta en vez de pasarse en cada llamada: `sentar(..., 0)` era
      un filo afiladísimo — el guardián de inactividad daba al jugador por ido en
      el primer tick y la sala se quedaba muda sin decir por qué. */
-  readonly modo: "aventura" | "versus" | "carrera";
+  readonly modo: "aventura" | "versus" | "carrera" | "futbol";
   /* Una carrera espera en la parrilla hasta que alguien da la salida. Sin
      esto los bots arrancaban al crear la sala y, con vueltas de medio minuto,
      el amigo que tardaba en entrar se la encontraba terminada. En aventura no
@@ -56,7 +57,7 @@ export class Sala {
   private ultimoAviso = -1;
 
   constructor(codigo: string, escenario: string, private reloj: () => number,
-              modo: "aventura" | "versus" | "carrera" = "aventura") {
+              modo: "aventura" | "versus" | "carrera" | "futbol" = "aventura") {
     this.modo = modo;
     this.enParrilla = modo === "carrera";
     this.codigo = codigo;
@@ -65,15 +66,25 @@ export class Sala {
     /* La sala se monta ya con los cinco sitios. Sentar a alguien no rehace el
        mundo: solo le asigna un patio que ya existe. Rehacerlo al entrar cada
        amigo tiraría la partida de los que ya estaban jugando. */
+    /* Un partido son diez asientos (5 contra 5) y lo demás cinco. Los sitios se
+       montan de una vez al crear la sala: sentarse solo asigna uno de los que ya
+       existen, porque rehacer el mundo al entrar cada amigo tiraría la partida
+       de los que ya estaban jugando. */
     this.estado = crearPartida({
-      jugadores: SALA_MAX,
+      jugadores: this.cupo,
       escenario,
       armas: idsDeArmas(),
       // en carrera no hay vecinos: lo dice la regla, no un montón de ifs
-      reglas: { modo, vecinos: modo !== "carrera", puestos: modo !== "carrera" },
+      /* Ni en carrera ni en un partido hay vecinos ni puestos: lo dice la
+         regla, no un montón de ifs repartidos. */
+      reglas: { modo, vecinos: modo === "aventura" || modo === "versus",
+                puestos: modo === "aventura" || modo === "versus" },
       semilla: (ahora ^ (codigo.charCodeAt(0) * 7919)) | 0,
     });
   }
+
+  /** Cuántos caben aquí: diez en un partido, cinco en lo demás. */
+  get cupo(): number { return this.modo === "futbol" ? FUTBOL_MAX : SALA_MAX; }
 
   get gente(): Presencia[] {
     return this.asientos.map(a => ({ idx: a.idx, apodo: a.apodo, conectado: !!a.enviar }));
@@ -89,7 +100,7 @@ export class Sala {
       suyo.ultimaSeñal = this.reloj();
       return suyo;
     }
-    if (this.asientos.length >= SALA_MAX) return null;
+    if (this.asientos.length >= this.cupo) return null;
     const asiento: Asiento = {
       idx: this.asientos.length, userId, apodo, enviar,
       entrada: { mover: { x: 0, y: 0 }, apunta: null }, ultimaSeñal: this.reloj(),
@@ -222,6 +233,9 @@ export class Sala {
   arma(a: Asiento, i: number): void { seleccionarArma(this.estado, this.estado.players[a.idx], i); }
   comprar(a: Asiento, i: number): void { comprarArma(this.estado, this.estado.players[a.idx], i); }
   usar(a: Asiento): void { usarArma(this.estado, this.estado.players[a.idx]); }
+  patear(a: Asiento, fuerza: number): void {
+    patear(this.estado, this.estado.players[a.idx], fuerza);
+  }
   item(a: Asiento): void { usarPotenciador(this.estado, this.estado.players[a.idx]); }
   ruleta(a: Asiento): void { girarRuleta(this.estado, this.estado.players[a.idx], 2.2); }
   bajar(a: Asiento): void { bajarse(this.estado, this.estado.players[a.idx], true); }
@@ -240,7 +254,8 @@ export class Registro {
   get tamaño(): number { return this.salas.size; }
   buscar(codigo: string): Sala | undefined { return this.salas.get(codigo.toUpperCase()); }
 
-  crear(escenario = "catarata", modo: "aventura" | "versus" | "carrera" = "aventura"): Sala {
+  crear(escenario = "catarata",
+        modo: "aventura" | "versus" | "carrera" | "futbol" | "futbol" = "aventura"): Sala {
     let codigo = "";
     do {
       codigo = Array.from({ length: 4 }, () =>

@@ -35,13 +35,16 @@ export const CUENTA_ATRAS = 3;
 /* ---- lo que manda el cliente ---- */
 export type DelCliente =
   | { t: "entrar"; token?: string; codigo?: string; escenario?: string; apodo?: string;
-      modo?: "aventura" | "versus" | "carrera";
+      modo?: "aventura" | "versus" | "carrera" | "futbol";
       /** con qué quiere correr; el servidor no comprueba si de verdad lo tiene */
       vehiculo?: string }
   | { t: "entrada"; mover: { x: number; y: number }; apunta: { x: number; y: number } | null }
   | { t: "arma"; i: number }
   | { t: "comprar"; i: number }
   | { t: "usar" }
+  /** Patear en un partido. `fuerza` de 0 a 1: la carga del botón. El servidor
+      la recorta igual, así que mandar 99 no llega más lejos. */
+  | { t: "patear"; fuerza?: number }
   | { t: "ruleta" }
   | { t: "bajarse" }
   | { t: "vender"; b: number; i: number }

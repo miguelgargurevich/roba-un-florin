@@ -222,6 +222,9 @@ export interface Trasto {
   id: number;
   tipo: TipoTrasto;
   x: number; y: number;
+  /** Solo la pelota del partido: a qué altura va y a qué velocidad sube. Sin
+      esto no hay centros ni cabezazos, porque todo pasa a ras de suelo. */
+  z?: number; vz?: number;
   /** solo lo usan los que ruedan; los vehículos siguen a quien los monta */
   vx: number; vy: number;
   /** idx del jugador que va encima, o null */

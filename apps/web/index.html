@@ -206,6 +206,24 @@
   }
   @media (pointer:coarse){ #bajarBtn small{display:none} }
   #bajarBtn[hidden]{display:none}
+  /* El de patear: al lado del de la chancla, más grande porque es EL botón del
+     partido. La barra de abajo es la carga. */
+  #pateoBtn{
+    position:absolute;right:150px;bottom:24px;width:104px;height:104px;border-radius:50%;
+    background:radial-gradient(circle at 35% 30%,#EFEFEF,#D8D8D8 60%,#9A9A9A);
+    border:5px solid #3A3A3A;box-shadow:0 7px 0 #262626;z-index:24;
+    pointer-events:auto;cursor:pointer;display:grid;place-items:center;
+  }
+  #pateoBtn[hidden]{display:none}
+  #pateoBtn .ic{font-size:46px;line-height:1}
+  #pateoBtn:active{transform:translateY(4px);box-shadow:0 3px 0 #262626}
+  #pateoBtn .carga{
+    position:absolute;left:12px;right:12px;bottom:12px;height:9px;border-radius:6px;
+    background:rgba(0,0,0,.35);overflow:hidden;display:block;
+  }
+  #pateoBtn .carga b{display:block;height:100%;width:0;background:#FFC53D;border-radius:6px}
+  #app.zurdo #pateoBtn{left:150px;right:auto}
+  @media (max-height:460px){ #pateoBtn{width:84px;height:84px;right:120px;bottom:16px} }
   #bajarBtn:active{transform:translateY(3px);box-shadow:0 3px 0 #0B4630}
   #app.zurdo #bajarBtn{left:24px;right:auto}
   #dropBtn:active{transform:translateY(3px);box-shadow:0 3px 0 #5C3610}
@@ -1273,6 +1291,11 @@
     <!-- La lista de armas que sale al DEJAR APRETADO el botón de lanzar, en una
          sola línea encima de él. Se elige y se cierra sola. -->
     <div id="armasRapidas" role="listbox" aria-label="Elegir arma" hidden></div>
+    <!-- Patear: un toque la empuja, aguantando sale el pelotazo. Solo en un
+         partido, y donde no estorbe al botón rosa de la chancla. -->
+    <button id="pateoBtn" type="button" hidden aria-label="Patear la pelota">
+      <span class="ic">⚽</span><i class="carga"><b></b></i>
+    </button>
     <button id="throwBtn" aria-label="Usar arma">
       <span class="wicon" id="wIcon" hidden></span>
       <svg viewBox="0 0 100 100" aria-hidden="true" id="wSvg">

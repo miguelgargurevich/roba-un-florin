@@ -21,7 +21,7 @@ import {
   puestoDe, puestosDeCarrera, VUELTAS, CIRCUITOS, pensarBot, GARAJE, VEHICULOS,
   fundir, queSaleDeFundir,
   TRASTOS_ESCENARIO, darleVehiculo, esEspecial, ANCHO_PISTA, aparcarNuevo, comprarPatio,
-  ponerFiesta, enFiesta,
+  ponerFiesta, enFiesta, patear,
   usarPotenciador, potenciadoresDe, potenciadorPorId,
   soltarCarga, trastoDe,
   venderFlorin,
@@ -379,11 +379,17 @@ window.addEventListener("keydown", e => {
   if (k === "n"){ if (G.player.montado != null) bajarseDelTrasto(); else abrirBautizo(); }
   if (k === "f") soltarLoQueLlevo();
   if (k === "x") usarMiItem();       // la E ya cambia de arma
-  if (k === "b") { if (document.getElementById("album").hidden) abrirAlbum(); else cerrarAlbum(); }
+  /* La B abre el álbum… salvo en un partido, donde es la de patear: a media
+     pichanga nadie quiere el álbum, y el que lo quiera tiene el botón 📖. */
+  if (k === "b" && !(G && G.futbol))
+    { if (document.getElementById("album").hidden) abrirAlbum(); else cerrarAlbum(); }
   if (k === "t") togglePanel("arm");
   if (k === "r") togglePanel("rul");
   if (k === "escape" && !document.getElementById("album").hidden) cerrarAlbum();
   if (k === "escape" && !elTienda.hidden) cerrarTienda();
+  /* En teclado se patea con B, aguantándola para cargar. */
+  if (k === "b" && G && G.futbol && G.started && !G.over && !pateo.desde)
+    pateo.desde = performance.now();
   if (k === "escape" && !document.getElementById("salirAviso").hidden) cerrarSalir();
   if (k >= "1" && k <= "9") elegirArma(+k - 1);
   if (k === "0") elegirArma(9);
@@ -393,7 +399,10 @@ window.addEventListener("keydown", e => {
     if (!G.started || G.over) startGame(1);
   }
 });
-window.addEventListener("keyup", e => keys.delete(e.key.toLowerCase()));
+window.addEventListener("keyup", e => {
+  keys.delete(e.key.toLowerCase());
+  if (e.key.toLowerCase() === "b") soltarPateo();
+});
 window.addEventListener("blur", () => keys.clear());
 
 /* ============================================================
@@ -1011,6 +1020,38 @@ for (const t of ["pointerup", "pointercancel"]) window.addEventListener(t, joyEn
 window.addEventListener("blur", () => joyEnd({ pointerId: joy.id }));
 
 /* Botón de arma: un toque lanza hacia donde caminas; si arrastras, apuntas */
+/* ---- patear ----
+   Un toque la empuja; aguantando, se carga y sale el pelotazo. Pasado cierto
+   punto el balón sale POR EL AIRE, y ahí es donde aparecen los centros — y los
+   cabezazos, que es lo mismo pero rematando lo que viene volando.
+
+   La fuerza la manda quien juega y el motor la recorta: un cliente que mande 99
+   no llega más lejos que uno honesto. */
+const elPateo = document.getElementById("pateoBtn");
+const PATEO_CARGA = 1.1;                    // segundos hasta la fuerza máxima
+const pateo = { desde: 0, id: null };
+
+function fuerzaDePateo(){
+  if (!pateo.desde) return 0;
+  return clamp((performance.now() - pateo.desde) / 1000 / PATEO_CARGA, 0, 1);
+}
+function soltarPateo(){
+  if (!pateo.desde) return;
+  const f = fuerzaDePateo();
+  pateo.desde = 0; pateo.id = null;
+  elPateo.querySelector(".carga b").style.width = "0%";
+  if (sala) sala.patear(f);
+  else if (G && G.futbol) patear(G, G.player, f);
+  Snd.unlock();
+}
+elPateo.addEventListener("pointerdown", e => {
+  e.preventDefault();
+  pateo.desde = performance.now(); pateo.id = e.pointerId;
+  try { elPateo.setPointerCapture?.(e.pointerId); } catch (_){}
+});
+elPateo.addEventListener("pointerup", e => { if (e.pointerId === pateo.id) soltarPateo(); });
+elPateo.addEventListener("pointercancel", () => { pateo.desde = 0; pateo.id = null; });
+
 /* ---- la lista rápida de armas ----
    Dejando apretado el botón de lanzar sale la fila de armas justo encima, que
    es donde ya está el pulgar. Antes había que ir a la barra de arriba a buscar
@@ -4223,6 +4264,10 @@ const monturaDe = p => (p.montado != null ? MONTURA[trastoDe(G, p.montado)?.tipo
 
 /* Todo lo que se puede montar o patear. Va después de las cáscaras y antes de
    la gente: así el que va montado sale dibujado encima de su bici. */
+/* Un balón por el aire se dibuja más grande y con la sombra separada debajo:
+   es lo único que distingue "va volando" de "va rodando" en una vista cenital. */
+function altoDeTrasto(v){ return v.z ? v.z : 0; }
+
 function drawTrastos(){
   for (const v of G.trastos){
     const i = v.variante;
@@ -4243,6 +4288,22 @@ function drawTrastos(){
       if (p.face < 0) ctx.scale(-1, 1);                 // mirar a la izquierda es un espejo
       ctx.translate(-p.x, -(p.y + M.baja));
       dibujarTrasto(v, p.x, p.y + M.baja, 0, anda);
+      ctx.restore();
+      continue;
+    }
+    /* Por el aire: la sombra se queda en el suelo y el balón sube y crece. Es
+       lo único que distingue "va volando" de "va rodando" mirando desde arriba. */
+    const alto = v.z || 0;
+    if (alto > 1){
+      const k = clamp(alto / 260, 0, 1);
+      ctx.save();
+      ctx.fillStyle = "rgba(0,0,0," + (0.26 - k * 0.14).toFixed(2) + ")";
+      ctx.beginPath();
+      ctx.ellipse(v.x, v.y + 6, 13 - k * 5, (13 - k * 5) * 0.38, 0, 0, 6.283);
+      ctx.fill();
+      ctx.translate(v.x, v.y - alto * 0.55);
+      ctx.scale(1 + k * 0.55, 1 + k * 0.55);
+      dibujarTrasto(v, 0, 0, v.giro);
       ctx.restore();
       continue;
     }
@@ -9924,6 +9985,12 @@ function hud(){
      salir: volviendo al barrio, el dinero seguía debajo de un cartel que decía
      "Tiempo". */
   rotularTarjetas(G.reglas?.modo === "futbol");
+  /* El botón de patear solo existe en un partido, y su barra se llena mientras
+     aguantas: sin verla, cargar es adivinar. */
+  const enPartido = G.reglas?.modo === "futbol" && G.started && !G.over;
+  elPateo.hidden = !enPartido;
+  if (enPartido && pateo.desde)
+    elPateo.querySelector(".carga b").style.width = (fuerzaDePateo() * 100).toFixed(0) + "%";
   if (G.reglas?.modo === "futbol"){
     const f = G.futbol;
     el.goalLabel.textContent = f.saque > 0 ? "¡Saque del centro!" : "Primero a " + f.meta;

@@ -157,6 +157,7 @@ export function conectarSala({ url, token, codigo, modo, escenario, apodo, vehic
     arma: i => mandar({ t: "arma", i }),
     comprar: i => mandar({ t: "comprar", i }),
     usar: () => mandar({ t: "usar" }),
+    patear: fuerza => mandar({ t: "patear", fuerza }),
     ruleta: () => mandar({ t: "ruleta" }),
     bajarse: () => mandar({ t: "bajarse" }),
     vender: (b, i) => mandar({ t: "vender", b, i }),

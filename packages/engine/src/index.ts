@@ -32,6 +32,7 @@ export type { PlanBot } from "./bot.js";
 export {
   avanzar, usarArma, comprarArma, seleccionarArma, girarRuleta, premioDeRuleta,
   textoDePremio, spawnThief, sacarDelPortal, comprarPatio, rumboDeTiro, ponerFiesta, enFiesta,
+  patear, PATEO_ALCANCE,
   maxTier, rollTier, blancosDe, dropCarried, zap, knock, applyKnock, escudoAguanta,
   bajarse, cargar, multDeMontura, venderFlorin, precioDeVenta, soltarCarga,
   puestosDeCarrera, puestoDe, usarPotenciador, fundir, queSaleDeFundir,

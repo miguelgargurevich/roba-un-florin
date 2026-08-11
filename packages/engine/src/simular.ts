@@ -1232,6 +1232,10 @@ function tocarTrastos(e: Estado, p: Jugador): void {
       sonar(e, "grab");
     } else {
       // pelotas y matas: se patean en la dirección en la que ibas
+      /* Menos si va por el aire: un balón volando se cabecea, no se lleva por
+         delante. Sin esto, un centro moría en las piernas del primero que
+         pasara por debajo. */
+      if ((v.z ?? 0) > 24) continue;
       const vel = Math.hypot(p.vx, p.vy);
       if (vel < 40) continue;
       v.vx = (p.vx / vel) * vel * PATADA;
@@ -1532,6 +1536,74 @@ function avanzarJugador(e: Estado, p: Jugador, ent: EntradaJugador | undefined, 
    La pelota se patea con el mismo código que cualquier pelota del patio: aquí
    solo se la mantiene dentro de la cancha, se mira si entró y se lleva la
    cuenta. Lo demás —correr, chanclear, aturdirse— ya funcionaba. */
+/* ---- patear y cabecear ----
+   Correr por encima de la pelota ya la movía; esto es apuntar y pegarle. Un
+   toque la empuja, aguantando el botón sale un pelotazo, y a partir de cierta
+   fuerza SALE POR EL AIRE: eso es lo que hace que existan los centros, y con
+   ellos los cabezazos.
+
+   `fuerza` va de 0 a 1 y la manda quien juega (el botón la carga). El motor la
+   recorta, así que un cliente que mande 99 no llega más lejos que uno honesto. */
+export const PATEO_ALCANCE = 74;
+const PATEO_BASE = 520, PATEO_TOPE = 1500;
+/** A partir de aquí el balón se eleva: por debajo, va rastrero. */
+const PATEO_VUELA = 0.55;
+export const GRAVEDAD = 1600;
+
+/** ¿Cuál es la pelota del partido y está a mi alcance? */
+function balonAlAlcance(e: Estado, p: Jugador): Trasto | null {
+  const f = e.futbol;
+  if (!f) return null;
+  const b = e.trastos.find(t => t.id === f.balon);
+  if (!b) return null;
+  return dist2(p.x, p.y, b.x, b.y) < PATEO_ALCANCE * PATEO_ALCANCE ? b : null;
+}
+
+/**
+ * Pegarle a la pelota. Si viene por el aire y la tienes encima, es un CABEZAZO:
+ * sale más plano y menos fuerte, pero te deja rematar un centro sin esperar a
+ * que bote — que es justo para lo que sirve un cabezazo.
+ * Devuelve qué pasó, para que el cliente lo cuente.
+ */
+export function patear(e: Estado, p: Jugador, fuerza = 0): "patada" | "cabezazo" | null {
+  const f = e.futbol;
+  if (!f || f.ganador != null || p.stun > 0) return null;
+  const b = balonAlAlcance(e, p);
+  if (!b) return null;
+  /* Durante el saque no se le pega: si no, el que saca lo hace desde el centro
+     antes de que los demás se coloquen. */
+  if (f.saque > 0) return null;
+
+  const k = clamp(fuerza, 0, 1);
+  /* Hacia donde apuntas, y si no apuntas, hacia donde corres. Quieto y sin
+     apuntar, hacia donde miras: pegarle "a ninguna parte" no existe. */
+  const a = p.apunta;
+  let dx = a.on ? a.wx - p.x : p.vx, dy = a.on ? a.wy - p.y : p.vy;
+  if (Math.hypot(dx, dy) < 1){ dx = p.face; dy = 0; }
+  const m = Math.hypot(dx, dy) || 1;
+
+  const porElAire = (b.z ?? 0) > 24;
+  if (porElAire) {
+    /* Cabezazo: el balón ya venía volando y lo bajas de testa. */
+    const v = PATEO_BASE * (0.55 + k * 0.35);
+    b.vx = dx / m * v; b.vy = dy / m * v;
+    b.vz = 120;                        // un pique corto, no otro globo
+    b.pateadoPor = p.idx;
+    texto(e, p.x, p.y - 58, "¡De cabeza!", "#FFC53D");
+    sonar(e, "whack");
+    return "cabezazo";
+  }
+
+  const v = PATEO_BASE + (PATEO_TOPE - PATEO_BASE) * k;
+  b.vx = dx / m * v; b.vy = dy / m * v;
+  b.vz = k > PATEO_VUELA ? 260 + (k - PATEO_VUELA) * 900 : 0;
+  b.z = b.z ?? 0;
+  b.pateadoPor = p.idx;
+  polvo(e, b.x, b.y, "#FFEFE2", k > PATEO_VUELA ? 10 : 5);
+  sonar(e, "whack");
+  return "patada";
+}
+
 function pasoFutbol(e: Estado, dt: number): void {
   const f = e.futbol;
   if (!f || f.ganador != null) return;
@@ -1545,6 +1617,20 @@ function pasoFutbol(e: Estado, dt: number): void {
     f.saque -= dt;
     balon.vx = 0; balon.vy = 0;
     return;
+  }
+
+  /* La pelota en el aire: sube, cae y bota. Mientras vuela nadie la empuja al
+     rozarla —para eso está el cabezazo—, y por eso un centro cruza por encima
+     de la marca en vez de quedarse en el primer par de piernas. */
+  if ((balon.z ?? 0) > 0 || (balon.vz ?? 0) !== 0) {
+    balon.vz = (balon.vz ?? 0) - GRAVEDAD * dt;
+    balon.z = (balon.z ?? 0) + balon.vz * dt;
+    if (balon.z <= 0) {
+      balon.z = 0;
+      /* Cada bote se come más de la mitad: dos botes y ya rueda. */
+      balon.vz = Math.abs(balon.vz) > 140 ? Math.abs(balon.vz) * 0.42 : 0;
+      if (balon.vz === 0) balon.z = 0;
+    }
   }
 
   f.reloj -= dt;
