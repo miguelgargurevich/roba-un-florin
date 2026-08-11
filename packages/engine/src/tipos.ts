@@ -132,8 +132,8 @@ export interface Jugador {
   inRuleta: boolean;
   /** ¿está dentro de la Fusionadora? */
   inFusion: boolean;
-  /** ¿está pisando la canchita del colegio? */
-  enLaCancha: boolean;
+  /** En qué sitio de minijuego está parado, o null si en ninguno. */
+  enSitio: JuegoDeSitio | null;
   fullWarn: number;
   chancla: Chancla;
   /** id del trasto que lleva debajo, o null si va a pie */
@@ -263,6 +263,17 @@ export type Premio =
 export interface CajaItem { id: number; x: number; y: number; listo: number }
 
 export interface Girando { t: number; dur: number; premio: Premio; jugadorIdx: number }
+
+/** Qué se juega en un sitio del mundo. */
+export type JuegoDeSitio = "futbol" | "tenis";
+
+/** Un sitio del mundo con su minijuego: dónde está y a qué se juega. */
+export interface SitioDeJuego {
+  juego: JuegoDeSitio;
+  rect: Rect;
+  /** Cómo se llama en el cartel: "LA PICHANGA", "LA CANCHA DE TENIS". */
+  rotulo: string;
+}
 
 /** Un partido: la cancha, los dos arcos, el marcador y el reloj.
 
@@ -431,9 +442,13 @@ export interface Estado {
 
   /** El partido, cuando el modo es fútbol. */
   futbol: Futbol | null;
-  /** La canchita del colegio: un sitio del mundo, no un modo. Metiéndote se
-      arma la pichanga sin pasar por el menú. `null` donde no hay colegio. */
-  cancha: Rect | null;
+  /** Los sitios del mundo donde se arma un minijuego: te metes y se juega, sin
+      pasar por el menú. La canchita del colegio fue el primero.
+
+      Es una LISTA y no un campo por juego a propósito: el segundo minijuego —y
+      el tercero— traen sus reglas y nada más, en vez de otra bandera, otro
+      botón y otro guardar-y-volver copiados. */
+  sitios: SitioDeJuego[];
 
   /** La fiesta: mientras dura, la pasarela deja de traer Florines al azar y
       trae los que se hayan anunciado. La pone el cliente cuando el servidor

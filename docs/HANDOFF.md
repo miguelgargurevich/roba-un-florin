@@ -24,6 +24,22 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Última sesión
 
+- 2026-08-10 (claude-code): **la puerta de los minijuegos, generalizada** (paso
+  previo al tenis). `e.cancha` —que era literalmente *la cancha de fútbol del
+  colegio*— pasa a ser `e.sitios: SitioDeJuego[]`, y `p.enLaCancha` (booleano) a
+  `p.enSitio: JuegoDeSitio | null`, que dice A QUÉ has entrado. Buscar hueco,
+  el cartel, el botón de acción y el guardar-y-volver son ahora comunes: el
+  siguiente minijuego trae SUS REGLAS y nada más.
+  **El tenis NO está hecho.** Su entrada en `SITIOS` (en `estado.ts`) está
+  escrita y comentada: descomentarla cuelga la cancha con su cartel y su botón,
+  pero antes hay que escribir las reglas —red, bote, punto, marcador— y una
+  rama en `pensarBot`. Lo que ya juega a favor: el balón tiene altura (`z`,
+  `vz`, gravedad y botes), que es justo lo que el tenis necesita y lo que no
+  existía antes del fútbol.
+  Próximo, por costo: tenis y vóley son casi el mismo esqueleto (red, bote, dos
+  lados) y salen baratos; el surf de la Costa Verde no reusa nada y merece ser
+  su propio proyecto.
+
 - 2026-08-10 (claude-code): **fútbol online, pateo con carga y cabezazos**.
   *Online*: una sala de fútbol tiene **diez asientos** (`cupo` por modo, 5v5),
   los equipos salen del reparto que ya hacía el motor y los libres los llevan

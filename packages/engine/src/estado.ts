@@ -3,7 +3,7 @@
 
 import type {
   Base, DesfileItem, Estado, Evento, Florin, Jugador, Laser, Pedestal, RefObjetivo,
-  Rect, RefPed, Reglas, Sonido, Trasto, Variante,
+  Rect, RefPed, Reglas, SitioDeJuego, JuegoDeSitio, Sonido, Trasto, Variante,
 } from "./tipos.js";
 import {
   ESCENARIOS, FLORES, GOAL, LASER_CARGA, PATIOS_PRECIO, TIERS, TRASTOS_ESCENARIO,
@@ -490,7 +490,7 @@ function mkJugador(idx: number, base: Base, shirt: string, ammoIds: string[]): J
     vx: 0, vy: 0, face: 1, walk: 0, dirx: 1, diry: 0,
     carry: null, stun: 0, boost: 0, invis: 0, escudo: 0, inmune: 0,
     money: 260, ammo, wsel: 0, cd: 0, inShop: false, inRuleta: false, inFusion: false,
-    enLaCancha: false, fullWarn: 0,
+    enSitio: null, fullWarn: 0,
     chancla: { state: "held", x: 0, y: 0, vx: 0, vy: 0, spin: 0, travel: 0 },
     montado: null, trastoUsado: null,
     grab: { ped: null, t: 0 },
@@ -768,7 +768,7 @@ export function crearPartida(op: OpcionesPartida): Estado {
 
   const e: Estado = {
     t: 0, reglas, esc, semilla, rngEstado: semilla | 0,
-    bases, players: jugadores, armerias, ruletas, fusion, cochera: null, cancha: null, portal,
+    bases, players: jugadores, armerias, ruletas, fusion, cochera: null, sitios: [], portal,
     bolts: [], blasts: [], cascaras: [], trastos: [], perros: [], slowmo: 0,
     thieves: [], ground: [], thiefTimer: 14,
     girando: null, ultimoPremio: null, cajas: [],
@@ -804,23 +804,47 @@ export function crearPartida(op: OpcionesPartida): Estado {
   sembrarTrastos(e);       // después de las bases: necesita saber dónde no caben
   if (reglas.modo === "carrera") aLaLineaDeSalida(e);
   if (reglas.modo === "futbol") aLaCancha(e);
-  else ponerLaCanchita(e);
+  else ponerLosSitios(e);
   return e;
 }
 
-/* ---- la canchita del barrio ----
-   El colegio tiene su cancha pintada desde siempre. Ahora además EXISTE: es un
-   sitio del mundo al que te metes y se arma la pichanga, sin volver al menú.
-   No cambia las reglas de la aventura — solo está ahí, como la Ruleta. */
+/* ---- los sitios con minijuego ----
+   Sitios del mundo a los que te metes y se arma un partido, sin pasar por el
+   menú. El primero fue la canchita del colegio; ahora es una lista, para que el
+   siguiente juego traiga sus reglas y no otra copia de la misma fontanería.
+
+   Cada juego dice dónde puede vivir y de qué tamaño es; el resto —buscar hueco,
+   avisar de que estás dentro, el cartel— es común. */
 export const CANCHITA = { w: 900, h: 560 };
+export const CANCHA_TENIS = { w: 780, h: 500 };
 
-function ponerLaCanchita(e: Estado): void {
-  /* Solo donde hay colegio: en el propio colegio, y en su zona del Multiverso.
-     Una cancha en la Luna no la pidió nadie. */
-  const zona = e.esc.zonas?.find(z => z.id === "colegio");
-  if (e.esc.id !== "colegio" && !zona) return;
-  const x0 = zona ? zona.x0 : 0, x1 = zona ? zona.x1 : WORLD_W;
+const SITIOS: {
+  juego: JuegoDeSitio; rotulo: string; medida: { w: number; h: number };
+  /** En qué escenario (o zona) puede aparecer. */
+  donde: string;
+}[] = [
+  { juego: "futbol", rotulo: "LA PICHANGA", medida: CANCHITA, donde: "colegio" },
+  /* El tenis: la puerta está hecha y probada, pero SUS REGLAS no. Colgar la
+     cancha ahora sería poner un cartel a un sitio donde no se puede jugar.
+     Para estrenarlo basta descomentar esta línea — el resto (buscar hueco,
+     saber que estás dentro, el cartel, el botón, guardar y volver) ya funciona.
+  { juego: "tenis", rotulo: "LA CANCHA DE TENIS", medida: CANCHA_TENIS, donde: "colegio" },
+  */
+];
 
+function ponerLosSitios(e: Estado): void {
+  for (const S of SITIOS) {
+    const zona = e.esc.zonas?.find(z => z.id === S.donde);
+    if (e.esc.id !== S.donde && !zona) continue;
+    const x0 = zona ? zona.x0 : 0, x1 = zona ? zona.x1 : WORLD_W;
+    const sitio = buscarHuecoDeSitio(e, x0, x1, S.medida);
+    if (sitio) e.sitios.push({ juego: S.juego, rect: sitio, rotulo: S.rotulo });
+  }
+}
+
+/** Un hueco libre para una cancha, de grande a chica y de fuera hacia el centro. */
+function buscarHuecoDeSitio(e: Estado, x0: number, x1: number,
+                            medida: { w: number; h: number }): Rect | null {
   const libre = (x: number, y: number, w: number, h: number) => {
     if (x < x0 + 60 || x + w > x1 - 60 || y < 80 || y + h > WORLD_H - 60) return false;
     const choca = (r: { x: number; y: number; w: number; h: number }, m = 40) =>
@@ -829,8 +853,10 @@ function ponerLaCanchita(e: Estado): void {
     if (e.armerias.some(a => choca(a))) return false;
     if (e.ruletas.some(r => choca({ x: r.x - r.r, y: r.y - r.r, w: r.r * 2, h: r.r * 2 }))) return false;
     if (e.fusion && choca(e.fusion)) return false;
+    /* Ni encima de otro sitio de juego: dos canchas superpuestas son una sola. */
+    if (e.sitios.some(s => choca(s.rect))) return false;
     /* Ni encima de la columna del desfile ni de los dos portales: por ahí bajan
-       los Florines, y una pichanga cruzada por el desfile son dos cosas
+       los Florines, y un partido cruzado por el desfile son dos cosas
        peleándose por el mismo sitio. */
     for (const P of [e.portal, e.portal.salida])
       if (choca({ x: P.x - 90, y: P.y - 90, w: 180, h: 180 }, 60)) return false;
@@ -839,26 +865,22 @@ function ponerLaCanchita(e: Estado): void {
     return true;
   };
 
-  /* Se busca en la mitad de abajo primero, que es donde el patio del colegio
-     tiene sitio, y de fuera hacia el centro. Orden fijo: el mismo sitio en
-     cada partida. */
   const medio = (x0 + x1) / 2;
   /* De grande a chica: en el Multiverso la zona del colegio está despejada y
-     cabe la de verdad; en el colegio a secas el patio va lleno —ocho casas,
-     cinco patios, dos puestos de cada y la Fusionadora— y hay que apretarse.
-     Una canchita chica sigue siendo una canchita; ninguna, no. */
+     cabe entera; en el colegio a secas el patio va lleno —ocho casas, cinco
+     patios, dos puestos de cada y la Fusionadora— y hay que apretarse. Una
+     cancha chica sigue siendo una cancha; ninguna, no. */
   for (const k of [1, 0.82, 0.66, 0.52]) {
-    const w = Math.round(CANCHITA.w * k), h = Math.round(CANCHITA.h * k);
+    const w = Math.round(medida.w * k), h = Math.round(medida.h * k);
     for (const fy of [0.74, 0.62, 0.86, 0.30, 0.18, 0.46]) {
       for (const dx of [-820, 820, -1180, 1180, -450, 450, -1450, 1450, 0]) {
         const x = Math.round(medio + dx - w / 2);
         const y = Math.round(WORLD_H * fy - h / 2);
-        if (libre(x, y, w, h)) { e.cancha = { x, y, w, h }; return; }
+        if (libre(x, y, w, h)) return { x, y, w, h };
       }
     }
   }
-  /* Sin hueco limpio no se pone: mejor sin canchita que una canchita con la
-     Ruleta dentro del área. */
+  return null;
 }
 
 /* ---- el partido ----

@@ -1525,7 +1525,7 @@ function avanzarJugador(e: Estado, p: Jugador, ent: EntradaJugador | undefined, 
     p.inShop = e.armerias.some(a => inRect(p.x, p.y, a, 30));
     p.inRuleta = e.ruletas.some(r => dist2(p.x, p.y, r.x, r.y) < (r.r + 30) ** 2);
     p.inFusion = !!e.fusion && inRect(p.x, p.y, e.fusion, 30);
-    p.enLaCancha = !!e.cancha && inRect(p.x, p.y, e.cancha, 0);
+    p.enSitio = e.sitios.find(s => inRect(p.x, p.y, s.rect, 0))?.juego ?? null;
   }
 }
 

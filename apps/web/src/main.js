@@ -1258,7 +1258,8 @@ document.getElementById("fusBtn").addEventListener("click", () => {
 const elAccion = document.getElementById("accion");
 let accionActual = null;
 elAccion.addEventListener("click", () => {
-  if (accionActual === "cancha") armarPichanga();
+  if (accionActual === "sitio:futbol") armarPichanga();
+  else if (accionActual === "sitio:tenis") decir("El tenis está a medio construir: pronto.", "mal");
   else if (accionActual) togglePanel(accionActual);
 });
 
@@ -1268,14 +1269,16 @@ function pintarAccion(){
     : panelDisponible("arm") ? "arm"
     : panelDisponible("fus") ? "fus"
     : panelDisponible("rul") ? "rul"
-    : (G.player.enLaCancha && G.reglas?.modo !== "futbol") ? "cancha" : null;
+    : (G.player.enSitio && G.reglas?.modo !== "futbol" && G.reglas?.modo !== "tenis")
+        ? "sitio:" + G.player.enSitio : null;
   const yaAbierto = !el.arm.hidden || !el.rul.hidden || !el.fus.hidden;
   if (!cual || yaAbierto){ elAccion.hidden = true; accionActual = null; return; }
   if (cual !== accionActual){
     accionActual = cual;
     elAccion.textContent = cual === "arm" ? "🧰 Entrar a la Armería"
       : cual === "fus" ? "⚗️ Abrir la Fusionadora"
-      : cual === "cancha" ? "⚽ Armar la pichanga · " + ladoSel + " contra " + ladoSel
+      : cual === "sitio:futbol" ? "⚽ Armar la pichanga · " + ladoSel + " contra " + ladoSel
+      : cual === "sitio:tenis" ? "🎾 Jugar tenis"
       : "🎰 Girar la Ruleta · " + money(RULETA_PRECIO);
   }
   const p = G.player;
@@ -1292,7 +1295,7 @@ function pintarAccion(){
 let aventuraEnEspera = null;
 
 function armarPichanga(){
-  if (!G || !G.started || G.over || G.local2 || !G.player.enLaCancha) return;
+  if (!G || !G.started || G.over || G.local2 || G.player.enSitio !== "futbol") return;
   aventuraEnEspera = { estado: JSON.stringify(G), esc: G.esc.id };
   guardarPartidaAhora();                    // y en la nube también, si hay cuenta
   /* La del patio se juega en el patio: te metiste a ESA cancha. */
@@ -2421,8 +2424,8 @@ function libreDeco(x, y, m){
   const caja = { x:x-m, y:y-m, w:m*2, h:m*2 };
   /* Dentro de la canchita no se siembra nada: una palmera en el área no es
      decorado, es un obstáculo que además no lo es. */
-  if (G && G.cancha){
-    const c = G.cancha;
+  for (const s of (G && G.sitios) || []){
+    const c = s.rect;
     if (caja.x < c.x+c.w+30 && caja.x+caja.w > c.x-30 &&
         caja.y < c.y+c.h+30 && caja.y+caja.h > c.y-30) return false;
   }
@@ -8659,8 +8662,11 @@ function decoCalle(c, E){
    Un sitio del mundo, como la Ruleta: se ve desde lejos, dice para qué sirve y
    metiéndote se arma la pichanga. */
 function drawCanchita(){
-  const c = G.cancha;
-  if (!c) return;
+  for (const sitio of G.sitios || []) dibujarSitio(sitio);
+}
+
+function dibujarSitio(sitio){
+  const c = sitio.rect;
   ctx.save();
   ctx.fillStyle = "rgba(94,154,82,.55)";
   ctx.fillRect(c.x, c.y, c.w, c.h);
@@ -8682,8 +8688,9 @@ function drawCanchita(){
     }
   }
   // el cartel
-  const dentro = !!G.player.enLaCancha;
-  const rot = dentro ? "⚽ TOCA EL BOTÓN Y SE ARMA" : "⚽ LA PICHANGA";
+  const dentro = G.player.enSitio === sitio.juego;
+  const ico = sitio.juego === "tenis" ? "🎾" : "⚽";
+  const rot = dentro ? ico + " TOCA EL BOTÓN Y SE ARMA" : ico + " " + sitio.rotulo;
   const lw = rot.length * 11 + 30;
   ctx.fillStyle = "#2A1226";
   roundRect(c.x + c.w/2 - lw/2, c.y - 44, lw, 32, 12); ctx.fill();
