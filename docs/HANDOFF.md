@@ -43,6 +43,8 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
   fase 2 acordada — una canchita dentro del colegio y del Multiverso que
   arranque el partido sin salir del mundo.
 
+  El Multiverso y la pichanga están **en producción** (`index-3XflCpSh.js`).
+
 - 2026-08-10 (claude-code): **El Multiverso** en lugar de El Valle: los
   veinticuatro escenarios cosidos en fila, 86 400 x 2 100, cinco minutos y medio
   de punta a punta a pie. Cada zona con su decorado, sus trastos y su mar.
