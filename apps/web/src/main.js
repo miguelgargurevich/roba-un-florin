@@ -126,8 +126,10 @@ function bajarseDelTrasto(){
    La fuente de verdad es el BOTÓN marcado, no una variable: guardándola aparte
    se desincronizaban —la portada decía Carrera y arrancaba una aventura— y
    además así el que lee el código no tiene que buscar quién la puso. */
-const modoElegido = () =>
-  document.querySelector("#modoFila .modoBtn.sel")?.dataset.modo || "aventura";
+const modoElegido = () => {
+  const sel = document.querySelector("#modoFila .modoBtn.sel, #minijuegosFila .modoBtn.sel");
+  return sel?.dataset.modo || "aventura";
+};
 
 function nuevaPartida(modo){
   pops = []; puffs = [];
@@ -1391,7 +1393,7 @@ function volverDeLaPichanga(){
    que buscarlos. */
 function renderBotonesPanel(){}
 
-for (const b of document.querySelectorAll("#modoFila .modoBtn"))
+for (const b of document.querySelectorAll("#modoFila .modoBtn, #minijuegosFila .modoBtn"))
   b.addEventListener("click", () => elegirModoLocal(b.dataset.modo));
 
 el.rulBtn.addEventListener("click", girarRuleta);
@@ -1620,13 +1622,14 @@ function pintarDificultad(){
 }
 
 function elegirModoLocal(m){
-  for (const b of document.querySelectorAll("#modoFila .modoBtn")){
+  for (const b of document.querySelectorAll("#modoFila .modoBtn, #minijuegosFila .modoBtn")){
     const suyo = b.dataset.modo === m;
     b.classList.toggle("sel", suyo);
     b.setAttribute("aria-pressed", String(suyo));
   }
+  const esMinijuego = ["basquet","bolos","lucha","dardos","carreraObs","laberinto","billar","hockey"].includes(m);
   escBtns.forEach((b, k) => {
-    const no = m === "carrera" && !puedeCorrer(k);
+    const no = (m === "carrera" && !puedeCorrer(k)) || esMinijuego;
     b.classList.toggle("nocorre", no);
     b.disabled = no;
   });
@@ -1637,8 +1640,6 @@ function elegirModoLocal(m){
   pintarRivales();
   pintarFutbol();
   rotularBotonJugar();
-  /* El modo de la portada y el de las salas se siguen: si eliges Carrera o
-     Fútbol arriba, la sala que crees es de eso. */
   const sel = document.getElementById("salaModo");
   if (sel){
     if (m === "carrera" || m === "futbol") sel.value = m;
@@ -1652,10 +1653,15 @@ function elegirModoLocal(m){
 function rotularBotonJugar(){
   const b = document.getElementById("btnStart");
   if (!b) return;
-  if (modoElegido() === "futbol"){ b.textContent = "Jugar la pichanga ▸"; return; }
-  b.textContent = modoElegido() === "carrera" ? "Correr ▸"
-    : (typeof guardadaEnLaNube !== "undefined" && guardadaEnLaNube
-        ? "Empezar de cero ▸" : "Jugar solo ▸");
+  const m = modoElegido();
+  if (m === "futbol"){ b.textContent = "Jugar la pichanga ▸"; return; }
+  if (m === "carrera"){ b.textContent = "Correr ▸"; return; }
+  const labels = { basquet:"Jugar básquet ▸", bolos:"Jugar bolos ▸", lucha:"Pelear ▸",
+    dardos:"Tirar dardos ▸", carreraObs:"Correr obstáculos ▸", laberinto:"Entrar al laberinto ▸",
+    billar:"Jugar billar ▸", hockey:"Jugar air hockey ▸" };
+  if (labels[m]){ b.textContent = labels[m]; return; }
+  b.textContent = (typeof guardadaEnLaNube !== "undefined" && guardadaEnLaNube
+    ? "Empezar de cero ▸" : "Jugar solo ▸");
 }
 
 function elegirEscenario(i){
@@ -10484,6 +10490,19 @@ function startGame(modo){
   G = nuevaPartida(m);
   G.started = true;
   aLaCancha();
+  // Inicializar minijuego si se eligió desde el menú
+  const miniInit = { basquet: aLaCanchaDeBasquet, bolos: aLaPistaDeBolos, lucha: aLaLucha,
+    dardos: aLosDardos, carreraObs: aLaCarreraDeObs, laberinto: aElLaberinto,
+    billar: aLaMesaDeBillar, hockey: aAirHockey };
+  const miniMsg = { basquet: "🏀 ¡A básquet! Primero en 5 puntos.", bolos: "🎳 ¡A bolos! Dos turnos.",
+    lucha: "🥊 ¡Al ring! Derriba al rival.", dardos: "🎯 ¡Dardos! 5 tiros cada uno.",
+    carreraObs: "🏃 ¡Carrera de obstáculos!", laberinto: "🔮 ¡Al laberinto! Recoge todas las gemas.",
+    billar: "🎱 ¡Billar! Entran todas las bolas.", hockey: "🏒 ¡Air hockey! 7 goles." };
+  const m2 = modoElegido();
+  if (miniInit[m2]){
+    miniInit[m2](G);
+    if (miniMsg[m2]) decir(miniMsg[m2], "bien");
+  }
 }
 
 /** Deja la pantalla lista para jugar con el G que sea: nuevo o revivido. */
