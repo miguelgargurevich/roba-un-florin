@@ -312,6 +312,8 @@
     touch-action:pan-y;-webkit-overflow-scrolling:touch;
   }
   #tienda[hidden]{display:none}
+  /* En un partido la cancha entera cabe en pantalla: el minimapa sobra. */
+  #app.partido .bottom{display:none}
   #admin{
     position:absolute;inset:0;z-index:32;display:grid;place-items:start center;padding:18px;
     background:rgba(15,7,14,.92);overflow:auto;touch-action:pan-y;-webkit-overflow-scrolling:touch;
@@ -1325,7 +1327,14 @@
           <span class="ic">🏁</span><span class="nm">Carrera</span>
           <span class="ds">Tres vueltas al circuito, montado. Gana el primero.</span>
         </button>
+        <button class="modoBtn" type="button" data-modo="futbol">
+          <span class="ic">⚽</span><span class="nm">Fútbol</span>
+          <span class="ds">Pichanga en la cancha del colegio. Primero a 3, o cuatro minutos.</span>
+        </button>
       </div>
+
+      <p class="escTitulo" id="futTitulo" hidden>Cuántos por lado</p>
+      <div class="escFila" id="futFila" hidden></div>
 
       <p class="escTitulo" id="rivTitulo" hidden>Vecinos que juegan</p>
       <div class="escFila" id="rivFila" hidden></div>

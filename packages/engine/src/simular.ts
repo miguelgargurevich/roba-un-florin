@@ -25,7 +25,7 @@ import {
   baseDe, bloqueadoPorLaser, desfileDe, enElMar, enElPuente, marEn, esMiPatio, florinIncome, freePed,
   freePedDe, jugadorDe, laserActivo, mismoFlorin, nivelDeVitrina, nombreDeHito,
   nuevoFlorin, nuevoId, occupied, occupiedDe, patiosDe, pedDe, playerIncome,
-  polvo, ponerLaser, puedeMojarse, puntoDelDesfile, sonar, texto, trastoDe, dentroDeLaPista,
+  polvo, ponerLaser, puedeMojarse, puntoDelDesfile, sacarDelCentro, sonar, texto, trastoDe, dentroDeLaPista,
   sobreLaPista,
 } from "./estado.js";
 
@@ -1142,6 +1142,7 @@ export function avanzar(e: Estado, entradas: Record<number, EntradaJugador>, dt:
   }
 
   if (e.reglas.modo === "carrera") { pasoCarrera(e, dt); return e; }
+  if (e.reglas.modo === "futbol") { pasoFutbol(e, dt); return e; }
 
   /* ---- la meta: la vitrina ----
 
@@ -1521,4 +1522,89 @@ function avanzarJugador(e: Estado, p: Jugador, ent: EntradaJugador | undefined, 
     p.inRuleta = e.ruletas.some(r => dist2(p.x, p.y, r.x, r.y) < (r.r + 30) ** 2);
     p.inFusion = !!e.fusion && inRect(p.x, p.y, e.fusion, 30);
   }
+}
+
+
+/* ============================================================
+   El partido
+   ============================================================
+   La pelota se patea con el mismo código que cualquier pelota del patio: aquí
+   solo se la mantiene dentro de la cancha, se mira si entró y se lleva la
+   cuenta. Lo demás —correr, chanclear, aturdirse— ya funcionaba. */
+function pasoFutbol(e: Estado, dt: number): void {
+  const f = e.futbol;
+  if (!f || f.ganador != null) return;
+
+  const balon = e.trastos.find(t => t.id === f.balon);
+  if (!balon) return;
+
+  /* El saque: unos segundos de quietud tras cada gol para que se coloquen. La
+     pelota no se mueve, pero la gente sí — así se sale corriendo al pitido. */
+  if (f.saque > 0) {
+    f.saque -= dt;
+    balon.vx = 0; balon.vy = 0;
+    return;
+  }
+
+  f.reloj -= dt;
+  if (f.ultimoGol != null && f.reloj < f.reloj + 1) { /* el cliente ya lo celebró */ }
+
+  /* ---- ¿gol? ----
+     Se mira la boca del arco, no el fondo: si se mirara el fondo, un pelotazo
+     fuerte podría atravesarlo entre dos frames y salir por el otro lado. */
+  for (const q of [0, 1] as const) {
+    const arco = f.arcos[q];
+    if (!inRect(balon.x, balon.y, arco, 8)) continue;
+    /* En el arco del equipo 0 marca el equipo 1: defiendes el tuyo. */
+    const marca = (1 - q) as 0 | 1;
+    f.goles[marca]++;
+    f.ultimoGol = marca;
+    texto(e, balon.x, balon.y - 60, "¡GOL!", marca === 0 ? "#3DDC97" : "#FF5C86");
+    polvo(e, balon.x, balon.y, marca === 0 ? "#3DDC97" : "#FF5C86", 26);
+    sonar(e, "win");
+    e.eventos.push({ t: "gol", equipo: marca, goles: [f.goles[0], f.goles[1]] });
+    if (f.goles[marca] >= f.meta) {
+      f.ganador = marca;
+      terminarPartido(e);
+      return;
+    }
+    sacarDelCentro(e);
+    return;
+  }
+
+  /* ---- la pelota no se sale ----
+     Rebota en la banda en vez de irse: un saque de banda con seis jugadores es
+     una regla más que explicar y una interrupción cada diez segundos. */
+  const c = f.cancha, R = 16;
+  if (balon.x < c.x + R) { balon.x = c.x + R; balon.vx = Math.abs(balon.vx) * 0.7; }
+  if (balon.x > c.x + c.w - R) { balon.x = c.x + c.w - R; balon.vx = -Math.abs(balon.vx) * 0.7; }
+  if (balon.y < c.y + R) { balon.y = c.y + R; balon.vy = Math.abs(balon.vy) * 0.7; }
+  if (balon.y > c.y + c.h - R) { balon.y = c.y + c.h - R; balon.vy = -Math.abs(balon.vy) * 0.7; }
+
+  /* La gente tampoco: fuera de la cancha no hay partido. */
+  for (const p of e.players) {
+    p.x = clamp(p.x, c.x + 20, c.x + c.w - 20);
+    p.y = clamp(p.y, c.y + 20, c.y + c.h - 20);
+  }
+
+  if (f.reloj <= 0) {
+    f.reloj = 0;
+    /* Empate a los cuatro minutos: gana quien vaya ganando, y si van iguales
+       se queda en empate. Alargar un empate con muerte súbita es otra regla
+       que nadie pidió. */
+    f.ganador = f.goles[0] === f.goles[1] ? null : (f.goles[0] > f.goles[1] ? 0 : 1);
+    terminarPartido(e);
+  }
+}
+
+function terminarPartido(e: Estado): void {
+  const f = e.futbol!;
+  e.over = true;
+  /* `winnerIdx` es de un JUGADOR y el fútbol lo gana un equipo: se apunta al
+     primero de los suyos, que es lo que el cartel del final sabe leer. */
+  e.winnerIdx = f.ganador == null
+    ? null
+    : (e.players.find(p => p.equipo === f.ganador)?.idx ?? null);
+  e.eventos.push({ t: "fin", ganador: e.winnerIdx });
+  sonar(e, "win");
 }

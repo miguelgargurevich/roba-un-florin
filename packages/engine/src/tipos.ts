@@ -114,6 +114,8 @@ export interface Jugador {
   /** Cómo se llama, cuando no es "J2": los vecinos que juegan solos llevan el
       nombre del que vive en esa casa. */
   apodo?: string;
+  /** En fútbol, de qué equipo eres: 0 los de casa, 1 los de fuera. */
+  equipo?: 0 | 1;
   /** en carrera: lo que llevas en la mano. `girando` son los segundos que le
       quedan a la ruleta de la caja antes de parar en algo. */
   item?: { que: string | null; girando: number };
@@ -257,6 +259,28 @@ export interface CajaItem { id: number; x: number; y: number; listo: number }
 
 export interface Girando { t: number; dur: number; premio: Premio; jugadorIdx: number }
 
+/** Un partido: la cancha, los dos arcos, el marcador y el reloj.
+
+    La pelota NO vive aquí: es un trasto como los demás —se patea con el mismo
+    código que una pelota tirada en el patio del colegio— y aquí solo se guarda
+    cuál de todos es la del partido. */
+export interface Futbol {
+  cancha: Rect;
+  /** El arco de cada equipo: el 0 defiende `arcos[0]`. */
+  arcos: [Rect, Rect];
+  balon: number;
+  goles: [number, number];
+  /** Segundos que le quedan al partido. */
+  reloj: number;
+  /** Cuenta atrás del saque: mientras corre, la pelota no se mueve. */
+  saque: number;
+  /** Quién acaba de marcar, para que el cliente lo celebre. */
+  ultimoGol: 0 | 1 | null;
+  /** Cuántos goles hacen falta para ganar antes de que se acabe el reloj. */
+  meta: number;
+  ganador: 0 | 1 | null;
+}
+
 /** Un evento en marcha: qué baja por la pasarela y hasta cuándo. */
 export interface Fiesta {
   /** Cómo se llama, para el cartel: "Noche de Wiracochas". */
@@ -287,7 +311,9 @@ export type Evento =
   | { t: "meta"; jugador: number; puesto: number; segundos: number }
   /** te ganaste un vehículo especial; quién lo guarda es cosa del cliente */
   | { t: "vehiculo"; tipo: string; jugador: number }
-  | { t: "fin"; ganador: number | null };
+  | { t: "fin"; ganador: number | null }
+  /** Gol en un partido: qué equipo marcó y cómo va el marcador. */
+  | { t: "gol"; equipo: 0 | 1; goles: [number, number] };
 
 export type Sonido =
   | "throw" | "whack" | "grab" | "place" | "buy" | "ouch" | "lost" | "win" | "alarma";
@@ -346,8 +372,10 @@ export interface Reglas {
   /** Armería y Ruleta abiertas */
   puestos: boolean;
   /* aventura: sin fin, cada uno con sus hitos.
-     versus:   gana el primero que llena todos sus patios. */
-  modo: "aventura" | "versus" | "carrera";
+     versus:   gana el primero que llena todos sus patios.
+     carrera:  tres vueltas al circuito, montado.
+     futbol:   dos equipos, una pelota y una cancha. */
+  modo: "aventura" | "versus" | "carrera" | "futbol";
   /** ¿Hay vecinos? Ladrones, abuelas y desfile. En carrera solo estorban. */
   vecinos: boolean;
   /** Solo cuenta corriendo: qué tan brava es la carrera. Ver `DIFICULTADES`. */
@@ -392,6 +420,9 @@ export interface Estado {
   ultimoPremio: Premio | null;
 
   alarma: Alarma | null;
+
+  /** El partido, cuando el modo es fútbol. */
+  futbol: Futbol | null;
 
   /** La fiesta: mientras dura, la pasarela deja de traer Florines al azar y
       trae los que se hayan anunciado. La pone el cliente cuando el servidor

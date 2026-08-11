@@ -757,7 +757,7 @@ export function crearPartida(op: OpcionesPartida): Estado {
     bolts: [], blasts: [], cascaras: [], trastos: [], perros: [], slowmo: 0,
     thieves: [], ground: [], thiefTimer: 14,
     girando: null, ultimoPremio: null, cajas: [],
-    alarma: null, fiesta: null,
+    alarma: null, futbol: null, fiesta: null,
     over: false, winnerIdx: null, proximoId: 0,
     eventos: [],
   };
@@ -788,7 +788,81 @@ export function crearPartida(op: OpcionesPartida): Estado {
   if (reglas.modo === "aventura") aparcarEnLaCochera(e, op.garaje || []);
   sembrarTrastos(e);       // después de las bases: necesita saber dónde no caben
   if (reglas.modo === "carrera") aLaLineaDeSalida(e);
+  if (reglas.modo === "futbol") aLaCancha(e);
   return e;
+}
+
+/* ---- el partido ----
+   Una cancha, dos arcos y una pelota. La pelota NO es nueva: es un trasto
+   `pelota` como los siete que hay tirados por el patio del colegio, y se patea
+   con el mismo código. Lo único que añade el fútbol es a dónde vuelve cuando
+   entra, quién gana y cuándo se acaba. */
+export const CANCHA = { w: 1900, h: 1150 };
+/** Lo que mide la boca de cada arco. */
+const ARCO = { w: 70, h: 340 };
+/** Goles para ganar antes de que se acabe el reloj, y cuánto dura. */
+export const FUTBOL_META = 3, FUTBOL_RELOJ = 240, FUTBOL_SAQUE = 2.5;
+
+function aLaCancha(e: Estado): void {
+  const { cx, cy } = centroDelMapa();
+  const cancha = { x: Math.round(cx - CANCHA.w / 2), y: Math.round(cy - CANCHA.h / 2),
+                   w: CANCHA.w, h: CANCHA.h };
+  /* Los arcos van POR DENTRO del borde: si la boca cayera fuera de la cancha, la
+     pelota tendría que salirse para entrar, y la cancha la devuelve. */
+  const arcoY = Math.round(cy - ARCO.h / 2);
+  const arcos: [Rect, Rect] = [
+    { x: cancha.x, y: arcoY, w: ARCO.w, h: ARCO.h },
+    { x: cancha.x + cancha.w - ARCO.w, y: arcoY, w: ARCO.w, h: ARCO.h },
+  ];
+
+  /* La pelota del partido: se le pide una al reparto de trastos y, si no hay
+     (el escenario podría no sembrar pelotas), se pone una. */
+  let balon = e.trastos.find(t => t.tipo === "pelota");
+  if (!balon) {
+    balon = { id: nuevoId(e), tipo: "pelota", x: cx, y: cy, vx: 0, vy: 0,
+              montadoPor: null, pateadoPor: null, giro: 0, variante: 0 };
+    e.trastos.push(balon);
+  }
+  /* Las demás pelotas estorban: en un partido tiene que haber UNA, o nadie sabe
+     cuál cuenta. Lo mismo con todo lo que se monta: un partido en bicicleta no. */
+  e.trastos = e.trastos.filter(t => t === balon);
+
+  e.futbol = {
+    cancha, arcos, balon: balon.id, goles: [0, 0],
+    reloj: FUTBOL_RELOJ, saque: FUTBOL_SAQUE, ultimoGol: null,
+    meta: FUTBOL_META, ganador: null,
+  };
+  repartirEquipos(e);
+  sacarDelCentro(e);
+}
+
+/** Los pares a un equipo y los impares al otro: 3v3 son seis asientos. */
+function repartirEquipos(e: Estado): void {
+  e.players.forEach((p, i) => { p.equipo = (i % 2) as 0 | 1; });
+}
+
+/** Saque del centro: la pelota quieta en el medio y cada equipo en su mitad. */
+export function sacarDelCentro(e: Estado): void {
+  const f = e.futbol;
+  if (!f) return;
+  const cx = f.cancha.x + f.cancha.w / 2, cy = f.cancha.y + f.cancha.h / 2;
+  const balon = e.trastos.find(t => t.id === f.balon);
+  if (balon) { balon.x = cx; balon.y = cy; balon.vx = 0; balon.vy = 0; balon.pateadoPor = null; }
+  f.saque = FUTBOL_SAQUE;
+
+  /* Cada equipo en su mitad, en fila y separados: sin esto salen los seis
+     amontonados en el centro y el primer saque es un choque. */
+  const porEquipo = [0, 1].map(q => e.players.filter(p => p.equipo === q));
+  porEquipo.forEach((equipo, q) => {
+    equipo.forEach((p, k) => {
+      const lado = q === 0 ? -1 : 1;
+      p.x = cx + lado * (180 + k * 150);
+      p.y = cy + (k - (equipo.length - 1) / 2) * 220;
+      p.vx = 0; p.vy = 0;
+      p.stun = 0;
+      p.montado = null;
+    });
+  });
 }
 
 /* ---- la parrilla ----

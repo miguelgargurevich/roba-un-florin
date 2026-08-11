@@ -52,8 +52,55 @@ function aQuienLeTiro(e: Estado, p: Jugador): { x: number; y: number } | null {
   return mejor;
 }
 
+/* ---- el bot futbolista ----
+   Dos papeles y nada más: el más cercano a la pelota va a por ella, y el resto
+   se queda entre la pelota y su arco. Con eso ya hay presión, pases de rebote y
+   alguien atrás; afinarlo más (desmarques, coberturas) es un juego distinto.
+
+   Ir "a por la pelota" no es ir a la pelota: es ponerse DETRÁS, en la línea que
+   va de la pelota al arco contrario, para que al pasar por encima la patada
+   —que sale en la dirección en la que corres— la mande a puerta. */
+function aDondeVoyEnElPartido(e: Estado, p: Jugador): { x: number; y: number } | null {
+  const f = e.futbol;
+  if (!f) return null;
+  const balon = e.trastos.find(t => t.id === f.balon);
+  if (!balon) return null;
+
+  const mio = p.equipo ?? 0;
+  const arcoRival = f.arcos[1 - mio];
+  const arcoMio = f.arcos[mio];
+  const metaX = arcoRival.x + arcoRival.w / 2, metaY = arcoRival.y + arcoRival.h / 2;
+
+  /* ¿Soy el que va a por ella? El más cercano de los míos que esté en pie. */
+  const compis = e.players.filter(q => (q.equipo ?? 0) === mio && q.stun <= 0);
+  const yoVoy = compis.every(q => q.idx === p.idx ||
+    dist2(p.x, p.y, balon.x, balon.y) <= dist2(q.x, q.y, balon.x, balon.y));
+
+  if (yoVoy) {
+    const dx = metaX - balon.x, dy = metaY - balon.y;
+    const d = Math.hypot(dx, dy) || 1;
+    /* El punto de carrera: por detrás de la pelota, en la línea al arco. */
+    const detrasX = balon.x - (dx / d) * 70, detrasY = balon.y - (dy / d) * 70;
+
+    /* Y en cuanto se llega, se apunta AL ARCO y no a la pelota. Apuntando a la
+       pelota el bot se paraba a un palmo de ella —`PEGADO` frena al llegar— y
+       el partido acababa 0-0 con seis mirándola. Apuntando al arco la atraviesa
+       corriendo, y la patada sale en la dirección en la que corres, que es
+       justo hacia donde hay que mandarla. */
+    if (dist2(p.x, p.y, detrasX, detrasY) < 110 * 110) return { x: metaX, y: metaY };
+    return { x: detrasX, y: detrasY };
+  }
+
+  /* El resto, a defender: en la recta entre la pelota y el arco propio, a un
+     tercio del camino. Ni encima del portero ni pegado al delantero rival. */
+  const px = arcoMio.x + arcoMio.w / 2, py = arcoMio.y + arcoMio.h / 2;
+  return { x: balon.x + (px - balon.x) * 0.34 + (p.idx % 2 ? 90 : -90),
+           y: balon.y + (py - balon.y) * 0.34 + (p.idx % 2 ? 120 : -120) };
+}
+
 /** A dónde va: lo que lleva pesa más que lo que podría llevarse. */
 function aDondeVoy(e: Estado, p: Jugador): { x: number; y: number } | null {
+  if (e.reglas.modo === "futbol") return aDondeVoyEnElPartido(e, p);
   /* Corriendo solo existe el siguiente punto de paso. Mira un poco más allá
      para cortar la curva en vez de ir de baliza en baliza como un cono.
 
@@ -144,8 +191,11 @@ export function pensarBot(e: Estado, p: Jugador, dt: number): PlanBot {
      misma distancia lo dejaban temblando en el sitio sin ir a por ninguno. */
   const b = (p.bot ??= { x: p.x, y: p.y, repensar: 0 });
   b.repensar -= dt;
+  /* En el partido se replantea casi cada frame: la pelota se mueve, y un bot
+     que apunta a donde estaba hace medio segundo llega tarde a todo. */
   const llegó = dist2(p.x, p.y, b.x, b.y) < PEGADO * PEGADO ||
-                (e.reglas.modo === "carrera" && b.repensar <= REPENSAR - 0.25);
+                (e.reglas.modo === "carrera" && b.repensar <= REPENSAR - 0.25) ||
+                (e.reglas.modo === "futbol" && b.repensar <= REPENSAR - 0.12);
   if (b.repensar <= 0 || llegó) {
     const meta = aDondeVoy(e, p);
     b.repensar = REPENSAR;

@@ -131,8 +131,9 @@ function nuevaPartida(modo){
   /* En el orden del catálogo del Garaje, no el de compra: así cada vehículo
      tiene siempre la misma plaza y te acostumbras a dónde está el tuyo. */
   const misTrastos = GARAJE.map(g => g.tipo).filter(tengoVehiculo);
+  const esFutbol = modoElegido() === "futbol";
   const G2 = nuevaPartidaMotor(modo, ESCENARIOS[escSel].id, modoElegido() === "carrera", difSel,
-                               misTrastos, rivSel);
+                               misTrastos, rivSel, esFutbol ? ladoSel : 0);
   if (modoElegido() === "carrera" && vehSel) darleVehiculo(G2, G2.players[0], vehSel);
   G2.started = false; G2.paused = false;    // banderas del cliente, no del motor
   return G2;
@@ -1381,6 +1382,38 @@ function pintarRivales(){
   rivDesc.textContent = (RIVALES.find(R => R.n === rivSel) || RIVALES[0]).desc;
 }
 
+/* ---- la pichanga ----
+   Cuántos por lado. Los que faltan los llevan los bots, igual que los asientos
+   libres de una carrera: una pichanga de uno contra nadie no es una pichanga. */
+const LADOS = [
+  { n: 3, label: "3 contra 3", icon: "⚽" },
+  { n: 4, label: "4 contra 4", icon: "🥅" },
+];
+let ladoSel = 3;
+try { ladoSel = +localStorage.getItem("florin_futbol") === 4 ? 4 : 3; } catch (_){}
+
+function pintarFutbol(){
+  const hay = modoElegido() === "futbol";
+  const fila = document.getElementById("futFila");
+  document.getElementById("futTitulo").hidden = !hay;
+  fila.hidden = !hay;
+  if (!hay) return;
+  fila.innerHTML = "";
+  for (const L of LADOS){
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "escBtn futBtn" + (L.n === ladoSel ? " sel" : "");
+    b.innerHTML = '<span class="ic">' + L.icon + '</span><span>' + L.label + '</span>';
+    b.setAttribute("aria-pressed", String(L.n === ladoSel));
+    b.addEventListener("click", () => {
+      ladoSel = L.n;
+      try { localStorage.setItem("florin_futbol", String(ladoSel)); } catch (_){}
+      pintarFutbol(); Snd.unlock();
+    });
+    fila.appendChild(b);
+  }
+}
+
 /* Qué tan brava es la carrera. La fila sale solo al elegir Carrera, igual que
    la de vehículos: en aventura la dificultad no pinta nada. */
 let difSel = "normal";
@@ -1423,6 +1456,7 @@ function elegirModoLocal(m){
   pintarVehiculos();
   pintarDificultad();
   pintarRivales();
+  pintarFutbol();
   rotularBotonJugar();
   const sel = document.getElementById("salaModo");
   if (sel && m === "carrera") sel.value = "carrera";
@@ -1435,6 +1469,7 @@ function elegirModoLocal(m){
 function rotularBotonJugar(){
   const b = document.getElementById("btnStart");
   if (!b) return;
+  if (modoElegido() === "futbol"){ b.textContent = "Jugar la pichanga ▸"; return; }
   b.textContent = modoElegido() === "carrera" ? "Correr ▸"
     : (typeof guardadaEnLaNube !== "undefined" && guardadaEnLaNube
         ? "Empezar de cero ▸" : "Jugar solo ▸");
@@ -1455,6 +1490,7 @@ elegirEscenario(escSel);
 /* El menú abre en Aventura, así que su fila tiene que estar pintada desde el
    principio: las otras las pinta `elegirModoLocal` al cambiar de modo. */
 pintarRivales();
+pintarFutbol();
 
 /* ============================================================
    Cuenta en la nube (opcional)
@@ -8341,6 +8377,53 @@ function drawFlorinEn(ctx, x, y, s, f, t){
 /** El de siempre, en el lienzo del juego. */
 function drawFlorin(x, y, s, f, t){ drawFlorinEn(ctx, x, y, s, f, t); }
 
+/* ---- la cancha del partido ----
+   Las líneas y los dos arcos. Se pinta sobre el suelo del colegio: la pichanga
+   se juega en el patio de siempre, con la cancha marcada a lo grande. */
+const CAMISETA = ["#3DDC97", "#FF5C86"];      // locales y visitantes
+
+function drawCancha(){
+  const f = G.futbol;
+  if (!f) return;
+  const c = f.cancha;
+  ctx.save();
+  /* El césped, bien opaco: debajo está el patio del colegio con sus canteros y
+     sus palmeras, y un cantero a medio transparentar dentro del área parece un
+     obstáculo que no lo es. Se pisa la cancha encima y santo remedio. */
+  ctx.fillStyle = "#5E9A52";
+  ctx.fillRect(c.x, c.y, c.w, c.h);
+  ctx.fillStyle = "rgba(255,255,255,.05)";
+  for (let x = c.x; x < c.x + c.w; x += 150) ctx.fillRect(x, c.y, 75, c.h);
+  ctx.strokeStyle = "rgba(255,255,255,.72)"; ctx.lineWidth = 6;
+  ctx.strokeRect(c.x, c.y, c.w, c.h);
+  // la del medio y el círculo central
+  ctx.beginPath();
+  ctx.moveTo(c.x + c.w/2, c.y); ctx.lineTo(c.x + c.w/2, c.y + c.h); ctx.stroke();
+  ctx.beginPath(); ctx.arc(c.x + c.w/2, c.y + c.h/2, 120, 0, 6.283); ctx.stroke();
+  // las áreas
+  const areaH = 460, areaW = 210;
+  ctx.strokeRect(c.x, c.y + c.h/2 - areaH/2, areaW, areaH);
+  ctx.strokeRect(c.x + c.w - areaW, c.y + c.h/2 - areaH/2, areaW, areaH);
+
+  /* Los arcos, cada uno del color de quien lo defiende: sin eso, a los dos
+     minutos ya nadie se acuerda de hacia dónde ataca. */
+  f.arcos.forEach((a, q) => {
+    ctx.fillStyle = CAMISETA[q] + "33";
+    ctx.fillRect(a.x, a.y, a.w, a.h);
+    ctx.strokeStyle = CAMISETA[q]; ctx.lineWidth = 7;
+    ctx.strokeRect(a.x, a.y, a.w, a.h);
+    // la red
+    ctx.strokeStyle = "rgba(255,255,255,.5)"; ctx.lineWidth = 2;
+    for (let y = a.y + 12; y < a.y + a.h; y += 22){
+      ctx.beginPath(); ctx.moveTo(a.x + 3, y); ctx.lineTo(a.x + a.w - 3, y); ctx.stroke();
+    }
+    for (let x = a.x + 12; x < a.x + a.w; x += 18){
+      ctx.beginPath(); ctx.moveTo(x, a.y + 3); ctx.lineTo(x, a.y + a.h - 3); ctx.stroke();
+    }
+  });
+  ctx.restore();
+}
+
 /* ---- las luces de la fiesta ----
    Focos de colores barriendo la pasarela y papelitos cayendo sobre el ocho.
    Va todo con `G.t`, así que no hace falta guardar ni una partícula: dos
@@ -8968,6 +9051,9 @@ function drawGrabRingDe(jug){
 
 /* Guía de puntería: muestra a dónde va el arma seleccionada antes de lanzarla */
 function drawAim(){
+  /* En un partido, solo la tuya: seis punterías cruzando la cancha tapan la
+     pelota, que es lo único que hay que mirar. */
+  if (G.futbol){ drawAimDe(G.player); return; }
   for (const jug of G.players) drawAimDe(jug);
 }
 function drawAimDe(p){
@@ -9009,16 +9095,25 @@ function draw(){
   ctx.fillStyle = "#1B0C1A";
   ctx.fillRect(0,0,VW,VH);
 
+  /* En un partido se ve la cancha ENTERA. Un fútbol en el que no ves el arco
+     contrario no es un fútbol: es correr detrás de una pelota a ciegas. */
+  if (G.futbol){
+    const c = G.futbol.cancha;
+    ZOOM = clamp(Math.min(VW / (c.w + 180), VH / (c.h + 180)), .18, 1.05);
+  }
   // Con dos jugadores el zoom se abre lo necesario para que ambos quepan
-  if (G.local2 && G.players.length > 1){
+  else if (G.local2 && G.players.length > 1){
     const a = G.players[0], b = G.players[1];
     const ancho = Math.abs(a.x-b.x) + 420, alto = Math.abs(a.y-b.y) + 380;
     ZOOM = clamp(Math.min(VW/ancho, VH/alto), .34, 1.05);
   }
   const visW = VW/ZOOM, visH = VH/ZOOM;
-  const foco = G.local2 && G.players.length > 1
-    ? { x:(G.players[0].x+G.players[1].x)/2, y:(G.players[0].y+G.players[1].y)/2 }
-    : G.player;
+  const foco = G.futbol
+    ? { x: G.futbol.cancha.x + G.futbol.cancha.w / 2,
+        y: G.futbol.cancha.y + G.futbol.cancha.h / 2 }
+    : G.local2 && G.players.length > 1
+      ? { x:(G.players[0].x+G.players[1].x)/2, y:(G.players[0].y+G.players[1].y)/2 }
+      : G.player;
   cam.x = visW >= WORLD_W ? (WORLD_W-visW)/2 : clamp(foco.x-visW/2, 0, WORLD_W-visW);
   cam.y = visH >= WORLD_H ? (WORLD_H-visH)/2 : clamp(foco.y-visH/2, 0, WORLD_H-visH);
 
@@ -9026,7 +9121,10 @@ function draw(){
 
   drawFloor();
   const corriendo = G.reglas?.modo === "carrera";
-  if (corriendo){
+  const enPartido = G.reglas?.modo === "futbol";
+  if (enPartido){
+    drawCancha();                    // la cancha es lo único que importa
+  } else if (corriendo){
     drawCircuito();                  // la pista es lo único que importa
   } else {
     drawRuta();                      // la alfombra va debajo de todo
@@ -9040,7 +9138,7 @@ function draw(){
   drawCascaras();
   drawTrastos();
   drawFauna();
-  if (!corriendo){ for (const b of G.bases) drawLaser(b); drawFiesta(); drawDesfile(); }
+  if (!corriendo && !enPartido){ for (const b of G.bases) drawLaser(b); drawFiesta(); drawDesfile(); }
   drawGrabRing();
   drawAim();
 
@@ -9125,21 +9223,27 @@ function draw(){
     }
     ctx.globalAlpha = 1;
   }
+  /* En un partido la camiseta es del EQUIPO, no de cada uno: si cada jugador
+     lleva su color, a los diez segundos nadie sabe a quién pasarle. */
+  const camiseta = G.futbol && p.equipo != null ? CAMISETA[p.equipo] : p.shirt;
   drawPerson(p.x, p.y, p.face, M ? 0 : p.walk, {
-    skin:"#F0C08A", shirt:p.shirt, hair:"#3A1B33", stun:p.stun, carry:p.carry,
+    skin:"#F0C08A", shirt:camiseta, hair:"#3A1B33", stun:p.stun, carry:p.carry,
     montado: !!M,
     alpha: p.invis > 0 ? (p.invis < 2 ? .3 + Math.sin(G.t*14)*.15 : .34) : 1
   });
   /* Quién es: J1/J2 en el duelo de sofá, y su nombre cuando es un vecino que
      ha salido a jugar. Sin etiqueta, un rival es un muñeco de otro color y no
      se entiende que ese es el Marciano robándote. */
-  const quien = p.apodo || (G.local2 ? "J" + (p.idx + 1) : null);
+  /* En el partido, tú llevas una flecha y los demás nada: seis etiquetas
+     corriendo tapan la pelota. */
+  const quien = G.futbol ? (p.idx === 0 ? "TÚ" : null)
+                         : (p.apodo || (G.local2 ? "J" + (p.idx + 1) : null));
   if (quien){
     ctx.font = "800 12px system-ui, sans-serif";
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
     ctx.lineWidth = 3.5; ctx.strokeStyle = "rgba(15,7,14,.85)";
     ctx.strokeText(quien, p.x, p.y+36);
-    ctx.fillStyle = p.shirt;
+    ctx.fillStyle = G.futbol && p.equipo != null ? CAMISETA[p.equipo] : p.shirt;
     ctx.fillText(quien, p.x, p.y+36);
   }
   if (p.escudo || p.inmune > 0){                // el paraguas abierto, o el margen tras aguantar
@@ -9503,6 +9607,32 @@ function hud(){
   /* La barra mide la VITRINA, no el dinero: cuántos huecos llenos de cuántos.
      El dinero ya no sirve de meta — entre la vitrina más pobre y la más rica
      hay 174 000× y ninguna cifra es interesante en los dos extremos. */
+  /* ---- el marcador de la pichanga ----
+     Se cuelga de la tarjeta de la meta, que es la que sobra en un partido: no
+     hay vitrina que llenar. */
+  if (G.reglas?.modo === "futbol"){
+    const f = G.futbol;
+    document.querySelector(".card.money .label").textContent = "Tiempo";
+    document.querySelector(".card.rate .label").textContent = "Cómo va";
+    document.querySelector(".card.stolen .label").textContent = "Chancletazos";
+    el.goalLabel.textContent = f.saque > 0 ? "¡Saque del centro!" : "Primero a " + f.meta;
+    el.goal.textContent = f.goles[0] + " – " + f.goles[1];
+    el.bar.style.width = clamp((1 - f.reloj / 240) * 100, 0, 100).toFixed(1) + "%";
+    el.goalCard.classList.toggle("fiesta", f.ultimoGol != null && f.saque > 0);
+    el.money.textContent = mmss(Math.max(0, f.reloj));
+    el.rate.textContent = f.goles[0] > f.goles[1] ? "Vas ganando"
+                        : f.goles[0] < f.goles[1] ? "Vas perdiendo" : "Empate";
+    el.lost.textContent = G.stats.hits;
+    el.alarma.hidden = true;
+    bau.boton.hidden = true; bau.soltar.hidden = true; bau.bajar.hidden = true;
+    cerrarArmasRapidas();
+    const w1 = WEAPONS[G.wsel];
+    el.throwB.classList.toggle("cool", G.cd > 0 ||
+      (w1.id === "chancla" ? G.chancla.state !== "held" : G.ammo[w1.id] <= 0));
+    pintarAccion();
+    return;
+  }
+
   if (G.reglas?.modo === "carrera"){
     /* Corriendo, la barra de la vitrina no dice nada: lo que importa es en qué
        vuelta vas y en qué puesto. */
@@ -9583,6 +9713,7 @@ function aLaCancha(){
   guardaEn = GUARDA_CADA;
   pops = []; puffs = [];
   document.getElementById("app").classList.toggle("dos", !!G.local2);
+  document.getElementById("app").classList.toggle("partido", G.reglas?.modo === "futbol");
   el.title.hidden = true;
   el.end.hidden = true;
   el.arm.hidden = true;
@@ -9609,6 +9740,32 @@ function endGame(ganador){
 
   /* Una carrera no se cuenta en Florines robados: se cuenta en puesto y en
      tiempo. Con el mismo cartel de siempre parecía que habías perdido. */
+  /* ---- el marcador de la pichanga ----
+     Se cuelga de la tarjeta de la meta, que es la que sobra en un partido: no
+     hay vitrina que llenar. */
+  if (G.reglas?.modo === "futbol"){
+    const f = G.futbol;
+    document.querySelector(".card.money .label").textContent = "Tiempo";
+    document.querySelector(".card.rate .label").textContent = "Cómo va";
+    document.querySelector(".card.stolen .label").textContent = "Chancletazos";
+    el.goalLabel.textContent = f.saque > 0 ? "¡Saque del centro!" : "Primero a " + f.meta;
+    el.goal.textContent = f.goles[0] + " – " + f.goles[1];
+    el.bar.style.width = clamp((1 - f.reloj / 240) * 100, 0, 100).toFixed(1) + "%";
+    el.goalCard.classList.toggle("fiesta", f.ultimoGol != null && f.saque > 0);
+    el.money.textContent = mmss(Math.max(0, f.reloj));
+    el.rate.textContent = f.goles[0] > f.goles[1] ? "Vas ganando"
+                        : f.goles[0] < f.goles[1] ? "Vas perdiendo" : "Empate";
+    el.lost.textContent = G.stats.hits;
+    el.alarma.hidden = true;
+    bau.boton.hidden = true; bau.soltar.hidden = true; bau.bajar.hidden = true;
+    cerrarArmasRapidas();
+    const w1 = WEAPONS[G.wsel];
+    el.throwB.classList.toggle("cool", G.cd > 0 ||
+      (w1.id === "chancla" ? G.chancla.state !== "held" : G.ammo[w1.id] <= 0));
+    pintarAccion();
+    return;
+  }
+
   if (G.reglas?.modo === "carrera"){
     /* En una sala el resultado lo dice el mundo del SERVIDOR, no `G`: `G` se
        reemplaza cada frame y en el momento del final puede no ser el de la

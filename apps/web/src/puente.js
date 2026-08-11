@@ -233,8 +233,21 @@ function conAtajos(G) {
    cliente, no del motor — para el motor son dos jugadores y unas reglas. Vive
    como bandera del cliente al lado de `started` y `paused`. */
 export function nuevaPartidaMotor(modo, escenarioId, carrera = false, dificultad = "normal",
-                                  garaje = [], rivales = 0) {
+                                  garaje = [], rivales = 0, futbol = 0) {
   const local2 = modo === 2;
+  /* La pichanga: dos equipos y una pelota, en la cancha del colegio. Los que
+     faltan los lleva la máquina, igual que los asientos libres de una carrera. */
+  if (futbol) {
+    const G = conAtajos(crearPartida({
+      jugadores: futbol * 2,
+      escenario: "colegio",
+      armas: idsDeArmas(),
+      reglas: { modo: "futbol", vecinos: false, puestos: false, patiosExtra: false },
+      semilla: (semillaSiguiente = (semillaSiguiente * 48271) % 2147483647),
+    }));
+    G.local2 = false;
+    return G;
+  }
   /* Una carrera solo contra nadie no es una carrera: los otros cuatro asientos
      se llenan de bots, que es para lo que `pensarBot` vive en el motor. */
   const esc = carrera && !CIRCUITOS.some(x => x.id === escenarioId)

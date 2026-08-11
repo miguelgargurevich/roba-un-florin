@@ -1575,6 +1575,98 @@ describe("vecinos que juegan solos", () => {
   });
 });
 
+describe("fútbol", () => {
+  const partido = (jugadores = 6, semilla = 11) =>
+    crearPartida({ jugadores, escenario: "colegio", semilla, armas: idsDeArmas(),
+                   reglas: { modo: "futbol", vecinos: false, puestos: false, patiosExtra: false } });
+
+  /** Deja correr el partido con todos llevados por la máquina. */
+  function jugar(e: Estado, segundos: number){
+    for (let k = 0; k < 60 * segundos && !e.over; k++){
+      const ent: Record<number, EntradaJugador> = {};
+      const tiran: any[] = [];
+      for (const p of e.players){
+        const plan = pensarBot(e, p, 1 / 60);
+        ent[p.idx] = plan.entrada;
+        if (plan.usar) tiran.push(p);
+      }
+      for (const p of tiran) usarArma(e, p);
+      avanzar(e, ent, 1 / 60);
+    }
+  }
+
+  it("hay una cancha, dos arcos, dos equipos y UNA pelota", () => {
+    const e = partido();
+    const f = e.futbol!;
+    expect(f).not.toBe(null);
+    expect(f.arcos.length).toBe(2);
+    expect(e.trastos.filter(t => t.tipo === "pelota").length,
+           "más de una pelota: nadie sabría cuál cuenta").toBe(1);
+    expect(e.trastos.length, "quedaron trastos que estorban").toBe(1);
+    const equipos = e.players.map(p => p.equipo);
+    expect(equipos.filter(q => q === 0).length).toBe(3);
+    expect(equipos.filter(q => q === 1).length).toBe(3);
+  });
+
+  it("el saque pone la pelota en el centro y a cada equipo en su mitad", () => {
+    const e = partido();
+    const f = e.futbol!;
+    const balon = e.trastos.find(t => t.id === f.balon)!;
+    const cx = f.cancha.x + f.cancha.w / 2;
+    expect(Math.abs(balon.x - cx)).toBeLessThan(2);
+    for (const p of e.players){
+      if (p.equipo === 0) expect(p.x, "un local en campo contrario").toBeLessThan(cx);
+      else expect(p.x, "un visitante en campo propio").toBeGreaterThan(cx);
+    }
+  });
+
+  it("los bots juegan de verdad: marcan y el partido termina solo", () => {
+    const e = partido();
+    jugar(e, 300);
+    const f = e.futbol!;
+    expect(f.goles[0] + f.goles[1], "cuatro minutos y nadie tocó la pelota")
+      .toBeGreaterThan(0);
+    expect(e.over, "el partido no terminó solo").toBe(true);
+    /* O alguien llegó a la meta, o se acabó el reloj. */
+    expect(f.goles[0] === f.meta || f.goles[1] === f.meta || f.reloj <= 0).toBe(true);
+  });
+
+  it("gana el equipo, no el jugador", () => {
+    const e = partido();
+    jugar(e, 300);
+    const f = e.futbol!;
+    if (f.ganador == null) return;                 // empate a los cuatro minutos
+    expect(f.goles[f.ganador]).toBeGreaterThan(f.goles[1 - f.ganador]);
+    // `winnerIdx` es de un jugador: tiene que ser uno DEL equipo que ganó
+    expect(e.players[e.winnerIdx!].equipo).toBe(f.ganador);
+  });
+
+  it("la pelota no se sale de la cancha", () => {
+    const e = partido();
+    const f = e.futbol!;
+    const balon = e.trastos.find(t => t.id === f.balon)!;
+    balon.vx = 4000; balon.vy = 2500;              // un pelotazo a la esquina
+    jugar(e, 6);
+    expect(balon.x).toBeGreaterThanOrEqual(f.cancha.x);
+    expect(balon.x).toBeLessThanOrEqual(f.cancha.x + f.cancha.w);
+    expect(balon.y).toBeGreaterThanOrEqual(f.cancha.y);
+    expect(balon.y).toBeLessThanOrEqual(f.cancha.y + f.cancha.h);
+  });
+
+  it("un 4v4 también reparte parejo", () => {
+    const e = partido(8, 3);
+    expect(e.players.filter(p => p.equipo === 0).length).toBe(4);
+    expect(e.players.filter(p => p.equipo === 1).length).toBe(4);
+  });
+
+  it("en fútbol no hay ladrones ni desfile: es un partido, no el barrio", () => {
+    const e = partido();
+    jugar(e, 30);
+    expect(e.thieves.length, "salieron ladrones a media cancha").toBe(0);
+    expect(e.portal.desfile.length, "el desfile cruzó el partido").toBe(0);
+  });
+});
+
 describe("el Multiverso", () => {
   const multi = () => partida({ escenario: "multiverso" });
 
