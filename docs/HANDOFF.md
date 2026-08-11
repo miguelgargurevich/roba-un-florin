@@ -8,7 +8,7 @@ Monorepo con workspaces npm:
 
 | Paquete | Qué es |
 |---|---|
-| `packages/engine` | el juego sin navegador: determinista, JSON serializable, 171 pruebas |
+| `packages/engine` | el juego sin navegador: determinista, JSON serializable, 178 pruebas |
 | `apps/web` | el cliente (Vite + canvas 2D). Solo dibuja y escucha teclas |
 | `apps/api` | cuentas, álbum, guardado, fiestas y avisos (.NET 9, Clean Arch + CQRS), 47 pruebas |
 | `apps/salas` | servidor de salas autoritativo (Node + `ws`), 32 pruebas |
@@ -24,20 +24,21 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Última sesión
 
-- 2026-08-10 (claude-code): **El Multiverso** y **la pichanga**.
-  *Multiverso*: los 24 escenarios cosidos en fila (86 400 x 2 100) en lugar de
-  El Valle. Para que fuera jugable: la pasarela deja de crecer con el mundo
-  (`TOPE_ANCHO`) y "el centro" pasa a ser el de la primera zona (`CENTRO_X`);
-  una casa por zona; puestos por tramos de 3 zonas; ladrones de vecinos
-  cercanos; y el mar es de cada zona (`marEn(e, x)` — ojo, `enElMar` ahora pide
-  x además de y). Gotcha: para un especial, `agua` significa "también vuela
-  sobre el agua", no "solo en el agua" — el guardia nuevo se cargó a los
-  dragones de la Edad Media hasta que se distinguió con `esEspecial`.
-  *Pichanga*: modo `futbol`, 3v3 o 4v4 contra bots, cancha en el patio del
-  colegio, primero a 3 goles o 4 minutos, con chancla. La pelota es el trasto
-  `pelota` de siempre. Gotcha del bot: al llegar detrás de la pelota tiene que
-  apuntar AL ARCO — apuntando a la pelota `PEGADO` lo frena a un palmo y los
-  partidos acaban 0-0 con seis mirándola. Medido: 3-1 en 1,8 min.
+- 2026-08-10 (claude-code): **la pichanga**. Modo `futbol`: dos equipos, una
+  pelota y una cancha en el patio del colegio. 3v3 o 4v4 contra bots, primero a
+  3 goles o cuatro minutos, **con chancla** — un fútbol donde puedes chanclear
+  al que va a rematar es el fútbol de este juego.
+  La pelota no es nueva: es el trasto `pelota` de siempre, pateado con el mismo
+  código. El fútbol solo añade a dónde vuelve, quién gana y cuándo se acaba
+  (`e.futbol`, `pasoFutbol`, `sacarDelCentro`).
+  Gotcha del bot futbolista: al llegar detrás de la pelota tiene que apuntar
+  **AL ARCO**, no a la pelota — apuntando a la pelota, `PEGADO` lo frena a un
+  palmo y los partidos acababan 0-0 con seis mirándola. Medido tras el arreglo:
+  3-1 en 1,8 min.
+  En el cliente: modo en el menú, fila de 3v3/4v4, cancha dibujada encima del
+  patio (césped opaco: los canteros del colegio se transparentaban y parecían
+  obstáculos), camisetas por equipo, marcador+reloj en el HUD, zoom que abre la
+  cancha entera y minimapa escondido.
   **Pendiente del fútbol**: online (equipos por el protocolo de salas) y la
   fase 2 acordada — una canchita dentro del colegio y del Multiverso que
   arranque el partido sin salir del mundo.
