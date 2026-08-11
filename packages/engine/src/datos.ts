@@ -1109,6 +1109,15 @@ export const ESCENARIOS: Escenario[] = ([
     casas:[sitio(0.0208,0.02),sitio(0.0625,0.9),sitio(0.1042,0.02),sitio(0.1458,0.9),sitio(0.1875,0.02),sitio(0.2292,0.9),sitio(0.2708,0.02),sitio(0.3125,0.9),sitio(0.3542,0.02),sitio(0.3958,0.9),sitio(0.4375,0.02),sitio(0.4792,0.9),sitio(0.5208,0.02),sitio(0.5625,0.9),sitio(0.6042,0.02),sitio(0.6458,0.9),sitio(0.6875,0.02),sitio(0.7292,0.9),sitio(0.7708,0.02),sitio(0.8125,0.9),sitio(0.8542,0.02),sitio(0.8958,0.9),sitio(0.9375,0.02),sitio(0.9792,0.9)],
     patios:[sitio(0.004,0.5),sitio(0.004,0.02),sitio(0.004,0.9),sitio(0.028,0.02),sitio(0.028,0.9)] },
 
+  /* ---- las canchas ----
+     Sitios que solo existen para el fútbol. No tienen casas ni patios que valgan
+     —no se roba a nadie—, pero el motor los pide igual, así que se les da lo
+     mínimo y se quedan en un rincón: en un partido las bases no se dibujan. */
+  { id:"estadio", nombre:"El Estadio", soloFutbol:true,
+    casas:[sitio(0,0.008)], patios:[sitio(1,0.992)] },
+  { id:"calle",   nombre:"La Calle",   soloFutbol:true,
+    casas:[sitio(0,0.008)], patios:[sitio(1,0.992)] },
+
   { id:"luna",       nombre:"La Luna",
     casas:[sitio(0,0.008),sitio(1,0.008),sitio(1,0.508),sitio(1,0.992)],
     patios:[sitio(0,0.992),sitio(0.216,0.992),sitio(0,0.672)],

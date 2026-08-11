@@ -528,6 +528,11 @@ export const JUGADORES_MAX = SLOTS.length;
     vacío lo mueve un bot en el servidor, y nueve simulados por sala es pedirle
     al VPS algo que nadie ha pedido todavía. */
 export const SALA_MAX = 5;
+/** Cuántos caben en un partido: 5 contra 5. La cancha da para eso. */
+export const FUTBOL_MAX = 10;
+/** Camisetas de sobra, para cuando hay más jugadores que `SLOTS`. */
+const CAMISETAS = ["#3DDC97", "#FFB020", "#FF5C86", "#37D6E0", "#B57BE0",
+                   "#F2A65A", "#7FE0C4", "#E86BA0", "#9AA8FF", "#C6E86B"];
 
 /** Cómo se llama el que vive en cada casa, para cuando sale a jugar él mismo. */
 const APODOS: Record<string, string> = {
@@ -661,7 +666,14 @@ export function crearPartida(op: OpcionesPartida): Estado {
      conseguido colocar. En los cinco escenarios con mar no entran las ocho
      —media parte de abajo es agua—, y sin este tope un jugador de más apuntaba
      a una casa que no existe. */
-  const n = clampEntero(op.jugadores ?? 1, 1, Math.min(JUGADORES_MAX, 1 + C.length));
+  /* En un partido no hace falta casa: no se roba a nadie, no hay vitrina y el
+     patio no pinta nada. Por eso el fútbol no está atado a `SLOTS` —que existe
+     para repartir casas— y da para 5 contra 5 o lo que se pida. En todo lo
+     demás, cada jugador de más ocupa una casa de vecino y el tope es ese. */
+  const enPartido = op.reglas?.modo === "futbol";
+  const n = enPartido
+    ? clampEntero(op.jugadores ?? 2, 2, FUTBOL_MAX)
+    : clampEntero(op.jugadores ?? 1, 1, Math.min(JUGADORES_MAX, 1 + C.length));
   const reglas: Reglas = { ...reglasPara(n), ...(op.reglas || {}) };
 
   /* Las bases se montan siempre igual y en el mismo orden: `baseDe` indexa por
@@ -718,11 +730,13 @@ export function crearPartida(op: OpcionesPartida): Estado {
   const primerBot = humanos;
   const jugadores: Jugador[] = [];
   for (let i = 0; i < n; i++) {
-    const slot = SLOTS[i];
-    const base = slot.casa == null ? bases[0] : bases[slot.casa + 1];
+    /* Pasado el reparto de casas —o siempre, en un partido— todos salen del
+       patio: `baseId` tiene que apuntar a algo, y en fútbol nunca se mira. */
+    const slot = SLOTS[i] ?? { casa: null, shirt: CAMISETAS[i % CAMISETAS.length] };
+    const base = slot.casa == null || enPartido ? bases[0] : bases[slot.casa + 1];
     const esBot = i >= primerBot && i > 0;
     const vecino = base.who;
-    if (slot.casa != null) {
+    if (slot.casa != null && !enPartido) {
       if (!esBot) base.name = "Patio del J" + (i + 1);
       base.isPlayer = true;
       base.who = null;

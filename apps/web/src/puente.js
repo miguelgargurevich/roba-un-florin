@@ -182,6 +182,20 @@ export const VISUALES = {
     suelo: "#8E9A66", loseta: "rgba(255,255,255,.05)", mancha: "rgba(60,72,40,.24)",
     borde: "#4A5432", deco: "catarata", topes: "cantos",
   },
+  /* ---- las dos canchas ---- */
+  estadio: {
+    icono: "🏟️",
+    desc: "El estadio: tribunas llenas, focos, banderas y la hinchada saltando. Aquí se juega en serio.",
+    suelo: "#2E7A3E", loseta: "rgba(255,255,255,.04)", mancha: "rgba(20,60,28,.22)",
+    borde: "#1B4A26", deco: "estadio", topes: "valla",
+  },
+  calle: {
+    icono: "🛣️",
+    desc: "Pichanga de barrio: asfalto, dos arcos pintados en la pared, carros estacionados y la gente mirando desde la vereda.",
+    suelo: "#6E6A66", loseta: "rgba(255,255,255,.04)", mancha: "rgba(30,28,26,.26)",
+    borde: "#403C38", deco: "calle", topes: "valla",
+  },
+
   luna: {
     icono: "🌕",
     desc: "Polvo gris, cráteres, la bandera, el módulo lunar y la Tierra saliendo por el horizonte.",
@@ -233,14 +247,14 @@ function conAtajos(G) {
    cliente, no del motor — para el motor son dos jugadores y unas reglas. Vive
    como bandera del cliente al lado de `started` y `paused`. */
 export function nuevaPartidaMotor(modo, escenarioId, carrera = false, dificultad = "normal",
-                                  garaje = [], rivales = 0, futbol = 0) {
+                                  garaje = [], rivales = 0, futbol = 0, cancha = "colegio") {
   const local2 = modo === 2;
   /* La pichanga: dos equipos y una pelota, en la cancha del colegio. Los que
      faltan los lleva la máquina, igual que los asientos libres de una carrera. */
   if (futbol) {
     const G = conAtajos(crearPartida({
       jugadores: futbol * 2,
-      escenario: "colegio",
+      escenario: cancha,
       armas: idsDeArmas(),
       reglas: { modo: "futbol", vecinos: false, puestos: false, patiosExtra: false },
       semilla: (semillaSiguiente = (semillaSiguiente * 48271) % 2147483647),

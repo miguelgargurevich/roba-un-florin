@@ -133,7 +133,7 @@ function nuevaPartida(modo){
   const misTrastos = GARAJE.map(g => g.tipo).filter(tengoVehiculo);
   const esFutbol = modoElegido() === "futbol";
   const G2 = nuevaPartidaMotor(modo, ESCENARIOS[escSel].id, modoElegido() === "carrera", difSel,
-                               misTrastos, rivSel, esFutbol ? ladoSel : 0);
+                               misTrastos, rivSel, esFutbol ? ladoSel : 0, canchaSel);
   if (modoElegido() === "carrera" && vehSel) darleVehiculo(G2, G2.players[0], vehSel);
   G2.started = false; G2.paused = false;    // banderas del cliente, no del motor
   return G2;
@@ -1254,7 +1254,8 @@ function armarPichanga(){
   if (!G || !G.started || G.over || G.local2 || !G.player.enLaCancha) return;
   aventuraEnEspera = { estado: JSON.stringify(G), esc: G.esc.id };
   guardarPartidaAhora();                    // y en la nube también, si hay cuenta
-  const G2 = nuevaPartidaMotor(1, "colegio", false, "normal", [], 0, ladoSel);
+  /* La del patio se juega en el patio: te metiste a ESA cancha. */
+  const G2 = nuevaPartidaMotor(1, "colegio", false, "normal", [], 0, ladoSel, "colegio");
   G = G2;
   G.started = true;
   aLaCancha();
@@ -1426,16 +1427,48 @@ function pintarRivales(){
 const LADOS = [
   { n: 3, label: "3 contra 3", icon: "⚽" },
   { n: 4, label: "4 contra 4", icon: "🥅" },
+  { n: 5, label: "5 contra 5", icon: "🏆" },
 ];
+/* Dónde se juega. El colegio es el de siempre; el estadio y la calle existen
+   SOLO para esto (`soloFutbol`), así que no ensucian el selector de escenarios
+   de la aventura. */
+const CANCHAS = [
+  { id: "colegio", label: "El colegio", icon: "🏫" },
+  { id: "estadio", label: "El estadio", icon: "🏟️" },
+  { id: "calle",   label: "La calle",   icon: "🛣️" },
+];
+let canchaSel = "colegio";
+try { canchaSel = localStorage.getItem("florin_cancha") || "colegio"; } catch (_){}
+if (!CANCHAS.some(c => c.id === canchaSel)) canchaSel = "colegio";
 let ladoSel = 3;
-try { ladoSel = +localStorage.getItem("florin_futbol") === 4 ? 4 : 3; } catch (_){}
+try {
+  const n = +localStorage.getItem("florin_futbol");
+  if (LADOS.some(L => L.n === n)) ladoSel = n;
+} catch (_){}
 
 function pintarFutbol(){
   const hay = modoElegido() === "futbol";
   const fila = document.getElementById("futFila");
+  const filaC = document.getElementById("canchaFila");
   document.getElementById("futTitulo").hidden = !hay;
+  document.getElementById("canchaTitulo").hidden = !hay;
   fila.hidden = !hay;
+  filaC.hidden = !hay;
   if (!hay) return;
+  filaC.innerHTML = "";
+  for (const C of CANCHAS){
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "escBtn canchaBtn" + (C.id === canchaSel ? " sel" : "");
+    b.innerHTML = '<span class="ic">' + C.icon + '</span><span>' + C.label + '</span>';
+    b.setAttribute("aria-pressed", String(C.id === canchaSel));
+    b.addEventListener("click", () => {
+      canchaSel = C.id;
+      try { localStorage.setItem("florin_cancha", canchaSel); } catch (_){}
+      pintarFutbol(); Snd.unlock();
+    });
+    filaC.appendChild(b);
+  }
   fila.innerHTML = "";
   for (const L of LADOS){
     const b = document.createElement("button");
@@ -7677,6 +7710,8 @@ function unDecorado(c, id){
   else if (E.deco === "america")  decoAmerica(c, E);
   else if (E.deco === "volcan")   decoVolcan(c, E);
   else if (E.deco === "luna")     decoLuna(c, E);
+  else if (E.deco === "estadio")  decoEstadio(c, E);
+  else if (E.deco === "calle")    decoCalle(c, E);
 
 }
 
@@ -8428,6 +8463,130 @@ function drawFlorinEn(ctx, x, y, s, f, t){
 /** El de siempre, en el lienzo del juego. */
 function drawFlorin(x, y, s, f, t){ drawFlorinEn(ctx, x, y, s, f, t); }
 
+/* ---------- El Estadio ----------
+   Tribunas a los cuatro lados, focos en las esquinas y la hinchada. La gente va
+   en el DECORADO —es cacheado, se pinta una vez— y lo que se mueve (el oleaje
+   de la hinchada) va aparte, en `drawHinchada`, encima de todo. */
+function decoEstadio(c, E){
+  const GRADA = 300;            // lo que ocupa la tribuna por cada lado
+  // el foso de atletismo alrededor del campo
+  c.fillStyle = "#B4552F";
+  c.fillRect(GRADA - 70, GRADA - 70, DECO_W - (GRADA - 70) * 2, DECO_H - (GRADA - 70) * 2);
+  c.fillStyle = E.suelo;
+  c.fillRect(GRADA, GRADA, DECO_W - GRADA * 2, DECO_H - GRADA * 2);
+
+  /* Las gradas: escalones que suben hacia fuera, más oscuros cuanto más arriba,
+     que es lo que da la sensación de que el campo está hundido. */
+  const grada = (x, y, w, h, vertical) => {
+    const pasos = 7;
+    for (let k = 0; k < pasos; k++){
+      const f = k / pasos;
+      c.fillStyle = "rgba(0,0,0," + (0.10 + f * 0.22).toFixed(2) + ")";
+      if (vertical) c.fillRect(x, y + h * f * 0.5, w, h * 0.5 / pasos + 1);
+      else c.fillRect(x + w * f * 0.5, y, w * 0.5 / pasos + 1, h);
+    }
+  };
+  c.fillStyle = "#4A3F52";
+  c.fillRect(0, 0, DECO_W, GRADA);                        // arriba
+  c.fillRect(0, DECO_H - GRADA, DECO_W, GRADA);           // abajo
+  c.fillRect(0, 0, GRADA, DECO_H);                        // izquierda
+  c.fillRect(DECO_W - GRADA, 0, GRADA, DECO_H);           // derecha
+  grada(0, 0, DECO_W, GRADA, true);
+  grada(0, DECO_H, DECO_W, -GRADA, true);
+
+  /* La hinchada, en filas. Cada cabecita es determinista (`az`), así que el
+     mosaico se puede repintar y sale igual. */
+  const CAMISETAS = ["#FF3D6E", "#FFC53D", "#5CE1EA", "#FFEFE2", "#8B6BEE"];
+  const gente = (x0, y0, x1, y1, filas) => {
+    for (let f = 0; f < filas; f++){
+      const t = f / Math.max(1, filas - 1);
+      for (let i = 0; i < 60; i++){
+        const px = x0 + (x1 - x0) * ((i + (f % 2) * 0.5) / 60);
+        const py = y0 + (y1 - y0) * t;
+        const k = (f * 97 + i * 13);
+        c.fillStyle = CAMISETAS[k % CAMISETAS.length];
+        c.beginPath(); c.arc(px, py, 7, 0, 6.283); c.fill();
+        c.fillStyle = "#3A2416";
+        c.beginPath(); c.arc(px, py - 7, 5, 0, 6.283); c.fill();
+      }
+    }
+  };
+  gente(20, 40, DECO_W - 20, GRADA - 60, 6);
+  gente(20, DECO_H - 40, DECO_W - 20, DECO_H - GRADA + 60, 6);
+
+  // los cuatro focos
+  for (const [fx, fy] of [[0.06,0.06],[0.94,0.06],[0.06,0.94],[0.94,0.94]]){
+    const x = DECO_W * fx, y = DECO_H * fy;
+    c.fillStyle = "#2A2430"; c.fillRect(x - 8, y - 10, 16, 90);
+    c.fillStyle = "#D8CFD4"; rr(c, x - 52, y - 46, 104, 44, 8); c.fill();
+    c.fillStyle = "#FFF6D0";
+    for (let i = 0; i < 8; i++)
+      { c.beginPath(); c.arc(x - 40 + (i % 4) * 26, y - 34 + ((i / 4) | 0) * 22, 8, 0, 6.283); c.fill(); }
+  }
+
+  // el túnel de vestuarios
+  c.fillStyle = "#1E1A22";
+  rr(c, DECO_W / 2 - 90, DECO_H - GRADA - 26, 180, 60, 10); c.fill();
+  c.fillStyle = "#8E7F92";
+  c.font = "700 22px system-ui, sans-serif";
+  c.textAlign = "center"; c.textBaseline = "middle";
+  c.fillText("VESTUARIOS", DECO_W / 2, DECO_H - GRADA + 4);
+}
+
+/* ---------- La Calle ----------
+   Pichanga de barrio: asfalto con parches, paredes con arcos pintados, carros
+   estacionados y los vecinos mirando desde la vereda. */
+function decoCalle(c, E){
+  // la vereda a los lados
+  c.fillStyle = "#9A948E";
+  c.fillRect(0, 0, DECO_W, 180);
+  c.fillRect(0, DECO_H - 180, DECO_W, 180);
+  c.strokeStyle = "rgba(0,0,0,.18)"; c.lineWidth = 3;
+  for (let x = 0; x < DECO_W; x += 120){
+    c.beginPath(); c.moveTo(x, 0); c.lineTo(x, 180); c.stroke();
+    c.beginPath(); c.moveTo(x, DECO_H - 180); c.lineTo(x, DECO_H); c.stroke();
+  }
+  // parches y grietas del asfalto
+  for (let i = 0; i < 40; i++){
+    const x = azEntre(i, 0, DECO_W), y = azEntre(i + 61, 200, DECO_H - 200);
+    c.fillStyle = "rgba(30,28,26,.22)";
+    c.beginPath(); c.ellipse(x, y, 40 + az(i) * 60, 16 + az(i + 9) * 24, az(i) * 3, 0, 6.283); c.fill();
+  }
+  // las paredes del fondo, con sus arcos pintados y grafitis
+  for (const lado of [0, 1]){
+    const x = lado ? DECO_W - 90 : 0;
+    c.fillStyle = "#8A6A58"; c.fillRect(x, 180, 90, DECO_H - 360);
+    c.fillStyle = "rgba(0,0,0,.14)";
+    for (let y = 180; y < DECO_H - 180; y += 44)
+      c.fillRect(x, y, 90, 6);
+    // el arco pintado
+    c.strokeStyle = "#F2EDE4"; c.lineWidth = 9;
+    c.strokeRect(x + (lado ? 10 : 18), DECO_H / 2 - 150, 62, 300);
+  }
+  // carros estacionados en la vereda
+  const CARROS = ["#FF5C86", "#5CE1EA", "#FFC53D", "#9BD97F", "#8B6BEE"];
+  for (let i = 0; i < 7; i++){
+    const x = azEntre(i + 5, 200, DECO_W - 300), y = i % 2 ? 92 : DECO_H - 92;
+    c.fillStyle = "rgba(0,0,0,.2)";
+    c.beginPath(); c.ellipse(x + 70, y + 30, 80, 16, 0, 0, 6.283); c.fill();
+    c.fillStyle = CARROS[i % CARROS.length];
+    rr(c, x, y - 26, 150, 56, 12); c.fill();
+    c.fillStyle = "rgba(255,255,255,.35)";
+    rr(c, x + 30, y - 18, 54, 26, 6); c.fill();
+    c.fillStyle = "#2A2430";
+    c.beginPath(); c.arc(x + 34, y + 30, 14, 0, 6.283); c.fill();
+    c.beginPath(); c.arc(x + 116, y + 30, 14, 0, 6.283); c.fill();
+  }
+  // los vecinos mirando
+  for (let i = 0; i < 14; i++){
+    const x = azEntre(i + 31, 120, DECO_W - 120), y = i % 2 ? 40 : DECO_H - 40;
+    c.fillStyle = ["#FF3D6E","#FFC53D","#5CE1EA","#9BD97F"][i % 4];
+    c.beginPath(); c.arc(x, y, 9, 0, 6.283); c.fill();
+    c.fillStyle = "#3A2416";
+    c.beginPath(); c.arc(x, y - 9, 6, 0, 6.283); c.fill();
+  }
+}
+
 /* ---- la canchita del colegio, en la aventura ----
    Un sitio del mundo, como la Ruleta: se ve desde lejos, dice para qué sirve y
    metiéndote se arma la pichanga. */
@@ -8474,20 +8633,71 @@ function drawCanchita(){
    se juega en el patio de siempre, con la cancha marcada a lo grande. */
 const CAMISETA = ["#3DDC97", "#FF5C86"];      // locales y visitantes
 
+/* La hinchada: la ola de siempre, y un salto de todos cuando cae un gol. Va
+   encima del decorado y no dentro, porque el decorado es un mosaico cacheado y
+   esto se mueve. Todo sale de `G.t` y del marcador: nada que guardar. */
+function drawHinchada(){
+  if (G.esc.id !== "estadio" || REDUCED) return;
+  const f = G.futbol;
+  const GRADA = 300;
+  const festejo = f && f.ultimoGol != null && f.saque > 0 ? 1 : 0;
+  const COLORES = ["#FF3D6E", "#FFC53D", "#5CE1EA", "#FFEFE2", "#8B6BEE"];
+  ctx.save();
+  for (const arriba of [true, false]){
+    for (let fila = 0; fila < 6; fila++){
+      const y0 = arriba ? 40 + (GRADA - 100) * (fila / 5)
+                        : WORLD_H - 40 - (GRADA - 100) * (fila / 5);
+      for (let i = 0; i < 60; i++){
+        const x = 20 + (WORLD_W - 40) * ((i + (fila % 2) * 0.5) / 60);
+        /* La ola recorre el estadio; en el gol saltan todos a la vez. */
+        const ola = Math.sin(G.t * 2.2 - x * 0.004 + fila * 0.3);
+        const alto = festejo ? Math.abs(Math.sin(G.t * 9 + i)) * 16
+                             : Math.max(0, ola) * 9;
+        if (alto < 0.6) continue;
+        const k = (fila * 97 + i * 13);
+        ctx.fillStyle = COLORES[k % COLORES.length];
+        ctx.beginPath(); ctx.arc(x, y0 - alto, 7, 0, 6.283); ctx.fill();
+        ctx.fillStyle = "#3A2416";
+        ctx.beginPath(); ctx.arc(x, y0 - alto - 7, 5, 0, 6.283); ctx.fill();
+      }
+    }
+  }
+  ctx.restore();
+}
+
 function drawCancha(){
   const f = G.futbol;
   if (!f) return;
   const c = f.cancha;
   ctx.save();
-  /* El césped, bien opaco: debajo está el patio del colegio con sus canteros y
-     sus palmeras, y un cantero a medio transparentar dentro del área parece un
-     obstáculo que no lo es. Se pisa la cancha encima y santo remedio. */
-  ctx.fillStyle = "#5E9A52";
-  ctx.fillRect(c.x, c.y, c.w, c.h);
-  ctx.fillStyle = "rgba(255,255,255,.05)";
-  for (let x = c.x; x < c.x + c.w; x += 150) ctx.fillRect(x, c.y, 75, c.h);
-  ctx.strokeStyle = "rgba(255,255,255,.72)"; ctx.lineWidth = 6;
+  /* La superficie es del sitio. En la calle no hay césped: hay asfalto y unas
+     rayas pintadas que ya casi no se ven, que es de lo que va una pichanga de
+     barrio. En el colegio y el estadio, césped bien opaco — debajo está el
+     patio con sus canteros, y un cantero medio transparentado dentro del área
+     parece un obstáculo que no lo es. */
+  const enLaCalle = G.esc.id === "calle";
+  if (enLaCalle){
+    ctx.fillStyle = "#57534F";
+    ctx.fillRect(c.x, c.y, c.w, c.h);
+    ctx.fillStyle = "rgba(0,0,0,.10)";
+    for (let i = 0; i < 26; i++){
+      const x = azEntre(i + 200, c.x, c.x + c.w), y = azEntre(i + 311, c.y, c.y + c.h);
+      ctx.beginPath();
+      ctx.ellipse(x, y, 30 + az(i) * 50, 12 + az(i + 7) * 20, az(i) * 3, 0, 6.283);
+      ctx.fill();
+    }
+  } else {
+    ctx.fillStyle = "#5E9A52";
+    ctx.fillRect(c.x, c.y, c.w, c.h);
+    ctx.fillStyle = "rgba(255,255,255,.05)";
+    for (let x = c.x; x < c.x + c.w; x += 150) ctx.fillRect(x, c.y, 75, c.h);
+  }
+  /* Las rayas de la calle están medio borradas: las pintó alguien hace años. */
+  ctx.strokeStyle = enLaCalle ? "rgba(255,255,255,.40)" : "rgba(255,255,255,.72)";
+  ctx.lineWidth = enLaCalle ? 5 : 6;
+  if (enLaCalle) ctx.setLineDash([34, 16]);
   ctx.strokeRect(c.x, c.y, c.w, c.h);
+  ctx.setLineDash([]);
   // la del medio y el círculo central
   ctx.beginPath();
   ctx.moveTo(c.x + c.w/2, c.y); ctx.lineTo(c.x + c.w/2, c.y + c.h); ctx.stroke();
@@ -9191,7 +9401,11 @@ function draw(){
      contrario no es un fútbol: es correr detrás de una pelota a ciegas. */
   if (G.futbol){
     const c = G.futbol.cancha;
-    ZOOM = clamp(Math.min(VW / (c.w + 180), VH / (c.h + 180)), .18, 1.05);
+    /* En el estadio y en la calle se abre más: lo que hay ALREDEDOR —las
+       tribunas, los carros, la gente— es medio chiste del sitio, y encuadrando
+       solo la cancha no se ve nada de eso. */
+    const marco = G.esc.id === "colegio" ? 180 : 620;
+    ZOOM = clamp(Math.min(VW / (c.w + marco), VH / (c.h + marco)), .18, 1.05);
   }
   // Con dos jugadores el zoom se abre lo necesario para que ambos quepan
   else if (G.local2 && G.players.length > 1){
@@ -9216,6 +9430,7 @@ function draw(){
   const enPartido = G.reglas?.modo === "futbol";
   if (enPartido){
     drawCancha();                    // la cancha es lo único que importa
+    drawHinchada();
   } else if (corriendo){
     drawCircuito();                  // la pista es lo único que importa
   } else {

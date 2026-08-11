@@ -8,7 +8,7 @@ Monorepo con workspaces npm:
 
 | Paquete | Qué es |
 |---|---|
-| `packages/engine` | el juego sin navegador: determinista, JSON serializable, 178 pruebas |
+| `packages/engine` | el juego sin navegador: determinista, JSON serializable, 181 pruebas |
 | `apps/web` | el cliente (Vite + canvas 2D). Solo dibuja y escucha teclas |
 | `apps/api` | cuentas, álbum, guardado, fiestas y avisos (.NET 9, Clean Arch + CQRS), 47 pruebas |
 | `apps/salas` | servidor de salas autoritativo (Node + `ws`), 32 pruebas |
@@ -23,6 +23,28 @@ A medias / sin hacer: el modo cooperativo (aplazado a propósito — una sala en
 aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Última sesión
+
+- 2026-08-10 (claude-code): **5v5 y canchas propias**. El fútbol deja de estar
+  atado a `SLOTS` —que existe para repartir CASAS, y en un partido no se roba a
+  nadie—, así que ya no lo topa `JUGADORES_MAX`: `FUTBOL_MAX = 10`, o sea 5
+  contra 5. Y hay dónde elegir: **El colegio**, **El Estadio** (tribunas,
+  hinchada que hace la ola y salta en los goles, focos y túnel de vestuarios) y
+  **La Calle** (asfalto con las rayas medio borradas, paredes con los arcos
+  pintados, carros estacionados y vecinos mirando). Los dos nuevos son
+  escenarios con `soloFutbol: true`: no ensucian el selector de la aventura.
+  Detalles: en la calle la superficie es asfalto y no césped; y el encuadre se
+  abre más en estadio y calle, que si no el entorno —que es medio chiste del
+  sitio— queda fuera de cámara.
+
+- 2026-08-10 (claude-code): **la canchita del colegio** (fase 2 del fútbol). En
+  el patio del colegio —y en su zona del Multiverso— hay una cancha de verdad:
+  te metes, sale "Armar la pichanga", juegas y al acabar **vuelves a tu
+  aventura con todo donde estaba**. El estado se guarda en memoria al armar el
+  partido y se revive al terminar; el botón "Volver al barrio" solo sale si hay
+  aventura esperando. La canchita busca sitio como los puestos y de grande a
+  chica (en el colegio el patio va lleno). Gotcha: el cartel del final tiene
+  cuatro versiones y cada una repone sus rótulos, o una carrera después de un
+  partido decía "Del otro equipo".
 
 - 2026-08-10 (claude-code): **la pichanga**. Modo `futbol`: dos equipos, una
   pelota y una cancha en el patio del colegio. 3v3 o 4v4 contra bots, primero a

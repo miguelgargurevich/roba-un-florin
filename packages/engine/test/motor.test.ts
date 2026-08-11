@@ -101,8 +101,11 @@ describe("el mundo se monta bien", () => {
   });
 
   it("todos los escenarios se pueden montar, y son veinticinco", () => {
-    expect(ESCENARIOS.length).toBe(25);
-    for (const esc of ESCENARIOS) {
+    /* Las canchas de fútbol (`soloFutbol`) no son escenarios de aventura: no
+       tienen vecinos a los que robar ni patio que llenar. */
+    const deAventura = ESCENARIOS.filter(e => !e.soloFutbol);
+    expect(deAventura.length).toBe(25);
+    for (const esc of deAventura) {
       const e = partida({ escenario: esc.id });
       expect(e.esc.id, esc.id).toBe(esc.id);
       /* Las ocho casas caben en tierra firme; donde hay mar, alguna se queda
@@ -131,7 +134,7 @@ describe("el mundo se monta bien", () => {
   });
 
   it("cada escenario reparte trastos, y ninguno cae en el agua sin flotar", () => {
-    for (const esc of ESCENARIOS) {
+    for (const esc of ESCENARIOS.filter(x => !x.soloFutbol)) {
       const e = partida({ escenario: esc.id });
       expect(e.trastos.length, esc.id).toBeGreaterThan(0);
       if (e.esc.mar == null) continue;
@@ -567,7 +570,7 @@ describe("trastos: bicis, tablas y pelotas", () => {
   }
 
   it("cada escenario reparte lo suyo, y nada cae encima de una base", () => {
-    for (const esc of ESCENARIOS) {
+    for (const esc of ESCENARIOS.filter(x => !x.soloFutbol)) {
       const e = partida({ escenario: esc.id });
       expect(e.trastos.length).toBeGreaterThan(0);
       for (const v of e.trastos)
@@ -1718,7 +1721,7 @@ describe("el Multiverso", () => {
 
   it("son los veinticuatro escenarios cosidos, en orden y sin huecos", () => {
     const esc = ESCENARIOS.find(x => x.id === "multiverso")!;
-    const ids = ESCENARIOS.filter(x => !x.zonas).map(x => x.id);
+    const ids = ESCENARIOS.filter(x => !x.zonas && !x.soloFutbol).map(x => x.id);
     expect(esc.zonas!.map(z => z.id)).toEqual(ids);
     // sin huecos ni solapes: cada zona empieza donde acaba la anterior
     esc.zonas!.forEach((z, i) => {
@@ -2016,7 +2019,7 @@ describe("carrera", () => {
     /* Todos menos El Valle, que no es un sitio para dar vueltas sino para
        andar de una zona a otra. */
     const sinPista = ESCENARIOS.filter(e => !CIRCUITOS.includes(e)).map(e => e.id);
-    expect(sinPista, "hay escenarios de más sin circuito").toEqual(["multiverso"]);
+    expect(sinPista, "hay escenarios de más sin circuito").toEqual(["multiverso", "estadio", "calle"]);
     for (const base of CIRCUITOS) {
       const esc = montarEscenario(base);
       const e = carrera(esc.id, 4);

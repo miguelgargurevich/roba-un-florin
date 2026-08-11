@@ -346,6 +346,9 @@ export interface Escenario {
   /** Si es un valle de varias zonas, dónde empieza cada una y qué decorado usa.
       Lo lee el cliente para pintar; el motor solo lo lleva de paseo. */
   zonas?: { id: string; x0: number; x1: number; mar?: number }[];
+  /** Sitios que solo existen para jugar un partido: no salen en el selector de
+      escenarios de la aventura, que va de robar Florines. */
+  soloFutbol?: boolean;
   casas: [number, number][];
   patios: [number, number][];
   /** y desde la que empieza el agua: a pie te frena en la orilla, y con tabla
