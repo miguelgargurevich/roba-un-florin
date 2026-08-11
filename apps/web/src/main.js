@@ -22,6 +22,7 @@ import {
   fundir, queSaleDeFundir,
   TRASTOS_ESCENARIO, darleVehiculo, esEspecial, ANCHO_PISTA, aparcarNuevo, comprarPatio,
   ponerFiesta, enFiesta, patear, TENIS_META,
+  aLaCanchaDeVoley,
   usarPotenciador, potenciadoresDe, potenciadorPorId,
   soltarCarga, trastoDe,
   venderFlorin,
