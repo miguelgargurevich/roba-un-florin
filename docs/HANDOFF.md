@@ -1,6 +1,6 @@
 # Handoff — Roba un Florín
 
-> Actualizado: 2026-08-10 por claude-code
+> Actualizado: 2026-08-11 por claude-code
 
 ## Estado actual
 
