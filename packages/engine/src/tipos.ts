@@ -297,6 +297,39 @@ export interface Futbol {
   ganador: 0 | 1 | null;
 }
 
+/** Un partido de tenis: la cancha, la red, el marcador y de quién es el saque.
+
+    Igual que en el fútbol, la pelota NO vive aquí: es un trasto con altura
+    (`z`, `vz`) —la misma que hizo posibles los centros— y aquí solo se guarda
+    cuál de todos es la del partido.
+
+    Lo que el tenis añade y el fútbol no tenía es MEMORIA del punto: quién le
+    dio el último y cuántas veces ha botado desde entonces. De esas dos cosas
+    salen todas las reglas — que bote dos veces en tu campo, que se te vaya
+    fuera, que la mandes a la red. */
+export interface Tenis {
+  cancha: Rect;
+  /** La x de la red: parte la cancha en dos mitades, la 0 a la izquierda. */
+  redX: number;
+  /** Lo alto que es la red, en las mismas unidades que la altura de la pelota. */
+  redAlto: number;
+  balon: number;
+  puntos: [number, number];
+  /** Puntos para ganar. */
+  meta: number;
+  /** Segundos hasta el saque. Mientras corre, la pelota espera en la mano. */
+  saque: number;
+  sacador: 0 | 1;
+  /** Quién le dio el último golpe: de él es la culpa si se va fuera o a la red. */
+  ultimoToque: 0 | 1 | null;
+  /** Botes en el suelo desde el último golpe, y en qué mitad botó. */
+  botes: number;
+  ladoDelBote: 0 | 1 | null;
+  /** El último punto, para que el cliente lo cante: quién y por qué. */
+  ultimoPunto: { equipo: 0 | 1; motivo: string } | null;
+  ganador: 0 | 1 | null;
+}
+
 /** Un evento en marcha: qué baja por la pasarela y hasta cuándo. */
 export interface Fiesta {
   /** Cómo se llama, para el cartel: "Noche de Wiracochas". */
@@ -329,7 +362,9 @@ export type Evento =
   | { t: "vehiculo"; tipo: string; jugador: number }
   | { t: "fin"; ganador: number | null }
   /** Gol en un partido: qué equipo marcó y cómo va el marcador. */
-  | { t: "gol"; equipo: 0 | 1; goles: [number, number] };
+  | { t: "gol"; equipo: 0 | 1; goles: [number, number] }
+  /** Punto de tenis: quién lo ganó, cómo va y por qué se acabó el peloteo. */
+  | { t: "punto"; equipo: 0 | 1; puntos: [number, number]; motivo: string };
 
 export type Sonido =
   | "throw" | "whack" | "grab" | "place" | "buy" | "ouch" | "lost" | "win" | "alarma";
@@ -393,8 +428,9 @@ export interface Reglas {
   /* aventura: sin fin, cada uno con sus hitos.
      versus:   gana el primero que llena todos sus patios.
      carrera:  tres vueltas al circuito, montado.
-     futbol:   dos equipos, una pelota y una cancha. */
-  modo: "aventura" | "versus" | "carrera" | "futbol";
+     futbol:   dos equipos, una pelota y una cancha.
+     tenis:    dos lados, una red y un peloteo. */
+  modo: "aventura" | "versus" | "carrera" | "futbol" | "tenis";
   /** ¿Hay vecinos? Ladrones, abuelas y desfile. En carrera solo estorban. */
   vecinos: boolean;
   /** Solo cuenta corriendo: qué tan brava es la carrera. Ver `DIFICULTADES`. */
@@ -442,6 +478,8 @@ export interface Estado {
 
   /** El partido, cuando el modo es fútbol. */
   futbol: Futbol | null;
+  /** El partido de tenis, cuando el modo es tenis. */
+  tenis: Tenis | null;
   /** Los sitios del mundo donde se arma un minijuego: te metes y se juega, sin
       pasar por el menú. La canchita del colegio fue el primero.
 

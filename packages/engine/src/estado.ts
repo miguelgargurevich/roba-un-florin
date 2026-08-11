@@ -3,7 +3,7 @@
 
 import type {
   Base, DesfileItem, Estado, Evento, Florin, Jugador, Laser, Pedestal, RefObjetivo,
-  Rect, RefPed, Reglas, SitioDeJuego, JuegoDeSitio, Sonido, Trasto, Variante,
+  Rect, RefPed, Reglas, SitioDeJuego, JuegoDeSitio, Sonido, Tenis, Trasto, Variante,
 } from "./tipos.js";
 import {
   ESCENARIOS, FLORES, GOAL, LASER_CARGA, PATIOS_PRECIO, TIERS, TRASTOS_ESCENARIO,
@@ -670,9 +670,9 @@ export function crearPartida(op: OpcionesPartida): Estado {
      patio no pinta nada. Por eso el fútbol no está atado a `SLOTS` —que existe
      para repartir casas— y da para 5 contra 5 o lo que se pida. En todo lo
      demás, cada jugador de más ocupa una casa de vecino y el tope es ese. */
-  const enPartido = op.reglas?.modo === "futbol";
+  const enPartido = op.reglas?.modo === "futbol" || op.reglas?.modo === "tenis";
   const n = enPartido
-    ? clampEntero(op.jugadores ?? 2, 2, FUTBOL_MAX)
+    ? clampEntero(op.jugadores ?? 2, 2, op.reglas?.modo === "tenis" ? TENIS_MAX : FUTBOL_MAX)
     : clampEntero(op.jugadores ?? 1, 1, Math.min(JUGADORES_MAX, 1 + C.length));
   const reglas: Reglas = { ...reglasPara(n), ...(op.reglas || {}) };
 
@@ -772,7 +772,7 @@ export function crearPartida(op: OpcionesPartida): Estado {
     bolts: [], blasts: [], cascaras: [], trastos: [], perros: [], slowmo: 0,
     thieves: [], ground: [], thiefTimer: 14,
     girando: null, ultimoPremio: null, cajas: [],
-    alarma: null, futbol: null, fiesta: null,
+    alarma: null, futbol: null, tenis: null, fiesta: null,
     over: false, winnerIdx: null, proximoId: 0,
     eventos: [],
   };
@@ -804,6 +804,7 @@ export function crearPartida(op: OpcionesPartida): Estado {
   sembrarTrastos(e);       // después de las bases: necesita saber dónde no caben
   if (reglas.modo === "carrera") aLaLineaDeSalida(e);
   if (reglas.modo === "futbol") aLaCancha(e);
+  else if (reglas.modo === "tenis") aLaCanchaDeTenis(e);
   else ponerLosSitios(e);
   return e;
 }
@@ -824,12 +825,7 @@ const SITIOS: {
   donde: string;
 }[] = [
   { juego: "futbol", rotulo: "LA PICHANGA", medida: CANCHITA, donde: "colegio" },
-  /* El tenis: la puerta está hecha y probada, pero SUS REGLAS no. Colgar la
-     cancha ahora sería poner un cartel a un sitio donde no se puede jugar.
-     Para estrenarlo basta descomentar esta línea — el resto (buscar hueco,
-     saber que estás dentro, el cartel, el botón, guardar y volver) ya funciona.
   { juego: "tenis", rotulo: "LA CANCHA DE TENIS", medida: CANCHA_TENIS, donde: "colegio" },
-  */
 ];
 
 function ponerLosSitios(e: Estado): void {
@@ -949,6 +945,91 @@ export function sacarDelCentro(e: Estado): void {
       const lado = q === 0 ? -1 : 1;
       p.x = cx + lado * (180 + k * 150);
       p.y = cy + (k - (equipo.length - 1) / 2) * 220;
+      p.vx = 0; p.vy = 0;
+      p.stun = 0;
+      p.montado = null;
+    });
+  });
+}
+
+/* ---- el tenis ----
+   Dos lados, una red y un peloteo. Comparte con el fútbol todo lo que ya
+   estaba: la pelota es un trasto, se le pega con el mismo botón y vuela con la
+   misma altura y la misma gravedad. Lo que trae de nuevo son sus reglas, que
+   son las tres de siempre y ninguna más: que bote dos veces en tu campo, que
+   se te vaya fuera, que la mandes a la red.
+
+   Nadie cruza la red: cada uno se queda en su mitad. Es una regla del tenis
+   de verdad y además evita el amontonamiento de seis piernas alrededor de la
+   pelota, que es exactamente lo que el tenis NO es. */
+export const CANCHA_TENIS_JUEGO = { w: 1560, h: 900 };
+/** Lo alto que es la red y lo ancho de su franja, para saber si la pelota la pegó. */
+export const RED_ALTO = 40, RED_ANCHO = 16;
+/** Puntos para ganar, y lo que se espera entre punto y punto. */
+export const TENIS_META = 7, TENIS_SAQUE = 2.2;
+/** Cuánta gente cabe: individual o dobles. Más de dos por lado es una pelea. */
+export const TENIS_MAX = 4;
+
+function aLaCanchaDeTenis(e: Estado): void {
+  const { cx, cy } = centroDelMapa();
+  const cancha = {
+    x: Math.round(cx - CANCHA_TENIS_JUEGO.w / 2), y: Math.round(cy - CANCHA_TENIS_JUEGO.h / 2),
+    w: CANCHA_TENIS_JUEGO.w, h: CANCHA_TENIS_JUEGO.h,
+  };
+
+  /* La pelota del partido, igual que en el fútbol: se pide una al reparto de
+     trastos y, si el escenario no sembró ninguna, se pone. Las demás estorban:
+     en un peloteo tiene que haber UNA, o no se sabe cuál cuenta el punto. */
+  let balon = e.trastos.find(t => t.tipo === "pelota");
+  if (!balon) {
+    balon = { id: nuevoId(e), tipo: "pelota", x: cx, y: cy, z: 0, vz: 0, vx: 0, vy: 0,
+              montadoPor: null, pateadoPor: null, giro: 0, variante: 0 };
+    e.trastos.push(balon);
+  }
+  e.trastos = e.trastos.filter(t => t === balon);
+
+  e.tenis = {
+    cancha, redX: Math.round(cx), redAlto: RED_ALTO, balon: balon.id,
+    puntos: [0, 0], meta: TENIS_META, saque: TENIS_SAQUE, sacador: 0,
+    ultimoToque: null, botes: 0, ladoDelBote: null, ultimoPunto: null, ganador: null,
+  };
+  repartirEquipos(e);
+  colocarParaElSaque(e);
+}
+
+/** En qué mitad de la cancha cae una x: la 0 es la de la izquierda. */
+export const ladoDeLaCancha = (t: Tenis, x: number): 0 | 1 => (x < t.redX ? 0 : 1);
+
+/** Dónde espera cada uno mientras se saca, y dónde queda la pelota. */
+export function colocarParaElSaque(e: Estado): void {
+  const t = e.tenis;
+  if (!t) return;
+  const c = t.cancha;
+  const cy = c.y + c.h / 2;
+  const medio = c.w / 2;
+
+  const balon = e.trastos.find(x => x.id === t.balon);
+  const lado = t.sacador === 0 ? -1 : 1;
+  /* La pelota espera al lado de quien saca, no en el centro: así se ve de quién
+     es el saque sin tener que leer ningún cartel. */
+  if (balon) {
+    balon.x = t.redX + lado * medio * 0.78;
+    balon.y = cy;
+    balon.vx = 0; balon.vy = 0; balon.z = 0; balon.vz = 0;
+    balon.pateadoPor = null;
+  }
+  t.ultimoToque = null;
+  t.botes = 0;
+  t.ladoDelBote = null;
+
+  /* Cada equipo en su mitad y en fila. En dobles, uno delante y otro detrás:
+     puestos a la par se tapan el uno al otro. */
+  const porEquipo = [0, 1].map(q => e.players.filter(p => p.equipo === q));
+  porEquipo.forEach((equipo, q) => {
+    const suLado = q === 0 ? -1 : 1;
+    equipo.forEach((p, k) => {
+      p.x = t.redX + suLado * medio * (0.72 - k * 0.34);
+      p.y = cy + (k - (equipo.length - 1) / 2) * 200;
       p.vx = 0; p.vy = 0;
       p.stun = 0;
       p.montado = null;

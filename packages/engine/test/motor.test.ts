@@ -19,6 +19,7 @@ import {
   nuevoFlorin, baseDe, patiosDe, zap, multDeMontura, puntoDelDesfile, puntoDelOcho,
   centroDelMapa, WORLD_W, WORLD_H, OCHO_A, colocarPuestos, ponerFiesta, enFiesta, enElMar,
   nivelDeVitrina, nombreDeHito, HITOS_MAX, vitrinaDe, venderFlorin, precioDeVenta, soltarCarga,
+  patear, TENIS_META, TENIS_ALCANCE, ladoDeLaCancha,
   type EntradaJugador, type Estado,
 } from "../src/index.js";
 
@@ -1670,6 +1671,140 @@ describe("fútbol", () => {
   });
 });
 
+describe("tenis", () => {
+  const tenis = (jugadores = 2, semilla = 5) =>
+    crearPartida({ jugadores, escenario: "colegio", semilla, armas: idsDeArmas(),
+                   reglas: { modo: "tenis", vecinos: false, puestos: false, patiosExtra: false } });
+  const pelota = (e: Estado) => e.trastos.find(x => x.id === e.tenis!.balon)!;
+
+  /** Deja correr el partido con los dos lados llevados por la máquina. */
+  function pelotear(e: Estado, segundos: number){
+    for (let k = 0; k < 60 * segundos && !e.over; k++){
+      const ent: Record<number, EntradaJugador> = {};
+      const golpean: [any, number][] = [];
+      for (const p of e.players){
+        const plan = pensarBot(e, p, 1 / 60);
+        ent[p.idx] = plan.entrada;
+        if (plan.patear != null) golpean.push([p, plan.patear]);
+      }
+      for (const [p, f] of golpean) patear(e, p, f);
+      avanzar(e, ent, 1 / 60);
+    }
+  }
+
+  it("hay cancha, red, dos lados y UNA pelota", () => {
+    const e = tenis();
+    const t = e.tenis!;
+    expect(t).not.toBe(null);
+    expect(e.trastos.length, "quedaron trastos que estorban").toBe(1);
+    expect(t.redX).toBeGreaterThan(t.cancha.x);
+    expect(t.redX).toBeLessThan(t.cancha.x + t.cancha.w);
+    expect(e.players.filter(p => p.equipo === 0).length).toBe(1);
+    expect(e.players.filter(p => p.equipo === 1).length).toBe(1);
+  });
+
+  it("el saque deja a cada uno en su mitad y la pelota del lado de quien saca", () => {
+    const e = tenis();
+    const t = e.tenis!;
+    expect(ladoDeLaCancha(t, pelota(e).x)).toBe(t.sacador);
+    for (const p of e.players)
+      expect(ladoDeLaCancha(t, p.x), "alguien empezó en campo ajeno").toBe(p.equipo);
+  });
+
+  it("nadie cruza la red", () => {
+    const e = tenis();
+    const t = e.tenis!;
+    e.players[0].x = t.redX + 300;             // de un salto al campo de enfrente
+    e.players[1].x = t.redX - 300;
+    avanzar(e, nada(2), 1 / 60);
+    expect(e.players[0].x).toBeLessThan(t.redX);
+    expect(e.players[1].x).toBeGreaterThan(t.redX);
+  });
+
+  it("los bots pelotean y el partido termina solo, con ganador", () => {
+    const e = tenis();
+    pelotear(e, 300);
+    const t = e.tenis!;
+    expect(t.puntos[0] + t.puntos[1], "cinco minutos y ni un punto").toBeGreaterThan(0);
+    expect(e.over, "el partido no terminó solo").toBe(true);
+    expect(t.ganador, "terminó sin ganador").not.toBe(null);
+    expect(t.puntos[t.ganador!]).toBe(TENIS_META);
+    expect(e.players[e.winnerIdx!].equipo).toBe(t.ganador);
+  });
+
+  it("la que se queda en tu propio campo es punto del otro", () => {
+    const e = tenis();
+    const t = e.tenis!;
+    t.saque = 0; t.ultimoToque = 0; t.botes = 0;
+    const b = pelota(e);
+    b.x = t.redX - 300; b.y = t.cancha.y + t.cancha.h / 2;
+    b.vx = 0; b.vy = 0; b.z = 3; b.vz = -60;
+    for (let k = 0; k < 20 && t.puntos[1] === 0; k++) avanzar(e, nada(2), 1 / 60);
+    expect(t.puntos[1], "picó en su propio campo y no pasó nada").toBe(1);
+  });
+
+  it("a la red no se le pega: el punto es del otro", () => {
+    const e = tenis();
+    const t = e.tenis!;
+    t.saque = 0; t.ultimoToque = 0; t.botes = 0;
+    const b = pelota(e);
+    b.x = t.redX - 30; b.y = t.cancha.y + t.cancha.h / 2;
+    b.vx = 900; b.vy = 0; b.z = 0; b.vz = 0;      // rasa: por debajo de la red
+    for (let k = 0; k < 20 && t.puntos[1] === 0; k++) avanzar(e, nada(2), 1 / 60);
+    expect(t.puntos[1], "la pelota atravesó la red").toBe(1);
+  });
+
+  it("dos veces seguidas no le pega el mismo lado", () => {
+    const e = tenis();
+    const t = e.tenis!;
+    t.saque = 0; t.ultimoToque = 1; t.botes = 0;
+    const p = e.players.find(q => q.equipo === 0)!;
+    const b = pelota(e);
+    b.x = p.x + 10; b.y = p.y; b.z = 0; b.vz = 0; b.vx = 0; b.vy = 0;
+    expect(patear(e, p, 0.5), "no pudo devolverla").toBe("golpe");
+    expect(patear(e, p, 0.5), "le pegó dos veces seguidas").toBe(null);
+  });
+
+  it("la carga manda el fondo, y el motor la recorta", () => {
+    const donde = (fuerza: number) => {
+      const e = tenis();
+      const t = e.tenis!;
+      t.saque = 0; t.ultimoToque = 1; t.botes = 0;
+      const p = e.players.find(q => q.equipo === 0)!;
+      const b = pelota(e);
+      b.x = p.x + 10; b.y = p.y; b.z = 0; b.vz = 0; b.vx = 0; b.vy = 0;
+      patear(e, p, fuerza);
+      /* Dónde va a picar: la parábola resuelta, que es justo lo que el golpe
+         elige. */
+      const T = ((b.vz ?? 0) + Math.sqrt((b.vz ?? 0) ** 2 + 2 * 1600 * (b.z ?? 0))) / 1600;
+      return b.x + b.vx * T;
+    };
+    const flojo = donde(0.1), fuerte = donde(1);
+    expect(fuerte, "cargar no la manda más al fondo").toBeGreaterThan(flojo + 100);
+    expect(donde(99), "mandando 99 llega más lejos que mandando 1")
+      .toBeCloseTo(fuerte, 3);
+  });
+
+  it("solo se le pega a la que está de tu lado y al alcance", () => {
+    const e = tenis();
+    const t = e.tenis!;
+    t.saque = 0; t.ultimoToque = 1; t.botes = 0;
+    const p = e.players.find(q => q.equipo === 0)!;
+    const b = pelota(e);
+    b.x = t.redX + 100; b.y = p.y; b.z = 0; b.vz = 0;     // del otro lado
+    expect(patear(e, p, 0.5), "le pegó a una pelota del campo de enfrente").toBe(null);
+    b.x = p.x + TENIS_ALCANCE + 40;                        // de su lado, pero lejos
+    if (b.x < t.redX) expect(patear(e, p, 0.5), "llegó a una que no alcanzaba").toBe(null);
+  });
+
+  it("en tenis no hay ladrones ni desfile: es un partido, no el barrio", () => {
+    const e = tenis();
+    pelotear(e, 30);
+    expect(e.thieves.length, "salieron ladrones a media cancha").toBe(0);
+    expect(e.portal.desfile.length, "el desfile cruzó el partido").toBe(0);
+  });
+});
+
 describe("los sitios con minijuego", () => {
   const sitioDe = (e: Estado, juego: string) => e.sitios.find(s => s.juego === juego) || null;
 
@@ -1677,6 +1812,7 @@ describe("los sitios con minijuego", () => {
     for (const id of ["colegio", "multiverso"]){
       const e = partida({ escenario: id });
       expect(sitioDe(e, "futbol"), id + " sin canchita").not.toBe(null);
+      expect(sitioDe(e, "tenis"), id + " sin cancha de tenis").not.toBe(null);
     }
     expect(partida({ escenario: "luna" }).sitios.length, "una cancha en la Luna").toBe(0);
   });
@@ -1721,9 +1857,11 @@ describe("los sitios con minijuego", () => {
   });
 
   it("en un partido no hay sitios que armar: ya estás en uno", () => {
-    const e = crearPartida({ jugadores: 6, escenario: "colegio", semilla: 7,
-                             armas: idsDeArmas(), reglas: { modo: "futbol" } });
-    expect(e.sitios.length).toBe(0);
+    for (const modo of ["futbol", "tenis"] as const){
+      const e = crearPartida({ jugadores: 2, escenario: "colegio", semilla: 7,
+                               armas: idsDeArmas(), reglas: { modo } });
+      expect(e.sitios.length, modo + ": armó un sitio dentro de un partido").toBe(0);
+    }
   });
 });
 

@@ -17,7 +17,7 @@ import {
   venderFlorin, precioDeVenta, soltarCarga, puestoDe, puestosDeCarrera,
   VUELTAS, CIRCUITOS, JUGADORES_MAX, pensarBot, GARAJE, TRASTOS_ESCENARIO,
   darleVehiculo, vehiculoDelSitio, esEspecial, ANCHO_PISTA, enLaPista, aparcarNuevo, comprarPatio,
-  ponerFiesta, enFiesta, patear,
+  ponerFiesta, enFiesta, patear, TENIS_META,
   usarPotenciador, potenciadoresDe, potenciadorPorId, colocarPuestos,
   DIFICULTADES, dificultadDe, fijarMundo, MUNDO_NORMAL, fundir, queSaleDeFundir,
 } from "@florin/engine";
@@ -35,7 +35,7 @@ export {
   venderFlorin, precioDeVenta, soltarCarga, puestoDe, puestosDeCarrera,
   VUELTAS, CIRCUITOS, JUGADORES_MAX, pensarBot, GARAJE, TRASTOS_ESCENARIO,
   darleVehiculo, vehiculoDelSitio, esEspecial, ANCHO_PISTA, enLaPista, DIFICULTADES, dificultadDe, aparcarNuevo, comprarPatio,
-  ponerFiesta, enFiesta, patear,
+  ponerFiesta, enFiesta, patear, TENIS_META,
   fundir, queSaleDeFundir,
   usarPotenciador, potenciadoresDe, potenciadorPorId, colocarPuestos,
 };
@@ -252,7 +252,8 @@ function conAtajos(G) {
    cliente, no del motor — para el motor son dos jugadores y unas reglas. Vive
    como bandera del cliente al lado de `started` y `paused`. */
 export function nuevaPartidaMotor(modo, escenarioId, carrera = false, dificultad = "normal",
-                                  garaje = [], rivales = 0, futbol = 0, cancha = "colegio") {
+                                  garaje = [], rivales = 0, futbol = 0, cancha = "colegio",
+                                  tenis = 0) {
   const local2 = modo === 2;
   /* La pichanga: dos equipos y una pelota, en la cancha del colegio. Los que
      faltan los lleva la máquina, igual que los asientos libres de una carrera. */
@@ -262,6 +263,20 @@ export function nuevaPartidaMotor(modo, escenarioId, carrera = false, dificultad
       escenario: cancha,
       armas: idsDeArmas(),
       reglas: { modo: "futbol", vecinos: false, puestos: false, patiosExtra: false },
+      semilla: (semillaSiguiente = (semillaSiguiente * 48271) % 2147483647),
+    }));
+    G.local2 = false;
+    return G;
+  }
+  /* El tenis: dos lados, una red y un peloteo, en la cancha del colegio. El
+     motor da para dobles; desde la puerta de la canchita se arma individual,
+     que es a lo que se juega cuando entras tú solo. */
+  if (tenis) {
+    const G = conAtajos(crearPartida({
+      jugadores: tenis * 2,
+      escenario: cancha,
+      armas: idsDeArmas(),
+      reglas: { modo: "tenis", vecinos: false, puestos: false, patiosExtra: false },
       semilla: (semillaSiguiente = (semillaSiguiente * 48271) % 2147483647),
     }));
     G.local2 = false;

@@ -197,6 +197,11 @@ export class Sala {
         const plan = pensarBot(this.estado, this.estado.players[i], paso);
         entradas[i] = plan.entrada;
         if (plan.usar) tiran.push(i);
+        /* Lo mismo que hace el cliente con sus bots: hay juegos —el tenis— en
+           los que la pelota no se mueve al pisarla y hay que golpearla aparte.
+           Si esto no estuviera, el mismo `PlanBot` significaría dos cosas
+           distintas según quién lo lea. */
+        if (plan.patear != null) patear(this.estado, this.estado.players[i], plan.patear);
       }
       for (const i of tiran) usarArma(this.estado, this.estado.players[i]);
       avanzar(this.estado, entradas, paso);

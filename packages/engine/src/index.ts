@@ -16,7 +16,8 @@ export {
   clamp, lerp, dist2, inRect, azar, rnd, pick, tiraDeTabla, money,
 } from "./util.js";
 export {
-  crearPartida, reglasPara, JUGADORES_MAX, SALA_MAX, FUTBOL_MAX,
+  crearPartida, reglasPara, JUGADORES_MAX, SALA_MAX, FUTBOL_MAX, TENIS_MAX,
+  TENIS_META, TENIS_SAQUE, RED_ALTO, RED_ANCHO, ladoDeLaCancha, colocarParaElSaque,
   freePed, freePedDe, occupied, occupiedDe, esMiPatio,
   playerIncome, florinIncome, mismoFlorin, nuevoFlorin, laserActivo,
   bloqueadoPorLaser, orbitaDelCentro, puntoDelDesfile, ponerLaser,
@@ -32,7 +33,7 @@ export type { PlanBot } from "./bot.js";
 export {
   avanzar, usarArma, comprarArma, seleccionarArma, girarRuleta, premioDeRuleta,
   textoDePremio, spawnThief, sacarDelPortal, comprarPatio, rumboDeTiro, ponerFiesta, enFiesta,
-  patear, PATEO_ALCANCE,
+  patear, PATEO_ALCANCE, TENIS_ALCANCE,
   maxTier, rollTier, blancosDe, dropCarried, zap, knock, applyKnock, escudoAguanta,
   bajarse, cargar, multDeMontura, venderFlorin, precioDeVenta, soltarCarga,
   puestosDeCarrera, puestoDe, usarPotenciador, fundir, queSaleDeFundir,

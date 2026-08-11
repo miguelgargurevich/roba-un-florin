@@ -8,7 +8,7 @@ Monorepo con workspaces npm:
 
 | Paquete | Qué es |
 |---|---|
-| `packages/engine` | el juego sin navegador: determinista, JSON serializable, 181 pruebas |
+| `packages/engine` | el juego sin navegador: determinista, JSON serializable, 193 pruebas |
 | `apps/web` | el cliente (Vite + canvas 2D). Solo dibuja y escucha teclas |
 | `apps/api` | cuentas, álbum, guardado, fiestas y avisos (.NET 9, Clean Arch + CQRS), 47 pruebas |
 | `apps/salas` | servidor de salas autoritativo (Node + `ws`), 36 pruebas |
@@ -23,6 +23,49 @@ A medias / sin hacer: el modo cooperativo (aplazado a propósito — una sala en
 aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Última sesión
+
+- 2026-08-11 (claude-code): **el tenis**, el segundo minijuego, por la puerta
+  que se generalizó ayer. Cancha de tierra con red, pasillos y cuadros de saque
+  en el patio del colegio y en su zona del Multiverso: te metes, sale «🎾 Jugar
+  tenis · uno contra uno», y al acabar vuelves a tu aventura como la dejaste.
+  El motor da para dobles (`TENIS_MAX = 4`); desde la puerta se arma individual.
+  **Tres reglas y ninguna más** (`e.tenis`, `pasoTenis`): la pelota tiene que
+  caer del otro lado, hay que devolverla antes del segundo bote, y a la red no
+  se le pega. Todo sale de dos números —quién le dio el último y cuántas veces
+  botó desde entonces—. Nadie cruza la red. Primero a 7 puntos, saca el que
+  ganó el punto.
+  **Un solo botón** (el mismo de patear, con 🎾): la carga manda el FONDO y la
+  puntería el LADO. El vuelo se resuelve al revés que en el fútbol —se elige
+  dónde cae y se despeja la fuerza—, y eso es lo que garantiza que pase por
+  encima de la red y que apuntar mal no signifique mandártela a tu propio campo.
+  Detalles que costaron medir:
+  - la pelota del tenis **no se empuja al pisarla** ni aturde a nadie en el aire,
+    y mientras vuela **no la frena el rozamiento de rodar** (0,12/s se comía tres
+    cuartos de la velocidad en 0,7 s y la parábola calculada no se cumplía);
+  - la **red se mira por el CRUCE**, no por la cercanía: a 1 300 px/s se saltaba
+    la franja entera entre dos fotogramas;
+  - **fuera solo cuenta antes del primer bote**. Con el "fuera" a secas, cada
+    pelotazo bien puesto era punto en contra del que lo dio: 7-0 en 28 s, medido;
+  - el bot **no persigue la pelota: se pone donde va a picar**, y su puntería se
+    calcula SIEMPRE (no solo al golpear), porque el motor lee `p.apunta` del tick
+    anterior — calculándola al golpear, devolvía todo a las manos del rival y el
+    punto no moría nunca (99 px de carrera por golpe, con un brazo de 100).
+  **Calibración, después de que el balón saliera muy veloz**: vuelo de 0,92 a
+  1,30 s (era 0,62–0,88), saque de 1,15 s, alcance 124. Y como con la pelota
+  lenta los bots lo devolvían TODO (273 golpes, 0 puntos en 5 min), se les puso
+  reacción (`REACCION`, no arrancan hasta que la pelota se acerca a la red) y
+  **brío 0,68** — la reacción sola no sirve de palanca: o no devuelven ni el
+  saque o lo devuelven todo, porque llegar o no llegar es un salto y no una
+  cuesta. Medido con eso: partidos de 7-3, 7-6, 7-1, 4-7, 6-7, 7-3, entre 49 s y
+  2:20, y todos terminan.
+  De paso: el cantero del colegio se comía la esquina de la cancha (el decorado
+  fijo se escribió cuando no había minijuegos; el que se cruce ya no se pinta), y
+  el cartel del sitio pasó a ir DENTRO del borde de arriba — fuera se montaba
+  con el de la Ruleta y no se leía ninguno.
+  Próximo, por costo: el vóley es casi el mismo esqueleto (red, bote, dos lados)
+  y sale barato; el surf de la Costa Verde no reusa nada y merece ser su propio
+  proyecto. Y sigue pendiente lo de siempre: **el 5v5 online nunca se probó con
+  dos personas de verdad**.
 
 - 2026-08-10 (claude-code): **la puerta de los minijuegos, generalizada** (paso
   previo al tenis). `e.cancha` —que era literalmente *la cancha de fútbol del

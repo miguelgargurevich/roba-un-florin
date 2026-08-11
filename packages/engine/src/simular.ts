@@ -26,7 +26,7 @@ import {
   freePedDe, jugadorDe, laserActivo, mismoFlorin, nivelDeVitrina, nombreDeHito,
   nuevoFlorin, nuevoId, occupied, occupiedDe, patiosDe, pedDe, playerIncome,
   polvo, ponerLaser, puedeMojarse, puntoDelDesfile, sacarDelCentro, sonar, texto, trastoDe, dentroDeLaPista,
-  sobreLaPista,
+  sobreLaPista, ladoDeLaCancha, colocarParaElSaque, TENIS_SAQUE,
 } from "./estado.js";
 
 /* Cualquier cosa a la que se pueda golpear */
@@ -1143,6 +1143,7 @@ export function avanzar(e: Estado, entradas: Record<number, EntradaJugador>, dt:
 
   if (e.reglas.modo === "carrera") { pasoCarrera(e, dt); return e; }
   if (e.reglas.modo === "futbol") { pasoFutbol(e, dt); return e; }
+  if (e.reglas.modo === "tenis") { pasoTenis(e, dt); return e; }
 
   /* ---- la meta: la vitrina ----
 
@@ -1216,6 +1217,10 @@ function tocarTrastos(e: Estado, p: Jugador): void {
 
   for (const v of e.trastos) {
     if (v.montadoPor != null && v.montadoPor !== p.idx) continue;
+    /* La pelota del tenis no se empuja al pisarla: en un peloteo, arrastrarla
+       con las piernas al pasar por encima se salta las tres reglas de golpe. Se
+       le pega con la raqueta o no se le pega. */
+    if (e.tenis && v.id === e.tenis.balon) continue;
     const cerca = dist2(p.x, p.y, v.x, v.y) < TRASTO_ALCANCE * TRASTO_ALCANCE;
     if (!cerca) continue;
     if (p.trastoUsado === v.id) { sigueCerca = v.id; continue; }
@@ -1263,6 +1268,13 @@ function avanzarTrastos(e: Estado, dt: number): void {
   for (const v of e.trastos) {
     if (v.montadoPor != null) continue;
     if (!v.vx && !v.vy) continue;
+    /* La pelota del tenis, mientras vuela, ni frena ni tumba a nadie. Lo
+       primero porque su parábola se calcula al golpearla y el rozamiento de
+       rodar la dejaría siempre corta —o sea, siempre en la red—; lo segundo
+       porque un pelotazo que aturde 1,6 s cada vez que cruza la cancha no es un
+       partido de tenis, es una pelea de pelotazos. */
+    const enElAire = !!e.tenis && v.id === e.tenis.balon && (v.z ?? 0) > 0 &&
+                     e.tenis.botes === 0;
     v.x += v.vx * dt;
     v.y += v.vy * dt;
     v.giro += Math.hypot(v.vx, v.vy) * dt * 0.06;
@@ -1270,7 +1282,7 @@ function avanzarTrastos(e: Estado, dt: number): void {
     if (v.y < 20 || v.y > WORLD_H - 20) { v.vy *= -0.7; v.y = clamp(v.y, 20, WORLD_H - 20); }
 
     const rapidez = Math.hypot(v.vx, v.vy);
-    if (rapidez >= PELOTAZO_MIN) {
+    if (rapidez >= PELOTAZO_MIN && !enElAire) {
       const quien = jugadorDe(e, v.pateadoPor);
       for (const b of blancosDe(e, quien)) {
         if ((b as any).stun > 0) continue;
@@ -1285,7 +1297,7 @@ function avanzarTrastos(e: Estado, dt: number): void {
       }
     }
 
-    const roce = Math.pow(RODAR_ROCE, dt);
+    const roce = enElAire ? 1 : Math.pow(RODAR_ROCE, dt);
     v.vx *= roce; v.vy *= roce;
     if (Math.hypot(v.vx, v.vy) < 6) { v.vx = 0; v.vy = 0; v.pateadoPor = null; }
   }
@@ -1565,7 +1577,10 @@ function balonAlAlcance(e: Estado, p: Jugador): Trasto | null {
  * que bote — que es justo para lo que sirve un cabezazo.
  * Devuelve qué pasó, para que el cliente lo cuente.
  */
-export function patear(e: Estado, p: Jugador, fuerza = 0): "patada" | "cabezazo" | null {
+export function patear(e: Estado, p: Jugador, fuerza = 0): "patada" | "cabezazo" | "golpe" | null {
+  /* En la cancha de tenis el mismo botón es la raqueta. Se reparte aquí y no
+     en el cliente para que teclado, botón y sala pidan siempre lo mismo. */
+  if (e.tenis) return golpeDeTenis(e, p, clamp(fuerza, 0, 1));
   const f = e.futbol;
   if (!f || f.ganador != null || p.stun > 0) return null;
   const b = balonAlAlcance(e, p);
@@ -1682,6 +1697,220 @@ function pasoFutbol(e: Estado, dt: number): void {
     f.ganador = f.goles[0] === f.goles[1] ? null : (f.goles[0] > f.goles[1] ? 0 : 1);
     terminarPartido(e);
   }
+}
+
+/* ============================================================
+   El tenis
+   ============================================================
+   Tres reglas y ninguna más: la pelota tiene que caer en el campo de enfrente,
+   el de enfrente tiene que devolverla antes del segundo bote, y a la red no se
+   le pega. Todo lo demás sale solo de esas tres.
+
+   El estado que las sostiene son dos números: quién le dio el último y cuántas
+   veces ha botado desde entonces. Con eso se sabe de quién es la culpa de todo
+   lo que pueda pasar. */
+
+/** El brazo llega un poco más lejos que el pie: es una raqueta. */
+export const TENIS_ALCANCE = 124;
+/** La pelota de tenis pica más viva que un balón: da tiempo a llegar. */
+const TENIS_BOTE = 0.62;
+/** A qué altura sale de la raqueta. Sin esto, quien juega pegado a la red se
+    la comía siempre: la parábola nacía en el suelo, justo debajo de ella. */
+const TENIS_SALIDA = 36;
+
+/**
+ * Un golpe de tenis. Con un solo botón hay dos cosas que decidir y solo caben
+ * dos: **la carga manda el fondo y la puntería el lado**. Que apuntar mal
+ * significara mandarla a tu propio campo no sería un fallo del jugador, sería
+ * un juego roto — así que la dirección al otro lado la pone el motor.
+ */
+function golpeDeTenis(e: Estado, p: Jugador, k: number): "golpe" | null {
+  const t = e.tenis;
+  if (!t || t.ganador != null || p.stun > 0 || t.saque > 0) return null;
+  const b = e.trastos.find(x => x.id === t.balon);
+  if (!b) return null;
+  if (dist2(p.x, p.y, b.x, b.y) > TENIS_ALCANCE * TENIS_ALCANCE) return null;
+
+  const mio = (p.equipo ?? 0) as 0 | 1;
+  /* Dos veces seguidas no le pega el mismo lado: o la devuelve el otro, o el
+     punto es suyo. Esto también es lo que impide que en dobles los dos
+     compañeros se turnen a peloteo entre ellos. */
+  if (t.ultimoToque === mio) return null;
+  /* Y solo en tu mitad: por encima del campo del otro la pelota es suya. */
+  if (ladoDeLaCancha(t, b.x) !== mio) return null;
+
+  const c = t.cancha;
+  const haciaDonde = mio === 0 ? 1 : -1;
+  /* De cerca de la red al fondo del campo contrario. */
+  const fondo = 0.30 + 0.62 * k;
+  const tx = t.redX + haciaDonde * (c.w / 2) * fondo;
+  const a = p.apunta;
+  const ty = clamp(a.on ? a.wy : b.y, c.y + 70, c.y + c.h - 70);
+
+  /* El vuelo se resuelve al revés que en el fútbol: allí se elige la fuerza y
+     se ve dónde cae; aquí se elige DÓNDE CAE y se despeja la fuerza. Es lo que
+     hace que un solo botón baste, y de paso lo que garantiza que la pelota
+     pase por encima de la red y no por debajo. */
+  /* El tiempo de vuelo es LA palanca de dificultad: a igual distancia, más
+     tiempo es una pelota más lenta y más rato para llegar a ella. Empezó en
+     0,62 s y no había quien la devolviera. */
+  const T = 0.92 + 0.38 * k;
+  const z0 = Math.max(b.z ?? 0, TENIS_SALIDA);
+  b.vx = (tx - b.x) / T;
+  b.vy = (ty - b.y) / T;
+  b.z = z0;
+  b.vz = GRAVEDAD * T / 2 - z0 / T;      // así toca el suelo justo en el destino
+  b.pateadoPor = p.idx;
+
+  t.ultimoToque = mio;
+  t.botes = 0;
+  t.ladoDelBote = null;
+  polvo(e, b.x, b.y - 10, "#FFEFE2", k > 0.6 ? 8 : 4);
+  sonar(e, "whack");
+  return "golpe";
+}
+
+/** El saque sale solo cuando se acaba la cuenta: con bots de por medio, un
+    saque que hay que pedir es un partido que puede no empezar nunca. */
+function saqueDeTenis(e: Estado): void {
+  const t = e.tenis!;
+  const b = e.trastos.find(x => x.id === t.balon);
+  if (!b) return;
+  const c = t.cancha;
+  const haciaDonde = t.sacador === 0 ? 1 : -1;
+  const tx = t.redX + haciaDonde * (c.w / 2) * 0.55;
+  const ty = c.y + c.h / 2 + rnd(e, -c.h * 0.28, c.h * 0.28);
+  const T = 1.15;
+  b.z = 44;
+  b.vx = (tx - b.x) / T;
+  b.vy = (ty - b.y) / T;
+  b.vz = GRAVEDAD * T / 2 - b.z / T;
+  b.pateadoPor = e.players.find(p => p.equipo === t.sacador)?.idx ?? null;
+  t.ultimoToque = t.sacador;
+  t.botes = 0;
+  t.ladoDelBote = null;
+  texto(e, b.x, b.y - 50, "¡Saque!", "#FFC53D");
+  sonar(e, "whack");
+}
+
+function puntoDeTenis(e: Estado, equipo: 0 | 1, motivo: string): void {
+  const t = e.tenis!;
+  t.puntos[equipo]++;
+  t.ultimoPunto = { equipo, motivo };
+  const color = equipo === 0 ? "#3DDC97" : "#FF5C86";
+  const b = e.trastos.find(x => x.id === t.balon);
+  if (b) { b.vx = 0; b.vy = 0; b.vz = 0; }
+  texto(e, b ? b.x : t.redX, (b ? b.y : t.cancha.y) - 60, "¡Punto! " + motivo, color);
+  if (b) polvo(e, b.x, b.y, color, 18);
+  sonar(e, "win");
+  e.eventos.push({ t: "punto", equipo, puntos: [t.puntos[0], t.puntos[1]], motivo });
+
+  if (t.puntos[equipo] >= t.meta) {
+    t.ganador = equipo;
+    e.over = true;
+    e.winnerIdx = e.players.find(p => p.equipo === equipo)?.idx ?? null;
+    e.eventos.push({ t: "fin", ganador: e.winnerIdx });
+    return;
+  }
+  /* Saca el que ganó el punto: es lo que hace que ganar un punto se note antes
+     del siguiente, y ahorra llevar la cuenta de juegos y de cambios de lado. */
+  t.sacador = equipo;
+  t.saque = TENIS_SAQUE;
+  colocarParaElSaque(e);
+}
+
+function pasoTenis(e: Estado, dt: number): void {
+  const t = e.tenis;
+  if (!t || t.ganador != null) return;
+  const b = e.trastos.find(x => x.id === t.balon);
+  if (!b) return;
+  const c = t.cancha;
+
+  /* Nadie cruza la red. Es regla del tenis y además es lo que impide que esto
+     acabe siendo el fútbol: seis piernas alrededor de la misma pelota. */
+  for (const p of e.players) {
+    const mio = p.equipo ?? 0;
+    p.y = clamp(p.y, c.y + 24, c.y + c.h - 24);
+    p.x = mio === 0
+      ? clamp(p.x, c.x + 24, t.redX - 40)
+      : clamp(p.x, t.redX + 40, c.x + c.w - 24);
+  }
+
+  if (t.saque > 0) {
+    t.saque -= dt;
+    b.vx = 0; b.vy = 0; b.vz = 0; b.z = 0;
+    if (t.saque <= 0) { t.saque = 0; saqueDeTenis(e); }
+    return;
+  }
+
+  const antesZ = b.z ?? 0;
+  const antesX = b.x - b.vx * dt;          // dónde estaba antes de que la movieran
+
+  /* Sube, cae y pica. */
+  let aterrizó = false;
+  if (antesZ > 0 || (b.vz ?? 0) !== 0) {
+    b.vz = (b.vz ?? 0) - GRAVEDAD * dt;
+    b.z = antesZ + b.vz * dt;
+    if (b.z <= 0) {
+      b.z = 0;
+      const golpe = Math.abs(b.vz ?? 0);
+      b.vz = golpe > 120 ? golpe * TENIS_BOTE : 0;
+      aterrizó = true;
+    }
+  }
+
+  /* ---- ¿le dio a la red? ----
+     Se mira el CRUCE, no la cercanía: a 1 300 px/s la pelota se salta la
+     franja entera entre dos fotogramas, y una red que a veces no está es peor
+     que ninguna. Con el tramo recorrido se saca en qué punto la cruzó y a qué
+     altura iba justo ahí. */
+  if ((antesX - t.redX) * (b.x - t.redX) <= 0 && Math.abs(b.x - antesX) > 0.01) {
+    const u = clamp((t.redX - antesX) / (b.x - antesX), 0, 1);
+    const zAllí = antesZ + ((b.z ?? 0) - antesZ) * u;
+    if (zAllí < t.redAlto) {
+      b.x = t.redX - (b.x - antesX > 0 ? 12 : -12);
+      if (t.ultimoToque != null) {
+        puntoDeTenis(e, (1 - t.ultimoToque) as 0 | 1, "a la red");
+        return;
+      }
+    }
+  }
+
+  if (aterrizó) {
+    const lado = ladoDeLaCancha(t, b.x);
+    t.botes++;
+    t.ladoDelBote = lado;
+    if (t.botes === 1) {
+      /* El primer bote cae en el campo de enfrente o el punto es del otro. */
+      if (t.ultimoToque != null && lado === t.ultimoToque) {
+        puntoDeTenis(e, (1 - t.ultimoToque) as 0 | 1, "se quedó corta");
+        return;
+      }
+    } else if (t.ultimoToque != null) {
+      puntoDeTenis(e, t.ultimoToque, "doble bote");
+      return;
+    }
+  }
+
+  /* ---- fuera ----
+     Se mira la pelota, no el bote: una que se va larga ya no vuelve, y esperar
+     a que pique fuera solo alarga el punto.
+
+     Pero solo cuenta ANTES del primer bote. Una que ya picó dentro es buena,
+     y que después se vaya de la cancha es exactamente lo que pasa con un
+     pelotazo bien puesto: no es un fallo de quien lo dio, es un punto suyo. */
+  if (!inRect(b.x, b.y, c, 0) && t.ultimoToque != null) {
+    if (t.botes === 0) puntoDeTenis(e, (1 - t.ultimoToque) as 0 | 1, "fuera");
+    else puntoDeTenis(e, t.ultimoToque, "no la devolvió");
+    return;
+  }
+
+  /* Y el caso raro: picó una vez y se murió rodando sin que nadie la tocara.
+     Sin esto el peloteo se queda ahí para siempre, porque el segundo bote que
+     tenía que acabarlo no llega nunca. */
+  if (t.botes >= 1 && (b.z ?? 0) <= 0 && (b.vz ?? 0) === 0 &&
+      Math.hypot(b.vx, b.vy) < 24 && t.ultimoToque != null)
+    puntoDeTenis(e, t.ultimoToque, "no la devolvió");
 }
 
 function terminarPartido(e: Estado): void {
