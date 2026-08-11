@@ -11,7 +11,7 @@ Monorepo con workspaces npm:
 | `packages/engine` | el juego sin navegador: determinista, JSON serializable, 181 pruebas |
 | `apps/web` | el cliente (Vite + canvas 2D). Solo dibuja y escucha teclas |
 | `apps/api` | cuentas, álbum, guardado, fiestas y avisos (.NET 9, Clean Arch + CQRS), 47 pruebas |
-| `apps/salas` | servidor de salas autoritativo (Node + `ws`), 32 pruebas |
+| `apps/salas` | servidor de salas autoritativo (Node + `ws`), 36 pruebas |
 
 Funciona: un jugador, salas online hasta 5 (aventura, versus y carrera) con
 bots en los asientos libres, 24 escenarios —todos con circuito—, cuentas con
@@ -23,6 +23,27 @@ A medias / sin hacer: el modo cooperativo (aplazado a propósito — una sala en
 aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Última sesión
+
+- 2026-08-10 (claude-code): **fútbol online, pateo con carga y cabezazos**.
+  *Online*: una sala de fútbol tiene **diez asientos** (`cupo` por modo, 5v5),
+  los equipos salen del reparto que ya hacía el motor y los libres los llevan
+  bots. El modo y la cancha viajan en el "entrar" de siempre, y el selector de
+  salas ya ofrece Fútbol (sin eso el servidor aceptaba partidos pero no había
+  forma de crear uno).
+  *Patear*: botón propio — un toque empuja, aguantando se carga hasta el
+  pelotazo, con barra en el botón; en teclado, la **B** (que en un partido deja
+  de abrir el álbum). La fuerza la manda el cliente y **el motor la recorta**:
+  hay prueba de que mandar 99 no llega más lejos que mandar 1.
+  *El aire*: pasado cierto punto de carga el balón se eleva (`z`, `vz`,
+  gravedad, botes). Un balón volando ya no se lo lleva por delante el primero
+  que pase por debajo — por eso los centros cruzan.
+  *Cabezazo*: si te viene volando y le das, sale más plano y menos fuerte pero
+  remata sin esperar el bote.
+  **Sin verificar**: el 5v5 online de punta a punta. Las salas piden cuenta y
+  desde aquí no se puede iniciar sesión como nadie, así que está probado en el
+  servidor (36 pruebas, incluida una sala de fútbol de diez con sus equipos y
+  el recorte de la fuerza) pero **nunca con dos personas de verdad** — que es
+  el mismo pendiente que arrastra todo lo online del proyecto.
 
 - 2026-08-10 (claude-code): **5v5 y canchas propias**. El fútbol deja de estar
   atado a `SLOTS` —que existe para repartir CASAS, y en un partido no se roba a
