@@ -774,7 +774,7 @@ export function crearPartida(op: OpcionesPartida): Estado {
     girando: null, ultimoPremio: null, cajas: [],
     alarma: null, futbol: null, tenis: null,
     basquet: null, bolos: null, lucha: null, dardos: null,
-    carreraObs: null, laberinto: null, billar: null, hockey: null,
+    carreraObs: null, laberinto: null, billar: null, hockey: null, voley: null,
     fiesta: null,
     over: false, winnerIdx: null, proximoId: 0,
     eventos: [],
@@ -829,6 +829,7 @@ const MED_CARRERA_OBS = { w: 800, h: 600 };
 const MED_LABERINTO = { w: 640, h: 640 };
 const MED_BILLAR = { w: 500, h: 300 };
 const MED_HOCKEY = { w: 500, h: 300 };
+const MED_VOLEY = { w: 600, h: 360 };
 
 const SITIOS: {
   juego: JuegoDeSitio; rotulo: string; medida: { w: number; h: number };
@@ -840,6 +841,7 @@ const SITIOS: {
   { juego: "bolos", rotulo: "LOS BOLos", medida: MED_BOLOS, donde: "colegio" },
   { juego: "lucha", rotulo: "EL RING", medida: MED_LUCHA, donde: "colegio" },
   { juego: "dardos", rotulo: "LOS DARDOS", medida: MED_DARDOS, donde: "colegio" },
+  { juego: "voley", rotulo: "LA CANCHA DE VOLEY", medida: MED_VOLEY, donde: "colegio" },
   { juego: "carreraObs", rotulo: "LA CARRERA", medida: MED_CARRERA_OBS, donde: "colegio" },
   { juego: "laberinto", rotulo: "EL LABERINTO", medida: MED_LABERINTO, donde: "colegio" },
   { juego: "billar", rotulo: "EL BILLAR", medida: MED_BILLAR, donde: "colegio" },
@@ -1198,6 +1200,21 @@ export function aAirHockey(e: Estado): void {
   for (const p of e.players) {
     const lado = p.equipo === 0 ? -1 : 1;
     p.x = cx + lado * 160; p.y = cy; p.vx = 0; p.vy = 0; p.stun = 0; p.montado = null;
+  }
+}
+
+/* ---- voley ---- */
+const VOLEY_META = 5;
+
+export function aLaCanchaDeVoley(e: Estado): void {
+  const { cx, cy } = centroDelMapa();
+  const cancha = { x: Math.round(cx - 300), y: Math.round(cy - 180), w: 600, h: 360 };
+  const redY = cy;
+  e.voley = { cancha, redY, pelota: { x: cx, y: cy - 100, vx: 0, vy: 0 }, puntos: [0, 0], meta: VOLEY_META, saque: 2, ganador: null };
+  repartirEquipos(e);
+  for (const p of e.players) {
+    const lado = p.equipo === 0 ? -1 : 1;
+    p.x = cx + lado * 160; p.y = cy + 80; p.vx = 0; p.vy = 0; p.stun = 0; p.montado = null;
   }
 }
 

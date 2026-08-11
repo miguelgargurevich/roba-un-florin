@@ -20,7 +20,7 @@ import {
   ponerFiesta, enFiesta, patear, TENIS_META,
   usarPotenciador, potenciadoresDe, potenciadorPorId, colocarPuestos,
   DIFICULTADES, dificultadDe, fijarMundo, MUNDO_NORMAL, fundir, queSaleDeFundir,
-  aLaCanchaDeBasquet, aLaPistaDeBolos, aLaLucha, aLosDardos, aLaCarreraDeObs, aElLaberinto,
+  aLaCanchaDeBasquet, aLaPistaDeBolos, aLaLucha, aLosDardos, aLaCanchaDeVoley, aLaCarreraDeObs, aElLaberinto,
   aLaMesaDeBillar, aAirHockey,
 } from "@florin/engine";
 
@@ -40,7 +40,7 @@ export {
   ponerFiesta, enFiesta, patear, TENIS_META,
   fundir, queSaleDeFundir,
   usarPotenciador, potenciadoresDe, potenciadorPorId, colocarPuestos,
-  aLaCanchaDeBasquet, aLaPistaDeBolos, aLaLucha, aLosDardos, aLaCarreraDeObs, aElLaberinto,
+  aLaCanchaDeBasquet, aLaPistaDeBolos, aLaLucha, aLosDardos, aLaCanchaDeVoley, aLaCarreraDeObs, aElLaberinto,
   aLaMesaDeBillar, aAirHockey,
 };
 

@@ -630,13 +630,13 @@ describe("trastos: bicis, tablas y pelotas", () => {
     expect(bici.x).toBeCloseTo(p.x, 3);
   });
 
-  it("cargando un Florín ya no te montas al pasar por encima", () => {
+  it("cargando un Florín sí te montas al pasar por encima", () => {
     const e = partida();
     const p = e.players[0];
     p.carry = nuevoFlorin(e, 0);
     encimaDe(e, "bici");
     correr(e, 0.5, haciaLaDerecha);
-    expect(p.montado).toBeNull();
+    expect(p.montado).not.toBeNull();
   });
 
   it("un golpe te tira del vehículo y lo deja tirado", () => {

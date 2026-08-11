@@ -1148,6 +1148,7 @@ export function avanzar(e: Estado, entradas: Record<number, EntradaJugador>, dt:
   if (e.bolos) { pasoBolos(e, dt); return e; }
   if (e.lucha) { pasoLucha(e, dt); return e; }
   if (e.dardos) { pasoDardos(e, dt); return e; }
+  if (e.voley) { pasoVoley(e, dt); return e; }
   if (e.carreraObs) { pasoCarreraObs(e, dt); return e; }
   if (e.laberinto) { pasoLaberinto(e, dt); return e; }
   if (e.billar) { pasoBillar(e, dt); return e; }
@@ -1234,8 +1235,8 @@ function tocarTrastos(e: Estado, p: Jugador): void {
     if (p.trastoUsado === v.id) { sigueCerca = v.id; continue; }
 
     if (esVehiculo(v.tipo)) {
-      // cargando un Florín no te montas: el vehículo es para llegar, no para huir
-      if (p.montado != null || p.carry) continue;
+      // ya montado en otro vehículo
+      if (p.montado != null) continue;
       const info = VEHICULOS[v.tipo];
       p.montado = v.id;
       v.montadoPor = p.idx;
@@ -2202,6 +2203,52 @@ function pasoHockey(e: Estado, dt: number): void {
       const push = 400;
       pk.vx = (dx / d) * push + p.vx * 0.5;
       pk.vy = (dy / d) * push + p.vy * 0.5;
+    }
+  }
+}
+
+function pasoVoley(e: Estado, dt: number): void {
+  const v = e.voley!;
+  if (v.ganador != null) return;
+  const pk = v.pelota;
+  // physics
+  pk.vy += 400 * dt; // gravity
+  pk.vx *= 0.999; pk.vy *= 0.999;
+  pk.x += pk.vx * dt; pk.y += pk.vy * dt;
+  const c = v.cancha;
+  // bounce walls
+  if (pk.x < c.x + 10) { pk.x = c.x + 10; pk.vx = Math.abs(pk.vx) * 0.8; sonar(e, "swish"); }
+  if (pk.x > c.x + c.w - 10) { pk.x = c.x + c.w - 10; pk.vx = -Math.abs(pk.vx) * 0.8; sonar(e, "swish"); }
+  // bounce off net (redY)
+  if (Math.abs(pk.y - v.redY) < 15 && pk.vy > 0) {
+    pk.vy = -Math.abs(pk.vy) * 0.7;
+    pk.y = v.redY - 15;
+    sonar(e, "swish");
+  }
+  // bounce top
+  if (pk.y < c.y + 10) { pk.y = c.y + 10; pk.vy = Math.abs(pk.vy) * 0.8; sonar(e, "swish"); }
+  // score: ball hits ground
+  if (pk.y > c.y + c.h - 10) {
+    const marca = pk.x < v.cancha.x + v.cancha.w / 2 ? 1 : 0 as 0 | 1;
+    v.puntos[marca]++;
+    texto(e, pk.x, pk.y - 40, "¡PUNTO!", marca === 0 ? "#3DDC97" : "#FF5C86");
+    sonar(e, "win");
+    e.eventos.push({ t: "gol", equipo: marca, goles: [...v.puntos] });
+    if (v.puntos[marca] >= v.meta) { v.ganador = marca; terminarJuegoIndividual(e, e.players.find(p => p.equipo === marca)?.idx ?? null); return; }
+    // reset
+    pk.x = c.x + c.w / 2; pk.y = c.y + 60; pk.vx = 0; pk.vy = 0;
+    v.saque = 2;
+    return;
+  }
+  // player-ball collision
+  for (const p of e.players) {
+    if (dist2(p.x, p.y, pk.x, pk.y) < 25 * 25) {
+      const dx = pk.x - p.x, dy = pk.y - p.y;
+      const d = Math.sqrt(dx * dx + dy * dy) || 1;
+      const push = 350;
+      pk.vx = (dx / d) * push + p.vx * 0.4;
+      pk.vy = -Math.abs((dy / d) * push * 0.6); // always hit upward
+      v.saque = Math.max(0, v.saque - dt);
     }
   }
 }

@@ -1274,6 +1274,7 @@ elAccion.addEventListener("click", () => {
   else if (accionActual === "sitio:bolos") armarBolos();
   else if (accionActual === "sitio:lucha") armarLucha();
   else if (accionActual === "sitio:dardos") armarDardos();
+  else if (accionActual === "sitio:voley") armarVoley();
   else if (accionActual === "sitio:carreraObs") armarCarreraObs();
   else if (accionActual === "sitio:laberinto") armarLaberinto();
   else if (accionActual === "sitio:billar") armarBillar();
@@ -1301,6 +1302,7 @@ function pintarAccion(){
       : cual === "sitio:bolos" ? "🎳 Jugar bolos · dos turnos"
       : cual === "sitio:lucha" ? "🥊 Pelear en el ring · uno contra uno"
       : cual === "sitio:dardos" ? "🎯 Tirar dardos · cinco tiros"
+      : cual === "sitio:voley" ? "🏐 Jugar voley · uno contra uno"
       : cual === "sitio:carreraObs" ? "🏃 Carrera de obstáculos · contra el rival"
       : cual === "sitio:laberinto" ? "🔮 Entrar al laberinto · recoge las gemas"
       : cual === "sitio:billar" ? "🎱 Jugar billar · una bola a la vez"
@@ -1373,6 +1375,7 @@ function armarCarreraObs(){ armarSitio("carreraObs", () => aLaCarreraDeObs(G), "
 function armarLaberinto(){ armarSitio("laberinto", () => aElLaberinto(G), "🔮 ¡Al laberinto! Recoge todas las gemas."); }
 function armarBillar(){ armarSitio("billar", () => aLaMesaDeBillar(G), "🎱 ¡Billar! Entran todas las bolas."); }
 function armarHockey(){ armarSitio("hockey", () => aAirHockey(G), "🏒 ¡Air hockey! 5 goles."); }
+function armarVoley(){ armarSitio("voley", () => aLaCanchaDeVoley(G), "🏐 ¡Voley! Primero en 5 puntos."); }
 
 /** De vuelta al barrio tras el partido, con la aventura como la dejaste. */
 function volverDeLaPichanga(){
@@ -9143,6 +9146,33 @@ function drawHockey(){
   ctx.restore();
 }
 
+/* ---- la cancha de voley ---- */
+function drawVoley(){
+  const v = G.voley;
+  if (!v) return;
+  const c = v.cancha;
+  ctx.save();
+  // cancha
+  ctx.fillStyle = "rgba(193,102,63,.5)";
+  ctx.fillRect(c.x, c.y, c.w, c.h);
+  ctx.strokeStyle = "rgba(255,255,255,.7)"; ctx.lineWidth = 4;
+  ctx.strokeRect(c.x, c.y, c.w, c.h);
+  // línea central
+  ctx.beginPath(); ctx.moveTo(c.x + c.w/2, c.y); ctx.lineTo(c.x + c.w/2, c.y + c.h); ctx.stroke();
+  // red
+  ctx.strokeStyle = "#FFF"; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(c.x, v.redY); ctx.lineTo(c.x + c.w, v.redY); ctx.stroke();
+  // postes
+  ctx.fillStyle = "#8B4513";
+  ctx.fillRect(c.x - 6, v.redY - 15, 12, 30);
+  ctx.fillRect(c.x + c.w - 6, v.redY - 15, 12, 30);
+  // pelota
+  ctx.fillStyle = "#FFF";
+  ctx.beginPath(); ctx.arc(v.pelota.x, v.pelota.y, 10, 0, 6.283); ctx.fill();
+  ctx.strokeStyle = "#333"; ctx.lineWidth = 2; ctx.stroke();
+  ctx.restore();
+}
+
 /* ---- las luces de la fiesta ----
    Focos de colores barriendo la pasarela y papelitos cayendo sobre el ocho.
    Va todo con `G.t`, así que no hace falta guardar ni una partícula: dos
@@ -9860,6 +9890,8 @@ function draw(){
     drawLucha();
   } else if (G.dardos){
     drawDardos();
+  } else if (G.voley){
+    drawVoley();
   } else if (G.carreraObs){
     drawCarreraObs();
   } else if (G.laberinto){
@@ -10489,20 +10521,29 @@ function startGame(modo){
   const m = modo === 2 ? 2 : (modo === 1 ? 1 : (G && G.local2 ? 2 : 1));
   G = nuevaPartida(m);
   G.started = true;
-  aLaCancha();
   // Inicializar minijuego si se eligió desde el menú
   const miniInit = { basquet: aLaCanchaDeBasquet, bolos: aLaPistaDeBolos, lucha: aLaLucha,
-    dardos: aLosDardos, carreraObs: aLaCarreraDeObs, laberinto: aElLaberinto,
-    billar: aLaMesaDeBillar, hockey: aAirHockey };
+    dardos: aLosDardos, voley: aLaCanchaDeVoley, carreraObs: aLaCarreraDeObs, laberinto: aElLaberinto,
+    billar: aLaMesaDeBillar, hockey: aAirHockey, futbol: null };
   const miniMsg = { basquet: "🏀 ¡A básquet! Primero en 5 puntos.", bolos: "🎳 ¡A bolos! Dos turnos.",
     lucha: "🥊 ¡Al ring! Derriba al rival.", dardos: "🎯 ¡Dardos! 5 tiros cada uno.",
-    carreraObs: "🏃 ¡Carrera de obstáculos!", laberinto: "🔮 ¡Al laberinto! Recoge todas las gemas.",
-    billar: "🎱 ¡Billar! Entran todas las bolas.", hockey: "🏒 ¡Air hockey! 7 goles." };
+    voley: "🏐 ¡Voley! Primero en 5 puntos.", carreraObs: "🏃 ¡Carrera de obstáculos!",
+    laberinto: "🔮 ¡Al laberinto! Recoge todas las gemas.",
+    billar: "🎱 ¡Billar! Entran todas las bolas.", hockey: "🏒 ¡Air hockey! 7 goles.",
+    futbol: "⚽ ¡Pichanga! Primero a 3." };
   const m2 = modoElegido();
-  if (miniInit[m2]){
+  if (m2 === "futbol") {
+    const G2 = nuevaPartidaMotor(1, "colegio", false, "normal", [], 0, ladoSel, "colegio");
+    G = G2;
+    G.started = true;
+  } else if (miniInit[m2]){
+    const G2 = nuevaPartidaMotor(1, "colegio", false, "normal", [], 0, 0, "colegio");
+    G = G2;
+    G.started = true;
     miniInit[m2](G);
-    if (miniMsg[m2]) decir(miniMsg[m2], "bien");
   }
+  aLaCancha();
+  if (miniMsg[m2]) decir(miniMsg[m2], "bien");
 }
 
 /** Deja la pantalla lista para jugar con el G que sea: nuevo o revivido. */

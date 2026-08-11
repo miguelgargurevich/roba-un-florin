@@ -267,7 +267,7 @@ export interface Girando { t: number; dur: number; premio: Premio; jugadorIdx: n
 /** Qué se juega en un sitio del mundo. */
 export type JuegoDeSitio =
   | "futbol" | "tenis" | "basquet" | "bolos" | "lucha"
-  | "dardos" | "carreraObs" | "laberinto" | "billar" | "hockey";
+  | "dardos" | "voley" | "carreraObs" | "laberinto" | "billar" | "hockey";
 
 /** Un sitio del mundo con su minijuego: dónde está y a qué se juega. */
 export interface SitioDeJuego {
@@ -418,6 +418,16 @@ export interface Hockey {
   puck: { x: number; y: number; vx: number; vy: number };
   puntos: [number, number];
   meta: number;
+  ganador: 0 | 1 | null;
+}
+
+export interface Voley {
+  cancha: Rect;
+  redY: number;
+  pelota: { x: number; y: number; vx: number; vy: number };
+  puntos: [number, number];
+  meta: number;
+  saque: number;
   ganador: 0 | 1 | null;
 }
 
@@ -588,6 +598,8 @@ export interface Estado {
   billar: Billar | null;
   /** Mesa de air hockey. */
   hockey: Hockey | null;
+  /** Partido de voley. */
+  voley: Voley | null;
   /** Los sitios del mundo donde se arma un minijuego: te metes y se juega, sin
       pasar por el menú. La canchita del colegio fue el primero.
 

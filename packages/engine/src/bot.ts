@@ -308,6 +308,12 @@ function aDondeVoyEnHockey(e: Estado, p: Jugador): { x: number; y: number } | nu
   return { x: h.puck.x, y: h.puck.y };
 }
 
+/** A dónde va en voley: perseguir la pelota. */
+function aDondeVoyEnVoley(e: Estado, p: Jugador): { x: number; y: number } | null {
+  const v = e.voley!;
+  return { x: v.pelota.x, y: v.pelota.y };
+}
+
 /** A dónde va: lo que lleva pesa más que lo que podría llevarse. */
 function aDondeVoy(e: Estado, p: Jugador): { x: number; y: number } | null {
   if (e.reglas.modo === "futbol") return aDondeVoyEnElPartido(e, p);
@@ -316,6 +322,7 @@ function aDondeVoy(e: Estado, p: Jugador): { x: number; y: number } | null {
   if (e.bolos) return aDondeVoyEnBolos(e, p);
   if (e.lucha) return aDondeVoyEnLucha(e, p);
   if (e.dardos) return aDondeVoyEnDardos(e, p);
+  if (e.voley) return aDondeVoyEnVoley(e, p);
   if (e.carreraObs) return aDondeVoyEnCarreraObs(e, p);
   if (e.laberinto) return aDondeVoyEnLaberinto(e, p);
   if (e.billar) return aDondeVoyEnBillar(e, p);
@@ -456,13 +463,14 @@ export function pensarBot(e: Estado, p: Jugador, dt: number): PlanBot {
              : e.reglas.modo === "tenis" ? TENIS_BRIO
              : e.bolos ? 0.8
              : e.dardos ? 0.7
+             : e.voley ? 0.8
              : e.laberinto ? 0.75
              : e.billar ? 0.6
              : e.hockey ? 0.85
              : 1;
   /* En los juegos con pelota, el bot patea cuando está cerca. */
   let kickForce: number | null = null;
-  if (e.basquet || e.bolos || e.hockey) {
+  if (e.basquet || e.bolos || e.hockey || e.voley) {
     const balon = e.basquet ? e.trastos.find(t => t.id === e.basquet!.balon)
                 : e.bolos ? e.trastos.find(t => t.id === e.bolos!.balon)
                 : null;
