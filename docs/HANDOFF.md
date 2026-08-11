@@ -24,6 +24,24 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Última sesión
 
+- 2026-08-10 (claude-code): **El Multiverso** y **la pichanga**.
+  *Multiverso*: los 24 escenarios cosidos en fila (86 400 x 2 100) en lugar de
+  El Valle. Para que fuera jugable: la pasarela deja de crecer con el mundo
+  (`TOPE_ANCHO`) y "el centro" pasa a ser el de la primera zona (`CENTRO_X`);
+  una casa por zona; puestos por tramos de 3 zonas; ladrones de vecinos
+  cercanos; y el mar es de cada zona (`marEn(e, x)` — ojo, `enElMar` ahora pide
+  x además de y). Gotcha: para un especial, `agua` significa "también vuela
+  sobre el agua", no "solo en el agua" — el guardia nuevo se cargó a los
+  dragones de la Edad Media hasta que se distinguió con `esEspecial`.
+  *Pichanga*: modo `futbol`, 3v3 o 4v4 contra bots, cancha en el patio del
+  colegio, primero a 3 goles o 4 minutos, con chancla. La pelota es el trasto
+  `pelota` de siempre. Gotcha del bot: al llegar detrás de la pelota tiene que
+  apuntar AL ARCO — apuntando a la pelota `PEGADO` lo frena a un palmo y los
+  partidos acaban 0-0 con seis mirándola. Medido: 3-1 en 1,8 min.
+  **Pendiente del fútbol**: online (equipos por el protocolo de salas) y la
+  fase 2 acordada — una canchita dentro del colegio y del Multiverso que
+  arranque el partido sin salir del mundo.
+
 - 2026-08-10 (claude-code): **El Multiverso** en lugar de El Valle: los
   veinticuatro escenarios cosidos en fila, 86 400 x 2 100, cinco minutos y medio
   de punta a punta a pie. Cada zona con su decorado, sus trastos y su mar.
