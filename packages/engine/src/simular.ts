@@ -1144,6 +1144,14 @@ export function avanzar(e: Estado, entradas: Record<number, EntradaJugador>, dt:
   if (e.reglas.modo === "carrera") { pasoCarrera(e, dt); return e; }
   if (e.reglas.modo === "futbol") { pasoFutbol(e, dt); return e; }
   if (e.reglas.modo === "tenis") { pasoTenis(e, dt); return e; }
+  if (e.basquet) { pasoBasquet(e, dt); return e; }
+  if (e.bolos) { pasoBolos(e, dt); return e; }
+  if (e.lucha) { pasoLucha(e, dt); return e; }
+  if (e.dardos) { pasoDardos(e, dt); return e; }
+  if (e.carreraObs) { pasoCarreraObs(e, dt); return e; }
+  if (e.laberinto) { pasoLaberinto(e, dt); return e; }
+  if (e.billar) { pasoBillar(e, dt); return e; }
+  if (e.hockey) { pasoHockey(e, dt); return e; }
 
   /* ---- la meta: la vitrina ----
 
@@ -1557,7 +1565,7 @@ function avanzarJugador(e: Estado, p: Jugador, ent: EntradaJugador | undefined, 
    `fuerza` va de 0 a 1 y la manda quien juega (el botón la carga). El motor la
    recorta, así que un cliente que mande 99 no llega más lejos que uno honesto. */
 export const PATEO_ALCANCE = 74;
-const PATEO_BASE = 520, PATEO_TOPE = 1500;
+const PATEO_BASE = 340, PATEO_TOPE = 980;
 /** A partir de aquí el balón se eleva: por debajo, va rastrero. */
 const PATEO_VUELA = 0.55;
 export const GRAVEDAD = 1600;
@@ -1605,7 +1613,7 @@ export function patear(e: Estado, p: Jugador, fuerza = 0): "patada" | "cabezazo"
     b.vz = 120;                        // un pique corto, no otro globo
     b.pateadoPor = p.idx;
     texto(e, p.x, p.y - 58, "¡De cabeza!", "#FFC53D");
-    sonar(e, "whack");
+    sonar(e, "kick");
     return "cabezazo";
   }
 
@@ -1615,7 +1623,7 @@ export function patear(e: Estado, p: Jugador, fuerza = 0): "patada" | "cabezazo"
   b.z = b.z ?? 0;
   b.pateadoPor = p.idx;
   polvo(e, b.x, b.y, "#FFEFE2", k > PATEO_VUELA ? 10 : 5);
-  sonar(e, "whack");
+  sonar(e, "kick");
   return "patada";
 }
 
@@ -1916,11 +1924,284 @@ function pasoTenis(e: Estado, dt: number): void {
 function terminarPartido(e: Estado): void {
   const f = e.futbol!;
   e.over = true;
-  /* `winnerIdx` es de un JUGADOR y el fútbol lo gana un equipo: se apunta al
-     primero de los suyos, que es lo que el cartel del final sabe leer. */
   e.winnerIdx = f.ganador == null
     ? null
     : (e.players.find(p => p.equipo === f.ganador)?.idx ?? null);
   e.eventos.push({ t: "fin", ganador: e.winnerIdx });
   sonar(e, "win");
+}
+
+function terminarJuegoIndividual(e: Estado, ganador: number | null): void {
+  e.over = true;
+  e.winnerIdx = ganador;
+  e.eventos.push({ t: "fin", ganador });
+  sonar(e, "win");
+}
+
+/* ============================================================
+   Básquet
+   ============================================================ */
+function pasoBasquet(e: Estado, dt: number): void {
+  const b = e.basquet!;
+  if (b.ganador != null) return;
+  b.reloj -= dt;
+  if (b.saque > 0) { b.saque -= dt; return; }
+  const balon = e.trastos.find(t => t.id === b.balon);
+  if (!balon) return;
+  // gravity
+  if ((balon.z ?? 0) > 0 || (balon.vz ?? 0) !== 0) {
+    balon.vz = (balon.vz ?? 0) - GRAVEDAD * dt;
+    balon.z = (balon.z ?? 0) + balon.vz * dt;
+    if (balon.z <= 0) { balon.z = 0; balon.vz = -Math.abs(balon.vz) * 0.5; if (Math.abs(balon.vz) < 40) balon.vz = 0; }
+  }
+  // score check
+  for (let q = 0; q < 2; q++) {
+    const aro = b.aros[q];
+    const marca = (1 - q) as 0 | 1;
+    if (balon.z !== undefined && balon.z < 20 && balon.z > -10 &&
+        Math.abs(balon.y - (aro.y + aro.h / 2)) < 30 &&
+        Math.abs(balon.x - (q === 0 ? aro.x + aro.w : aro.x)) < 20) {
+      b.puntos[marca]++;
+      texto(e, balon.x, balon.y - 60, "¡CANASTA!", marca === 0 ? "#3DDC97" : "#FF5C86");
+      sonar(e, "swish");
+      e.eventos.push({ t: "gol", equipo: marca, goles: [...b.puntos] });
+      if (b.puntos[marca] >= b.meta) { b.ganador = marca; terminarJuegoIndividual(e, e.players.find(p => p.equipo === marca)?.idx ?? null); return; }
+      // reset
+      balon.x = b.cancha.x + b.cancha.w / 2; balon.y = b.cancha.y + b.cancha.h / 2;
+      balon.vx = 0; balon.vy = 0; balon.z = 0; balon.vz = 0; balon.pateadoPor = null;
+      b.saque = 1.5;
+      return;
+    }
+  }
+  // bounds
+  const c = b.cancha;
+  if (balon.x < c.x + 10) { balon.x = c.x + 10; balon.vx = Math.abs(balon.vx) * 0.7; }
+  if (balon.x > c.x + c.w - 10) { balon.x = c.x + c.w - 10; balon.vx = -Math.abs(balon.vx) * 0.7; }
+  if (balon.y < c.y + 10) { balon.y = c.y + 10; balon.vy = Math.abs(balon.vy) * 0.7; }
+  if (balon.y > c.y + c.h - 10) { balon.y = c.y + c.h - 10; balon.vy = -Math.abs(balon.vy) * 0.7; }
+  if (b.reloj <= 0) { b.ganador = b.puntos[0] > b.puntos[1] ? 0 : b.puntos[1] > b.puntos[0] ? 1 : null; terminarJuegoIndividual(e, b.ganador != null ? (e.players.find(p => p.equipo === b.ganador!)?.idx ?? null) : null); }
+}
+
+/* ============================================================
+   Bolos
+   ============================================================ */
+function pasoBolos(e: Estado, dt: number): void {
+  const b = e.bolos!;
+  if (b.ganador != null) return;
+  const balon = e.trastos.find(t => t.id === b.balon);
+  if (!balon) return;
+  // check pin collisions
+  for (let i = 0; i < b.pins.length; i++) {
+    if (!b.pins[i]) continue;
+    const pin = b.pinLugar[i];
+    if (dist2(balon.x, balon.y, pin.x, pin.y) < 22 * 22) {
+      b.pins[i] = false;
+      polvo(e, pin.x, pin.y, "#FFEFE2", 4);
+    }
+  }
+  // ball stopped?
+  if (Math.hypot(balon.vx, balon.vy) < 10 && balon.y < b.pista.y + 200) {
+    const knocked = b.pins.filter(p => !p).length;
+    b.puntos[b.turno] += knocked;
+    sonar(e, "bowl");
+    texto(e, b.pista.x + b.pista.w / 2, b.pista.y + b.pista.h / 2, "+" + knocked, "#FFC53D");
+    b.tiradas++;
+    b.totalTiradas++;
+    if (b.tiradas >= 2 || b.pins.every(p => !p)) {
+      b.turno = 1 - b.turno;
+      b.tiradas = 0;
+      b.frames++;
+      if (b.pins.every(p => !p)) b.pins = b.pinLugar.map(() => true);
+      if (b.frames >= b.meta * 2) {
+        b.ganador = b.puntos[0] > b.puntos[1] ? 0 : b.puntos[1] > b.puntos[0] ? 1 : null;
+        terminarJuegoIndividual(e, b.ganador != null ? (e.players.find(p => p.equipo === b.ganador!)?.idx ?? null) : null);
+        return;
+      }
+    }
+    // reset ball
+    balon.x = b.pista.x + b.pista.w / 2;
+    balon.y = b.pista.y + b.pista.h - 60;
+    balon.vx = 0; balon.vy = 0;
+    balon.pateadoPor = null;
+  }
+  // bounds
+  if (balon.x < b.pista.x + 10) { balon.x = b.pista.x + 10; balon.vx = Math.abs(balon.vx) * 0.6; }
+  if (balon.x > b.pista.x + b.pista.w - 10) { balon.x = b.pista.x + b.pista.w - 10; balon.vx = -Math.abs(balon.vx) * 0.6; }
+}
+
+/* ============================================================
+   Lucha
+   ============================================================ */
+function pasoLucha(e: Estado, dt: number): void {
+  const l = e.lucha!;
+  if (l.ganador != null) return;
+  l.reloj -= dt;
+  for (const p of e.players) {
+    p.x = clamp(p.x, l.ring.x + 20, l.ring.x + l.ring.w - 20);
+    p.y = clamp(p.y, l.ring.y + 20, l.ring.y + l.ring.h - 20);
+  }
+  if (l.reloj <= 0) {
+    l.ganador = l.puntos[0] > l.puntos[1] ? 0 : l.puntos[1] > l.puntos[0] ? 1 : null;
+    terminarJuegoIndividual(e, l.ganador != null ? (e.players.find(p => p.equipo === l.ganador!)?.idx ?? null) : null);
+  }
+}
+
+/* ============================================================
+   Dardos
+   ============================================================ */
+function pasoDardos(e: Estado, _dt: number): void {
+  const d = e.dardos!;
+  if (d.ganador != null) return;
+}
+
+/* ============================================================
+   Carrera de obstáculos
+   ============================================================ */
+function pasoCarreraObs(e: Estado, _dt: number): void {
+  const c = e.carreraObs!;
+  if (c.ganador != null) return;
+  for (let i = 0; i < e.players.length; i++) {
+    const p = e.players[i];
+    const j = c.jugadores[i];
+    if (j.fin >= 0) continue;
+    const cp = c.trazado[j.checkpoint];
+    if (dist2(p.x, p.y, cp.x, cp.y) < 50 * 50) {
+      j.checkpoint++;
+      if (j.checkpoint >= c.checkpoints) { j.checkpoint = 0; j.vuelta++; }
+      if (j.vuelta >= c.vueltas) { j.fin = e.t; c.ganador = i; terminarJuegoIndividual(e, p.idx); return; }
+    }
+  }
+}
+
+/* ============================================================
+   Laberinto
+   ============================================================ */
+function pasoLaberinto(e: Estado, dt: number): void {
+  const l = e.laberinto!;
+  if (l.ganador != null) return;
+  // collect gems
+  for (let i = l.gemas.length - 1; i >= 0; i--) {
+    const g = l.gemas[i];
+    for (const p of e.players) {
+      if (dist2(p.x, p.y, g.x, g.y) < 24 * 24) {
+        l.gemas.splice(i, 1);
+        l.recolectadas++;
+        sonar(e, "grab");
+        texto(e, g.x, g.y - 20, "+1", "#FFC53D");
+        break;
+      }
+    }
+  }
+  if (l.recolectadas >= l.totalGemas) { terminarJuegoIndividual(e, e.players[0]?.idx ?? null); return; }
+  // ghost moves toward nearest player
+  const gh = l.fantasma;
+  let nearest: Jugador | null = null, nd = Infinity;
+  for (const p of e.players) { const d = dist2(p.x, p.y, gh.x, gh.y); if (d < nd) { nd = d; nearest = p; } }
+  if (nearest && nd > 0) {
+    const spd = 120 * dt;
+    gh.vx = (nearest.x - gh.x) / Math.sqrt(nd) * spd;
+    gh.vy = (nearest.y - gh.y) / Math.sqrt(nd) * spd;
+    gh.x += gh.vx; gh.y += gh.vy;
+  }
+  // ghost catches player
+  for (const p of e.players) {
+    if (dist2(p.x, p.y, gh.x, gh.y) < 20 * 20) {
+      p.stun = 1;
+      sonar(e, "ouch");
+      texto(e, p.x, p.y - 40, "¡Te atrapó!", "#FF5C86");
+    }
+  }
+}
+
+/* ============================================================
+   Billar
+   ============================================================ */
+function pasoBillar(e: Estado, dt: number): void {
+  const bl = e.billar!;
+  if (bl.ganador != null) return;
+  const friccion = 0.985;
+  for (const b of bl.bolas) {
+    if (b.hoya) continue;
+    b.vx *= friccion; b.vy *= friccion;
+    b.x += b.vx * dt; b.y += b.vy * dt;
+    // bounce off walls
+    const m = bl.mesa;
+    if (b.x < m.x + 10) { b.x = m.x + 10; b.vx = Math.abs(b.vx) * 0.8; }
+    if (b.x > m.x + m.w - 10) { b.x = m.x + m.w - 10; b.vx = -Math.abs(b.vx) * 0.8; }
+    if (b.y < m.y + 10) { b.y = m.y + 10; b.vy = Math.abs(b.vy) * 0.8; }
+    if (b.y > m.y + m.h - 10) { b.y = m.y + m.h - 10; b.vy = -Math.abs(b.vy) * 0.8; }
+    // pocket check
+    const esq = [[m.x + 15, m.y + 15], [m.x + m.w - 15, m.y + 15], [m.x + 15, m.y + m.h - 15], [m.x + m.w - 15, m.y + m.h - 15]];
+    for (const [hx, hy] of esq) {
+      if (dist2(b.x, b.y, hx, hy) < 18 * 18) { b.hoya = true; b.vx = 0; b.vy = 0; sonar(e, "place"); }
+    }
+  }
+  // ball-ball collisions
+  for (let i = 0; i < bl.bolas.length; i++) {
+    for (let j = i + 1; j < bl.bolas.length; j++) {
+      const a = bl.bolas[i], b = bl.bolas[j];
+      if (a.hoya || b.hoya) continue;
+      const d = dist2(a.x, a.y, b.x, b.y);
+      const minD = 14;
+      if (d < minD * minD && d > 0) {
+        const dx = b.x - a.x, dy = b.y - a.y;
+        const m = Math.sqrt(d);
+        const nx = dx / m, ny = dy / m;
+        const dvx = a.vx - b.vx, dvy = a.vy - b.vy;
+        const dot = dvx * nx + dvy * ny;
+        if (dot > 0) {
+          a.vx -= dot * nx; a.vy -= dot * ny;
+          b.vx += dot * nx; b.vy += dot * ny;
+        }
+        const sep = (minD - m) / 2;
+        a.x -= nx * sep; a.y -= ny * sep;
+        b.x += nx * sep; b.y += ny * sep;
+      }
+    }
+  }
+  // check if all colored balls are pocketed
+  const colored = bl.bolas.filter(b => b.color !== 0);
+  if (colored.every(b => b.hoya)) { terminarJuegoIndividual(e, e.players[bl.turno]?.idx ?? null); }
+}
+
+/* ============================================================
+   Air Hockey
+   ============================================================ */
+function pasoHockey(e: Estado, dt: number): void {
+  const h = e.hockey!;
+  if (h.ganador != null) return;
+  const pk = h.puck;
+  pk.vx *= 0.998; pk.vy *= 0.998;
+  pk.x += pk.vx * dt; pk.y += pk.vy * dt;
+  const m = h.mesa;
+  // bounce top/bottom
+  if (pk.y < m.y + 10) { pk.y = m.y + 10; pk.vy = Math.abs(pk.vy) * 0.9; sonar(e, "puck"); }
+  if (pk.y > m.y + m.h - 10) { pk.y = m.y + m.h - 10; pk.vy = -Math.abs(pk.vy) * 0.9; sonar(e, "puck"); }
+  // goal check
+  for (let q = 0; q < 2; q++) {
+    const g = h.porteros[q];
+    if (pk.x > g.x - 5 && pk.x < g.x + g.w + 5 && pk.y > g.y && pk.y < g.y + g.h) {
+      const marca = (1 - q) as 0 | 1;
+      h.puntos[marca]++;
+      texto(e, pk.x, pk.y - 40, "¡GOAL!", marca === 0 ? "#3DDC97" : "#FF5C86");
+      sonar(e, "win");
+      e.eventos.push({ t: "gol", equipo: marca, goles: [...h.puntos] });
+      if (h.puntos[marca] >= h.meta) { h.ganador = marca; terminarJuegoIndividual(e, e.players.find(p => p.equipo === marca)?.idx ?? null); return; }
+      pk.x = m.x + m.w / 2; pk.y = m.y + m.h / 2; pk.vx = 0; pk.vy = 0;
+      return;
+    }
+  }
+  // bounce left/right (but not in goals)
+  if (pk.x < m.x + 10) { pk.x = m.x + 10; pk.vx = Math.abs(pk.vx) * 0.9; sonar(e, "puck"); }
+  if (pk.x > m.x + m.w - 10) { pk.x = m.x + m.w - 10; pk.vx = -Math.abs(pk.vx) * 0.9; sonar(e, "puck"); }
+  // player-puck collision
+  for (const p of e.players) {
+    if (dist2(p.x, p.y, pk.x, pk.y) < 20 * 20) {
+      const dx = pk.x - p.x, dy = pk.y - p.y;
+      const d = Math.sqrt(dx * dx + dy * dy) || 1;
+      const push = 400;
+      pk.vx = (dx / d) * push + p.vx * 0.5;
+      pk.vy = (dy / d) * push + p.vy * 0.5;
+    }
+  }
 }

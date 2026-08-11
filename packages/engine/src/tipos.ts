@@ -265,7 +265,9 @@ export interface CajaItem { id: number; x: number; y: number; listo: number }
 export interface Girando { t: number; dur: number; premio: Premio; jugadorIdx: number }
 
 /** Qué se juega en un sitio del mundo. */
-export type JuegoDeSitio = "futbol" | "tenis";
+export type JuegoDeSitio =
+  | "futbol" | "tenis" | "basquet" | "bolos" | "lucha"
+  | "dardos" | "carreraObs" | "laberinto" | "billar" | "hockey";
 
 /** Un sitio del mundo con su minijuego: dónde está y a qué se juega. */
 export interface SitioDeJuego {
@@ -330,6 +332,95 @@ export interface Tenis {
   ganador: 0 | 1 | null;
 }
 
+/* ---- Básquet ---- */
+export interface Basquet {
+  cancha: Rect;
+  aros: [Rect, Rect];
+  balon: number;
+  puntos: [number, number];
+  meta: number;
+  reloj: number;
+  saque: number;
+  ganador: 0 | 1 | null;
+}
+
+/* ---- Bolos ---- */
+export interface Bolos {
+  pista: Rect;
+  pinLugar: { x: number; y: number }[];
+  pins: boolean[];
+  balon: number;
+  turno: number;
+  tiradas: number;
+  totalTiradas: number;
+  puntos: number[];
+  frames: number;
+  meta: number;
+  ganador: number | null;
+}
+
+/* ---- Lucha / Boxeo ---- */
+export interface Lucha {
+  ring: Rect;
+  puntos: [number, number];
+  meta: number;
+  reloj: number;
+  ganador: 0 | 1 | null;
+}
+
+/* ---- Dardos ---- */
+export interface Dardos {
+  tablero: { x: number; y: number; r: number };
+  dardos: { x: number; y: number; dueño: number }[];
+  turno: number;
+  puntos: [number, number];
+  meta: number;
+  ganador: 0 | 1 | null;
+}
+
+/* ---- Carrera de obstáculos ---- */
+export interface CarreraObs {
+  trazado: { x: number; y: number }[];
+  ancho: number;
+  obstaculos: { x: number; y: number; w: number; h: number }[];
+  checkpoints: number;
+  vueltas: number;
+  jugadores: { vuelta: number; checkpoint: number; fin: number }[];
+  ganador: number | null;
+}
+
+/* ---- Laberinto / Pac-Man ---- */
+export interface Laberinto {
+  celdas: boolean[][];
+  ancho: number;
+  alto: number;
+  gemas: { x: number; y: number }[];
+  fantasma: { x: number; y: number; vx: number; vy: number; timer: number };
+  recolectadas: number;
+  totalGemas: number;
+  ganador: number | null;
+}
+
+/* ---- Billar ---- */
+export interface Billar {
+  mesa: Rect;
+  bolas: { x: number; y: number; vx: number; vy: number; color: number; hoya: boolean }[];
+  turno: number;
+  foul: boolean;
+  puntos: [number, number];
+  ganador: 0 | 1 | null;
+}
+
+/* ---- Air Hockey ---- */
+export interface Hockey {
+  mesa: Rect;
+  porteros: [Rect, Rect];
+  puck: { x: number; y: number; vx: number; vy: number };
+  puntos: [number, number];
+  meta: number;
+  ganador: 0 | 1 | null;
+}
+
 /** Un evento en marcha: qué baja por la pasarela y hasta cuándo. */
 export interface Fiesta {
   /** Cómo se llama, para el cartel: "Noche de Wiracochas". */
@@ -367,7 +458,8 @@ export type Evento =
   | { t: "punto"; equipo: 0 | 1; puntos: [number, number]; motivo: string };
 
 export type Sonido =
-  | "throw" | "whack" | "grab" | "place" | "buy" | "ouch" | "lost" | "win" | "alarma";
+  | "throw" | "whack" | "grab" | "place" | "buy" | "ouch" | "lost" | "win" | "alarma" | "kick"
+  | "dardo" | "bowl" | "swish" | "puck";
 
 /** Lo que el anfitrión (teclado, joystick, red…) le pasa al motor cada tick. */
 export interface EntradaJugador {
@@ -480,6 +572,22 @@ export interface Estado {
   futbol: Futbol | null;
   /** El partido de tenis, cuando el modo es tenis. */
   tenis: Tenis | null;
+  /** Partido de básquet. */
+  basquet: Basquet | null;
+  /** Juego de bolos. */
+  bolos: Bolos | null;
+  /** Ring de lucha. */
+  lucha: Lucha | null;
+  /** Tablero de dardos. */
+  dardos: Dardos | null;
+  /** Carrera de obstáculos. */
+  carreraObs: CarreraObs | null;
+  /** Laberinto tipo Pac-Man. */
+  laberinto: Laberinto | null;
+  /** Mesa de billar. */
+  billar: Billar | null;
+  /** Mesa de air hockey. */
+  hockey: Hockey | null;
   /** Los sitios del mundo donde se arma un minijuego: te metes y se juega, sin
       pasar por el menú. La canchita del colegio fue el primero.
 

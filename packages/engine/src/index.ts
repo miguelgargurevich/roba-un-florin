@@ -26,6 +26,8 @@ export {
   nivelDeVitrina, vitrinaDe, nombreDeHito, HITOS_MAX,
   trastoDe, hayMar, enElMar, enElPuente, puedeMojarse,
   darleVehiculo, vehiculoDelSitio, dentroDeLaPista, enLaPista, colocarPuestos, aparcarNuevo,
+  aLaCanchaDeBasquet, aLaPistaDeBolos, aLaLucha, aLosDardos, aLaCarreraDeObs, aElLaberinto,
+  aLaMesaDeBillar, aAirHockey,
 } from "./estado.js";
 export type { OpcionesPartida } from "./estado.js";
 export { pensarBot } from "./bot.js";

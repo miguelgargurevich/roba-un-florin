@@ -2,7 +2,7 @@
    Nada de esto dibuja ni suena: solo monta el mundo y responde preguntas. */
 
 import type {
-  Base, DesfileItem, Estado, Evento, Florin, Jugador, Laser, Pedestal, RefObjetivo,
+  Base, Billar, DesfileItem, Estado, Evento, Florin, Jugador, Laser, Pedestal, RefObjetivo,
   Rect, RefPed, Reglas, SitioDeJuego, JuegoDeSitio, Sonido, Tenis, Trasto, Variante,
 } from "./tipos.js";
 import {
@@ -772,7 +772,10 @@ export function crearPartida(op: OpcionesPartida): Estado {
     bolts: [], blasts: [], cascaras: [], trastos: [], perros: [], slowmo: 0,
     thieves: [], ground: [], thiefTimer: 14,
     girando: null, ultimoPremio: null, cajas: [],
-    alarma: null, futbol: null, tenis: null, fiesta: null,
+    alarma: null, futbol: null, tenis: null,
+    basquet: null, bolos: null, lucha: null, dardos: null,
+    carreraObs: null, laberinto: null, billar: null, hockey: null,
+    fiesta: null,
     over: false, winnerIdx: null, proximoId: 0,
     eventos: [],
   };
@@ -818,14 +821,29 @@ export function crearPartida(op: OpcionesPartida): Estado {
    avisar de que estás dentro, el cartel— es común. */
 export const CANCHITA = { w: 900, h: 560 };
 export const CANCHA_TENIS = { w: 780, h: 500 };
+const MED_BASQUET = { w: 600, h: 420 };
+const MED_BOLOS = { w: 280, h: 700 };
+const MED_LUCHA = { w: 400, h: 400 };
+const MED_DARDOS = { w: 200, h: 200 };
+const MED_CARRERA_OBS = { w: 800, h: 600 };
+const MED_LABERINTO = { w: 640, h: 640 };
+const MED_BILLAR = { w: 500, h: 300 };
+const MED_HOCKEY = { w: 500, h: 300 };
 
 const SITIOS: {
   juego: JuegoDeSitio; rotulo: string; medida: { w: number; h: number };
-  /** En qué escenario (o zona) puede aparecer. */
   donde: string;
 }[] = [
   { juego: "futbol", rotulo: "LA PICHANGA", medida: CANCHITA, donde: "colegio" },
   { juego: "tenis", rotulo: "LA CANCHA DE TENIS", medida: CANCHA_TENIS, donde: "colegio" },
+  { juego: "basquet", rotulo: "LA CANCHA DE BÁSQUET", medida: MED_BASQUET, donde: "colegio" },
+  { juego: "bolos", rotulo: "LOS BOLos", medida: MED_BOLOS, donde: "colegio" },
+  { juego: "lucha", rotulo: "EL RING", medida: MED_LUCHA, donde: "colegio" },
+  { juego: "dardos", rotulo: "LOS DARDOS", medida: MED_DARDOS, donde: "colegio" },
+  { juego: "carreraObs", rotulo: "LA CARRERA", medida: MED_CARRERA_OBS, donde: "colegio" },
+  { juego: "laberinto", rotulo: "EL LABERINTO", medida: MED_LABERINTO, donde: "colegio" },
+  { juego: "billar", rotulo: "EL BILLAR", medida: MED_BILLAR, donde: "colegio" },
+  { juego: "hockey", rotulo: "AIR HOCKEY", medida: MED_HOCKEY, donde: "colegio" },
 ];
 
 function ponerLosSitios(e: Estado): void {
@@ -1035,6 +1053,152 @@ export function colocarParaElSaque(e: Estado): void {
       p.montado = null;
     });
   });
+}
+
+/* ---- básquet ---- */
+const BASQUET_META = 5, BASQUET_RELOJ = 180;
+const ARCO_BASQUET = { w: 60, h: 10 };
+
+export function aLaCanchaDeBasquet(e: Estado): void {
+  const { cx, cy } = centroDelMapa();
+  const cancha = { x: Math.round(cx - 300), y: Math.round(cy - 210), w: 600, h: 420 };
+  const aros: [Rect, Rect] = [
+    { x: cancha.x, y: Math.round(cy - ARCO_BASQUET.h / 2), w: ARCO_BASQUET.w, h: ARCO_BASQUET.h },
+    { x: cancha.x + cancha.w - ARCO_BASQUET.w, y: Math.round(cy - ARCO_BASQUET.h / 2), w: ARCO_BASQUET.w, h: ARCO_BASQUET.h },
+  ];
+  let balon = e.trastos.find(t => t.tipo === "pelota");
+  if (!balon) {
+    balon = { id: nuevoId(e), tipo: "pelota", x: cx, y: cy, vx: 0, vy: 0,
+              montadoPor: null, pateadoPor: null, giro: 0, variante: 0 };
+    e.trastos.push(balon);
+  }
+  e.trastos = e.trastos.filter(t => t === balon);
+  e.basquet = { cancha, aros, balon: balon.id, puntos: [0, 0], meta: BASQUET_META, reloj: BASQUET_RELOJ, saque: 2, ganador: null };
+  repartirEquipos(e);
+}
+
+/* ---- bolos ---- */
+const BOLOS_META = 10;
+
+export function aLaPistaDeBolos(e: Estado): void {
+  const { cx, cy } = centroDelMapa();
+  const pista = { x: Math.round(cx - 140), y: Math.round(cy - 350), w: 280, h: 700 };
+  const pinLugar: { x: number; y: number }[] = [];
+  const filas = [[0], [-20, 20], [-40, 0, 40], [-60, -20, 20, 60]];
+  for (const fila of filas) for (const dx of fila) pinLugar.push({ x: cx + dx, y: pista.y + 60 });
+  let balon = e.trastos.find(t => t.tipo === "pelota");
+  if (!balon) {
+    balon = { id: nuevoId(e), tipo: "pelota", x: cx, y: pista.y + pista.h - 60, vx: 0, vy: 0,
+              montadoPor: null, pateadoPor: null, giro: 0, variante: 0 };
+    e.trastos.push(balon);
+  }
+  e.trastos = e.trastos.filter(t => t === balon);
+  e.bolos = { pista, pinLugar, pins: pinLugar.map(() => true), balon: balon.id, turno: 0, tiradas: 0, totalTiradas: 0, puntos: [0, 0], frames: 0, meta: BOLOS_META, ganador: null };
+}
+
+/* ---- lucha ---- */
+const LUCHA_META = 5, LUCHA_RELOJ = 120;
+
+export function aLaLucha(e: Estado): void {
+  const { cx, cy } = centroDelMapa();
+  const ring = { x: Math.round(cx - 200), y: Math.round(cy - 200), w: 400, h: 400 };
+  e.lucha = { ring, puntos: [0, 0], meta: LUCHA_META, reloj: LUCHA_RELOJ, ganador: null };
+  repartirEquipos(e);
+  for (const p of e.players) {
+    const lado = p.equipo === 0 ? -1 : 1;
+    p.x = cx + lado * 120; p.y = cy; p.vx = 0; p.vy = 0; p.stun = 0; p.montado = null;
+  }
+}
+
+/* ---- dardos ---- */
+const DARDOS_META = 50;
+
+export function aLosDardos(e: Estado): void {
+  const { cx, cy } = centroDelMapa();
+  e.dardos = { tablero: { x: cx, y: cy - 160, r: 80 }, dardos: [], turno: 0, puntos: [0, 0], meta: DARDOS_META, ganador: null };
+  for (const p of e.players) { p.x = cx; p.y = cy + 120; p.vx = 0; p.vy = 0; p.stun = 0; p.montado = null; }
+}
+
+/* ---- carrera de obstáculos ---- */
+const OBS_VUELTAS = 3;
+
+export function aLaCarreraDeObs(e: Estado): void {
+  const { cx, cy } = centroDelMapa();
+  const trazado = [
+    { x: cx - 300, y: cy - 200 }, { x: cx + 300, y: cy - 200 },
+    { x: cx + 300, y: cy + 200 }, { x: cx - 300, y: cy + 200 },
+  ];
+  const obstaculos = [];
+  for (let i = 0; i < 8; i++) obstaculos.push({ x: cx - 250 + i * 70, y: cy + (i % 2 ? -80 : 80), w: 40, h: 40 });
+  const jugadores = e.players.map(() => ({ vuelta: 0, checkpoint: 0, fin: -1 }));
+  e.carreraObs = { trazado, ancho: 120, obstaculos, checkpoints: 4, vueltas: OBS_VUELTAS, jugadores, ganador: null };
+  repartirEquipos(e);
+  for (let i = 0; i < e.players.length; i++) {
+    const p = e.players[i];
+    p.x = trazado[0].x - i * 60; p.y = trazado[0].y; p.vx = 0; p.vy = 0; p.stun = 0; p.montado = null;
+  }
+}
+
+/* ---- laberinto ---- */
+export function aElLaberinto(e: Estado): void {
+  const { cx, cy } = centroDelMapa();
+  const ancho = 16, alto = 16, cw = 40, ch = 40;
+  const celdas: boolean[][] = [];
+  for (let y = 0; y < alto; y++) { celdas[y] = []; for (let x = 0; x < ancho; x++) celdas[y][x] = true; }
+  // carve a simple maze using recursive backtracking
+  const stack: [number, number][] = [[1, 1]];
+  celdas[1][1] = false;
+  while (stack.length) {
+    const [cx, cy] = stack[stack.length - 1];
+    const dirs: [number, number][] = [[0, -2], [0, 2], [-2, 0], [2, 0]];
+    const unvisited = dirs.filter(([dx, dy]) => celdas[cy + dy]?.[cx + dx]);
+    if (!unvisited.length) { stack.pop(); continue; }
+    const [dx, dy] = unvisited[Math.floor(azar(e) * unvisited.length)];
+    celdas[cy + dy / 2][cx + dx / 2] = false;
+    celdas[cy + dy][cx + dx] = false;
+    stack.push([cx + dx, cy + dy]);
+  }
+  const gemas: { x: number; y: number }[] = [];
+  for (let y = 0; y < alto; y++) for (let x = 0; x < ancho; x++)
+    if (!celdas[y][x] && !(x === 1 && y === 1)) gemas.push({ x: cx - (ancho / 2) * cw + x * cw + cw / 2, y: cy - (alto / 2) * ch + y * ch + ch / 2 });
+  e.laberinto = { celdas, ancho, alto, gemas, fantasma: { x: gemas[gemas.length - 1]?.x ?? cx, y: gemas[gemas.length - 1]?.y ?? cy, vx: 0, vy: 0, timer: 0 }, recolectadas: 0, totalGemas: gemas.length, ganador: null };
+  for (const p of e.players) { p.x = cx - (ancho / 2) * cw + cw + cw / 2; p.y = cy - (alto / 2) * ch + ch + ch / 2; p.vx = 0; p.vy = 0; p.stun = 0; p.montado = null; }
+}
+
+/* ---- billar ---- */
+export function aLaMesaDeBillar(e: Estado): void {
+  const { cx, cy } = centroDelMapa();
+  const mesa = { x: Math.round(cx - 250), y: Math.round(cy - 150), w: 500, h: 300 };
+  const bolas: Billar["bolas"] = [];
+  const colores = [1, 2, 3, 4, 5, 6, 7];
+  let bx = mesa.x + mesa.w * 0.7;
+  const by = cy;
+  for (let i = 0; i < colores.length; i++) {
+    const fila = Math.floor(i / 3);
+    const pos = i % 3;
+    bolas.push({ x: bx + fila * 18, y: by - 18 + pos * 18, vx: 0, vy: 0, color: colores[i], hoya: false });
+  }
+  bolas.push({ x: mesa.x + mesa.w * 0.25, y: cy, vx: 0, vy: 0, color: 0, hoya: false });
+  e.billar = { mesa, bolas, turno: 0, foul: false, puntos: [0, 0], ganador: null };
+  for (const p of e.players) { p.x = mesa.x + 40; p.y = cy; p.vx = 0; p.vy = 0; p.stun = 0; p.montado = null; }
+}
+
+/* ---- air hockey ---- */
+const HOCKEY_META = 7;
+
+export function aAirHockey(e: Estado): void {
+  const { cx, cy } = centroDelMapa();
+  const mesa = { x: Math.round(cx - 250), y: Math.round(cy - 150), w: 500, h: 300 };
+  const porteros: [Rect, Rect] = [
+    { x: mesa.x, y: cy - 50, w: 10, h: 100 },
+    { x: mesa.x + mesa.w - 10, y: cy - 50, w: 10, h: 100 },
+  ];
+  e.hockey = { mesa, porteros, puck: { x: cx, y: cy, vx: 0, vy: 0 }, puntos: [0, 0], meta: HOCKEY_META, ganador: null };
+  repartirEquipos(e);
+  for (const p of e.players) {
+    const lado = p.equipo === 0 ? -1 : 1;
+    p.x = cx + lado * 160; p.y = cy; p.vx = 0; p.vy = 0; p.stun = 0; p.montado = null;
+  }
 }
 
 /* ---- la parrilla ----

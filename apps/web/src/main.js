@@ -275,6 +275,11 @@ const Snd = (() => {
     unlock(){ ensure(); },
     throw_(){ noise(.1,.1); tone(720,.12,"sawtooth",.06,-380); },
     whack(){ noise(.16,.26); tone(180,.18,"square",.16,-120); },
+    kick(){ noise(.08,.22); tone(260,.12,"triangle",.14,-200); },
+    dardo(){ noise(.03,.08); tone(1200,.06,"sine",.05,-400); },
+    bowl(){ noise(.1,.18); tone(300,.15,"square",.1,-180); },
+    swish(){ noise(.06,.12); tone(800,.1,"sine",.08,-300); },
+    puck(){ noise(.05,.15); tone(400,.08,"triangle",.12,-250); },
     grab(){ tone(520,.07,"triangle",.11); setTimeout(()=>tone(780,.09,"triangle",.11),60); },
     place(){ tone(660,.08,"square",.09); setTimeout(()=>tone(990,.12,"square",.09),70); },
     buy(){ [523,659,784].forEach((f,i)=>setTimeout(()=>tone(f,.1,"square",.09),i*55)); },
@@ -1263,6 +1268,14 @@ let accionActual = null;
 elAccion.addEventListener("click", () => {
   if (accionActual === "sitio:futbol") armarPichanga();
   else if (accionActual === "sitio:tenis") armarTenis();
+  else if (accionActual === "sitio:basquet") armarBasquet();
+  else if (accionActual === "sitio:bolos") armarBolos();
+  else if (accionActual === "sitio:lucha") armarLucha();
+  else if (accionActual === "sitio:dardos") armarDardos();
+  else if (accionActual === "sitio:carreraObs") armarCarreraObs();
+  else if (accionActual === "sitio:laberinto") armarLaberinto();
+  else if (accionActual === "sitio:billar") armarBillar();
+  else if (accionActual === "sitio:hockey") armarHockey();
   else if (accionActual) togglePanel(accionActual);
 });
 
@@ -1282,6 +1295,14 @@ function pintarAccion(){
       : cual === "fus" ? "⚗️ Abrir la Fusionadora"
       : cual === "sitio:futbol" ? "⚽ Armar la pichanga · " + ladoSel + " contra " + ladoSel
       : cual === "sitio:tenis" ? "🎾 Jugar tenis · uno contra uno"
+      : cual === "sitio:basquet" ? "🏀 Jugar básquet · uno contra uno"
+      : cual === "sitio:bolos" ? "🎳 Jugar bolos · dos turnos"
+      : cual === "sitio:lucha" ? "🥊 Pelear en el ring · uno contra uno"
+      : cual === "sitio:dardos" ? "🎯 Tirar dardos · cinco tiros"
+      : cual === "sitio:carreraObs" ? "🏃 Carrera de obstáculos · contra el rival"
+      : cual === "sitio:laberinto" ? "🔮 Entrar al laberinto · recoge las gemas"
+      : cual === "sitio:billar" ? "🎱 Jugar billar · una bola a la vez"
+      : cual === "sitio:hockey" ? "🏒 Air hockey · uno contra uno"
       : "🎰 Girar la Ruleta · " + money(RULETA_PRECIO);
   }
   const p = G.player;
@@ -1326,6 +1347,30 @@ function armarTenis(){
   decir("🎾 ¡Al tenis! Primero a " + TENIS_META + " puntos.", "bien");
   Snd.unlock();
 }
+
+/* ---- los minijuegos del multiverso ---- */
+function armarSitio(juego, crearFn, msg){
+  if (!G || !G.started || G.over || G.local2 || G.player.enSitio !== juego) return;
+  aventuraEnEspera = { estado: JSON.stringify(G), esc: G.esc.id };
+  guardarPartidaAhora();
+  const G2 = nuevaPartidaMotor(1, "colegio", false, "normal", [], 0, 0, "colegio");
+  G = G2;
+  G.started = true;
+  crearFn();
+  aLaCancha();
+  invalidarSuelo();
+  decir(msg, "bien");
+  Snd.unlock();
+}
+
+function armarBasquet(){ armarSitio("basquet", () => aLaCanchaDeBasquet(G), "🏀 ¡A básquet! Primero en 5 puntos."); }
+function armarBolos(){ armarSitio("bolos", () => aLaPistaDeBolos(G), "🎳 ¡A bolos! Tres turnos."); }
+function armarLucha(){ armarSitio("lucha", () => aLaLucha(G), "🥊 ¡Al ring! Derriba al rival."); }
+function armarDardos(){ armarSitio("dardos", () => aLosDardos(G), "🎯 ¡Dardos! 5 tiradas cada uno."); }
+function armarCarreraObs(){ armarSitio("carreraObs", () => aLaCarreraDeObs(G), "🏃 ¡Carrera de obstáculos!"); }
+function armarLaberinto(){ armarSitio("laberinto", () => aElLaberinto(G), "🔮 ¡Al laberinto! Recoge todas las gemas."); }
+function armarBillar(){ armarSitio("billar", () => aLaMesaDeBillar(G), "🎱 ¡Billar! Entran todas las bolas."); }
+function armarHockey(){ armarSitio("hockey", () => aAirHockey(G), "🏒 ¡Air hockey! 5 goles."); }
 
 /** De vuelta al barrio tras el partido, con la aventura como la dejaste. */
 function volverDeLaPichanga(){
@@ -8925,6 +8970,173 @@ function drawCanchaTenis(){
   ctx.restore();
 }
 
+/* ---- la cancha de básquet ---- */
+function drawBasquet(){
+  const b = G.basquet;
+  if (!b) return;
+  const c = b.cancha;
+  ctx.save();
+  ctx.fillStyle = "rgba(193,102,63,.62)";
+  ctx.fillRect(c.x, c.y, c.w, c.h);
+  ctx.strokeStyle = "rgba(255,255,255,.7)"; ctx.lineWidth = 5;
+  ctx.strokeRect(c.x, c.y, c.w, c.h);
+  ctx.beginPath();
+  ctx.moveTo(c.x + c.w/2, c.y); ctx.lineTo(c.x + c.w/2, c.y + c.h); ctx.stroke();
+  // aros
+  for (const arco of b.aros){
+    ctx.strokeStyle = "#FF5C86"; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.arc(arco.x + arco.w/2, arco.y + arco.h/2, 30, 0, 6.283); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+/* ---- la pista de bolos ---- */
+function drawBolos(){
+  const b = G.bolos;
+  if (!b) return;
+  const p = b.pista;
+  ctx.save();
+  ctx.fillStyle = "#A0522D";
+  ctx.fillRect(p.x, p.y, p.w, p.h);
+  ctx.strokeStyle = "rgba(255,255,255,.5)"; ctx.lineWidth = 2;
+  ctx.strokeRect(p.x, p.y, p.w, p.h);
+  // pinos
+  for (const pin of b.pinos){
+    if (pin.levantado) continue;
+    ctx.fillStyle = "#F5F5DC";
+    ctx.beginPath(); ctx.arc(pin.x, pin.y, 8, 0, 6.283); ctx.fill();
+    ctx.strokeStyle = "#333"; ctx.lineWidth = 1; ctx.stroke();
+  }
+  ctx.restore();
+}
+
+/* ---- el ring de lucha ---- */
+function drawLucha(){
+  const l = G.lucha;
+  if (!l) return;
+  const r = l.ring;
+  ctx.save();
+  ctx.fillStyle = "rgba(200,200,200,.3)";
+  ctx.fillRect(r.x, r.y, r.w, r.h);
+  ctx.strokeStyle = "#FF5C86"; ctx.lineWidth = 4;
+  ctx.strokeRect(r.x, r.y, r.w, r.h);
+  ctx.restore();
+}
+
+/* ---- los dardos ---- */
+function drawDardos(){
+  const d = G.dardos;
+  if (!d) return;
+  const t = d.tablero;
+  ctx.save();
+  ctx.fillStyle = "#2A1226";
+  ctx.beginPath(); ctx.arc(t.x, t.y, t.r, 0, 6.283); ctx.fill();
+  // anillos
+  for (let i = 0; i < 5; i++){
+    ctx.strokeStyle = i % 2 ? "#FF5C86" : "#FFC53D";
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(t.x, t.y, 20 + i * 14, 0, 6.283); ctx.stroke();
+  }
+  // dardos clavados
+  for (const dar of d.dardos){
+    ctx.fillStyle = dar.equipo === 0 ? "#3DDC97" : "#FF5C86";
+    ctx.beginPath(); ctx.arc(dar.x, dar.y, 4, 0, 6.283); ctx.fill();
+  }
+  ctx.restore();
+}
+
+/* ---- carrera de obstáculos ---- */
+function drawCarreraObs(){
+  const c = G.carreraObs;
+  if (!c) return;
+  ctx.save();
+  ctx.strokeStyle = "rgba(255,255,255,.5)"; ctx.lineWidth = 3;
+  ctx.setLineDash([8, 8]);
+  for (let i = 0; i < c.trazado.length - 1; i++){
+    const a = c.trazado[i], b = c.trazado[i + 1];
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+  }
+  ctx.setLineDash([]);
+  for (const cp of c.trazado){
+    ctx.fillStyle = "#FFC53D";
+    ctx.beginPath(); ctx.arc(cp.x, cp.y, 10, 0, 6.283); ctx.fill();
+  }
+  ctx.restore();
+}
+
+/* ---- el laberinto ---- */
+function drawLaberinto(){
+  const l = G.laberinto;
+  if (!l) return;
+  ctx.save();
+  ctx.fillStyle = "#1B0C1A";
+  const cw = 40, ch = 40;
+  const ox = l.gemas.length ? l.gemas[0].x - cw/2 : 0;
+  const oy = l.gemas.length ? l.gemas[0].y - ch/2 : 0;
+  for (let y = 0; y < l.alto; y++){
+    for (let x = 0; x < l.ancho; x++){
+      const px = ox + x * cw, py = oy + y * ch;
+      if (l.celdas[y][x]){
+        ctx.fillStyle = "#3D2B4A";
+        ctx.fillRect(px, py, cw, ch);
+      }
+    }
+  }
+  // gemas
+  for (const g of l.gemas){
+    ctx.fillStyle = "#FFC53D";
+    ctx.beginPath();
+    ctx.moveTo(g.x, g.y - 8); ctx.lineTo(g.x + 6, g.y); ctx.lineTo(g.x, g.y + 8); ctx.lineTo(g.x - 6, g.y);
+    ctx.closePath(); ctx.fill();
+  }
+  // fantasma
+  if (l.fantasma){
+    ctx.fillStyle = "rgba(255,61,110,.6)";
+    ctx.beginPath(); ctx.arc(l.fantasma.x, l.fantasma.y, 12, 0, 6.283); ctx.fill();
+  }
+  ctx.restore();
+}
+
+/* ---- la mesa de billar ---- */
+function drawBillar(){
+  const bl = G.billar;
+  if (!bl) return;
+  const m = bl.mesa;
+  ctx.save();
+  ctx.fillStyle = "#0A5E2A";
+  ctx.fillRect(m.x, m.y, m.w, m.h);
+  ctx.strokeStyle = "#8B4513"; ctx.lineWidth = 8;
+  ctx.strokeRect(m.x, m.y, m.w, m.h);
+  for (const b of bl.bolas){
+    ctx.fillStyle = b.color === 0 ? "#FFF" : ["#FF0","#F00","#00F","#F0F","#0FF","#F90","#800"][b.color] || "#888";
+    ctx.beginPath(); ctx.arc(b.x, b.y, 8, 0, 6.283); ctx.fill();
+    ctx.strokeStyle = "#333"; ctx.lineWidth = 1; ctx.stroke();
+  }
+  ctx.restore();
+}
+
+/* ---- air hockey ---- */
+function drawHockey(){
+  const h = G.hockey;
+  if (!h) return;
+  const m = h.mesa;
+  ctx.save();
+  ctx.fillStyle = "#1A3A5C";
+  ctx.fillRect(m.x, m.y, m.w, m.h);
+  ctx.strokeStyle = "#FFF"; ctx.lineWidth = 2;
+  ctx.strokeRect(m.x, m.y, m.w, m.h);
+  // línea central
+  ctx.beginPath(); ctx.moveTo(m.x + m.w/2, m.y); ctx.lineTo(m.x + m.w/2, m.y + m.h); ctx.stroke();
+  // arcos
+  ctx.strokeStyle = "#FF5C86"; ctx.lineWidth = 4;
+  ctx.strokeRect(m.x - 5, m.y + m.h/2 - 40, 10, 80);
+  ctx.strokeRect(m.x + m.w - 5, m.y + m.h/2 - 40, 10, 80);
+  // puck
+  ctx.fillStyle = "#333";
+  ctx.beginPath(); ctx.arc(h.puck.x, h.puck.y, 10, 0, 6.283); ctx.fill();
+  ctx.restore();
+}
+
 /* ---- las luces de la fiesta ----
    Focos de colores barriendo la pasarela y papelitos cayendo sobre el ocho.
    Va todo con `G.t`, así que no hace falta guardar ni una partícula: dos
@@ -9634,6 +9846,22 @@ function draw(){
     drawCanchaTenis();
   } else if (corriendo){
     drawCircuito();                  // la pista es lo único que importa
+  } else if (G.basquet){
+    drawBasquet();
+  } else if (G.bolos){
+    drawBolos();
+  } else if (G.lucha){
+    drawLucha();
+  } else if (G.dardos){
+    drawDardos();
+  } else if (G.carreraObs){
+    drawCarreraObs();
+  } else if (G.laberinto){
+    drawLaberinto();
+  } else if (G.billar){
+    drawBillar();
+  } else if (G.hockey){
+    drawHockey();
   } else {
     drawRuta();                      // la alfombra va debajo de todo
     drawCanchita();                  // debajo de la gente, encima del suelo

@@ -223,10 +223,103 @@ function golpeDelBot(e: Estado, p: Jugador): number | null {
   return 0.62 + Math.sin(e.t * 1.3 + p.idx * 2.3) * 0.3;
 }
 
+/** A dónde va en básquet: el más cercano va por el balón, el resto defiende. */
+function aDondeVoyEnBasquet(e: Estado, p: Jugador): { x: number; y: number } | null {
+  const b = e.basquet!;
+  const balon = e.trastos.find(t => t.id === b.balon);
+  if (!balon) return null;
+  const mio = p.equipo ?? 0;
+  const arcoRival = b.aros[1 - mio];
+  const compis = e.players.filter(q => (q.equipo ?? 0) === mio && q.stun <= 0);
+  const yoVoy = compis.every(q => q.idx === p.idx || dist2(p.x, p.y, balon.x, balon.y) <= dist2(q.x, q.y, balon.x, balon.y));
+  if (yoVoy) {
+    const dx = arcoRival.x + arcoRival.w / 2 - balon.x, dy = arcoRival.y + arcoRival.h / 2 - balon.y;
+    const d = Math.hypot(dx, dy) || 1;
+    return { x: balon.x - (dx / d) * 60, y: balon.y - (dy / d) * 60 };
+  }
+  return { x: arcoRival.x + arcoRival.w / 2, y: arcoRival.y + arcoRival.h / 2 };
+}
+
+/** A dónde va en bolos: el que le toca tira, el otro espera. */
+function aDondeVoyEnBolos(e: Estado, p: Jugador): { x: number; y: number } | null {
+  const b = e.bolos!;
+  const balon = e.trastos.find(t => t.id === b.balon);
+  if (!balon) return null;
+  const idx = e.players.indexOf(p);
+  if (idx === b.turno) {
+    // bowler: stand behind the ball
+    return { x: balon.x, y: b.pista.y + b.pista.h - 40 };
+  }
+  // other player: stand aside
+  return { x: b.pista.x + b.pista.w + 60, y: b.pista.y + b.pista.h / 2 };
+}
+
+/** A dónde va en lucha: perseguir al rival. */
+function aDondeVoyEnLucha(e: Estado, p: Jugador): { x: number; y: number } | null {
+  const l = e.lucha!;
+  const rival = e.players.find(q => q.idx !== p.idx);
+  if (!rival) return { x: l.ring.x + l.ring.w / 2, y: l.ring.y + l.ring.h / 2 };
+  return { x: rival.x, y: rival.y };
+}
+
+/** A dónde va en dardos: al tablero. */
+function aDondeVoyEnDardos(e: Estado, p: Jugador): { x: number; y: number } | null {
+  const d = e.dardos!;
+  return { x: d.tablero.x, y: d.tablero.y + 120 };
+}
+
+/** A dónde va en carrera de obstáculos. */
+function aDondeVoyEnCarreraObs(e: Estado, p: Jugador): { x: number; y: number } | null {
+  const c = e.carreraObs!;
+  const idx = e.players.indexOf(p);
+  const j = c.jugadores[idx];
+  const cp = c.trazado[j.checkpoint];
+  return cp ? { x: cp.x, y: cp.y } : null;
+}
+
+/** A dónde va en laberinto: recoger gemas. */
+function aDondeVoyEnLaberinto(e: Estado, p: Jugador): { x: number; y: number } | null {
+  const l = e.laberinto!;
+  if (!l.gemas.length) return null;
+  let mejor = l.gemas[0], bd = Infinity;
+  for (const g of l.gemas) {
+    const d = dist2(p.x, p.y, g.x, g.y);
+    if (d < bd) { bd = d; mejor = g; }
+  }
+  return { x: mejor.x, y: mejor.y };
+}
+
+/** A dónde va en billar: golpear la bola blanca hacia la más cercana de color. */
+function aDondeVoyEnBillar(e: Estado, p: Jugador): { x: number; y: number } | null {
+  const bl = e.billar!;
+  const cue = bl.bolas.find(b => b.color === 0 && !b.hoya);
+  if (!cue) return null;
+  const objetivo = bl.bolas.find(b => b.color !== 0 && !b.hoya);
+  if (!objetivo) return null;
+  // stand behind the cue ball, opposite to the target
+  const dx = objetivo.x - cue.x, dy = objetivo.y - cue.y;
+  const d = Math.hypot(dx, dy) || 1;
+  return { x: cue.x - (dx / d) * 30, y: cue.y - (dy / d) * 30 };
+}
+
+/** A dónde va en air hockey: perseguir el puck. */
+function aDondeVoyEnHockey(e: Estado, p: Jugador): { x: number; y: number } | null {
+  const h = e.hockey!;
+  return { x: h.puck.x, y: h.puck.y };
+}
+
 /** A dónde va: lo que lleva pesa más que lo que podría llevarse. */
 function aDondeVoy(e: Estado, p: Jugador): { x: number; y: number } | null {
   if (e.reglas.modo === "futbol") return aDondeVoyEnElPartido(e, p);
   if (e.reglas.modo === "tenis") return aDondeVoyEnElTenis(e, p);
+  if (e.basquet) return aDondeVoyEnBasquet(e, p);
+  if (e.bolos) return aDondeVoyEnBolos(e, p);
+  if (e.lucha) return aDondeVoyEnLucha(e, p);
+  if (e.dardos) return aDondeVoyEnDardos(e, p);
+  if (e.carreraObs) return aDondeVoyEnCarreraObs(e, p);
+  if (e.laberinto) return aDondeVoyEnLaberinto(e, p);
+  if (e.billar) return aDondeVoyEnBillar(e, p);
+  if (e.hockey) return aDondeVoyEnHockey(e, p);
   /* Corriendo solo existe el siguiente punto de paso. Mira un poco más allá
      para cortar la curva en vez de ir de baliza en baliza como un cono.
 
@@ -310,11 +403,16 @@ function aDondeVoy(e: Estado, p: Jugador): { x: number; y: number } | null {
 export function pensarBot(e: Estado, p: Jugador, dt: number): PlanBot {
   if (p.stun > 0) return { entrada: QUIETO, usar: false, patear: null };
 
-  /* En el tenis no hay a quién chanclear: hay una pelota que devolver. */
+  const esJuego = !!(e.basquet || e.bolos || e.lucha || e.dardos || e.carreraObs || e.laberinto || e.billar || e.hockey);
   const tenis = e.reglas.modo === "tenis";
   const raqueta = tenis ? golpeDelBot(e, p) : null;
-  const blanco = tenis ? aDondeLaMando(e, p) : aQuienLeTiro(e, p);
-  const usar = !tenis && !!blanco && p.cd <= 0 && p.chancla.state === "held";
+  const enLucha = !!e.lucha;
+  const rivalEnLucha = enLucha ? e.players.find(q => q.idx !== p.idx) : null;
+  const blancoLucha = rivalEnLucha && dist2(p.x, p.y, rivalEnLucha.x, rivalEnLucha.y) < 60 * 60
+    ? { x: rivalEnLucha.x, y: rivalEnLucha.y } : null;
+  const blanco = tenis ? aDondeLaMando(e, p) : enLucha ? blancoLucha : aQuienLeTiro(e, p);
+  const usarLucha = enLucha && !!blancoLucha;
+  const usar = !tenis && !esJuego && !!blanco && p.cd <= 0 && p.chancla.state === "held";
 
   /* La meta se recuerda un rato. Recalculándola cada frame, dos Florines a la
      misma distancia lo dejaban temblando en el sitio sin ir a por ninguno. */
@@ -355,10 +453,27 @@ export function pensarBot(e: Estado, p: Jugador, dt: number): PlanBot {
      palanca del problema medido: los bots le sacaban dos vueltas a un jugador
      en red. */
   const brío = e.reglas.modo === "carrera" ? dificultadDe(e.reglas).rivales
-             : e.reglas.modo === "tenis" ? TENIS_BRIO : 1;
+             : e.reglas.modo === "tenis" ? TENIS_BRIO
+             : e.bolos ? 0.8
+             : e.dardos ? 0.7
+             : e.laberinto ? 0.75
+             : e.billar ? 0.6
+             : e.hockey ? 0.85
+             : 1;
+  /* En los juegos con pelota, el bot patea cuando está cerca. */
+  let kickForce: number | null = null;
+  if (e.basquet || e.bolos || e.hockey) {
+    const balon = e.basquet ? e.trastos.find(t => t.id === e.basquet!.balon)
+                : e.bolos ? e.trastos.find(t => t.id === e.bolos!.balon)
+                : null;
+    if (balon && dist2(p.x, p.y, balon.x, balon.y) < 80 * 80) {
+      kickForce = 0.4 + Math.sin(e.t * 2.1 + p.idx * 1.7) * 0.3;
+    }
+  }
+
   return {
     entrada: { mover: { x: mover.x * brío, y: mover.y * brío }, apunta: blanco },
-    usar,
-    patear: raqueta,
+    usar: usar || !!usarLucha,
+    patear: raqueta ?? kickForce,
   };
 }
