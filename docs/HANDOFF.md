@@ -8,7 +8,7 @@ Monorepo con workspaces npm:
 
 | Paquete | Qué es |
 |---|---|
-| `packages/engine` | el juego sin navegador: determinista, JSON serializable, 214 pruebas |
+| `packages/engine` | el juego sin navegador: determinista, JSON serializable, 217 pruebas |
 | `apps/web` | el cliente (Vite + canvas 2D). Solo dibuja y escucha teclas |
 | `apps/api` | cuentas, álbum, guardado, fiestas y avisos (.NET 9, Clean Arch + CQRS), 47 pruebas |
 | `apps/salas` | servidor de salas autoritativo (Node + `ws`), 36 pruebas |
@@ -23,6 +23,28 @@ A medias / sin hacer: el modo cooperativo (aplazado a propósito — una sala en
 aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Última sesión
+
+- 2026-08-11 (claude-code): **la lucha del patio, terminada**. Sexto minijuego
+  entero (`JUEGOS_LISTOS`: fútbol, tenis, vóley, básquet, hockey, lucha). Uno
+  contra uno, primero a 5, dos minutos.
+  Es sumo con chancla: el ring es un **círculo** y el punto es **sacar al otro**
+  — no hay vidas ni golpes que contar, o estás dentro o no estás, y eso se ve
+  sin mirar el marcador. Dos herramientas y las dos ya existían: **embestir**
+  (corriendo, y cuanto más rápido vas más lo mueves) y **ablandarlo con la
+  chancla**, porque a uno aturdido se le empuja el doble.
+  Calibrado sobre lo que un empujón MUEVE (`v0/6,6` px, porque la velocidad
+  impuesta se gasta al 11 % por fotograma): una embestida limpia mueve ~70 px y
+  una sobre alguien aturdido ~140, en un ring de 250 de radio. Con los números
+  de la primera versión (340 y ×2,4) un solo chanclazo te sacaba del centro de
+  un golpe —218 px— y las peleas duraban nueve segundos.
+  **Gotcha del motor, importante y general**: `knock()` NO mueve a un jugador.
+  `applyKnock` solo se llama sobre ladrones y abuelas, así que un `knock` sobre
+  una persona no la mueve ni un píxel — hay que empujarle la VELOCIDAD, que es
+  lo que ya hacía el chanclazo. Se descubrió porque la prueba del empujón daba
+  exactamente el mismo número con y sin aturdir.
+  Y una del bot: en la lucha **la chancla es media pelea** y el bot solo la
+  tiraba a 60 px (o sea, casi nunca) mientras un humano la tira desde lejos:
+  3-0 en siete segundos a favor del humano. Ahora la tira desde 260.
 
 - 2026-08-11 (claude-code): **el air hockey, terminado**. Quinto minijuego
   entero (`JUEGOS_LISTOS`: fútbol, tenis, vóley, básquet, hockey). Uno contra

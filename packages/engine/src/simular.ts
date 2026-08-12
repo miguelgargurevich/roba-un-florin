@@ -29,6 +29,7 @@ import {
   sobreLaPista, ladoDeLaCancha, colocarParaElSaque, TENIS_SAQUE,
   ladoDeVoley, colocarParaElSaqueDeVoley, VOLEY_SAQUE, VOLEY_TOQUES,
   sacarDeMedioBasquet, BASQUET_SAQUE, sacarEnHockey, HOCKEY_SAQUE,
+  colocarEnElRing, LUCHA_SAQUE,
 } from "./estado.js";
 
 /* Cualquier cosa a la que se pueda golpear */
@@ -2228,17 +2229,94 @@ function pasoBolos(e: Estado, dt: number): void {
 /* ============================================================
    Lucha
    ============================================================ */
-function pasoLucha(e: Estado, dt: number): void {
+/* ---- la lucha del patio ----
+   Sumo con chancla. El punto es sacar al otro del círculo, y para eso hay dos
+   herramientas y las dos ya existían: EMPUJAR con el cuerpo —corriendo, y
+   cuanto más rápido vayas más lo mueves— y ABLANDARLO con la chancla, porque a
+   uno aturdido se le empuja como a un mueble.
+
+   No hace falta ningún botón nuevo: la chancla es la de siempre. */
+/** Lo cerca que hay que estar para empujar, y cuánto empuja el encontronazo. */
+/* Calibrado sobre lo que un empujón MUEVE, que es `v0/6,6` px (la velocidad
+   impuesta se gasta a un 11 % por fotograma): una embestida limpia mueve unos
+   70 px y una sobre alguien aturdido unos 140, en un ring de 250 de radio. O
+   sea, hacen falta varias. Con 340 y un ×2,4 un solo chanclazo te sacaba del
+   centro de un golpe —218 px— y las peleas duraban nueve segundos. */
+const SUMO_ALCANCE = 46, SUMO_EMPUJE = 200;
+/** A uno aturdido se le empuja mucho más: es de lo que sirve la chancla aquí. */
+const SUMO_ATURDIDO = 2.0;
+
+function puntoDeLucha(e: Estado, equipo: 0 | 1, quien: Jugador): void {
   const l = e.lucha!;
-  if (l.ganador != null) return;
-  l.reloj -= dt;
-  for (const p of e.players) {
-    p.x = clamp(p.x, l.ring.x + 20, l.ring.x + l.ring.w - 20);
-    p.y = clamp(p.y, l.ring.y + 20, l.ring.y + l.ring.h - 20);
+  l.puntos[equipo]++;
+  l.ultimoPunto = equipo;
+  const color = equipo === 0 ? "#3DDC97" : "#FF5C86";
+  texto(e, quien.x, quien.y - 56, "¡Fuera del ring!", color);
+  polvo(e, quien.x, quien.y, color, 20);
+  sonar(e, "win");
+  e.eventos.push({ t: "punto", equipo, puntos: [l.puntos[0], l.puntos[1]], motivo: "fuera del ring" });
+  if (l.puntos[equipo] >= l.meta) {
+    l.ganador = equipo;
+    terminarJuegoIndividual(e, e.players.find(p => p.equipo === equipo)?.idx ?? null);
+    return;
   }
+  l.saque = LUCHA_SAQUE;
+  colocarEnElRing(e);
+}
+
+function pasoLucha(e: Estado, dt: number): void {
+  const l = e.lucha;
+  if (!l || l.ganador != null) return;
+
+  if (l.saque > 0) {
+    l.saque -= dt;
+    for (const p of e.players) { p.vx = 0; p.vy = 0; }
+    return;
+  }
+  l.reloj -= dt;
+
+  /* ---- el empujón ----
+     Chocarse mueve a los dos, pero al que va más rápido lo mueve menos: eso es
+     lo que hace que embestir sirva y esperar quieto no. Y al aturdido lo mueve
+     dos veces y media más, que es para lo que sirve la chancla aquí. */
+  for (let i = 0; i < e.players.length; i++) {
+    for (let j = i + 1; j < e.players.length; j++) {
+      const a = e.players[i], b = e.players[j];
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const d = Math.hypot(dx, dy);
+      if (d > SUMO_ALCANCE || d < 0.01) continue;
+      const nx = dx / d, ny = dy / d;
+      /* Se separan para no quedarse encajados uno dentro del otro. */
+      const solape = (SUMO_ALCANCE - d) / 2;
+      a.x -= nx * solape; a.y -= ny * solape;
+      b.x += nx * solape; b.y += ny * solape;
+
+      const va = Math.hypot(a.vx, a.vy), vb = Math.hypot(b.vx, b.vy);
+      const empujeA = (SUMO_EMPUJE + va) * (b.stun > 0 ? SUMO_ATURDIDO : 1);
+      const empujeB = (SUMO_EMPUJE + vb) * (a.stun > 0 ? SUMO_ATURDIDO : 1);
+      /* Se empuja la VELOCIDAD, no el `kx/ky` del `knock`: ese solo lo gastan
+         ladrones y abuelas —`applyKnock` no se llama nunca sobre un jugador—,
+         así que un `knock` aquí no movería a nadie ni un píxel. Es el mismo
+         atajo que ya usa el chanclazo cuando le da a una persona. */
+      b.vx = nx * empujeA; b.vy = ny * empujeA;
+      a.vx = -nx * empujeB; a.vy = -ny * empujeB;
+      if (va + vb > 200) { sonar(e, "whack"); polvo(e, (a.x + b.x) / 2, (a.y + b.y) / 2, "#FFEFE2", 5); }
+    }
+  }
+
+  /* ---- ¿alguien se salió? ---- */
+  for (const p of e.players) {
+    if (dist2(p.x, p.y, l.ring.x, l.ring.y) <= l.ring.r * l.ring.r) continue;
+    const suyo = (p.equipo ?? 0) as 0 | 1;
+    puntoDeLucha(e, (1 - suyo) as 0 | 1, p);
+    return;
+  }
+
   if (l.reloj <= 0) {
-    l.ganador = l.puntos[0] > l.puntos[1] ? 0 : l.puntos[1] > l.puntos[0] ? 1 : null;
-    terminarJuegoIndividual(e, l.ganador != null ? (e.players.find(p => p.equipo === l.ganador!)?.idx ?? null) : null);
+    l.reloj = 0;
+    l.ganador = l.puntos[0] === l.puntos[1] ? null : (l.puntos[0] > l.puntos[1] ? 0 : 1);
+    terminarJuegoIndividual(e, l.ganador == null
+      ? null : (e.players.find(p => p.equipo === l.ganador)?.idx ?? null));
   }
 }
 

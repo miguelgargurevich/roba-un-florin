@@ -1806,6 +1806,64 @@ describe("tenis", () => {
   });
 });
 
+describe("la lucha del patio", () => {
+  const lucha = (jugadores = 2, semilla = 1) =>
+    crearPartida({ jugadores, escenario: "colegio", semilla, armas: idsDeArmas(),
+                   reglas: { modo: "lucha" } as any });
+
+  it("salirse del círculo es punto del otro", () => {
+    const e = lucha();
+    const l = e.lucha!;
+    l.saque = 0;
+    const p = e.players.find(q => q.equipo === 1)!;
+    p.x = l.ring.x + l.ring.r + 40;      // de un paso, fuera de la raya
+    avanzar(e, nada(2), 1 / 60);
+    expect(l.puntos[0], "se salió y no pasó nada").toBe(1);
+    /* Y vuelve a colocar a los dos dentro. */
+    for (const q of e.players)
+      expect(Math.hypot(q.x - l.ring.x, q.y - l.ring.y),
+             "no los recolocó dentro").toBeLessThan(l.ring.r);
+  });
+
+  it("a uno aturdido se le empuja mucho más: para eso está la chancla", () => {
+    const empujon = (aturdido: boolean) => {
+      const e = lucha();
+      const l = e.lucha!;
+      l.saque = 0;
+      const a = e.players[0], b = e.players[1];
+      a.x = l.ring.x - 20; a.y = l.ring.y; a.vx = 260; a.vy = 0;
+      b.x = a.x + 30; b.y = a.y; b.vx = 0; b.vy = 0;
+      if (aturdido) b.stun = 2;
+      const antes = b.x;
+      /* Medio segundo: el empujón no es un salto, es un `knock` que se gasta
+         en unos cuantos fotogramas. En uno solo, los dos casos dan lo mismo —
+         lo único que se ve ahí es la separación de los cuerpos. */
+      for (let k = 0; k < 30; k++) avanzar(e, nada(2), 1 / 60);
+      return b.x - antes;
+    };
+    expect(empujon(false), "no lo movió nada").toBeGreaterThan(0);
+    expect(empujon(true), "aturdido no se movió más").toBeGreaterThan(empujon(false));
+  });
+
+  it("los bots luchan y la pelea acaba sola", () => {
+    const e = lucha();
+    for (let k = 0; k < 60 * 300 && !e.over; k++){
+      const ent: Record<number, EntradaJugador> = {};
+      const tiran: any[] = [];
+      for (const p of e.players){
+        const plan = pensarBot(e, p, 1 / 60);
+        ent[p.idx] = plan.entrada;
+        if (plan.usar) tiran.push(p);
+      }
+      for (const p of tiran) usarArma(e, p);
+      avanzar(e, ent, 1 / 60);
+    }
+    const l = e.lucha!;
+    expect(l.puntos[0] + l.puntos[1], "nadie sacó a nadie").toBeGreaterThan(0);
+    expect(e.over, "la pelea no acabó").toBe(true);
+  });
+});
+
 describe("air hockey", () => {
   const hockey = (semilla = 1) =>
     crearPartida({ jugadores: 2, escenario: "colegio", semilla, armas: idsDeArmas(),
@@ -2150,6 +2208,7 @@ describe("un minijuego apaga el barrio", () => {
     expect(JUEGOS_LISTOS, "el vóley ya se juega entero").toContain("voley");
     expect(JUEGOS_LISTOS, "el básquet ya se juega entero").toContain("basquet");
     expect(JUEGOS_LISTOS, "el air hockey ya se juega entero").toContain("hockey");
+    expect(JUEGOS_LISTOS, "la lucha ya se juega entera").toContain("lucha");
   });
 });
 

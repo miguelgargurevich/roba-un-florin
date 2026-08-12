@@ -279,12 +279,30 @@ function aDondeVoyEnBolos(e: Estado, p: Jugador): { x: number; y: number } | nul
   return { x: b.pista.x + b.pista.w + 60, y: b.pista.y + b.pista.h / 2 };
 }
 
-/** A dónde va en lucha: perseguir al rival. */
+/* ---- el bot luchador ----
+   No va al rival: va al punto desde el que empujarlo lo saca. Yendo al rival
+   lo empujas hacia donde tú estabas, que suele ser el centro — o sea, lo
+   salvas. Hay que ponerse en la línea que va del BORDE MÁS CERCANO A ÉL hasta
+   él, y embestir desde el lado de dentro. */
 function aDondeVoyEnLucha(e: Estado, p: Jugador): { x: number; y: number } | null {
-  const l = e.lucha!;
-  const rival = e.players.find(q => q.idx !== p.idx);
-  if (!rival) return { x: l.ring.x + l.ring.w / 2, y: l.ring.y + l.ring.h / 2 };
-  return { x: rival.x, y: rival.y };
+  const l = e.lucha;
+  if (!l) return null;
+  const rival = e.players.find(q => (q.equipo ?? 0) !== (p.equipo ?? 0) && q.stun <= 0)
+             ?? e.players.find(q => q.idx !== p.idx);
+  if (!rival) return null;
+
+  /* Por dónde se sale él: el borde del círculo más cercano a él. */
+  const dx = rival.x - l.ring.x, dy = rival.y - l.ring.y;
+  const d = Math.hypot(dx, dy) || 1;
+  const salidaX = l.ring.x + (dx / d) * l.ring.r, salidaY = l.ring.y + (dy / d) * l.ring.r;
+  /* Y yo me pongo al otro lado de él, en esa misma línea. */
+  const ex = rival.x - salidaX, ey = rival.y - salidaY;
+  const m = Math.hypot(ex, ey) || 1;
+  const detrasX = rival.x + (ex / m) * 60, detrasY = rival.y + (ey / m) * 60;
+  /* Al llegar detrás, apuntar a la SALIDA y atravesarlo: si apunta al rival se
+     planta a un palmo y no empuja nada. Es el bicho de siempre. */
+  if (dist2(p.x, p.y, detrasX, detrasY) < 80 * 80) return { x: salidaX, y: salidaY };
+  return { x: detrasX, y: detrasY };
 }
 
 /** A dónde va en dardos: al tablero. */
@@ -431,8 +449,8 @@ function aDondeVoy(e: Estado, p: Jugador): { x: number; y: number } | null {
   if (e.reglas.modo === "voley") return aDondeVoyEnVoley(e, p);
   if (e.reglas.modo === "basquet") return aDondeVoyEnBasquet(e, p);
   if (e.reglas.modo === "hockey") return aDondeVoyEnHockey(e, p);
+  if (e.reglas.modo === "lucha") return aDondeVoyEnLucha(e, p);
   if (e.bolos) return aDondeVoyEnBolos(e, p);
-  if (e.lucha) return aDondeVoyEnLucha(e, p);
   if (e.dardos) return aDondeVoyEnDardos(e, p);
   if (e.carreraObs) return aDondeVoyEnCarreraObs(e, p);
   if (e.laberinto) return aDondeVoyEnLaberinto(e, p);
@@ -528,7 +546,11 @@ export function pensarBot(e: Estado, p: Jugador, dt: number): PlanBot {
                 : basquet ? tiroDelBot(e, p) : null;
   const enLucha = !!e.lucha;
   const rivalEnLucha = enLucha ? e.players.find(q => q.idx !== p.idx) : null;
-  const blancoLucha = rivalEnLucha && dist2(p.x, p.y, rivalEnLucha.x, rivalEnLucha.y) < 60 * 60
+  /* En la lucha la chancla es la mitad del juego: a uno aturdido se le empuja
+     dos veces y media más. A 60 px solo se la tiraba pegado —o sea, casi
+     nunca—, y contra un humano que sí la usaba desde lejos la pelea era 3-0 en
+     siete segundos. Se la tira desde donde la tiraría cualquiera. */
+  const blancoLucha = rivalEnLucha && dist2(p.x, p.y, rivalEnLucha.x, rivalEnLucha.y) < 260 * 260
     ? { x: rivalEnLucha.x, y: rivalEnLucha.y } : null;
   const blanco = tenis ? aDondeLaMando(e, p)
                : voley ? aDondeLaMandoEnVoley(e, p)

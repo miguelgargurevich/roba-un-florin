@@ -379,11 +379,20 @@ export interface Bolos {
 }
 
 /* ---- Lucha / Boxeo ---- */
+/** La lucha del patio: sumo con chancla.
+
+    El ring es un CÍRCULO, y el punto es sacar al otro de él. No hay vidas ni
+    golpes que contar: o estás dentro o no estás, y eso se ve sin mirar ningún
+    marcador. Se empuja con el cuerpo —corriendo— y se ablanda con la chancla,
+    que es lo que ya sabía hacer todo el mundo en este juego. */
 export interface Lucha {
-  ring: Rect;
+  ring: Circulo;
   puntos: [number, number];
   meta: number;
   reloj: number;
+  /** Segundos de tregua tras sacar a alguien, para volver a colocarse. */
+  saque: number;
+  ultimoPunto: 0 | 1 | null;
   ganador: 0 | 1 | null;
 }
 

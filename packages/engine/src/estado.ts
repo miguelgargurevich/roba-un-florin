@@ -893,7 +893,7 @@ const SITIOS: {
   { juego: "tenis", rotulo: "LA CANCHA DE TENIS", medida: CANCHA_TENIS, donde: "colegio", listo: true },
   { juego: "basquet", rotulo: "LA CANCHA DE BÁSQUET", medida: MED_BASQUET, donde: "colegio", listo: true },
   { juego: "bolos", rotulo: "LOS BOLOS", medida: MED_BOLOS, donde: "colegio", listo: false },
-  { juego: "lucha", rotulo: "EL RING", medida: MED_LUCHA, donde: "colegio", listo: false },
+  { juego: "lucha", rotulo: "EL RING", medida: MED_LUCHA, donde: "colegio", listo: true },
   { juego: "dardos", rotulo: "LOS DARDOS", medida: MED_DARDOS, donde: "colegio", listo: false },
   { juego: "voley", rotulo: "LA CANCHA DE VÓLEY", medida: MED_VOLEY, donde: "colegio", listo: true },
   { juego: "carreraObs", rotulo: "LA CARRERA", medida: MED_CARRERA_OBS, donde: "colegio", listo: false },
@@ -1199,18 +1199,37 @@ export function aLaPistaDeBolos(e: Estado): void {
   e.bolos = { pista, pinLugar, pins: pinLugar.map(() => true), balon: balon.id, turno: 0, tiradas: 0, totalTiradas: 0, puntos: [0, 0], frames: 0, meta: BOLOS_META, ganador: null };
 }
 
-/* ---- lucha ---- */
-const LUCHA_META = 5, LUCHA_RELOJ = 120;
+/* ---- la lucha del patio ----
+   Sumo con chancla. El ring es un círculo y el punto es sacar al otro: no hay
+   vidas ni golpes que contar, o estás dentro o no estás. */
+export const LUCHA_META = 5, LUCHA_RELOJ = 120, LUCHA_SAQUE = 1.4, LUCHA_R = 250;
 
 export function aLaLucha(e: Estado): void {
   const { cx, cy } = centroDelMapa();
-  const ring = { x: Math.round(cx - 200), y: Math.round(cy - 200), w: 400, h: 400 };
-  e.lucha = { ring, puntos: [0, 0], meta: LUCHA_META, reloj: LUCHA_RELOJ, ganador: null };
+  e.lucha = {
+    ring: { x: cx, y: cy, r: LUCHA_R }, puntos: [0, 0], meta: LUCHA_META,
+    reloj: LUCHA_RELOJ, saque: LUCHA_SAQUE, ultimoPunto: null, ganador: null,
+  };
   repartirEquipos(e);
-  for (const p of e.players) {
-    const lado = p.equipo === 0 ? -1 : 1;
-    p.x = cx + lado * 120; p.y = cy; p.vx = 0; p.vy = 0; p.stun = 0; p.montado = null;
-  }
+  colocarEnElRing(e);
+}
+
+/** Cada uno en su lado del círculo, mirándose. */
+export function colocarEnElRing(e: Estado): void {
+  const l = e.lucha;
+  if (!l) return;
+  const porEquipo = [0, 1].map(q => e.players.filter(p => p.equipo === q));
+  porEquipo.forEach((equipo, q) => {
+    const lado = q === 0 ? -1 : 1;
+    equipo.forEach((p, k) => {
+      p.x = l.ring.x + lado * l.ring.r * 0.55;
+      p.y = l.ring.y + (k - (equipo.length - 1) / 2) * 130;
+      p.vx = 0; p.vy = 0;
+      p.stun = 0;
+      p.montado = null;
+      p.chancla.state = "held";
+    });
+  });
 }
 
 /* ---- dardos ---- */
