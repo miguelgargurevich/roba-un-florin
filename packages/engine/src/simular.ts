@@ -10,7 +10,7 @@
 
 import type {
   Base, Bala, DesfileItem, EntradaJugador, Estado, Florin, Jugador, Ladron,
-  Pedestal, Premio, Abuela, RefObjetivo, RefPed, Trasto, Variante,
+  Pedestal, Premio, Abuela, RefObjetivo, RefPed, Trasto, Variante, JuegoDeSitio,
 } from "./tipos.js";
 import {
   ESCUDO_DUR, GARAJE, GOAL, LADRONES, LASER_CARGA, RULETA, RULETA_INCOGNITA, RULETA_PRECIO,
@@ -1142,17 +1142,12 @@ export function avanzar(e: Estado, entradas: Record<number, EntradaJugador>, dt:
   }
 
   if (e.reglas.modo === "carrera") { pasoCarrera(e, dt); return e; }
-  if (e.reglas.modo === "futbol") { pasoFutbol(e, dt); return e; }
-  if (e.reglas.modo === "tenis") { pasoTenis(e, dt); return e; }
-  if (e.basquet) { pasoBasquet(e, dt); return e; }
-  if (e.bolos) { pasoBolos(e, dt); return e; }
-  if (e.lucha) { pasoLucha(e, dt); return e; }
-  if (e.dardos) { pasoDardos(e, dt); return e; }
-  if (e.voley) { pasoVoley(e, dt); return e; }
-  if (e.carreraObs) { pasoCarreraObs(e, dt); return e; }
-  if (e.laberinto) { pasoLaberinto(e, dt); return e; }
-  if (e.billar) { pasoBillar(e, dt); return e; }
-  if (e.hockey) { pasoHockey(e, dt); return e; }
+  /* Manda el MODO, no el estado que haya suelto. Preguntando `if (e.basquet)`
+     bastaba con que alguien llenara ese campo desde fuera para que el juego
+     "empezara" —y como el modo seguía siendo "aventura", el barrio seguía
+     corriendo debajo—. El modo es lo que apaga las dos cosas a la vez. */
+  const paso = PASOS[e.reglas.modo as JuegoDeSitio];
+  if (paso) { paso(e, dt); return e; }
 
   /* ---- la meta: la vitrina ----
 
@@ -1931,6 +1926,23 @@ function terminarPartido(e: Estado): void {
   e.eventos.push({ t: "fin", ganador: e.winnerIdx });
   sonar(e, "win");
 }
+
+/** Un paso por minijuego. La misma lista que arma la cancha en `estado.ts`,
+    del otro lado: si un juego está en una y no en la otra, o no se arma o no
+    avanza — y las dos formas de romperse se ven a la primera partida. */
+const PASOS: Record<JuegoDeSitio, (e: Estado, dt: number) => void> = {
+  futbol: pasoFutbol,
+  tenis: pasoTenis,
+  basquet: pasoBasquet,
+  bolos: pasoBolos,
+  lucha: pasoLucha,
+  dardos: pasoDardos,
+  voley: pasoVoley,
+  carreraObs: pasoCarreraObs,
+  laberinto: pasoLaberinto,
+  billar: pasoBillar,
+  hockey: pasoHockey,
+};
 
 function terminarJuegoIndividual(e: Estado, ganador: number | null): void {
   e.over = true;

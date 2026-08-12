@@ -21,9 +21,7 @@ import {
   puestoDe, puestosDeCarrera, VUELTAS, CIRCUITOS, pensarBot, GARAJE, VEHICULOS,
   fundir, queSaleDeFundir,
   TRASTOS_ESCENARIO, darleVehiculo, esEspecial, ANCHO_PISTA, aparcarNuevo, comprarPatio,
-  ponerFiesta, enFiesta, patear, TENIS_META,
-  aLaCanchaDeBasquet, aLaPistaDeBolos, aLaLucha, aLosDardos, aLaCanchaDeVoley, aLaCarreraDeObs, aElLaberinto,
-  aLaMesaDeBillar, aAirHockey,
+  ponerFiesta, enFiesta, patear, TENIS_META, JUEGOS_LISTOS,
   usarPotenciador, potenciadoresDe, potenciadorPorId,
   soltarCarga, trastoDe,
   venderFlorin,
@@ -1270,17 +1268,7 @@ document.getElementById("fusBtn").addEventListener("click", () => {
 const elAccion = document.getElementById("accion");
 let accionActual = null;
 elAccion.addEventListener("click", () => {
-  if (accionActual === "sitio:futbol") armarPichanga();
-  else if (accionActual === "sitio:tenis") armarTenis();
-  else if (accionActual === "sitio:basquet") armarBasquet();
-  else if (accionActual === "sitio:bolos") armarBolos();
-  else if (accionActual === "sitio:lucha") armarLucha();
-  else if (accionActual === "sitio:dardos") armarDardos();
-  else if (accionActual === "sitio:voley") armarVoley();
-  else if (accionActual === "sitio:carreraObs") armarCarreraObs();
-  else if (accionActual === "sitio:laberinto") armarLaberinto();
-  else if (accionActual === "sitio:billar") armarBillar();
-  else if (accionActual === "sitio:hockey") armarHockey();
+  if (accionActual && accionActual.startsWith("sitio:")) armarSitio(accionActual.slice(6));
   else if (accionActual) togglePanel(accionActual);
 });
 
@@ -1324,60 +1312,43 @@ function pintarAccion(){
    ladrones a medio camino. La pichanga es un rato en el patio, no mudarse. */
 let aventuraEnEspera = null;
 
-function armarPichanga(){
-  if (!G || !G.started || G.over || G.local2 || G.player.enSitio !== "futbol") return;
-  aventuraEnEspera = { estado: JSON.stringify(G), esc: G.esc.id };
-  guardarPartidaAhora();                    // y en la nube también, si hay cuenta
-  /* La del patio se juega en el patio: te metiste a ESA cancha. */
-  const G2 = nuevaPartidaMotor(1, "colegio", false, "normal", [], 0, ladoSel, "colegio");
-  G = G2;
-  G.started = true;
-  aLaCancha();
-  invalidarSuelo();
-  decir("⚽ ¡Pichanga en el patio! Al terminar vuelves a lo tuyo.", "bien");
-  Snd.unlock();
-}
+/* Armar un minijuego es crear una partida CON ESE MODO. El motor hace el
+   resto: monta su cancha y apaga el barrio.
 
-/* El tenis entra por la misma puerta y sale por la misma: lo único suyo es a
-   qué se juega. Esto es lo que se ganó al generalizar los sitios — el segundo
-   minijuego trajo sus reglas y ni una línea más de fontanería. */
-function armarTenis(){
-  if (!G || !G.started || G.over || G.local2 || G.player.enSitio !== "tenis") return;
-  aventuraEnEspera = { estado: JSON.stringify(G), esc: G.esc.id };
-  guardarPartidaAhora();
-  const G2 = nuevaPartidaMotor(1, "colegio", false, "normal", [], 0, 0, "colegio", 1);
-  G = G2;
-  G.started = true;
-  aLaCancha();
-  invalidarSuelo();
-  decir("🎾 ¡Al tenis! Primero a " + TENIS_META + " puntos.", "bien");
-  Snd.unlock();
-}
+   Antes esto creaba una partida de aventura y le rellenaba el estado del juego
+   desde aquí (`aLaCanchaDeBasquet(G)`), con el modo en "aventura": el partido
+   se dibujaba encima del patio y debajo seguían corriendo los ladrones, el
+   desfile y los puestos — y el cartel de "Jugar básquet" volvía a salir DENTRO
+   del básquet, porque el sitio seguía puesto. */
+const MINIJUEGOS = {
+  futbol:     "⚽ ¡Pichanga en el patio! Al terminar vuelves a lo tuyo.",
+  tenis:      "🎾 ¡Al tenis! Primero a " + TENIS_META + " puntos.",
+  basquet:    "🏀 ¡A básquet! Primero en 5 puntos.",
+  bolos:      "🎳 ¡A bolos! Dos turnos.",
+  lucha:      "🥊 ¡Al ring! Derriba al rival.",
+  dardos:     "🎯 ¡Dardos! 5 tiradas cada uno.",
+  voley:      "🏐 ¡Voley! Primero en 5 puntos.",
+  carreraObs: "🏃 ¡Carrera de obstáculos!",
+  laberinto:  "🔮 ¡Al laberinto! Recoge todas las gemas.",
+  billar:     "🎱 ¡Billar! Entran todas las bolas.",
+  hockey:     "🏒 ¡Air hockey! Primero a 7.",
+};
 
-/* ---- los minijuegos del multiverso ---- */
-function armarSitio(juego, crearFn, msg){
+function armarSitio(juego){
   if (!G || !G.started || G.over || G.local2 || G.player.enSitio !== juego) return;
   aventuraEnEspera = { estado: JSON.stringify(G), esc: G.esc.id };
-  guardarPartidaAhora();
-  const G2 = nuevaPartidaMotor(1, "colegio", false, "normal", [], 0, 0, "colegio");
-  G = G2;
+  guardarPartidaAhora();                    // y en la nube también, si hay cuenta
+  /* La del patio se juega en el patio: te metiste a ESE sitio. */
+  G = juego === "futbol"
+    ? nuevaPartidaMotor(1, "colegio", false, "normal", [], 0, ladoSel, "colegio")
+    : nuevaPartidaMotor(1, "colegio", false, "normal", [], 0, 0, "colegio",
+                        juego === "tenis" ? 1 : 0, juego === "tenis" ? null : juego);
   G.started = true;
-  crearFn();
   aLaCancha();
   invalidarSuelo();
-  decir(msg, "bien");
+  decir(MINIJUEGOS[juego], "bien");
   Snd.unlock();
 }
-
-function armarBasquet(){ armarSitio("basquet", () => aLaCanchaDeBasquet(G), "🏀 ¡A básquet! Primero en 5 puntos."); }
-function armarBolos(){ armarSitio("bolos", () => aLaPistaDeBolos(G), "🎳 ¡A bolos! Tres turnos."); }
-function armarLucha(){ armarSitio("lucha", () => aLaLucha(G), "🥊 ¡Al ring! Derriba al rival."); }
-function armarDardos(){ armarSitio("dardos", () => aLosDardos(G), "🎯 ¡Dardos! 5 tiradas cada uno."); }
-function armarCarreraObs(){ armarSitio("carreraObs", () => aLaCarreraDeObs(G), "🏃 ¡Carrera de obstáculos!"); }
-function armarLaberinto(){ armarSitio("laberinto", () => aElLaberinto(G), "🔮 ¡Al laberinto! Recoge todas las gemas."); }
-function armarBillar(){ armarSitio("billar", () => aLaMesaDeBillar(G), "🎱 ¡Billar! Entran todas las bolas."); }
-function armarHockey(){ armarSitio("hockey", () => aAirHockey(G), "🏒 ¡Air hockey! 5 goles."); }
-function armarVoley(){ armarSitio("voley", () => aLaCanchaDeVoley(G), "🏐 ¡Voley! Primero en 5 puntos."); }
 
 /** De vuelta al barrio tras el partido, con la aventura como la dejaste. */
 function volverDeLaPichanga(){
@@ -1397,6 +1368,15 @@ function volverDeLaPichanga(){
    llaman desde varios sitios y así el día que vuelva a haber botones no hay
    que buscarlos. */
 function renderBotonesPanel(){}
+
+/* El menú solo ofrece los minijuegos que se juegan de principio a fin
+   (`JUEGOS_LISTOS`, en el motor). Los que están a medias se quedan fuera del
+   menú y fuera del mundo: entrar a uno que no se puede terminar es peor que no
+   verlo. Se apuntan solos en cuanto su `listo` pase a true. */
+for (const b of document.querySelectorAll("#minijuegosFila .modoBtn")){
+  const j = b.dataset.modo;
+  if (j && !JUEGOS_LISTOS.includes(j)) b.remove();
+}
 
 for (const b of document.querySelectorAll("#modoFila .modoBtn, #minijuegosFila .modoBtn"))
   b.addEventListener("click", () => elegirModoLocal(b.dataset.modo));
@@ -9011,13 +8991,15 @@ function drawBolos(){
   ctx.fillRect(p.x, p.y, p.w, p.h);
   ctx.strokeStyle = "rgba(255,255,255,.5)"; ctx.lineWidth = 2;
   ctx.strokeRect(p.x, p.y, p.w, p.h);
-  // pinos
-  for (const pin of b.pinos){
-    if (pin.levantado) continue;
+  /* Los pinos: `pinLugar` dice dónde están y `pins` cuáles siguen en pie. Esto
+     leía `b.pinos` con `pin.levantado`, que no existen en el estado — con la
+     bolera colgada en el mundo, entrar reventaba el dibujado entero. */
+  b.pinLugar.forEach((pin, i) => {
+    if (!b.pins[i]) return;
     ctx.fillStyle = "#F5F5DC";
     ctx.beginPath(); ctx.arc(pin.x, pin.y, 8, 0, 6.283); ctx.fill();
     ctx.strokeStyle = "#333"; ctx.lineWidth = 1; ctx.stroke();
-  }
+  });
   ctx.restore();
 }
 
@@ -9050,7 +9032,7 @@ function drawDardos(){
   }
   // dardos clavados
   for (const dar of d.dardos){
-    ctx.fillStyle = dar.equipo === 0 ? "#3DDC97" : "#FF5C86";
+    ctx.fillStyle = dar.dueño === 0 ? "#3DDC97" : "#FF5C86";   // el estado dice `dueño`
     ctx.beginPath(); ctx.arc(dar.x, dar.y, 4, 0, 6.283); ctx.fill();
   }
   ctx.restore();
@@ -10523,29 +10505,19 @@ function startGame(modo){
   const m = modo === 2 ? 2 : (modo === 1 ? 1 : (G && G.local2 ? 2 : 1));
   G = nuevaPartida(m);
   G.started = true;
-  // Inicializar minijuego si se eligió desde el menú
-  const miniInit = { basquet: aLaCanchaDeBasquet, bolos: aLaPistaDeBolos, lucha: aLaLucha,
-    dardos: aLosDardos, voley: aLaCanchaDeVoley, carreraObs: aLaCarreraDeObs, laberinto: aElLaberinto,
-    billar: aLaMesaDeBillar, hockey: aAirHockey, futbol: null };
-  const miniMsg = { basquet: "🏀 ¡A básquet! Primero en 5 puntos.", bolos: "🎳 ¡A bolos! Dos turnos.",
-    lucha: "🥊 ¡Al ring! Derriba al rival.", dardos: "🎯 ¡Dardos! 5 tiros cada uno.",
-    voley: "🏐 ¡Voley! Primero en 5 puntos.", carreraObs: "🏃 ¡Carrera de obstáculos!",
-    laberinto: "🔮 ¡Al laberinto! Recoge todas las gemas.",
-    billar: "🎱 ¡Billar! Entran todas las bolas.", hockey: "🏒 ¡Air hockey! 7 goles.",
-    futbol: "⚽ ¡Pichanga! Primero a 3." };
+  /* Del menú se sale directo a un minijuego cuando se eligió uno. Es la MISMA
+     puerta que la del mundo: una partida con ese modo, y el motor arma su
+     cancha. */
   const m2 = modoElegido();
-  if (m2 === "futbol") {
-    const G2 = nuevaPartidaMotor(1, "colegio", false, "normal", [], 0, ladoSel, "colegio");
-    G = G2;
+  if (MINIJUEGOS[m2]) {
+    G = m2 === "futbol"
+      ? nuevaPartidaMotor(1, "colegio", false, "normal", [], 0, ladoSel, "colegio")
+      : nuevaPartidaMotor(1, "colegio", false, "normal", [], 0, 0, "colegio",
+                          m2 === "tenis" ? 1 : 0, m2 === "tenis" ? null : m2);
     G.started = true;
-  } else if (miniInit[m2]){
-    const G2 = nuevaPartidaMotor(1, "colegio", false, "normal", [], 0, 0, "colegio");
-    G = G2;
-    G.started = true;
-    miniInit[m2](G);
   }
-  aLaCancha();
-  if (miniMsg[m2]) decir(miniMsg[m2], "bien");
+  aLaCancha();                       // deja la pantalla lista, sea cual sea el G
+  if (MINIJUEGOS[m2]) decir(MINIJUEGOS[m2], "bien");
 }
 
 /** Deja la pantalla lista para jugar con el G que sea: nuevo o revivido. */

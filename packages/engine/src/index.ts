@@ -17,7 +17,7 @@ export {
 } from "./util.js";
 export {
   crearPartida, reglasPara, JUGADORES_MAX, SALA_MAX, FUTBOL_MAX, TENIS_MAX,
-  TENIS_META, TENIS_SAQUE, RED_ALTO, RED_ANCHO, ladoDeLaCancha, colocarParaElSaque,
+  TENIS_META, TENIS_SAQUE, RED_ALTO, RED_ANCHO, ladoDeLaCancha, colocarParaElSaque, esMinijuego, JUEGOS_LISTOS,
   freePed, freePedDe, occupied, occupiedDe, esMiPatio,
   playerIncome, florinIncome, mismoFlorin, nuevoFlorin, laserActivo,
   bloqueadoPorLaser, orbitaDelCentro, puntoDelDesfile, ponerLaser,

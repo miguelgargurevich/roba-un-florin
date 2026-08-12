@@ -19,7 +19,7 @@ import {
   nuevoFlorin, baseDe, patiosDe, zap, multDeMontura, puntoDelDesfile, puntoDelOcho,
   centroDelMapa, WORLD_W, WORLD_H, OCHO_A, colocarPuestos, ponerFiesta, enFiesta, enElMar,
   nivelDeVitrina, nombreDeHito, HITOS_MAX, vitrinaDe, venderFlorin, precioDeVenta, soltarCarga,
-  patear, TENIS_META, TENIS_ALCANCE, ladoDeLaCancha,
+  patear, TENIS_META, TENIS_ALCANCE, ladoDeLaCancha, esMinijuego, JUEGOS_LISTOS,
   type EntradaJugador, type Estado,
 } from "../src/index.js";
 
@@ -1805,6 +1805,68 @@ describe("tenis", () => {
   });
 });
 
+describe("un minijuego apaga el barrio", () => {
+  /* Esta es la prueba del fallo de 2026-08-11: los minijuegos nuevos se armaban
+     desde el cliente RELLENANDO el estado (`e.basquet = …`) sobre una partida de
+     aventura, con el modo en "aventura". El partido se dibujaba encima del
+     patio y debajo seguían corriendo los ladrones, el desfile y los puestos: te
+     robaban la vitrina a media pichanga, y el cartel de "Jugar básquet" salía
+     DENTRO del básquet. Ahora el modo ES el juego, y es el modo el que apaga
+     las dos cosas a la vez. */
+  const TODOS = ["futbol", "tenis", "basquet", "bolos", "lucha", "dardos",
+                 "voley", "carreraObs", "laberinto", "billar", "hockey"] as const;
+
+  const mini = (modo: string) =>
+    crearPartida({ jugadores: 2, escenario: "colegio", semilla: 9,
+                   armas: idsDeArmas(), reglas: { modo } as any });
+
+  it("todos se arman con solo pedir su modo", () => {
+    for (const modo of TODOS){
+      expect(esMinijuego(modo), modo + " no cuenta como minijuego").toBe(true);
+      const e = mini(modo) as any;
+      expect(e[modo], modo + ": el modo no armó su cancha").not.toBe(null);
+    }
+  });
+
+  it("dentro de uno no corre el barrio: ni vecinos, ni puestos, ni patios", () => {
+    for (const modo of TODOS){
+      /* Aunque quien arme la partida pida lo contrario: olvidarse de apagarlo
+         no da un error, da un partido con ladrones dentro. */
+      const e = crearPartida({ jugadores: 2, escenario: "colegio", semilla: 9,
+                               armas: idsDeArmas(),
+                               reglas: { modo, vecinos: true, puestos: true,
+                                         patiosExtra: true } as any });
+      expect(e.reglas.vecinos, modo + ": vecinos encendidos").toBe(false);
+      expect(e.reglas.puestos, modo + ": puestos abiertos").toBe(false);
+      expect(e.reglas.patiosExtra, modo + ": patios en venta").toBe(false);
+    }
+  });
+
+  it("dentro de uno no hay sitios que armar: ya estás en uno", () => {
+    for (const modo of TODOS)
+      expect(mini(modo).sitios.length, modo + ": armó un sitio dentro de sí mismo").toBe(0);
+  });
+
+  it("ni ladrones ni desfile mientras se juega", () => {
+    for (const modo of TODOS){
+      const e = mini(modo);
+      for (let k = 0; k < 60 * 40 && !e.over; k++) avanzar(e, nada(2), 1 / 60);
+      expect(e.thieves.length, modo + ": salieron ladrones a media cancha").toBe(0);
+      expect(e.portal.desfile.length, modo + ": el desfile cruzó el partido").toBe(0);
+    }
+  });
+
+  it("el mundo solo cuelga los que se terminan de jugar", () => {
+    /* `JUEGOS_LISTOS` es la lista corta, y es la misma que ve el menú del
+       cliente. Un cartel que invita a un sitio donde no se puede jugar es peor
+       que no tener cartel. */
+    const e = partida({ escenario: "colegio" });
+    for (const s of e.sitios)
+      expect(JUEGOS_LISTOS, "colgó " + s.juego + ", que no está listo").toContain(s.juego);
+    expect(e.sitios.length).toBe(JUEGOS_LISTOS.length);
+  });
+});
+
 describe("los sitios con minijuego", () => {
   const sitioDe = (e: Estado, juego: string) => e.sitios.find(s => s.juego === juego) || null;
 
@@ -1856,13 +1918,7 @@ describe("los sitios con minijuego", () => {
     expect(p.enSitio).toBe(null);
   });
 
-  it("en un partido no hay sitios que armar: ya estás en uno", () => {
-    for (const modo of ["futbol", "tenis"] as const){
-      const e = crearPartida({ jugadores: 2, escenario: "colegio", semilla: 7,
-                               armas: idsDeArmas(), reglas: { modo } });
-      expect(e.sitios.length, modo + ": armó un sitio dentro de un partido").toBe(0);
-    }
-  });
+
 });
 
 describe("el Multiverso", () => {

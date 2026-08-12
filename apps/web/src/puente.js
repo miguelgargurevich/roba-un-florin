@@ -17,7 +17,7 @@ import {
   venderFlorin, precioDeVenta, soltarCarga, puestoDe, puestosDeCarrera,
   VUELTAS, CIRCUITOS, JUGADORES_MAX, pensarBot, GARAJE, TRASTOS_ESCENARIO,
   darleVehiculo, vehiculoDelSitio, esEspecial, ANCHO_PISTA, enLaPista, aparcarNuevo, comprarPatio,
-  ponerFiesta, enFiesta, patear, TENIS_META,
+  ponerFiesta, enFiesta, patear, TENIS_META, JUEGOS_LISTOS,
   usarPotenciador, potenciadoresDe, potenciadorPorId, colocarPuestos,
   DIFICULTADES, dificultadDe, fijarMundo, MUNDO_NORMAL, fundir, queSaleDeFundir,
   aLaCanchaDeBasquet, aLaPistaDeBolos, aLaLucha, aLosDardos, aLaCanchaDeVoley, aLaCarreraDeObs, aElLaberinto,
@@ -37,7 +37,7 @@ export {
   venderFlorin, precioDeVenta, soltarCarga, puestoDe, puestosDeCarrera,
   VUELTAS, CIRCUITOS, JUGADORES_MAX, pensarBot, GARAJE, TRASTOS_ESCENARIO,
   darleVehiculo, vehiculoDelSitio, esEspecial, ANCHO_PISTA, enLaPista, DIFICULTADES, dificultadDe, aparcarNuevo, comprarPatio,
-  ponerFiesta, enFiesta, patear, TENIS_META,
+  ponerFiesta, enFiesta, patear, TENIS_META, JUEGOS_LISTOS,
   fundir, queSaleDeFundir,
   usarPotenciador, potenciadoresDe, potenciadorPorId, colocarPuestos,
   aLaCanchaDeBasquet, aLaPistaDeBolos, aLaLucha, aLosDardos, aLaCanchaDeVoley, aLaCarreraDeObs, aElLaberinto,
@@ -257,7 +257,7 @@ function conAtajos(G) {
    como bandera del cliente al lado de `started` y `paused`. */
 export function nuevaPartidaMotor(modo, escenarioId, carrera = false, dificultad = "normal",
                                   garaje = [], rivales = 0, futbol = 0, cancha = "colegio",
-                                  tenis = 0) {
+                                  tenis = 0, mini = null) {
   const local2 = modo === 2;
   /* La pichanga: dos equipos y una pelota, en la cancha del colegio. Los que
      faltan los lleva la máquina, igual que los asientos libres de una carrera. */
@@ -267,6 +267,22 @@ export function nuevaPartidaMotor(modo, escenarioId, carrera = false, dificultad
       escenario: cancha,
       armas: idsDeArmas(),
       reglas: { modo: "futbol", vecinos: false, puestos: false, patiosExtra: false },
+      semilla: (semillaSiguiente = (semillaSiguiente * 48271) % 2147483647),
+    }));
+    G.local2 = false;
+    return G;
+  }
+  /* Cualquier otro minijuego: el modo ES el juego, y con eso el motor arma su
+     cancha y apaga el barrio. Antes esto se hacía al revés —se creaba una
+     partida de AVENTURA y se le llamaba a `aLaCanchaDeBasquet(G)` desde aquí—,
+     y como el modo se quedaba en "aventura" seguían corriendo debajo los
+     ladrones, el desfile y los puestos. */
+  if (mini) {
+    const G = conAtajos(crearPartida({
+      jugadores: 2,
+      escenario: cancha,
+      armas: idsDeArmas(),
+      reglas: { modo: mini },
       semilla: (semillaSiguiente = (semillaSiguiente * 48271) % 2147483647),
     }));
     G.local2 = false;

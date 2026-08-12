@@ -8,7 +8,7 @@ Monorepo con workspaces npm:
 
 | Paquete | Qué es |
 |---|---|
-| `packages/engine` | el juego sin navegador: determinista, JSON serializable, 193 pruebas |
+| `packages/engine` | el juego sin navegador: determinista, JSON serializable, 197 pruebas |
 | `apps/web` | el cliente (Vite + canvas 2D). Solo dibuja y escucha teclas |
 | `apps/api` | cuentas, álbum, guardado, fiestas y avisos (.NET 9, Clean Arch + CQRS), 47 pruebas |
 | `apps/salas` | servidor de salas autoritativo (Node + `ws`), 36 pruebas |
@@ -23,6 +23,39 @@ A medias / sin hacer: el modo cooperativo (aplazado a propósito — una sala en
 aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Última sesión
+
+- 2026-08-11 (claude-code): **arreglado el cruce entre el patio y los
+  minijuegos**. Los nueve minijuegos nuevos (básquet, bolos, lucha, dardos,
+  vóley, carrera, laberinto, billar, hockey) se armaban desde el CLIENTE
+  rellenando el estado (`aLaCanchaDeBasquet(G)`) sobre una partida de
+  **aventura**, y el modo se quedaba en `"aventura"`. Consecuencia: el partido
+  se dibujaba encima del patio y debajo seguían corriendo los ladrones, el
+  desfile y los puestos —te robaban a media pichanga— y el cartel de "Jugar
+  básquet" volvía a salir DENTRO del básquet, porque el sitio seguía puesto.
+  El arreglo, de raíz: **el modo ES el juego**. `Reglas.modo` incluye ahora
+  todos los `JuegoDeSitio`; una sola tabla `ARMAR` en `estado.ts` dice quién
+  monta cada cancha y otra `PASOS` en `simular.ts` quién la avanza; `avanzar`
+  despacha por MODO y no por «qué campo hay lleno»; y `crearPartida` **apaga el
+  barrio ahí dentro** (`vecinos`, `puestos`, `patiosExtra` a false) aunque quien
+  llame pida lo contrario — olvidarlo no daba un error, daba un partido con
+  ladrones. El cliente ya no importa ni llama ninguna función de armado del
+  motor (que es lo que había provocado dos commits seguidos de "fix: importar…").
+  **Y solo se cuelgan los que se juegan.** Cada entrada de `SITIOS` lleva
+  `listo`, y `JUEGOS_LISTOS` es lo que ve el mundo y también el menú del
+  cliente. Hoy: fútbol y tenis. Medido con dos bots a cinco minutos, de los
+  otros nueve **ninguno se termina jugando**: básquet y lucha acaban 0-0 por
+  reloj; bolos, vóley, billar y hockey no acaban nunca; el laberinto se queda a
+  medias; la carrera se "gana" en 21 s porque los puntos de paso son las cuatro
+  esquinas y no hay nada que recorrer; y `pasoDardos` está **vacío**. A los
+  nueve les falta además su rama en `pensarBot`, así que el rival no juega.
+  Su código queda entero: para estrenar uno, se le termina y se le pone
+  `listo: true` — aparece solo en el mundo y en el menú.
+  Prueba nueva que fija el invariante ("un minijuego apaga el barrio"): los once
+  modos se arman, ninguno deja vecinos/puestos/patios encendidos, ninguno cuelga
+  sitios dentro de sí mismo y ninguno saca ladrones ni desfile en 40 s.
+  Gotcha aparte: `drawBolos` leía `b.pinos`/`pin.levantado`, que no existen en
+  el estado (`pinLugar` + `pins`) — con la bolera colgada, entrar reventaba el
+  dibujado entero.
 
 - 2026-08-11 (claude-code): **el tenis**, el segundo minijuego, por la puerta
   que se generalizó ayer. Cancha de tierra con red, pasillos y cuadros de saque

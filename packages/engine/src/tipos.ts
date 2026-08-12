@@ -530,9 +530,14 @@ export interface Reglas {
   /* aventura: sin fin, cada uno con sus hitos.
      versus:   gana el primero que llena todos sus patios.
      carrera:  tres vueltas al circuito, montado.
-     futbol:   dos equipos, una pelota y una cancha.
-     tenis:    dos lados, una red y un peloteo. */
-  modo: "aventura" | "versus" | "carrera" | "futbol" | "tenis";
+     y los MINIJUEGOS, que son los mismos ids que `JuegoDeSitio`: fútbol,
+     tenis, básquet, bolos… Cada uno trae su cancha y sus reglas, y todos
+     comparten lo importante: **el barrio no corre debajo**. Que un minijuego
+     sea un modo no es burocracia — es lo único que apaga los ladrones, el
+     desfile, los puestos y los patios mientras juegas. Armar la cancha desde
+     fuera y dejar el modo en "aventura" deja las dos cosas encendidas a la vez
+     (pasó, y se veía: te robaban a media pichanga). */
+  modo: "aventura" | "versus" | "carrera" | JuegoDeSitio;
   /** ¿Hay vecinos? Ladrones, abuelas y desfile. En carrera solo estorban. */
   vecinos: boolean;
   /** Solo cuenta corriendo: qué tan brava es la carrera. Ver `DIFICULTADES`. */

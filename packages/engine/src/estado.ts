@@ -670,11 +670,15 @@ export function crearPartida(op: OpcionesPartida): Estado {
      patio no pinta nada. Por eso el fútbol no está atado a `SLOTS` —que existe
      para repartir casas— y da para 5 contra 5 o lo que se pida. En todo lo
      demás, cada jugador de más ocupa una casa de vecino y el tope es ese. */
-  const enPartido = op.reglas?.modo === "futbol" || op.reglas?.modo === "tenis";
+  const enPartido = esMinijuego(op.reglas?.modo ?? "aventura");
   const n = enPartido
-    ? clampEntero(op.jugadores ?? 2, 2, op.reglas?.modo === "tenis" ? TENIS_MAX : FUTBOL_MAX)
+    ? clampEntero(op.jugadores ?? 2, 2, cupoDe(op.reglas!.modo as JuegoDeSitio))
     : clampEntero(op.jugadores ?? 1, 1, Math.min(JUGADORES_MAX, 1 + C.length));
   const reglas: Reglas = { ...reglasPara(n), ...(op.reglas || {}) };
+  /* En un minijuego el barrio se apaga AQUÍ, no en quien llama. Es lo único que
+     no se puede dejar a la buena voluntad del que arma la partida: olvidarlo no
+     da un error, da un partido con ladrones dentro. */
+  if (enPartido) { reglas.vecinos = false; reglas.puestos = false; reglas.patiosExtra = false; }
 
   /* Las bases se montan siempre igual y en el mismo orden: `baseDe` indexa por
      id, así que estos índices son un contrato y no se pueden reordenar. Los
@@ -806,11 +810,44 @@ export function crearPartida(op: OpcionesPartida): Estado {
   if (reglas.modo === "aventura") aparcarEnLaCochera(e, op.garaje || []);
   sembrarTrastos(e);       // después de las bases: necesita saber dónde no caben
   if (reglas.modo === "carrera") aLaLineaDeSalida(e);
-  if (reglas.modo === "futbol") aLaCancha(e);
-  else if (reglas.modo === "tenis") aLaCanchaDeTenis(e);
+  /* O se ARMA un minijuego, o se PONEN los sitios desde los que armarlos.
+     Nunca las dos: dentro de una cancha no se cuelga otra cancha. */
+  const armar = ARMAR[reglas.modo as JuegoDeSitio];
+  if (armar) armar(e);
   else ponerLosSitios(e);
   return e;
 }
+
+/* ---- la tabla de los minijuegos ----
+   Un modo por juego, y una sola lista. Es la lista la que decide TODO lo demás:
+   quién arma la cancha, cuántos caben, y —lo importante— que el barrio se
+   apague. Mientras los minijuegos se armaban desde el cliente sobre una partida
+   de aventura, el modo se quedaba en "aventura" y debajo del partido seguían
+   corriendo los ladrones, el desfile y los puestos: te robaban la vitrina a
+   media pichanga y el cartel de "Jugar básquet" salía DENTRO del básquet. */
+const ARMAR: Record<JuegoDeSitio, (e: Estado) => void> = {
+  futbol: aLaCancha,
+  tenis: aLaCanchaDeTenis,
+  basquet: aLaCanchaDeBasquet,
+  bolos: aLaPistaDeBolos,
+  lucha: aLaLucha,
+  dardos: aLosDardos,
+  voley: aLaCanchaDeVoley,
+  carreraObs: aLaCarreraDeObs,
+  laberinto: aElLaberinto,
+  billar: aLaMesaDeBillar,
+  hockey: aAirHockey,
+};
+
+/** ¿Este modo es un minijuego? Entonces el barrio no corre debajo. */
+export const esMinijuego = (modo: Reglas["modo"]): modo is JuegoDeSitio =>
+  Object.prototype.hasOwnProperty.call(ARMAR, modo);
+
+/** Cuánta gente cabe en cada minijuego. Los que no están aquí, dos.
+    Se resuelve al preguntar y no al cargar el módulo: `TENIS_MAX` se declara
+    más abajo, con el resto del tenis. */
+const cupoDe = (juego: JuegoDeSitio): number =>
+  juego === "futbol" ? FUTBOL_MAX : juego === "tenis" ? TENIS_MAX : 2;
 
 /* ---- los sitios con minijuego ----
    Sitios del mundo a los que te metes y se arma un partido, sin pasar por el
@@ -831,25 +868,45 @@ const MED_BILLAR = { w: 500, h: 300 };
 const MED_HOCKEY = { w: 500, h: 300 };
 const MED_VOLEY = { w: 600, h: 360 };
 
+/* `listo` es lo que separa un minijuego de un cartel. Un sitio que no está
+   listo NO se cuelga en el mundo: se puede armar a mano (y probar), pero nadie
+   se lo encuentra jugando. La regla es la misma que se aplicó al tenis cuando
+   su puerta estaba hecha y sus reglas no — un cartel que invita a un sitio
+   donde no se puede jugar es peor que no tener cartel.
+
+   Medido con `banco/mini.ts` (dos bots, cinco minutos, escenario colegio):
+   fútbol acaba 3-2 en 91 s y tenis 7-5 en 80 s. De los demás, ninguno se
+   termina jugando: básquet y lucha llegan a 0-0 y se acaban por reloj, bolos,
+   voley, billar y hockey no acaban nunca, el laberinto se queda a medias, la
+   carrera se "gana" en 21 s porque los puntos de paso son las cuatro esquinas
+   y no hay que recorrer nada, y `pasoDardos` está vacío: no tiene reglas.
+   A todos les falta además su rama en `pensarBot`, así que el rival no juega.
+   Según se vayan terminando, se les pone `listo: true` y aparecen solos. */
 const SITIOS: {
   juego: JuegoDeSitio; rotulo: string; medida: { w: number; h: number };
-  donde: string;
+  donde: string; listo: boolean;
 }[] = [
-  { juego: "futbol", rotulo: "LA PICHANGA", medida: CANCHITA, donde: "colegio" },
-  { juego: "tenis", rotulo: "LA CANCHA DE TENIS", medida: CANCHA_TENIS, donde: "colegio" },
-  { juego: "basquet", rotulo: "LA CANCHA DE BÁSQUET", medida: MED_BASQUET, donde: "colegio" },
-  { juego: "bolos", rotulo: "LOS BOLos", medida: MED_BOLOS, donde: "colegio" },
-  { juego: "lucha", rotulo: "EL RING", medida: MED_LUCHA, donde: "colegio" },
-  { juego: "dardos", rotulo: "LOS DARDOS", medida: MED_DARDOS, donde: "colegio" },
-  { juego: "voley", rotulo: "LA CANCHA DE VOLEY", medida: MED_VOLEY, donde: "colegio" },
-  { juego: "carreraObs", rotulo: "LA CARRERA", medida: MED_CARRERA_OBS, donde: "colegio" },
-  { juego: "laberinto", rotulo: "EL LABERINTO", medida: MED_LABERINTO, donde: "colegio" },
-  { juego: "billar", rotulo: "EL BILLAR", medida: MED_BILLAR, donde: "colegio" },
-  { juego: "hockey", rotulo: "AIR HOCKEY", medida: MED_HOCKEY, donde: "colegio" },
+  { juego: "futbol", rotulo: "LA PICHANGA", medida: CANCHITA, donde: "colegio", listo: true },
+  { juego: "tenis", rotulo: "LA CANCHA DE TENIS", medida: CANCHA_TENIS, donde: "colegio", listo: true },
+  { juego: "basquet", rotulo: "LA CANCHA DE BÁSQUET", medida: MED_BASQUET, donde: "colegio", listo: false },
+  { juego: "bolos", rotulo: "LOS BOLOS", medida: MED_BOLOS, donde: "colegio", listo: false },
+  { juego: "lucha", rotulo: "EL RING", medida: MED_LUCHA, donde: "colegio", listo: false },
+  { juego: "dardos", rotulo: "LOS DARDOS", medida: MED_DARDOS, donde: "colegio", listo: false },
+  { juego: "voley", rotulo: "LA CANCHA DE VOLEY", medida: MED_VOLEY, donde: "colegio", listo: false },
+  { juego: "carreraObs", rotulo: "LA CARRERA", medida: MED_CARRERA_OBS, donde: "colegio", listo: false },
+  { juego: "laberinto", rotulo: "EL LABERINTO", medida: MED_LABERINTO, donde: "colegio", listo: false },
+  { juego: "billar", rotulo: "EL BILLAR", medida: MED_BILLAR, donde: "colegio", listo: false },
+  { juego: "hockey", rotulo: "AIR HOCKEY", medida: MED_HOCKEY, donde: "colegio", listo: false },
 ];
+
+/** Los minijuegos que de verdad se juegan de principio a fin. Lo lee también el
+    cliente, para no ofrecer en el menú lo que el mundo no cuelga. */
+export const JUEGOS_LISTOS: JuegoDeSitio[] =
+  SITIOS.filter(S => S.listo).map(S => S.juego);
 
 function ponerLosSitios(e: Estado): void {
   for (const S of SITIOS) {
+    if (!S.listo) continue;
     const zona = e.esc.zonas?.find(z => z.id === S.donde);
     if (e.esc.id !== S.donde && !zona) continue;
     const x0 = zona ? zona.x0 : 0, x1 = zona ? zona.x1 : WORLD_W;
