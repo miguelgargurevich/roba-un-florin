@@ -129,7 +129,7 @@ const TENIS_BRIO = 0.68;
     medido—, y con una pelota así el bot no falla nunca: 0-0 en cinco minutos.
     Las dos palancas son independientes: la pelota decide si TÚ llegas, y esto
     decide si ÉL llega. */
-const VOLEY_BRIO = 0.44;
+const VOLEY_BRIO = 0.38;
 
 /** Dónde va a picar la pelota, resolviendo su vuelo. */
 function dondeVaAPicar(b: { x: number; y: number; z?: number; vz?: number; vx: number; vy: number }) {

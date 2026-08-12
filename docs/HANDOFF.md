@@ -24,6 +24,26 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Última sesión
 
+- 2026-08-11 (claude-code): **en el vóley la pelota se toca sola** («parece que
+  nunca toco el balón»). La sesión anterior arregló *llegar* (del 36 % al 97 %
+  de pelotas alcanzables) y eso no bastaba, porque llegar y TOCAR no son lo
+  mismo: el toque tiene 178 px y unas tres décimas buenas, y desde la pantalla
+  no hay forma de saber cuándo estás dentro. Medido con un "humano" que corre
+  bien pero no acierta botones: **tocaba 0 pelotas** —y en dobles el compañero
+  de la máquina jugaba el punto entero (24 toques) mientras tú mirabas—.
+  Con el toque automático: **18 a 23 toques por partido**. Descartado de paso
+  que el compañero robara la bola: el 75 % de los toques del equipo ya eran del
+  asiento 0.
+  Ahora en vóley **basta con llegar**: si la tienes al alcance, la tocas. El
+  botón deja de ser "tocar" y pasa a ser "rematar" — aguantándolo, el toque
+  sale de remate en cuanto la alcanzas. En el tenis NO se hizo: allí el bote te
+  da tiempo y acertar el golpe es el juego; aquí el juego es colocarse.
+  Además: el aro de la caída se cierra y se rellena cuando ya la tienes al
+  alcance; el tercer toque (que cruza obligado) sale con media fuerza aunque no
+  hayas cargado, o caía detrás de la red y era un regalo; y el brío del bot
+  baja a 0,38 — con eso los partidos entre máquinas siguen saliendo 4-5, 5-4,
+  5-3 y acabando solos.
+
 - 2026-08-11 (claude-code): **el vóley, jugable de verdad** («no chapo ni una
   bola»). Estaba calibrado contra bots que resuelven la parábola; un humano no.
   Se midió lo que un humano puede hacer —correr a 268 px/s con 0,25 s de

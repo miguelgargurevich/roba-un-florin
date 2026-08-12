@@ -21,7 +21,7 @@ import {
   puestoDe, puestosDeCarrera, VUELTAS, CIRCUITOS, pensarBot, GARAJE, VEHICULOS,
   fundir, queSaleDeFundir,
   TRASTOS_ESCENARIO, darleVehiculo, esEspecial, ANCHO_PISTA, aparcarNuevo, comprarPatio,
-  ponerFiesta, enFiesta, patear, TENIS_META, JUEGOS_LISTOS, VOLEY_META, VOLEY_TOQUES,
+  ponerFiesta, enFiesta, patear, TENIS_META, JUEGOS_LISTOS, VOLEY_META, VOLEY_TOQUES, VOLEY_ALCANCE,
   usarPotenciador, potenciadoresDe, potenciadorPorId,
   soltarCarga, trastoDe,
   venderFlorin,
@@ -87,6 +87,19 @@ function entradas(dt){
       if (plan.patear != null) patear(G, p, plan.patear);
       continue;
     }
+    /* ---- en el vóley, la pelota se toca sola ----
+       El toque tiene 178 px de alcance y unas tres décimas buenas, y no hay
+       forma de saber desde la pantalla cuándo estás dentro: acertar el botón
+       ahí es una lotería, y la lotería se pierde. Medido con bots —que sí
+       saben— tocaban 26 pelotas por partido; jugando de verdad, ninguna.
+       Así que en vóley basta con LLEGAR: si la tienes al alcance, la tocas.
+       El botón deja de ser "tocar" y pasa a ser "rematar": aguantándolo, el
+       toque sale de remate en cuanto la alcanzas.
+       En el tenis no: allí el bote te da tiempo y acertar el golpe ES el
+       juego. Aquí el juego es colocarse. */
+    if (p.idx === 0 && G.voley && !G.local2)
+      patear(G, p, pateo.desde ? fuerzaDePateo() : 0);
+
     const T = p.idx === 0 ? (G.local2 ? TECLAS_J1 : TECLAS_1P) : TECLAS_J2;
     let x = 0, y = 0;
     if (T.left.some(k => keys.has(k)))  x -= 1;
@@ -1057,7 +1070,8 @@ function soltarPateo(){
   pateo.desde = 0; pateo.id = null;
   elPateo.querySelector(".carga b").style.width = "0%";
   if (sala) sala.patear(f);
-  else if (elPartido()) patear(G, G.player, f);
+  /* En vóley el toque ya salió solo mientras aguantabas: soltar no repite. */
+  else if (elPartido() && !G.voley) patear(G, G.player, f);
   Snd.unlock();
 }
 elPateo.addEventListener("pointerdown", e => {
@@ -1334,7 +1348,7 @@ const MINIJUEGOS = {
   bolos:      "🎳 ¡A bolos! Dos turnos.",
   lucha:      "🥊 ¡Al ring! Derriba al rival.",
   dardos:     "🎯 ¡Dardos! 5 tiradas cada uno.",
-  voley:      "🏐 ¡Vóley, dos contra dos! Primero en " + VOLEY_META + " puntos.",
+  voley:      "🏐 ¡Vóley, dos contra dos! La tocas con solo llegar; aguanta el botón para rematar.",
   carreraObs: "🏃 ¡Carrera de obstáculos!",
   laberinto:  "🔮 ¡Al laberinto! Recoge todas las gemas.",
   billar:     "🎱 ¡Billar! Entran todas las bolas.",
@@ -9189,13 +9203,19 @@ function drawCanchaVoley(){
     const T = (vz + Math.sqrt(vz * vz + 2 * 1600 * z)) / 1600;
     const cx2 = bola.x + bola.vx * T, cy2 = bola.y + bola.vy * T;
     const mio = (G.player.equipo ?? 0) === (cx2 < v.redX ? 0 : 1);
+    /* Y si ya la tienes al alcance, el aro se cierra: es el aviso de que el
+       toque va a salir solo, y de que aguantar el botón lo convierte en remate. */
+    const cerca = dist2(G.player.x, G.player.y, bola.x, bola.y) < VOLEY_ALCANCE * VOLEY_ALCANCE;
     ctx.save();
     ctx.strokeStyle = mio ? "rgba(61,220,151,.85)" : "rgba(255,92,134,.6)";
-    ctx.lineWidth = 4;
-    ctx.setLineDash([9, 7]);
-    ctx.lineDashOffset = -G.t * 26;
+    ctx.lineWidth = cerca ? 6 : 4;
+    if (!cerca){ ctx.setLineDash([9, 7]); ctx.lineDashOffset = -G.t * 26; }
     ctx.beginPath(); ctx.ellipse(cx2, cy2, 34, 20, 0, 0, 6.283); ctx.stroke();
     ctx.setLineDash([]);
+    if (cerca){
+      ctx.fillStyle = "rgba(61,220,151,.18)";
+      ctx.beginPath(); ctx.ellipse(cx2, cy2, 34, 20, 0, 0, 6.283); ctx.fill();
+    }
     ctx.restore();
   }
 

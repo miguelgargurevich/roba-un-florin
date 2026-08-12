@@ -2288,7 +2288,12 @@ function golpeDeVoley(e: Estado, p: Jugador, k: number): "pase" | "remate" | nul
   }
 
   const c = v.cancha;
-  const cruza = v.toques >= VOLEY_TOQUES || k >= 0.5;
+  const forzado = v.toques >= VOLEY_TOQUES;
+  const cruza = forzado || k >= 0.5;
+  /* El tercer toque cruza obligado, así que no puede salir con la fuerza que
+     tuvieras: sin esto, la que cruza sola cae justo detrás de la red y es un
+     regalo. Sale con media fuerza aunque no hayas cargado nada. */
+  if (forzado) k = Math.max(k, 0.45);
   const haciaElRival = mio === 0 ? 1 : -1;
   const T = cruza ? VOLEY_T_REMATE : VOLEY_T_PASE;
 
