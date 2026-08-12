@@ -28,7 +28,7 @@ import {
   polvo, ponerLaser, puedeMojarse, puntoDelDesfile, sacarDelCentro, sonar, texto, trastoDe, dentroDeLaPista,
   sobreLaPista, ladoDeLaCancha, colocarParaElSaque, TENIS_SAQUE,
   ladoDeVoley, colocarParaElSaqueDeVoley, VOLEY_SAQUE, VOLEY_TOQUES,
-  sacarDeMedioBasquet, BASQUET_SAQUE,
+  sacarDeMedioBasquet, BASQUET_SAQUE, sacarEnHockey, HOCKEY_SAQUE,
 } from "./estado.js";
 
 /* Cualquier cosa a la que se pueda golpear */
@@ -2363,43 +2363,127 @@ function pasoBillar(e: Estado, dt: number): void {
 /* ============================================================
    Air Hockey
    ============================================================ */
+/* ---- air hockey ----
+   El único minijuego que no usa la altura: aquí todo pasa a ras de mesa, y esa
+   es su gracia — es de reflejos, no de parábolas.
+
+   Y el disco no se golpea con un botón: se choca con él. La paleta eres tú, y
+   lo fuerte que sale depende de a qué velocidad ibas cuando lo alcanzaste. Por
+   eso aquí no hay nada que apretar y el juego entero es correr bien. */
+/** Radio del disco y de la paleta (tú). */
+const PUCK_R = 16, PALETA_R = 26;
+/** Lo que frena el disco por segundo, y su tope. */
+const HOCKEY_ROCE = 0.55, PUCK_MAX = 1450;
+/** Lo que empuja un choque, aparte de la velocidad que llevabas. */
+const PALETA_EMPUJE = 430;
+
 function pasoHockey(e: Estado, dt: number): void {
-  const h = e.hockey!;
-  if (h.ganador != null) return;
-  const pk = h.puck;
-  pk.vx *= 0.998; pk.vy *= 0.998;
-  pk.x += pk.vx * dt; pk.y += pk.vy * dt;
-  const m = h.mesa;
-  // bounce top/bottom
-  if (pk.y < m.y + 10) { pk.y = m.y + 10; pk.vy = Math.abs(pk.vy) * 0.9; sonar(e, "puck"); }
-  if (pk.y > m.y + m.h - 10) { pk.y = m.y + m.h - 10; pk.vy = -Math.abs(pk.vy) * 0.9; sonar(e, "puck"); }
-  // goal check
-  for (let q = 0; q < 2; q++) {
-    const g = h.porteros[q];
-    if (pk.x > g.x - 5 && pk.x < g.x + g.w + 5 && pk.y > g.y && pk.y < g.y + g.h) {
-      const marca = (1 - q) as 0 | 1;
-      h.puntos[marca]++;
-      texto(e, pk.x, pk.y - 40, "¡GOAL!", marca === 0 ? "#3DDC97" : "#FF5C86");
-      sonar(e, "win");
-      e.eventos.push({ t: "gol", equipo: marca, goles: [...h.puntos] });
-      if (h.puntos[marca] >= h.meta) { h.ganador = marca; terminarJuegoIndividual(e, e.players.find(p => p.equipo === marca)?.idx ?? null); return; }
-      pk.x = m.x + m.w / 2; pk.y = m.y + m.h / 2; pk.vx = 0; pk.vy = 0;
+  const h = e.hockey;
+  if (!h || h.ganador != null) return;
+  const m = h.mesa, pk = h.puck;
+  const cx = m.x + m.w / 2;
+
+  /* Nadie cruza la línea del medio. Es la regla del juego de verdad y es lo
+     que lo mantiene como un duelo en vez de un montón persiguiendo un disco. */
+  for (const p of e.players) {
+    const mio = p.equipo ?? 0;
+    p.y = clamp(p.y, m.y + PALETA_R, m.y + m.h - PALETA_R);
+    p.x = mio === 0
+      ? clamp(p.x, m.x + PALETA_R, cx - PALETA_R)
+      : clamp(p.x, cx + PALETA_R, m.x + m.w - PALETA_R);
+  }
+
+  if (h.saque > 0) {
+    h.saque -= dt;
+    pk.vx = 0; pk.vy = 0;
+    return;
+  }
+
+  /* ---- el disco no se queda muerto ----
+     Un disco parado en una esquina, o dos paletas plantadas cada una en su
+     arco, no es un partido: es una foto. Medido sin esto, dos de cada tres
+     partidos entre máquinas no acababan nunca — se quedaban en 3-0. A los tres
+     segundos quieto vuelve al centro y se saca otra vez. */
+  h.reloj -= dt;
+  if (h.reloj <= 0) {
+    h.reloj = 0;
+    h.ganador = h.puntos[0] === h.puntos[1] ? null : (h.puntos[0] > h.puntos[1] ? 0 : 1);
+    terminarJuegoIndividual(e, h.ganador == null
+      ? null : (e.players.find(p => p.equipo === h.ganador)?.idx ?? null));
+    return;
+  }
+  h.quieto = Math.hypot(pk.vx, pk.vy) < 60 ? h.quieto + dt : 0;
+  if (h.quieto > 3) {
+    texto(e, pk.x, pk.y - 46, "¡Disco al centro!", "#FFC53D");
+    h.saque = HOCKEY_SAQUE;
+    sacarEnHockey(e);
+    return;
+  }
+
+  /* ---- las paletas ----
+     Va antes de mover el disco: si se hace después, un choque puede meterlo
+     dentro de la paleta y quedarse ahí pegado empujándolo cada fotograma.
+
+     El disco sale por donde lo tocaste MÁS lo que llevabas encima. Eso es lo
+     que hace que valga la pena salir a buscarlo corriendo en vez de esperarlo
+     parado: un disco esperado sale flojo. */
+  for (const p of e.players) {
+    if (p.stun > 0) continue;
+    const dx = pk.x - p.x, dy = pk.y - p.y;
+    const d = Math.hypot(dx, dy);
+    if (d > PALETA_R + PUCK_R) continue;
+    const nx = d > 0.01 ? dx / d : 1, ny = d > 0.01 ? dy / d : 0;
+    /* Se lo saca de encima primero: sin esto vuelve a chocar el fotograma
+       siguiente y el disco se queda temblando contra la paleta. */
+    pk.x = p.x + nx * (PALETA_R + PUCK_R + 1);
+    pk.y = p.y + ny * (PALETA_R + PUCK_R + 1);
+    pk.vx = nx * PALETA_EMPUJE + p.vx * 0.85;
+    pk.vy = ny * PALETA_EMPUJE + p.vy * 0.85;
+    sonar(e, "whack");
+    polvo(e, pk.x, pk.y, "#CFE8FF", 4);
+  }
+
+  /* ---- el disco ---- */
+  const roce = Math.pow(HOCKEY_ROCE, dt);
+  pk.vx *= roce; pk.vy *= roce;
+  const rapidez = Math.hypot(pk.vx, pk.vy);
+  if (rapidez > PUCK_MAX) { pk.vx = pk.vx / rapidez * PUCK_MAX; pk.vy = pk.vy / rapidez * PUCK_MAX; }
+  pk.x += pk.vx * dt;
+  pk.y += pk.vy * dt;
+
+  // las bandas de arriba y abajo: rebote casi limpio, que es de lo que va
+  if (pk.y < m.y + PUCK_R) { pk.y = m.y + PUCK_R; pk.vy = Math.abs(pk.vy) * 0.92; sonar(e, "whack"); }
+  if (pk.y > m.y + m.h - PUCK_R) { pk.y = m.y + m.h - PUCK_R; pk.vy = -Math.abs(pk.vy) * 0.92; sonar(e, "whack"); }
+
+  /* ---- ¿gol? ----
+     Se mira ANTES de rebotar en las bandas del fondo: si no, el disco rebota
+     en la banda que está justo detrás del arco y no entra nunca. */
+  for (const q of [0, 1] as const) {
+    const a = h.arcos[q];
+    const entro = q === 0 ? pk.x - PUCK_R < a.x + a.w : pk.x + PUCK_R > a.x;
+    if (!entro || pk.y < a.y || pk.y > a.y + a.h) continue;
+    /* En el arco del 0 marca el 1: cada uno defiende el suyo. */
+    const marca = (1 - q) as 0 | 1;
+    h.puntos[marca]++;
+    h.ultimoGol = marca;
+    texto(e, pk.x, pk.y - 50, "¡GOL!", marca === 0 ? "#3DDC97" : "#FF5C86");
+    polvo(e, pk.x, pk.y, marca === 0 ? "#3DDC97" : "#FF5C86", 24);
+    sonar(e, "win");
+    e.eventos.push({ t: "gol", equipo: marca, goles: [h.puntos[0], h.puntos[1]] });
+    if (h.puntos[marca] >= h.meta) {
+      h.ganador = marca;
+      terminarJuegoIndividual(e, e.players.find(p => p.equipo === marca)?.idx ?? null);
       return;
     }
+    h.sacador = (1 - marca) as 0 | 1;      // saca el que acaba de encajar
+    h.saque = HOCKEY_SAQUE;
+    sacarEnHockey(e);
+    return;
   }
-  // bounce left/right (but not in goals)
-  if (pk.x < m.x + 10) { pk.x = m.x + 10; pk.vx = Math.abs(pk.vx) * 0.9; sonar(e, "puck"); }
-  if (pk.x > m.x + m.w - 10) { pk.x = m.x + m.w - 10; pk.vx = -Math.abs(pk.vx) * 0.9; sonar(e, "puck"); }
-  // player-puck collision
-  for (const p of e.players) {
-    if (dist2(p.x, p.y, pk.x, pk.y) < 20 * 20) {
-      const dx = pk.x - p.x, dy = pk.y - p.y;
-      const d = Math.sqrt(dx * dx + dy * dy) || 1;
-      const push = 400;
-      pk.vx = (dx / d) * push + p.vx * 0.5;
-      pk.vy = (dy / d) * push + p.vy * 0.5;
-    }
-  }
+
+  // y si no entró, rebota en el fondo
+  if (pk.x < m.x + PUCK_R) { pk.x = m.x + PUCK_R; pk.vx = Math.abs(pk.vx) * 0.92; sonar(e, "whack"); }
+  if (pk.x > m.x + m.w - PUCK_R) { pk.x = m.x + m.w - PUCK_R; pk.vx = -Math.abs(pk.vx) * 0.92; sonar(e, "whack"); }
 }
 
 /* ---- vóley ----

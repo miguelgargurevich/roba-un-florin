@@ -431,12 +431,31 @@ export interface Billar {
 }
 
 /* ---- Air Hockey ---- */
+/** Air hockey. El único de los minijuegos que NO usa la altura: aquí todo pasa
+    a ras de mesa, y esa es justamente su gracia — es de reflejos, no de
+    parábolas.
+
+    El disco tampoco es un trasto como las demás pelotas: no se patea, no bota
+    y no se lleva. Se choca con él, y su física entera —el roce de deslizar, el
+    rebote en las bandas, el tope de velocidad— vive en `pasoHockey` y en
+    ningún otro sitio. */
 export interface Hockey {
   mesa: Rect;
-  porteros: [Rect, Rect];
+  /** La boca de cada arco, en la banda de su lado. El equipo 0 defiende la 0. */
+  arcos: [Rect, Rect];
   puck: { x: number; y: number; vx: number; vy: number };
   puntos: [number, number];
   meta: number;
+  /** Segundos de quietud tras un gol, para colocarse. */
+  saque: number;
+  /** A quién le toca sacar: al que le acaban de marcar. */
+  sacador: 0 | 1;
+  ultimoGol: 0 | 1 | null;
+  /** Segundos que lleva el disco parado. Pasado el tope, vuelve al centro. */
+  quieto: number;
+  /** Y el reloj del partido: sin él, dos que defiendan bien no acaban nunca.
+      Medido con un humano plantado en su arco: 3-0 y a jugar hasta mañana. */
+  reloj: number;
   ganador: 0 | 1 | null;
 }
 

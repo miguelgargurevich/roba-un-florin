@@ -1806,6 +1806,63 @@ describe("tenis", () => {
   });
 });
 
+describe("air hockey", () => {
+  const hockey = (semilla = 1) =>
+    crearPartida({ jugadores: 2, escenario: "colegio", semilla, armas: idsDeArmas(),
+                   reglas: { modo: "hockey" } as any });
+
+  it("nadie cruza la línea del medio", () => {
+    const e = hockey();
+    const h = e.hockey!;
+    const cx = h.mesa.x + h.mesa.w / 2;
+    e.players[0].x = cx + 300;
+    e.players[1].x = cx - 300;
+    avanzar(e, nada(2), 1 / 60);
+    expect(e.players[0].x).toBeLessThan(cx);
+    expect(e.players[1].x).toBeGreaterThan(cx);
+  });
+
+  it("el disco sale al chocar contigo, y más fuerte si ibas corriendo", () => {
+    const golpe = (corriendo: boolean) => {
+      const e = hockey();
+      const h = e.hockey!;
+      h.saque = 0;
+      const p = e.players[0];
+      h.puck.x = p.x + 30; h.puck.y = p.y; h.puck.vx = 0; h.puck.vy = 0;
+      p.vx = corriendo ? 260 : 0;
+      avanzar(e, nada(2), 1 / 60);
+      return Math.hypot(h.puck.vx, h.puck.vy);
+    };
+    expect(golpe(false), "quieto no lo movió").toBeGreaterThan(0);
+    expect(golpe(true), "corriendo no salió más fuerte").toBeGreaterThan(golpe(false));
+  });
+
+  it("un disco muerto vuelve al centro: no se puede acampar", () => {
+    const e = hockey();
+    const h = e.hockey!;
+    h.saque = 0;
+    h.puck.x = h.mesa.x + 40; h.puck.y = h.mesa.y + 40;
+    h.puck.vx = 0; h.puck.vy = 0;
+    /* Los dos quietos en su sitio, lejos del disco. */
+    for (let k = 0; k < 60 * 4; k++) avanzar(e, nada(2), 1 / 60);
+    expect(Math.abs(h.puck.x - (h.mesa.x + h.mesa.w / 2)),
+           "el disco se quedó muerto en la esquina").toBeLessThan(200);
+  });
+
+  it("los bots juegan y el partido acaba solo", () => {
+    const e = hockey();
+    for (let k = 0; k < 60 * 300 && !e.over; k++){
+      const ent: Record<number, EntradaJugador> = {};
+      for (const p of e.players) ent[p.idx] = pensarBot(e, p, 1 / 60).entrada;
+      avanzar(e, ent, 1 / 60);
+    }
+    const h = e.hockey!;
+    expect(h.puntos[0] + h.puntos[1], "no marcó nadie").toBeGreaterThan(0);
+    expect(e.over, "el partido no acabó").toBe(true);
+    expect(h.puntos[0] >= h.meta || h.puntos[1] >= h.meta || h.reloj <= 0).toBe(true);
+  });
+});
+
 describe("básquet", () => {
   const basquet = (jugadores = 6, semilla = 1) =>
     crearPartida({ jugadores, escenario: "colegio", semilla, armas: idsDeArmas(),
@@ -2092,6 +2149,7 @@ describe("un minijuego apaga el barrio", () => {
     expect(e.sitios.length).toBe(JUEGOS_LISTOS.length);
     expect(JUEGOS_LISTOS, "el vóley ya se juega entero").toContain("voley");
     expect(JUEGOS_LISTOS, "el básquet ya se juega entero").toContain("basquet");
+    expect(JUEGOS_LISTOS, "el air hockey ya se juega entero").toContain("hockey");
   });
 });
 

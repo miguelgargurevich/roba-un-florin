@@ -1049,6 +1049,13 @@ window.addEventListener("blur", () => joyEnd({ pointerId: joy.id }));
    solo necesitan eso. Preguntar `G.futbol || G.tenis || …` en quince sitios es
    como se olvida el decimosexto. */
 const elPartido = () => (G && (G.futbol || G.tenis || G.voley || G.basquet)) || null;
+/* El hockey es partido para la cámara y el marcador, pero no para el botón de
+   golpear: ahí no hay nada que apretar — la paleta eres tú y el disco sale al
+   chocar con él. */
+const laMesaOCancha = () => {
+  const j = elPartido() || (G && G.hockey) || null;
+  return j ? (j.cancha || j.mesa) : null;
+};
 
 /* ---- patear ----
    Un toque la empuja; aguantando, se carga y sale el pelotazo. Pasado cierto
@@ -1311,6 +1318,7 @@ function pintarAccion(){
       : cual === "sitio:tenis" ? "🎾 Jugar tenis · uno contra uno"
       : cual === "sitio:voley" ? "🏐 Jugar vóley · dos contra dos"
       : cual === "sitio:basquet" ? "🏀 Jugar básquet · tres contra tres"
+      : cual === "sitio:hockey" ? "🏒 Jugar air hockey · uno contra uno"
       : cual === "sitio:basquet" ? "🏀 Jugar básquet · uno contra uno"
       : cual === "sitio:bolos" ? "🎳 Jugar bolos · dos turnos"
       : cual === "sitio:lucha" ? "🥊 Pelear en el ring · uno contra uno"
@@ -1354,7 +1362,7 @@ const MINIJUEGOS = {
   carreraObs: "🏃 ¡Carrera de obstáculos!",
   laberinto:  "🔮 ¡Al laberinto! Recoge todas las gemas.",
   billar:     "🎱 ¡Billar! Entran todas las bolas.",
-  hockey:     "🏒 ¡Air hockey! Primero a 7.",
+  hockey:     "🏒 ¡Air hockey! Primero a 5. No hay botón: el disco sale al chocar con él.",
 };
 
 function armarSitio(juego){
@@ -9197,24 +9205,48 @@ function drawBillar(){
 }
 
 /* ---- air hockey ---- */
-function drawHockey(){
+function drawMesaHockey(){
   const h = G.hockey;
   if (!h) return;
-  const m = h.mesa;
+  const m = h.mesa, cx = m.x + m.w/2, cy = m.y + m.h/2;
   ctx.save();
-  ctx.fillStyle = "#1A3A5C";
+
+  ctx.fillStyle = "#DCEBF7";                       // el hielo
   ctx.fillRect(m.x, m.y, m.w, m.h);
-  ctx.strokeStyle = "#FFF"; ctx.lineWidth = 2;
+  ctx.fillStyle = "rgba(255,255,255,.5)";
+  for (let x = m.x; x < m.x + m.w; x += 90) ctx.fillRect(x, m.y, 44, m.h);
+
+  // la línea del medio —que no se cruza— y sus círculos
+  ctx.strokeStyle = "rgba(60,110,160,.55)"; ctx.lineWidth = 6;
+  ctx.beginPath(); ctx.moveTo(cx, m.y); ctx.lineTo(cx, m.y + m.h); ctx.stroke();
+  ctx.beginPath(); ctx.arc(cx, cy, 110, 0, 6.283); ctx.stroke();
+  ctx.lineWidth = 4;
+  for (const lado of [-1, 1]){
+    ctx.beginPath(); ctx.arc(cx + lado * m.w * 0.30, cy, 62, 0, 6.283); ctx.stroke();
+  }
+
+  // la banda: es de lo que rebota todo, así que se pinta gorda
+  ctx.strokeStyle = "#2A5C86"; ctx.lineWidth = 14;
   ctx.strokeRect(m.x, m.y, m.w, m.h);
-  // línea central
-  ctx.beginPath(); ctx.moveTo(m.x + m.w/2, m.y); ctx.lineTo(m.x + m.w/2, m.y + m.h); ctx.stroke();
-  // arcos
-  ctx.strokeStyle = "#FF5C86"; ctx.lineWidth = 4;
-  ctx.strokeRect(m.x - 5, m.y + m.h/2 - 40, 10, 80);
-  ctx.strokeRect(m.x + m.w - 5, m.y + m.h/2 - 40, 10, 80);
-  // puck
-  ctx.fillStyle = "#333";
-  ctx.beginPath(); ctx.arc(h.puck.x, h.puck.y, 10, 0, 6.283); ctx.fill();
+
+  // los arcos, del color de quien los defiende
+  h.arcos.forEach((a, q) => {
+    ctx.fillStyle = CAMISETA[q] + "44";
+    ctx.fillRect(a.x - (q ? 0 : 8), a.y, a.w + 8, a.h);
+    ctx.strokeStyle = CAMISETA[q]; ctx.lineWidth = 8;
+    ctx.beginPath();
+    ctx.moveTo(q ? a.x + a.w : a.x, a.y);
+    ctx.lineTo(q ? a.x + a.w : a.x, a.y + a.h);
+    ctx.stroke();
+  });
+
+  // el disco, con su sombrita
+  ctx.fillStyle = "rgba(0,0,0,.18)";
+  ctx.beginPath(); ctx.ellipse(h.puck.x, h.puck.y + 6, 17, 8, 0, 0, 6.283); ctx.fill();
+  ctx.fillStyle = "#2A1226";
+  ctx.beginPath(); ctx.arc(h.puck.x, h.puck.y, 16, 0, 6.283); ctx.fill();
+  ctx.strokeStyle = "rgba(255,255,255,.35)"; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(h.puck.x, h.puck.y, 11, 0, 6.283); ctx.stroke();
   ctx.restore();
 }
 
@@ -9921,7 +9953,7 @@ function drawGrabRingDe(jug){
 function drawAim(){
   /* En un partido, solo la tuya: seis punterías cruzando la cancha tapan la
      pelota, que es lo único que hay que mirar. */
-  if (elPartido()){ drawAimDe(G.player); return; }
+  if (elPartido() || G.hockey){ drawAimDe(G.player); return; }
   for (const jug of G.players) drawAimDe(jug);
 }
 function drawAimDe(p){
@@ -9965,12 +9997,12 @@ function draw(){
 
   /* En un partido se ve la cancha ENTERA. Un fútbol en el que no ves el arco
      contrario no es un fútbol: es correr detrás de una pelota a ciegas. */
-  if (elPartido()){
-    const c = elPartido().cancha;
+  if (laMesaOCancha()){
+    const c = laMesaOCancha();
     /* En el estadio y en la calle se abre más: lo que hay ALREDEDOR —las
        tribunas, los carros, la gente— es medio chiste del sitio, y encuadrando
        solo la cancha no se ve nada de eso. */
-    const marco = G.tenis || G.voley || G.basquet ? 260
+    const marco = G.tenis || G.voley || G.basquet || G.hockey ? 260
                 : G.esc.id === "colegio" ? 180 : 620;
     ZOOM = clamp(Math.min(VW / (c.w + marco), VH / (c.h + marco)), .18, 1.05);
   }
@@ -9981,7 +10013,7 @@ function draw(){
     ZOOM = clamp(Math.min(VW/ancho, VH/alto), .34, 1.05);
   }
   const visW = VW/ZOOM, visH = VH/ZOOM;
-  const laCancha = elPartido()?.cancha;
+  const laCancha = laMesaOCancha();
   const foco = laCancha
     ? { x: laCancha.x + laCancha.w / 2, y: laCancha.y + laCancha.h / 2 }
     : G.local2 && G.players.length > 1
@@ -10004,6 +10036,8 @@ function draw(){
     drawCanchaVoley();
   } else if (G.reglas?.modo === "basquet"){
     drawCanchaBasquet();
+  } else if (G.reglas?.modo === "hockey"){
+    drawMesaHockey();
   } else if (corriendo){
     drawCircuito();                  // la pista es lo único que importa
   } else if (G.basquet){
@@ -10022,8 +10056,6 @@ function draw(){
     drawLaberinto();
   } else if (G.billar){
     drawBillar();
-  } else if (G.hockey){
-    drawHockey();
   } else {
     drawRuta();                      // la alfombra va debajo de todo
     drawCanchita();                  // debajo de la gente, encima del suelo
@@ -10514,7 +10546,11 @@ function hud(){
   /* Los rótulos de las tarjetas cambian en un partido y hay que DEVOLVERLOS al
      salir: volviendo al barrio, el dinero seguía debajo de un cartel que decía
      "Tiempo". */
-  rotularTarjetas(!!elPartido());
+  /* El hockey también renombra las tarjetas. Sin esto el marcador salía bien
+     pero debajo de carteles de la aventura: "DINERO 2:30". Es el mismo despiste
+     que ya se pagó con el fútbol, y por eso `elPartido()` no vale aquí — el
+     hockey no es partido para el BOTÓN, pero sí para el HUD. */
+  rotularTarjetas(!!elPartido() || !!G.hockey);
   /* El botón de patear solo existe en un partido, y su barra se llena mientras
      aguantas: sin verla, cargar es adivinar. En el tenis el mismo botón es la
      raqueta, y la carga manda el fondo en vez de la fuerza. */
@@ -10588,6 +10624,25 @@ function hud(){
     el.money.textContent = mmss(G.t);
     el.rate.textContent = v.puntos[mio] > v.puntos[1 - mio] ? "Vas ganando"
                         : v.puntos[mio] < v.puntos[1 - mio] ? "Vas perdiendo" : "Empate";
+    el.lost.textContent = G.stats.hits;
+    el.alarma.hidden = true;
+    bau.boton.hidden = true; bau.soltar.hidden = true; bau.bajar.hidden = true;
+    cerrarArmasRapidas();
+    pintarAccion();
+    return;
+  }
+
+  /* ---- el marcador del air hockey ---- */
+  if (G.reglas?.modo === "hockey"){
+    const h = G.hockey;
+    const mio = G.player.equipo ?? 0;
+    el.goalLabel.textContent = h.saque > 0 ? "¡Disco al centro!" : "Primero a " + h.meta;
+    el.goal.textContent = h.puntos[mio] + " – " + h.puntos[1 - mio];
+    el.bar.style.width = clamp(h.puntos[mio] / h.meta * 100, 0, 100).toFixed(1) + "%";
+    el.goalCard.classList.toggle("fiesta", h.ultimoGol != null && h.saque > 0);
+    el.money.textContent = mmss(Math.max(0, h.reloj));
+    el.rate.textContent = h.puntos[mio] > h.puntos[1 - mio] ? "Vas ganando"
+                        : h.puntos[mio] < h.puntos[1 - mio] ? "Vas perdiendo" : "Empate";
     el.lost.textContent = G.stats.hits;
     el.alarma.hidden = true;
     bau.boton.hidden = true; bau.soltar.hidden = true; bau.bajar.hidden = true;
@@ -10818,6 +10873,31 @@ function endGame(ganador){
       : ganaste ? "A cobrar en el recreo." : "La revancha es ahí mismo, en el patio.";
     document.getElementById("stSteals").textContent = f.goles[mio];
     document.getElementById("stHits").textContent = f.goles[1 - mio];
+    document.getElementById("stTime").textContent = mmss(G.t);
+    document.getElementById("stRate").textContent = G.stats.hits;
+    document.getElementById("btnVolverBarrio").hidden = !aventuraEnEspera;
+    el.end.hidden = false;
+    if (ganaste) Snd.win();
+    return;
+  }
+
+  /* ---- cómo acabó el air hockey ---- */
+  if (G.reglas?.modo === "hockey"){
+    const h = G.hockey;
+    const mio = G.player.equipo ?? 0;
+    const ganaste = h.ganador === mio, empate = h.ganador == null;
+    document.getElementById("lbSteals").textContent = "Tus goles";
+    document.getElementById("lbHits").textContent = "Los del otro";
+    document.getElementById("lbRate").textContent = "Chancletazos que diste";
+    document.getElementById("endEyebrow").textContent = "Se acabó la mesa";
+    document.getElementById("endTitle").innerHTML = empate
+      ? "Quedaron <em>iguales</em>"
+      : ganaste ? "¡<em>Ganaste</em>!" : "Te <em>ganaron</em>";
+    document.getElementById("endSub").textContent = empate
+      ? "Se acabó el tiempo con el disco en el medio."
+      : ganaste ? "Reflejos." : "La banda te devolvió todo. Otra.";
+    document.getElementById("stSteals").textContent = h.puntos[mio];
+    document.getElementById("stHits").textContent = h.puntos[1 - mio];
     document.getElementById("stTime").textContent = mmss(G.t);
     document.getElementById("stRate").textContent = G.stats.hits;
     document.getElementById("btnVolverBarrio").hidden = !aventuraEnEspera;

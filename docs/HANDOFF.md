@@ -8,7 +8,7 @@ Monorepo con workspaces npm:
 
 | Paquete | Qué es |
 |---|---|
-| `packages/engine` | el juego sin navegador: determinista, JSON serializable, 210 pruebas |
+| `packages/engine` | el juego sin navegador: determinista, JSON serializable, 214 pruebas |
 | `apps/web` | el cliente (Vite + canvas 2D). Solo dibuja y escucha teclas |
 | `apps/api` | cuentas, álbum, guardado, fiestas y avisos (.NET 9, Clean Arch + CQRS), 47 pruebas |
 | `apps/salas` | servidor de salas autoritativo (Node + `ws`), 36 pruebas |
@@ -23,6 +23,31 @@ A medias / sin hacer: el modo cooperativo (aplazado a propósito — una sala en
 aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Última sesión
+
+- 2026-08-11 (claude-code): **el air hockey, terminado**. Quinto minijuego
+  entero (`JUEGOS_LISTOS`: fútbol, tenis, vóley, básquet, hockey). Uno contra
+  uno, primero a 5, dos minutos y medio de reloj.
+  Es **el único que no usa la altura**: todo pasa a ras de mesa, y esa es su
+  gracia — es de reflejos, no de parábolas. Y **no tiene botón**: la paleta
+  eres tú y el disco sale al chocar, con lo que llevabas encima sumado. Por eso
+  un disco esperado parado sale flojo y uno que sales a buscar corriendo sale
+  fuerte: hay prueba de las dos cosas.
+  Nadie cruza la línea del medio, como en tenis y vóley.
+  Tres cosas que costaron y quedaron medidas:
+  - **el bot se plantaba a 46 px del disco y el contacto son 42.** Cuatro
+    píxeles de menos: 0-0 para siempre, con las dos paletas mirándolo. Es
+    literalmente el mismo bicho del bot futbolista, y el mismo arreglo — al
+    llegar detrás, apuntar AL ARCO y atravesarlo;
+  - **apunta a un palo, no al centro**: al centro las para todas el que
+    defiende, porque cubre justo esa línea;
+  - **el disco no se queda muerto.** A los 3 s quieto vuelve al centro, y hay
+    reloj. Sin lo primero, dos de cada tres partidos entre máquinas no acababan
+    (3-0 eterno); sin lo segundo, un humano plantado en su arco tampoco los
+    acaba — el disco se mueve, pero nadie marca.
+  Medido con eso: 5-0 y 5-2 en 65-126 s entre máquinas, y todos acaban.
+  Gotcha del HUD, el mismo del fútbol y ya van dos: el hockey **no** es partido
+  para `elPartido()` —no tiene botón que enseñar— pero sí para las tarjetas.
+  Sin eso el marcador salía bien debajo de un cartel que decía "DINERO 2:30".
 
 - 2026-08-11 (claude-code): **el básquet, terminado**. Cuarto minijuego que se
   juega entero (`JUEGOS_LISTOS`: fútbol, tenis, vóley, básquet). **Tres contra

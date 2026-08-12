@@ -899,7 +899,7 @@ const SITIOS: {
   { juego: "carreraObs", rotulo: "LA CARRERA", medida: MED_CARRERA_OBS, donde: "colegio", listo: false },
   { juego: "laberinto", rotulo: "EL LABERINTO", medida: MED_LABERINTO, donde: "colegio", listo: false },
   { juego: "billar", rotulo: "EL BILLAR", medida: MED_BILLAR, donde: "colegio", listo: false },
-  { juego: "hockey", rotulo: "AIR HOCKEY", medida: MED_HOCKEY, donde: "colegio", listo: false },
+  { juego: "hockey", rotulo: "AIR HOCKEY", medida: MED_HOCKEY, donde: "colegio", listo: true },
 ];
 
 /** Los minijuegos que de verdad se juegan de principio a fin. Lo lee también el
@@ -1286,22 +1286,54 @@ export function aLaMesaDeBillar(e: Estado): void {
   for (const p of e.players) { p.x = mesa.x + 40; p.y = cy; p.vx = 0; p.vy = 0; p.stun = 0; p.montado = null; }
 }
 
-/* ---- air hockey ---- */
-const HOCKEY_META = 7;
+/* ---- air hockey ----
+   Una mesa, un disco y dos arcos. Nadie cruza la línea del medio: es la regla
+   del juego de verdad y además es lo que lo hace un duelo de reflejos en vez
+   de un montón de gente persiguiendo un disco. */
+export const MESA_HOCKEY = { w: 1200, h: 700 };
+export const HOCKEY_META = 5, HOCKEY_SAQUE = 1.4, HOCKEY_RELOJ = 150;
+/** Lo que mide la boca del arco y lo hondo que es. */
+const ARCO_HOCKEY = { w: 16, h: 210 };
 
 export function aAirHockey(e: Estado): void {
   const { cx, cy } = centroDelMapa();
-  const mesa = { x: Math.round(cx - 250), y: Math.round(cy - 150), w: 500, h: 300 };
-  const porteros: [Rect, Rect] = [
-    { x: mesa.x, y: cy - 50, w: 10, h: 100 },
-    { x: mesa.x + mesa.w - 10, y: cy - 50, w: 10, h: 100 },
+  const mesa = {
+    x: Math.round(cx - MESA_HOCKEY.w / 2), y: Math.round(cy - MESA_HOCKEY.h / 2),
+    w: MESA_HOCKEY.w, h: MESA_HOCKEY.h,
+  };
+  const ay = Math.round(cy - ARCO_HOCKEY.h / 2);
+  const arcos: [Rect, Rect] = [
+    { x: mesa.x, y: ay, w: ARCO_HOCKEY.w, h: ARCO_HOCKEY.h },
+    { x: mesa.x + mesa.w - ARCO_HOCKEY.w, y: ay, w: ARCO_HOCKEY.w, h: ARCO_HOCKEY.h },
   ];
-  e.hockey = { mesa, porteros, puck: { x: cx, y: cy, vx: 0, vy: 0 }, puntos: [0, 0], meta: HOCKEY_META, ganador: null };
+  e.hockey = {
+    mesa, arcos, puck: { x: cx, y: cy, vx: 0, vy: 0 }, puntos: [0, 0],
+    meta: HOCKEY_META, saque: HOCKEY_SAQUE, sacador: 0, ultimoGol: null,
+    quieto: 0, reloj: HOCKEY_RELOJ, ganador: null,
+  };
   repartirEquipos(e);
-  for (const p of e.players) {
-    const lado = p.equipo === 0 ? -1 : 1;
-    p.x = cx + lado * 160; p.y = cy; p.vx = 0; p.vy = 0; p.stun = 0; p.montado = null;
-  }
+  sacarEnHockey(e);
+}
+
+/** Disco al centro y cada uno en su mitad. */
+export function sacarEnHockey(e: Estado): void {
+  const h = e.hockey;
+  if (!h) return;
+  const m = h.mesa, cx = m.x + m.w / 2, cy = m.y + m.h / 2;
+  h.puck.x = cx; h.puck.y = cy; h.puck.vx = 0; h.puck.vy = 0;
+  h.quieto = 0;
+
+  const porEquipo = [0, 1].map(q => e.players.filter(p => p.equipo === q));
+  porEquipo.forEach((equipo, q) => {
+    const lado = q === 0 ? -1 : 1;
+    equipo.forEach((p, k) => {
+      p.x = cx + lado * (150 + k * 130);
+      p.y = cy + (k - (equipo.length - 1) / 2) * 190;
+      p.vx = 0; p.vy = 0;
+      p.stun = 0;
+      p.montado = null;
+    });
+  });
 }
 
 /* ---- vóley ----

@@ -327,10 +327,44 @@ function aDondeVoyEnBillar(e: Estado, p: Jugador): { x: number; y: number } | nu
   return { x: cue.x - (dx / d) * 30, y: cue.y - (dy / d) * 30 };
 }
 
-/** A dónde va en air hockey: perseguir el puck. */
+/* ---- el bot del air hockey ----
+   Una paleta no persigue el disco: se pone ENTRE el disco y su propio arco, y
+   solo sale a buscarlo cuando ya viene a su campo. Persiguiéndolo se deja el
+   arco abierto y el rival marca por el hueco que acaba de dejar. */
 function aDondeVoyEnHockey(e: Estado, p: Jugador): { x: number; y: number } | null {
-  const h = e.hockey!;
-  return { x: h.puck.x, y: h.puck.y };
+  const h = e.hockey;
+  if (!h) return null;
+  const m = h.mesa, pk = h.puck;
+  const mio = (p.equipo ?? 0) as 0 | 1;
+  const cx = m.x + m.w / 2;
+  const arcoMio = h.arcos[mio], arcoSuyo = h.arcos[1 - mio];
+  const miArcoX = arcoMio.x + arcoMio.w / 2, miArcoY = arcoMio.y + arcoMio.h / 2;
+
+  /* El saque, y el disco muerto en mitad de la mesa: van los dos a por él. Sin
+     esto, en el saque el disco cae justo en la línea, cada uno cree que es del
+     otro y se quedan mirándolo — 0-0 para siempre, medido. */
+  const parado = Math.hypot(pk.vx, pk.vy) < 40 && Math.abs(pk.x - cx) < 130;
+  const suCampo = !parado && h.saque <= 0 && (pk.x < cx ? 0 : 1) !== mio;
+  if (suCampo)
+    return { x: pk.x + (miArcoX - pk.x) * 0.68, y: pk.y + (miArcoY - pk.y) * 0.5 };
+
+  /* Y con el disco de este lado, a pegarle: por DETRÁS, en la línea que va del
+     disco al arco contrario. Es el mismo truco del bot futbolista — yendo al
+     disco lo empujas hacia donde estabas, que es tu propio arco. */
+  /* Y apunta a un PALO, no al centro. Al centro no entra ninguna: el que
+     defiende cubre justo esa línea y las para todas — 0-0 de cinco minutos,
+     medido. El palo va cambiando con el reloj, así que el de enfrente no puede
+     plantarse en un sitio y quedarse. */
+  const palo = Math.sin(e.t * 0.7 + p.idx * 2.1) > 0 ? 0.14 : 0.86;
+  const sx = arcoSuyo.x + arcoSuyo.w / 2, sy = arcoSuyo.y + arcoSuyo.h * palo;
+  const dx = sx - pk.x, dy = sy - pk.y, d = Math.hypot(dx, dy) || 1;
+  const detrasX = pk.x - (dx / d) * 46, detrasY = pk.y - (dy / d) * 46;
+  /* Y al llegar detrás, apunta AL ARCO y no al disco: yendo al disco se planta
+     a 46 px de él —`PEGADO` frena al llegar— y el contacto son 42. Cuatro
+     píxeles de menos y no lo toca nunca. Es literalmente el mismo bicho que
+     dejaba los partidos de fútbol en 0-0 con seis mirando la pelota. */
+  if (dist2(p.x, p.y, detrasX, detrasY) < 76 * 76) return { x: sx, y: sy };
+  return { x: detrasX, y: detrasY };
 }
 
 /* ---- el bot voleibolista ----
@@ -396,13 +430,13 @@ function aDondeVoy(e: Estado, p: Jugador): { x: number; y: number } | null {
   if (e.reglas.modo === "tenis") return aDondeVoyEnElTenis(e, p);
   if (e.reglas.modo === "voley") return aDondeVoyEnVoley(e, p);
   if (e.reglas.modo === "basquet") return aDondeVoyEnBasquet(e, p);
+  if (e.reglas.modo === "hockey") return aDondeVoyEnHockey(e, p);
   if (e.bolos) return aDondeVoyEnBolos(e, p);
   if (e.lucha) return aDondeVoyEnLucha(e, p);
   if (e.dardos) return aDondeVoyEnDardos(e, p);
   if (e.carreraObs) return aDondeVoyEnCarreraObs(e, p);
   if (e.laberinto) return aDondeVoyEnLaberinto(e, p);
   if (e.billar) return aDondeVoyEnBillar(e, p);
-  if (e.hockey) return aDondeVoyEnHockey(e, p);
   /* Corriendo solo existe el siguiente punto de paso. Mira un poco más allá
      para cortar la curva en vez de ir de baliza en baliza como un cono.
 
@@ -514,8 +548,8 @@ export function pensarBot(e: Estado, p: Jugador, dt: number): PlanBot {
                 /* En el tenis, cada dos fotogramas: el sitio donde va a picar
                    cambia con cada bote y con cada golpe, y medio segundo tarde
                    es medio campo tarde. */
-                ((e.reglas.modo === "tenis" || e.reglas.modo === "voley" ||
-                  e.reglas.modo === "basquet") && b.repensar <= REPENSAR - 0.03);
+                (["tenis", "voley", "basquet", "hockey"].includes(e.reglas.modo) &&
+                 b.repensar <= REPENSAR - 0.03);
   if (b.repensar <= 0 || llegó) {
     const meta = aDondeVoy(e, p);
     b.repensar = REPENSAR;
@@ -544,6 +578,9 @@ export function pensarBot(e: Estado, p: Jugador, dt: number): PlanBot {
   const brío = e.reglas.modo === "carrera" ? dificultadDe(e.reglas).rivales
              : e.reglas.modo === "tenis" ? TENIS_BRIO
              : e.reglas.modo === "voley" ? VOLEY_BRIO
+             /* En hockey corre un pelo menos que tú: la paleta llega a casi
+                todo por geometría, y con la misma velocidad no le marcas. */
+             : e.reglas.modo === "hockey" ? 0.82
              : e.bolos ? 0.8
              : e.dardos ? 0.7
              : e.laberinto ? 0.75
