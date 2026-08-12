@@ -421,13 +421,40 @@ export interface Hockey {
   ganador: 0 | 1 | null;
 }
 
+/** Un partido de vóley. Es el esqueleto del tenis con una regla cambiada y
+    otra añadida, y de ahí sale todo lo demás:
+
+    - **la pelota NO puede tocar el suelo**. En tenis un bote es legal; aquí el
+      suelo es el punto. Eso es lo que obliga a jugarla en el aire.
+    - **tres toques por lado**. Con uno solo esto sería tenis sin botes; los
+      tres son lo que convierte el punto en «levantar, colocar, rematar».
+
+    Estaba escrito como un juego de perfil —gravedad hacia abajo en `y`, red
+    horizontal, la pelota cayendo al borde de abajo—, dentro de un juego que se
+    ve DESDE ARRIBA. Ahora la altura va donde va la de todos: en la `z` del
+    trasto, la misma que trajo el fútbol y que usa el tenis. */
 export interface Voley {
   cancha: Rect;
-  redY: number;
-  pelota: { x: number; y: number; vx: number; vy: number };
+  /** La x de la red: parte la cancha en dos mitades, la 0 a la izquierda. */
+  redX: number;
+  redAlto: number;
+  balon: number;
   puntos: [number, number];
   meta: number;
   saque: number;
+  sacador: 0 | 1;
+  /** Quién tocó el último y cuántas veces lleva ese lado. */
+  ultimoToque: 0 | 1 | null;
+  toques: number;
+  /** ¿Ya va camino del otro lado? Entonces deja de ser del lado que la mandó.
+      Sin esto, el que saca puede volver a darle a su propio saque mientras
+      cruza su campo, reapuntarla tarde y dejar al de enfrente sin tiempo: 5-0
+      todas las veces, medido. */
+  enviada: boolean;
+  /** Segundos en los que nadie puede tocarla, tras un toque. Sin esto un solo
+      jugador la ametralla: sale de su mano y vuelve a estar a su alcance. */
+  bloqueo: number;
+  ultimoPunto: { equipo: 0 | 1; motivo: string } | null;
   ganador: 0 | 1 | null;
 }
 

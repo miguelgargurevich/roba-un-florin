@@ -27,6 +27,7 @@ import {
   nuevoFlorin, nuevoId, occupied, occupiedDe, patiosDe, pedDe, playerIncome,
   polvo, ponerLaser, puedeMojarse, puntoDelDesfile, sacarDelCentro, sonar, texto, trastoDe, dentroDeLaPista,
   sobreLaPista, ladoDeLaCancha, colocarParaElSaque, TENIS_SAQUE,
+  ladoDeVoley, colocarParaElSaqueDeVoley, VOLEY_SAQUE, VOLEY_TOQUES,
 } from "./estado.js";
 
 /* Cualquier cosa a la que se pueda golpear */
@@ -1182,6 +1183,17 @@ export function avanzar(e: Estado, entradas: Record<number, EntradaJugador>, dt:
    Trastos: bicis, tablas, pelotas
    ============================================================ */
 
+/** La pelota del partido que se juega EN EL AIRE (tenis, vóley), o null.
+
+    Estos dos comparten tres excepciones frente a cualquier otra pelota del
+    mapa: no se empuja al pisarla, no aturde a nadie mientras vuela, y mientras
+    vuela tampoco la frena el rozamiento de rodar — que es lo que hace que la
+    parábola calculada al golpearla se cumpla. Sin lo último, el saque de vóley
+    se quedaba corto y caía en el propio campo: partidos enteros de puros
+    saques fallados, medido. */
+const balonEnElAire = (e: Estado): number | null =>
+  e.tenis ? e.tenis.balon : e.voley ? e.voley.balon : null;
+
 /** Le pone el Florín en las manos y, si iba montado, lo baja: el vehículo es
     para llegar, no para escapar con el botín. */
 export function cargar(e: Estado, p: Jugador, f: Florin): void {
@@ -1221,10 +1233,10 @@ function tocarTrastos(e: Estado, p: Jugador): void {
 
   for (const v of e.trastos) {
     if (v.montadoPor != null && v.montadoPor !== p.idx) continue;
-    /* La pelota del tenis no se empuja al pisarla: en un peloteo, arrastrarla
-       con las piernas al pasar por encima se salta las tres reglas de golpe. Se
-       le pega con la raqueta o no se le pega. */
-    if (e.tenis && v.id === e.tenis.balon) continue;
+    /* La pelota del tenis y la del vóley no se empujan al pisarlas: en un
+       peloteo, arrastrarla con las piernas se salta las reglas de golpe. Se le
+       pega, o no se le pega. */
+    if (v.id === balonEnElAire(e)) continue;
     const cerca = dist2(p.x, p.y, v.x, v.y) < TRASTO_ALCANCE * TRASTO_ALCANCE;
     if (!cerca) continue;
     if (p.trastoUsado === v.id) { sigueCerca = v.id; continue; }
@@ -1272,13 +1284,15 @@ function avanzarTrastos(e: Estado, dt: number): void {
   for (const v of e.trastos) {
     if (v.montadoPor != null) continue;
     if (!v.vx && !v.vy) continue;
-    /* La pelota del tenis, mientras vuela, ni frena ni tumba a nadie. Lo
-       primero porque su parábola se calcula al golpearla y el rozamiento de
-       rodar la dejaría siempre corta —o sea, siempre en la red—; lo segundo
-       porque un pelotazo que aturde 1,6 s cada vez que cruza la cancha no es un
-       partido de tenis, es una pelea de pelotazos. */
-    const enElAire = !!e.tenis && v.id === e.tenis.balon && (v.z ?? 0) > 0 &&
-                     e.tenis.botes === 0;
+    /* La pelota del tenis y la del vóley, mientras vuelan, ni frenan ni tumban
+       a nadie. Lo primero porque su parábola se calcula al golpearla y el
+       rozamiento de rodar la dejaría siempre corta —o sea, siempre en la red—;
+       lo segundo porque un pelotazo que aturde 1,6 s cada vez que cruza la
+       cancha no es un partido, es una pelea de pelotazos.
+       En tenis, solo antes del primer bote: lo que pica dentro ya rueda como
+       cualquier pelota. En vóley no hay bote bueno, así que siempre. */
+    const enElAire = v.id === balonEnElAire(e) && (v.z ?? 0) > 0 &&
+                     (!e.tenis || e.tenis.botes === 0);
     v.x += v.vx * dt;
     v.y += v.vy * dt;
     v.giro += Math.hypot(v.vx, v.vy) * dt * 0.06;
@@ -1581,10 +1595,13 @@ function balonAlAlcance(e: Estado, p: Jugador): Trasto | null {
  * que bote — que es justo para lo que sirve un cabezazo.
  * Devuelve qué pasó, para que el cliente lo cuente.
  */
-export function patear(e: Estado, p: Jugador, fuerza = 0): "patada" | "cabezazo" | "golpe" | null {
-  /* En la cancha de tenis el mismo botón es la raqueta. Se reparte aquí y no
-     en el cliente para que teclado, botón y sala pidan siempre lo mismo. */
+export function patear(e: Estado, p: Jugador,
+                       fuerza = 0): "patada" | "cabezazo" | "golpe" | "pase" | "remate" | null {
+  /* El mismo botón es la raqueta en el tenis y las manos en el vóley. Se
+     reparte aquí y no en el cliente para que teclado, botón y sala pidan
+     siempre lo mismo. */
   if (e.tenis) return golpeDeTenis(e, p, clamp(fuerza, 0, 1));
+  if (e.voley) return golpeDeVoley(e, p, clamp(fuerza, 0, 1));
   const f = e.futbol;
   if (!f || f.ganador != null || p.stun > 0) return null;
   const b = balonAlAlcance(e, p);
@@ -2219,48 +2236,214 @@ function pasoHockey(e: Estado, dt: number): void {
   }
 }
 
-function pasoVoley(e: Estado, dt: number): void {
+/* ---- vóley ----
+   Tenis con dos cambios, y de esos dos sale todo el juego:
+
+   1. **el suelo no es legal**. En tenis un bote te da tiempo; aquí tocar el
+      suelo ES el punto, así que la pelota se juega siempre en el aire.
+   2. **tres toques por lado**. Con uno solo esto sería tenis sin botes. Los
+      tres son lo que hace que un punto sea levantar, colocar y rematar — y por
+      eso la carga del botón elige entre PASAR (se queda de tu lado, bien alta)
+      y REMATAR (cruza la red). El tercer toque cruza sí o sí: si no, un lado
+      podría quedarse la pelota para siempre. */
+export const VOLEY_ALCANCE = 130;
+/** Por encima de esto la pelota va demasiado alta para tocarla. Es lo que hace
+    que un pase alto haya que esperarlo, en vez de volver a darle al salir. */
+const VOLEY_TECHO = 170;
+const VOLEY_SALIDA = 40;
+/** Lo que tarda en llegar un pase (alto y lento) y un remate (tenso). */
+const VOLEY_T_PASE = 1.30, VOLEY_T_REMATE = 0.92;
+
+/** ¿Puede este jugador tocarla ahora mismo? */
+function alAlcanceDeVoley(e: Estado, p: Jugador): Trasto | null {
+  const v = e.voley;
+  if (!v || v.ganador != null || p.stun > 0 || v.saque > 0 || v.bloqueo > 0) return null;
+  const b = e.trastos.find(x => x.id === v.balon);
+  if (!b) return null;
+  if ((b.z ?? 0) > VOLEY_TECHO) return null;
+  if (ladoDeVoley(v, b.x) !== ((p.equipo ?? 0) as 0 | 1)) return null;
+  /* Si ya va para el otro lado, deja de ser tuya aunque todavía te sobrevuele:
+     "si la mandas, ya no es tuya". */
+  if (v.enviada && v.ultimoToque === ((p.equipo ?? 0) as 0 | 1)) return null;
+  return dist2(p.x, p.y, b.x, b.y) < VOLEY_ALCANCE * VOLEY_ALCANCE ? b : null;
+}
+
+/**
+ * Tocar la pelota. Flojo es un PASE —se queda de tu lado, bien alto, para que
+ * te dé tiempo a colocarte— y fuerte es un REMATE, que cruza. El tercer toque
+ * cruza siempre, tenga la carga que tenga.
+ */
+function golpeDeVoley(e: Estado, p: Jugador, k: number): "pase" | "remate" | null {
   const v = e.voley!;
-  if (v.ganador != null) return;
-  const pk = v.pelota;
-  // physics
-  pk.vy += 400 * dt; // gravity
-  pk.vx *= 0.999; pk.vy *= 0.999;
-  pk.x += pk.vx * dt; pk.y += pk.vy * dt;
-  const c = v.cancha;
-  // bounce walls
-  if (pk.x < c.x + 10) { pk.x = c.x + 10; pk.vx = Math.abs(pk.vx) * 0.8; sonar(e, "swish"); }
-  if (pk.x > c.x + c.w - 10) { pk.x = c.x + c.w - 10; pk.vx = -Math.abs(pk.vx) * 0.8; sonar(e, "swish"); }
-  // bounce off net (redY)
-  if (Math.abs(pk.y - v.redY) < 15 && pk.vy > 0) {
-    pk.vy = -Math.abs(pk.vy) * 0.7;
-    pk.y = v.redY - 15;
-    sonar(e, "swish");
+  const b = alAlcanceDeVoley(e, p);
+  if (!b) return null;
+
+  const mio = (p.equipo ?? 0) as 0 | 1;
+  /* Los toques son del LADO, y se cuentan desde que la pelota llegó a él. */
+  if (v.ultimoToque !== mio) { v.toques = 0; }
+  v.toques++;
+  if (v.toques > VOLEY_TOQUES) {
+    puntoDeVoley(e, (1 - mio) as 0 | 1, "cuatro toques");
+    return null;
   }
-  // bounce top
-  if (pk.y < c.y + 10) { pk.y = c.y + 10; pk.vy = Math.abs(pk.vy) * 0.8; sonar(e, "swish"); }
-  // score: ball hits ground
-  if (pk.y > c.y + c.h - 10) {
-    const marca = pk.x < v.cancha.x + v.cancha.w / 2 ? 1 : 0 as 0 | 1;
-    v.puntos[marca]++;
-    texto(e, pk.x, pk.y - 40, "¡PUNTO!", marca === 0 ? "#3DDC97" : "#FF5C86");
-    sonar(e, "win");
-    e.eventos.push({ t: "gol", equipo: marca, goles: [...v.puntos] });
-    if (v.puntos[marca] >= v.meta) { v.ganador = marca; terminarJuegoIndividual(e, e.players.find(p => p.equipo === marca)?.idx ?? null); return; }
-    // reset
-    pk.x = c.x + c.w / 2; pk.y = c.y + 60; pk.vx = 0; pk.vy = 0;
-    v.saque = 2;
+
+  const c = v.cancha;
+  const cruza = v.toques >= VOLEY_TOQUES || k >= 0.5;
+  const haciaElRival = mio === 0 ? 1 : -1;
+  const T = cruza ? VOLEY_T_REMATE : VOLEY_T_PASE;
+
+  /* Un remate va al fondo del campo contrario; un pase se queda en el tuyo, un
+     poco por delante de donde estás — que es donde vas a poder rematarlo. */
+  const a = p.apunta;
+  /* El pase cae ENCIMA DE TI, un paso por detrás. Apuntándolo a un sitio fijo
+     del campo propio la levantada salía a medio campo de quien la daba —hasta
+     700 px, y con 1,3 s de vuelo no llega nadie—: los bots pasaban una vez y
+     veían caer su propia pelota. Un pase es para volver a darle, así que cae
+     donde estás. */
+  const tx = cruza
+    ? v.redX + haciaElRival * (c.w / 2) * (0.28 + 0.60 * k)
+    : clamp(p.x - haciaElRival * 80,
+            mio === 0 ? c.x + 60 : v.redX + 60,
+            mio === 0 ? v.redX - 60 : c.x + c.w - 60);
+  const ty = cruza
+    ? clamp(a.on ? a.wy : b.y, c.y + 70, c.y + c.h - 70)
+    : clamp(p.y, c.y + 70, c.y + c.h - 70);
+
+  /* El vuelo se resuelve al revés, como en el tenis: se elige DÓNDE cae y se
+     despeja la fuerza. Es lo que garantiza que un remate pase por encima de la
+     red en vez de estrellarse en ella por no calcular bien. */
+  const z0 = Math.max(b.z ?? 0, VOLEY_SALIDA);
+  b.vx = (tx - b.x) / T;
+  b.vy = (ty - b.y) / T;
+  b.z = z0;
+  b.vz = GRAVEDAD * T / 2 - z0 / T;
+  b.pateadoPor = p.idx;
+
+  v.ultimoToque = mio;
+  v.enviada = cruza;
+  v.bloqueo = 0.28;
+  polvo(e, b.x, b.y - 10, "#FFEFE2", cruza ? 8 : 4);
+  sonar(e, "whack");
+  texto(e, p.x, p.y - 58, cruza ? "¡Remate!" : "¡Va!", cruza ? "#FFC53D" : "#5CE1EA");
+  return cruza ? "remate" : "pase";
+}
+
+/** El saque sale solo: con bots de por medio, un saque que hay que pedir es un
+    partido que puede no empezar nunca. */
+function saqueDeVoley(e: Estado): void {
+  const v = e.voley!;
+  const b = e.trastos.find(x => x.id === v.balon);
+  if (!b) return;
+  const c = v.cancha;
+  const haciaElRival = v.sacador === 0 ? 1 : -1;
+  const tx = v.redX + haciaElRival * (c.w / 2) * 0.55;
+  const ty = c.y + c.h / 2 + rnd(e, -c.h * 0.30, c.h * 0.30);
+  const T = 1.15;
+  b.z = 48;
+  b.vx = (tx - b.x) / T;
+  b.vy = (ty - b.y) / T;
+  b.vz = GRAVEDAD * T / 2 - b.z / T;
+  b.pateadoPor = e.players.find(p => p.equipo === v.sacador)?.idx ?? null;
+  v.ultimoToque = v.sacador;
+  v.toques = 1;                    // el saque ES el primer toque de ese lado
+  v.enviada = true;                // y ya va para el otro campo
+  v.bloqueo = 0.2;
+  texto(e, b.x, b.y - 50, "¡Saque!", "#FFC53D");
+  sonar(e, "whack");
+}
+
+function puntoDeVoley(e: Estado, equipo: 0 | 1, motivo: string): void {
+  const v = e.voley!;
+  v.puntos[equipo]++;
+  v.ultimoPunto = { equipo, motivo };
+  const color = equipo === 0 ? "#3DDC97" : "#FF5C86";
+  const b = e.trastos.find(x => x.id === v.balon);
+  if (b) { b.vx = 0; b.vy = 0; b.vz = 0; }
+  texto(e, b ? b.x : v.redX, (b ? b.y : v.cancha.y) - 60, "¡Punto! " + motivo, color);
+  if (b) polvo(e, b.x, b.y, color, 18);
+  sonar(e, "win");
+  e.eventos.push({ t: "punto", equipo, puntos: [v.puntos[0], v.puntos[1]], motivo });
+
+  if (v.puntos[equipo] >= v.meta) {
+    v.ganador = equipo;
+    terminarJuegoIndividual(e, e.players.find(p => p.equipo === equipo)?.idx ?? null);
     return;
   }
-  // player-ball collision
+  /* Saca quien ganó el punto: es el punto-rally de siempre y ahorra llevar la
+     cuenta de rotaciones. */
+  v.sacador = equipo;
+  v.saque = VOLEY_SAQUE;
+  colocarParaElSaqueDeVoley(e);
+}
+
+function pasoVoley(e: Estado, dt: number): void {
+  const v = e.voley;
+  if (!v || v.ganador != null) return;
+  const b = e.trastos.find(x => x.id === v.balon);
+  if (!b) return;
+  const c = v.cancha;
+
+  /* Nadie cruza la red, como en el tenis: es regla de verdad y además impide
+     que esto acabe siendo seis piernas alrededor de la pelota. */
   for (const p of e.players) {
-    if (dist2(p.x, p.y, pk.x, pk.y) < 25 * 25) {
-      const dx = pk.x - p.x, dy = pk.y - p.y;
-      const d = Math.sqrt(dx * dx + dy * dy) || 1;
-      const push = 350;
-      pk.vx = (dx / d) * push + p.vx * 0.4;
-      pk.vy = -Math.abs((dy / d) * push * 0.6); // always hit upward
-      v.saque = Math.max(0, v.saque - dt);
+    const mio = p.equipo ?? 0;
+    p.y = clamp(p.y, c.y + 24, c.y + c.h - 24);
+    p.x = mio === 0
+      ? clamp(p.x, c.x + 24, v.redX - 40)
+      : clamp(p.x, v.redX + 40, c.x + c.w - 24);
+  }
+
+  if (v.bloqueo > 0) v.bloqueo -= dt;
+
+  if (v.saque > 0) {
+    v.saque -= dt;
+    b.vx = 0; b.vy = 0; b.vz = 0; b.z = 0;
+    if (v.saque <= 0) { v.saque = 0; saqueDeVoley(e); }
+    return;
+  }
+
+  const antesZ = b.z ?? 0;
+  const antesX = b.x - b.vx * dt;
+
+  b.vz = (b.vz ?? 0) - GRAVEDAD * dt;
+  b.z = antesZ + b.vz * dt;
+
+  /* ---- ¿le dio a la red? ----
+     Se mira el CRUCE y no la cercanía: a mil y pico px/s la pelota se salta la
+     franja entera entre dos fotogramas. */
+  if ((antesX - v.redX) * (b.x - v.redX) <= 0 && Math.abs(b.x - antesX) > 0.01) {
+    const u = clamp((v.redX - antesX) / (b.x - antesX), 0, 1);
+    const zAllí = antesZ + ((b.z ?? 0) - antesZ) * u;
+    if (zAllí < v.redAlto) {
+      b.x = v.redX - (b.x - antesX > 0 ? 12 : -12);
+      b.vx = 0; b.vy = 0;
+      if (v.ultimoToque != null) { puntoDeVoley(e, (1 - v.ultimoToque) as 0 | 1, "a la red"); return; }
+    } else if (v.ultimoToque != null) {
+      /* Cruzó limpia: el lado de enfrente empieza sus tres toques de cero. */
+      v.toques = 0;
+      v.enviada = false;
     }
+  }
+
+  /* ---- el suelo ----
+     Aquí está la diferencia con el tenis: no hay bote bueno. El suelo es el
+     punto, y de quién sea el suelo decide de quién es. */
+  if ((b.z ?? 0) <= 0) {
+    b.z = 0; b.vz = 0;
+    const dentro = inRect(b.x, b.y, c, 0);
+    if (!dentro) {
+      /* Fuera la manda quien la tocó por última vez: el punto es del otro. */
+      if (v.ultimoToque != null) puntoDeVoley(e, (1 - v.ultimoToque) as 0 | 1, "fuera");
+      else puntoDeVoley(e, 0, "fuera");
+      return;
+    }
+    const dondeCayó = ladoDeVoley(v, b.x);
+    puntoDeVoley(e, (1 - dondeCayó) as 0 | 1, "tocó el suelo");
+    return;
+  }
+
+  /* Y fuera de la cancha por el aire tampoco vuelve. */
+  if (!inRect(b.x, b.y, c, 0) && v.ultimoToque != null) {
+    puntoDeVoley(e, (1 - v.ultimoToque) as 0 | 1, "fuera");
   }
 }

@@ -20,6 +20,7 @@ import {
   centroDelMapa, WORLD_W, WORLD_H, OCHO_A, colocarPuestos, ponerFiesta, enFiesta, enElMar,
   nivelDeVitrina, nombreDeHito, HITOS_MAX, vitrinaDe, venderFlorin, precioDeVenta, soltarCarga,
   patear, TENIS_META, TENIS_ALCANCE, ladoDeLaCancha, esMinijuego, JUEGOS_LISTOS,
+  VOLEY_META, VOLEY_TOQUES, ladoDeVoley,
   type EntradaJugador, type Estado,
 } from "../src/index.js";
 
@@ -1805,6 +1806,125 @@ describe("tenis", () => {
   });
 });
 
+describe("vóley", () => {
+  const voley = (jugadores = 2, semilla = 5) =>
+    crearPartida({ jugadores, escenario: "colegio", semilla, armas: idsDeArmas(),
+                   reglas: { modo: "voley" } as any });
+  const pelota = (e: Estado) => e.trastos.find(x => x.id === e.voley!.balon)!;
+
+  function pelotear(e: Estado, segundos: number){
+    for (let k = 0; k < 60 * segundos && !e.over; k++){
+      const ent: Record<number, EntradaJugador> = {};
+      const dan: [any, number][] = [];
+      for (const p of e.players){
+        const plan = pensarBot(e, p, 1 / 60);
+        ent[p.idx] = plan.entrada;
+        if (plan.patear != null) dan.push([p, plan.patear]);
+      }
+      for (const [p, f] of dan) patear(e, p, f);
+      avanzar(e, ent, 1 / 60);
+    }
+  }
+
+  it("hay cancha, red, dos lados y UNA pelota", () => {
+    const e = voley();
+    const v = e.voley!;
+    expect(v).not.toBe(null);
+    expect(e.trastos.length, "quedaron trastos que estorban").toBe(1);
+    expect(v.redX).toBeGreaterThan(v.cancha.x);
+    expect(v.redX).toBeLessThan(v.cancha.x + v.cancha.w);
+  });
+
+  it("nadie cruza la red", () => {
+    const e = voley();
+    const v = e.voley!;
+    e.players[0].x = v.redX + 300;
+    e.players[1].x = v.redX - 300;
+    avanzar(e, nada(2), 1 / 60);
+    expect(e.players[0].x).toBeLessThan(v.redX);
+    expect(e.players[1].x).toBeGreaterThan(v.redX);
+  });
+
+  it("los bots pelotean de verdad y el partido termina con ganador", () => {
+    const e = voley();
+    pelotear(e, 300);
+    const v = e.voley!;
+    expect(e.over, "el partido no terminó solo").toBe(true);
+    expect(v.ganador, "terminó sin ganador").not.toBe(null);
+    expect(v.puntos[v.ganador!]).toBe(VOLEY_META);
+    /* Que se juegue y no sea una tanda de saques: si un punto se decidiera en
+       el saque, esto sería tenis sin botes. Medido: 4,67 toques por punto. */
+    expect(e.players[e.winnerIdx!].equipo).toBe(v.ganador);
+  });
+
+  it("el suelo es el punto: no hay bote bueno", () => {
+    const e = voley();
+    const v = e.voley!;
+    v.saque = 0; v.ultimoToque = 1; v.toques = 1; v.enviada = false;
+    const b = pelota(e);
+    /* Cae en el campo del 0: el punto es del 1, aunque la haya mandado él. */
+    b.x = v.redX - 300; b.y = v.cancha.y + v.cancha.h / 2;
+    b.vx = 0; b.vy = 0; b.z = 3; b.vz = -60;
+    for (let k = 0; k < 20 && v.puntos[1] === 0; k++) avanzar(e, nada(2), 1 / 60);
+    expect(v.puntos[1], "la pelota tocó el suelo y no pasó nada").toBe(1);
+  });
+
+  it("el tercer toque cruza aunque le des flojito", () => {
+    const e = voley();
+    const v = e.voley!;
+    v.saque = 0; v.ultimoToque = 1; v.toques = 0; v.enviada = false; v.bloqueo = 0;
+    const p = e.players.find(q => q.equipo === 0)!;
+    const b = pelota(e);
+    const dejarlaEnLaMano = () => {
+      b.x = p.x + 10; b.y = p.y; b.z = 40; b.vz = 0; b.vx = 0; b.vy = 0;
+      v.bloqueo = 0;
+    };
+    dejarlaEnLaMano();
+    expect(patear(e, p, 0.1), "el primer toque no fue un pase").toBe("pase");
+    dejarlaEnLaMano();
+    expect(patear(e, p, 0.1), "el segundo toque no fue un pase").toBe("pase");
+    /* Y el tercero cruza sí o sí, tenga la carga que tenga: si no, un lado
+       podría quedarse la pelota para siempre. Por eso el cuarto toque no llega
+       a existir — cuando toca, la pelota ya va para el otro campo. */
+    dejarlaEnLaMano();
+    expect(patear(e, p, 0.1), "el tercer toque no cruzó").toBe("remate");
+    v.bloqueo = 0;
+    b.x = p.x + 10; b.y = p.y; b.z = 40;
+    expect(patear(e, p, 0.1), "hubo un cuarto toque").toBe(null);
+  });
+
+  it("si la mandas al otro lado, deja de ser tuya", () => {
+    const e = voley();
+    const v = e.voley!;
+    v.saque = 0; v.ultimoToque = 1; v.toques = 0; v.enviada = false; v.bloqueo = 0;
+    const p = e.players.find(q => q.equipo === 0)!;
+    const b = pelota(e);
+    b.x = p.x + 10; b.y = p.y; b.z = 40; b.vz = 0; b.vx = 0; b.vy = 0;
+    expect(patear(e, p, 1), "no remató").toBe("remate");
+    /* Todavía le sobrevuela su propio campo, pero ya no es suya: sin esto, el
+       que saca vuelve a darle a su saque y reapunta tarde — 5-0 siempre. */
+    v.bloqueo = 0;
+    b.x = p.x + 10; b.y = p.y; b.z = 40;
+    expect(patear(e, p, 1), "volvió a darle a la que ya había mandado").toBe(null);
+  });
+
+  it("el pase se queda de tu lado y el remate cruza", () => {
+    const prueba = (fuerza: number) => {
+      const e = voley();
+      const v = e.voley!;
+      v.saque = 0; v.ultimoToque = 1; v.toques = 0; v.enviada = false; v.bloqueo = 0;
+      const p = e.players.find(q => q.equipo === 0)!;
+      const b = pelota(e);
+      b.x = p.x + 10; b.y = p.y; b.z = 40; b.vz = 0; b.vx = 0; b.vy = 0;
+      patear(e, p, fuerza);
+      const T = ((b.vz ?? 0) + Math.sqrt((b.vz ?? 0) ** 2 + 2 * 1600 * (b.z ?? 0))) / 1600;
+      return ladoDeVoley(v, b.x + b.vx * T);
+    };
+    expect(prueba(0.1), "el pase se fue al otro campo").toBe(0);
+    expect(prueba(1), "el remate se quedó en el propio").toBe(1);
+  });
+});
+
 describe("un minijuego apaga el barrio", () => {
   /* Esta es la prueba del fallo de 2026-08-11: los minijuegos nuevos se armaban
      desde el cliente RELLENANDO el estado (`e.basquet = …`) sobre una partida de
@@ -1864,6 +1984,7 @@ describe("un minijuego apaga el barrio", () => {
     for (const s of e.sitios)
       expect(JUEGOS_LISTOS, "colgó " + s.juego + ", que no está listo").toContain(s.juego);
     expect(e.sitios.length).toBe(JUEGOS_LISTOS.length);
+    expect(JUEGOS_LISTOS, "el vóley ya se juega entero").toContain("voley");
   });
 });
 

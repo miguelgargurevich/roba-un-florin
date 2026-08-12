@@ -8,7 +8,7 @@ Monorepo con workspaces npm:
 
 | Paquete | Qué es |
 |---|---|
-| `packages/engine` | el juego sin navegador: determinista, JSON serializable, 197 pruebas |
+| `packages/engine` | el juego sin navegador: determinista, JSON serializable, 204 pruebas |
 | `apps/web` | el cliente (Vite + canvas 2D). Solo dibuja y escucha teclas |
 | `apps/api` | cuentas, álbum, guardado, fiestas y avisos (.NET 9, Clean Arch + CQRS), 47 pruebas |
 | `apps/salas` | servidor de salas autoritativo (Node + `ws`), 36 pruebas |
@@ -23,6 +23,40 @@ A medias / sin hacer: el modo cooperativo (aplazado a propósito — una sala en
 aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Última sesión
+
+- 2026-08-11 (claude-code): **el vóley, terminado**. Es el tercer minijuego que
+  se juega entero, y salió barato porque es el esqueleto del tenis con **una
+  regla menos y una más**:
+  - **el suelo no es legal**. En tenis un bote te da tiempo; aquí tocar el suelo
+    ES el punto. Eso es lo que obliga a jugarla siempre en el aire.
+  - **tres toques por lado**. Con uno solo esto sería tenis sin botes. Los tres
+    son lo que convierte el punto en levantar–colocar–rematar, y por eso la
+    carga del botón elige entre PASAR (se queda de tu lado, bien alto, cayendo
+    encima de ti) y REMATAR (cruza). **El tercer toque cruza sí o sí**: si no,
+    un lado podría quedarse la pelota para siempre.
+  Estaba escrito como un juego **de perfil** —gravedad hacia abajo en `y`, red
+  horizontal, la pelota cayendo al borde de abajo— dentro de un juego que se ve
+  desde arriba, y con los equipos partidos izquierda/derecha contra una red
+  horizontal. Ahora la altura va donde va la de todos: en la `z` del trasto, la
+  misma que trajo el fútbol y usa el tenis.
+  Lo que hubo que medir para que fuera un partido y no una tanda de saques:
+  - **el rozamiento**. La excepción de "mientras vuela no la frena el roce"
+    estaba escrita solo para el tenis; en vóley el saque se quedaba corto y caía
+    en su propio campo: partidos enteros de saques fallados, 4-5 con CERO toques.
+  - **"si la mandas, ya no es tuya"** (`enviada`). Sin eso, el que sacaba volvía
+    a darle a su propio saque mientras le sobrevolaba su campo, la reapuntaba
+    tarde y el de enfrente no llegaba nunca: 5-0 en todas las semillas.
+  - **el pase cae encima de ti**, no en un punto fijo del campo. Apuntado a un
+    sitio fijo, la levantada salía a medio campo de quien la daba —hasta 700 px,
+    con 1,3 s de vuelo— y los bots veían caer su propia pelota.
+  Medido con eso: **4-5 en 70 s con 4,67 toques por punto** en individual, y
+  5-4 / 4-5 en metro y medio de minuto con 7,8 toques por punto en dobles.
+  El bot es el del tenis con otra cabeza: se pone donde va a caer, levanta la
+  primera y remata la segunda, y corre al 0,68 como el tenista.
+  `JUEGOS_LISTOS` ya son tres (fútbol, tenis, vóley): la cancha aparece sola en
+  el patio del colegio, en su zona del Multiverso y en el menú.
+  De los que siguen a medias —básquet, bolos, lucha, dardos, carrera,
+  laberinto, billar, hockey— no ha cambiado nada: siguen con `listo: false`.
 
 - 2026-08-11 (claude-code): **arreglado el cruce entre el patio y los
   minijuegos**. Los nueve minijuegos nuevos (básquet, bolos, lucha, dardos,

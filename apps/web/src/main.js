@@ -21,7 +21,7 @@ import {
   puestoDe, puestosDeCarrera, VUELTAS, CIRCUITOS, pensarBot, GARAJE, VEHICULOS,
   fundir, queSaleDeFundir,
   TRASTOS_ESCENARIO, darleVehiculo, esEspecial, ANCHO_PISTA, aparcarNuevo, comprarPatio,
-  ponerFiesta, enFiesta, patear, TENIS_META, JUEGOS_LISTOS,
+  ponerFiesta, enFiesta, patear, TENIS_META, JUEGOS_LISTOS, VOLEY_META, VOLEY_TOQUES,
   usarPotenciador, potenciadoresDe, potenciadorPorId,
   soltarCarga, trastoDe,
   venderFlorin,
@@ -391,14 +391,14 @@ window.addEventListener("keydown", e => {
   if (k === "x") usarMiItem();       // la E ya cambia de arma
   /* La B abre el álbum… salvo en un partido, donde es la de patear: a media
      pichanga nadie quiere el álbum, y el que lo quiera tiene el botón 📖. */
-  if (k === "b" && !(G && (G.futbol || G.tenis)))
+  if (k === "b" && !elPartido())
     { if (document.getElementById("album").hidden) abrirAlbum(); else cerrarAlbum(); }
   if (k === "t") togglePanel("arm");
   if (k === "r") togglePanel("rul");
   if (k === "escape" && !document.getElementById("album").hidden) cerrarAlbum();
   if (k === "escape" && !elTienda.hidden) cerrarTienda();
   /* En teclado se patea con B, aguantándola para cargar. */
-  if (k === "b" && G && (G.futbol || G.tenis) && G.started && !G.over && !pateo.desde)
+  if (k === "b" && elPartido() && G.started && !G.over && !pateo.desde)
     pateo.desde = performance.now();
   if (k === "escape" && !document.getElementById("salirAviso").hidden) cerrarSalir();
   if (k >= "1" && k <= "9") elegirArma(+k - 1);
@@ -1030,6 +1030,12 @@ for (const t of ["pointerup", "pointercancel"]) window.addEventListener(t, joyEn
 window.addEventListener("blur", () => joyEnd({ pointerId: joy.id }));
 
 /* Botón de arma: un toque lanza hacia donde caminas; si arrastras, apuntas */
+/* El partido que se esté jugando en una cancha, o null. Los tres (fútbol,
+   tenis, vóley) tienen `cancha` y equipos, y el HUD, la cámara y las camisetas
+   solo necesitan eso. Preguntar `G.futbol || G.tenis || …` en quince sitios es
+   como se olvida el decimosexto. */
+const elPartido = () => (G && (G.futbol || G.tenis || G.voley)) || null;
+
 /* ---- patear ----
    Un toque la empuja; aguantando, se carga y sale el pelotazo. Pasado cierto
    punto el balón sale POR EL AIRE, y ahí es donde aparecen los centros — y los
@@ -1051,7 +1057,7 @@ function soltarPateo(){
   pateo.desde = 0; pateo.id = null;
   elPateo.querySelector(".carga b").style.width = "0%";
   if (sala) sala.patear(f);
-  else if (G && (G.futbol || G.tenis)) patear(G, G.player, f);
+  else if (elPartido()) patear(G, G.player, f);
   Snd.unlock();
 }
 elPateo.addEventListener("pointerdown", e => {
@@ -8743,32 +8749,43 @@ function drawCanchita(){
 function dibujarSitio(sitio){
   const c = sitio.rect;
   const esTenis = sitio.juego === "tenis";
+  const esVoley = sitio.juego === "voley";
+  const conRed = esTenis || esVoley;
   ctx.save();
   /* La superficie dice a qué se juega antes de leer el cartel: césped y arcos
      de fierro para la pichanga, tierra y red para el tenis. Dos canchas verdes
      con arcos, una al lado de la otra, se leerían como una sola partida en dos. */
-  ctx.fillStyle = esTenis ? "rgba(193,102,63,.62)" : "rgba(94,154,82,.55)";
+  ctx.fillStyle = esTenis ? "rgba(193,102,63,.62)"
+                : esVoley ? "rgba(224,190,132,.62)"
+                : "rgba(94,154,82,.55)";
   ctx.fillRect(c.x, c.y, c.w, c.h);
   ctx.strokeStyle = "rgba(255,255,255,.7)"; ctx.lineWidth = 5;
   ctx.strokeRect(c.x, c.y, c.w, c.h);
   ctx.beginPath();
   ctx.moveTo(c.x + c.w/2, c.y); ctx.lineTo(c.x + c.w/2, c.y + c.h); ctx.stroke();
 
-  if (esTenis){
+  if (conRed){
     // la red, con su cinta blanca arriba
     ctx.fillStyle = "rgba(28,20,26,.55)";
     ctx.fillRect(c.x + c.w/2 - 5, c.y - 8, 10, c.h + 16);
     ctx.fillStyle = "#F3EAF0";
     ctx.fillRect(c.x + c.w/2 - 8, c.y - 11, 16, 6);
     ctx.fillRect(c.x + c.w/2 - 8, c.y + c.h + 5, 16, 6);
-    // los cuadros de saque, que es lo que hace que se lea como cancha de tenis
+    /* Las rayas de dentro son lo que distingue una cancha de otra de un
+       vistazo: cuadros de saque en el tenis, líneas de ataque en el vóley. */
     ctx.strokeStyle = "rgba(255,255,255,.55)"; ctx.lineWidth = 3;
-    const pas = c.h * 0.12, saq = c.w * 0.24;
     ctx.beginPath();
-    ctx.moveTo(c.x, c.y + pas); ctx.lineTo(c.x + c.w, c.y + pas);
-    ctx.moveTo(c.x, c.y + c.h - pas); ctx.lineTo(c.x + c.w, c.y + c.h - pas);
-    ctx.moveTo(c.x + c.w/2 - saq, c.y + pas); ctx.lineTo(c.x + c.w/2 - saq, c.y + c.h - pas);
-    ctx.moveTo(c.x + c.w/2 + saq, c.y + pas); ctx.lineTo(c.x + c.w/2 + saq, c.y + c.h - pas);
+    if (esVoley){
+      const at = c.w * 0.17;
+      ctx.moveTo(c.x + c.w/2 - at, c.y); ctx.lineTo(c.x + c.w/2 - at, c.y + c.h);
+      ctx.moveTo(c.x + c.w/2 + at, c.y); ctx.lineTo(c.x + c.w/2 + at, c.y + c.h);
+    } else {
+      const pas = c.h * 0.12, saq = c.w * 0.24;
+      ctx.moveTo(c.x, c.y + pas); ctx.lineTo(c.x + c.w, c.y + pas);
+      ctx.moveTo(c.x, c.y + c.h - pas); ctx.lineTo(c.x + c.w, c.y + c.h - pas);
+      ctx.moveTo(c.x + c.w/2 - saq, c.y + pas); ctx.lineTo(c.x + c.w/2 - saq, c.y + c.h - pas);
+      ctx.moveTo(c.x + c.w/2 + saq, c.y + pas); ctx.lineTo(c.x + c.w/2 + saq, c.y + c.h - pas);
+    }
     ctx.stroke();
   } else {
     ctx.beginPath(); ctx.arc(c.x + c.w/2, c.y + c.h/2, 78, 0, 6.283); ctx.stroke();
@@ -8788,7 +8805,7 @@ function dibujarSitio(sitio){
 
   // el cartel
   const dentro = G.player.enSitio === sitio.juego;
-  const ico = esTenis ? "🎾" : "⚽";
+  const ico = esTenis ? "🎾" : esVoley ? "🏐" : "⚽";
   const rot = dentro ? ico + " TOCA EL BOTÓN Y SE ARMA" : ico + " " + sitio.rotulo;
   const lw = rot.length * 11 + 30;
   /* El cartel va DENTRO del borde de arriba, no encima. Fuera se choca con lo
@@ -9130,30 +9147,51 @@ function drawHockey(){
   ctx.restore();
 }
 
-/* ---- la cancha de voley ---- */
-function drawVoley(){
+/* ---- la cancha de vóley ----
+   Arena, la red en medio y las dos líneas de ataque. La pelota NO se pinta
+   aquí: es un trasto como la del fútbol y la del tenis, así que ya la dibuja
+   `drawTrastos` con su sombra y su altura — que es justo lo que hay que ver en
+   un juego donde el suelo es el punto. */
+function drawCanchaVoley(){
   const v = G.voley;
   if (!v) return;
   const c = v.cancha;
   ctx.save();
-  // cancha
-  ctx.fillStyle = "rgba(193,102,63,.5)";
+
+  ctx.fillStyle = "#E0BE84";                     // arena
   ctx.fillRect(c.x, c.y, c.w, c.h);
-  ctx.strokeStyle = "rgba(255,255,255,.7)"; ctx.lineWidth = 4;
+  ctx.fillStyle = "rgba(198,158,98,.30)";
+  for (let i = 0; i < 32; i++){
+    const x = azEntre(i + 620, c.x, c.x + c.w), y = azEntre(i + 733, c.y, c.y + c.h);
+    ctx.beginPath();
+    ctx.ellipse(x, y, 20 + az(i) * 30, 10 + az(i + 5) * 14, az(i) * 3, 0, 6.283);
+    ctx.fill();
+  }
+
+  ctx.strokeStyle = "rgba(255,255,255,.9)"; ctx.lineWidth = 6;
   ctx.strokeRect(c.x, c.y, c.w, c.h);
-  // línea central
-  ctx.beginPath(); ctx.moveTo(c.x + c.w/2, c.y); ctx.lineTo(c.x + c.w/2, c.y + c.h); ctx.stroke();
-  // red
-  ctx.strokeStyle = "#FFF"; ctx.lineWidth = 3;
-  ctx.beginPath(); ctx.moveTo(c.x, v.redY); ctx.lineTo(c.x + c.w, v.redY); ctx.stroke();
-  // postes
-  ctx.fillStyle = "#8B4513";
-  ctx.fillRect(c.x - 6, v.redY - 15, 12, 30);
-  ctx.fillRect(c.x + c.w - 6, v.redY - 15, 12, 30);
-  // pelota
-  ctx.fillStyle = "#FFF";
-  ctx.beginPath(); ctx.arc(v.pelota.x, v.pelota.y, 10, 0, 6.283); ctx.fill();
-  ctx.strokeStyle = "#333"; ctx.lineWidth = 2; ctx.stroke();
+  // las líneas de ataque, a un tercio de la red por cada lado
+  ctx.lineWidth = 4;
+  const ataque = c.w * 0.17;
+  ctx.beginPath();
+  ctx.moveTo(v.redX - ataque, c.y); ctx.lineTo(v.redX - ataque, c.y + c.h);
+  ctx.moveTo(v.redX + ataque, c.y); ctx.lineTo(v.redX + ataque, c.y + c.h);
+  ctx.stroke();
+
+  // la red, más alta que la del tenis y con su cinta blanca
+  const rx = v.redX - 8;
+  ctx.fillStyle = "rgba(28,20,26,.45)";
+  ctx.fillRect(rx, c.y - 14, 16, c.h + 28);
+  ctx.strokeStyle = "rgba(255,255,255,.35)"; ctx.lineWidth = 1.4;
+  for (let y = c.y - 10; y < c.y + c.h + 20; y += 16){
+    ctx.beginPath(); ctx.moveTo(rx, y); ctx.lineTo(rx + 16, y); ctx.stroke();
+  }
+  ctx.fillStyle = "#F3EAF0";
+  ctx.fillRect(rx - 3, c.y - 17, 22, 9);
+  ctx.fillRect(rx - 3, c.y + c.h + 8, 22, 9);
+  ctx.fillStyle = "#8E7F92";
+  ctx.fillRect(rx - 5, c.y - 30, 26, 14);
+  ctx.fillRect(rx - 5, c.y + c.h + 16, 26, 14);
   ctx.restore();
 }
 
@@ -9786,7 +9824,7 @@ function drawGrabRingDe(jug){
 function drawAim(){
   /* En un partido, solo la tuya: seis punterías cruzando la cancha tapan la
      pelota, que es lo único que hay que mirar. */
-  if (G.futbol || G.tenis){ drawAimDe(G.player); return; }
+  if (elPartido()){ drawAimDe(G.player); return; }
   for (const jug of G.players) drawAimDe(jug);
 }
 function drawAimDe(p){
@@ -9830,12 +9868,12 @@ function draw(){
 
   /* En un partido se ve la cancha ENTERA. Un fútbol en el que no ves el arco
      contrario no es un fútbol: es correr detrás de una pelota a ciegas. */
-  if (G.futbol || G.tenis){
-    const c = (G.futbol || G.tenis).cancha;
+  if (elPartido()){
+    const c = elPartido().cancha;
     /* En el estadio y en la calle se abre más: lo que hay ALREDEDOR —las
        tribunas, los carros, la gente— es medio chiste del sitio, y encuadrando
        solo la cancha no se ve nada de eso. */
-    const marco = G.tenis ? 260 : G.esc.id === "colegio" ? 180 : 620;
+    const marco = G.tenis || G.voley ? 260 : G.esc.id === "colegio" ? 180 : 620;
     ZOOM = clamp(Math.min(VW / (c.w + marco), VH / (c.h + marco)), .18, 1.05);
   }
   // Con dos jugadores el zoom se abre lo necesario para que ambos quepan
@@ -9845,7 +9883,7 @@ function draw(){
     ZOOM = clamp(Math.min(VW/ancho, VH/alto), .34, 1.05);
   }
   const visW = VW/ZOOM, visH = VH/ZOOM;
-  const laCancha = (G.futbol || G.tenis)?.cancha;
+  const laCancha = elPartido()?.cancha;
   const foco = laCancha
     ? { x: laCancha.x + laCancha.w / 2, y: laCancha.y + laCancha.h / 2 }
     : G.local2 && G.players.length > 1
@@ -9864,6 +9902,8 @@ function draw(){
     drawHinchada();
   } else if (G.reglas?.modo === "tenis"){
     drawCanchaTenis();
+  } else if (G.reglas?.modo === "voley"){
+    drawCanchaVoley();
   } else if (corriendo){
     drawCircuito();                  // la pista es lo único que importa
   } else if (G.basquet){
@@ -9984,7 +10024,7 @@ function draw(){
   }
   /* En un partido la camiseta es del EQUIPO, no de cada uno: si cada jugador
      lleva su color, a los diez segundos nadie sabe a quién pasarle. */
-  const camiseta = (G.futbol || G.tenis) && p.equipo != null ? CAMISETA[p.equipo] : p.shirt;
+  const camiseta = elPartido() && p.equipo != null ? CAMISETA[p.equipo] : p.shirt;
   drawPerson(p.x, p.y, p.face, M ? 0 : p.walk, {
     skin:"#F0C08A", shirt:camiseta, hair:"#3A1B33", stun:p.stun, carry:p.carry,
     montado: !!M,
@@ -9995,14 +10035,14 @@ function draw(){
      se entiende que ese es el Marciano robándote. */
   /* En el partido, tú llevas una flecha y los demás nada: seis etiquetas
      corriendo tapan la pelota. */
-  const quien = (G.futbol || G.tenis) ? (p.idx === 0 ? "TÚ" : null)
+  const quien = elPartido() ? (p.idx === 0 ? "TÚ" : null)
                          : (p.apodo || (G.local2 ? "J" + (p.idx + 1) : null));
   if (quien){
     ctx.font = "800 12px system-ui, sans-serif";
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
     ctx.lineWidth = 3.5; ctx.strokeStyle = "rgba(15,7,14,.85)";
     ctx.strokeText(quien, p.x, p.y+36);
-    ctx.fillStyle = (G.futbol || G.tenis) && p.equipo != null ? CAMISETA[p.equipo] : p.shirt;
+    ctx.fillStyle = elPartido() && p.equipo != null ? CAMISETA[p.equipo] : p.shirt;
     ctx.fillText(quien, p.x, p.y+36);
   }
   if (p.escudo || p.inmune > 0){                // el paraguas abierto, o el margen tras aguantar
@@ -10374,16 +10414,16 @@ function hud(){
   /* Los rótulos de las tarjetas cambian en un partido y hay que DEVOLVERLOS al
      salir: volviendo al barrio, el dinero seguía debajo de un cartel que decía
      "Tiempo". */
-  rotularTarjetas(G.reglas?.modo === "futbol" || G.reglas?.modo === "tenis");
+  rotularTarjetas(!!elPartido());
   /* El botón de patear solo existe en un partido, y su barra se llena mientras
      aguantas: sin verla, cargar es adivinar. En el tenis el mismo botón es la
      raqueta, y la carga manda el fondo en vez de la fuerza. */
-  const enPartido = (G.reglas?.modo === "futbol" || G.reglas?.modo === "tenis")
-                    && G.started && !G.over;
+  const enPartido = !!elPartido() && G.started && !G.over;
   elPateo.hidden = !enPartido;
   /* En el tenis el mismo botón es la raqueta: con la pelotita se entiende sin
      leer nada. */
-  if (enPartido) elPateo.querySelector(".ic").textContent = G.tenis ? "🎾" : "⚽";
+  if (enPartido) elPateo.querySelector(".ic").textContent =
+    G.tenis ? "🎾" : G.voley ? "🏐" : "⚽";
   if (enPartido && pateo.desde)
     elPateo.querySelector(".carga b").style.width = (fuerzaDePateo() * 100).toFixed(0) + "%";
   if (G.reglas?.modo === "futbol"){
@@ -10422,6 +10462,32 @@ function hud(){
     el.money.textContent = mmss(G.t);
     el.rate.textContent = t.puntos[mio] > t.puntos[1 - mio] ? "Vas ganando"
                         : t.puntos[mio] < t.puntos[1 - mio] ? "Vas perdiendo" : "Empate";
+    el.lost.textContent = G.stats.hits;
+    el.alarma.hidden = true;
+    bau.boton.hidden = true; bau.soltar.hidden = true; bau.bajar.hidden = true;
+    cerrarArmasRapidas();
+    pintarAccion();
+    return;
+  }
+
+  /* ---- el marcador del vóley ----
+     Igual que el del tenis, más un dato que solo existe aquí: los toques que
+     le quedan a tu lado. Sin verlo, el tercer toque —que cruza sí o sí— es una
+     sorpresa en vez de una decisión. */
+  if (G.reglas?.modo === "voley"){
+    const v = G.voley;
+    const mio = G.player.equipo ?? 0;
+    el.goalLabel.textContent = v.saque > 0
+      ? (v.sacador === mio ? "¡Tu saque!" : "Saca el otro")
+      : v.ultimoToque === mio && !v.enviada
+        ? "Toques: " + v.toques + " de " + VOLEY_TOQUES
+        : "Primero a " + v.meta;
+    el.goal.textContent = v.puntos[mio] + " – " + v.puntos[1 - mio];
+    el.bar.style.width = clamp(v.puntos[mio] / v.meta * 100, 0, 100).toFixed(1) + "%";
+    el.goalCard.classList.toggle("fiesta", v.saque > 0 && v.ultimoPunto != null);
+    el.money.textContent = mmss(G.t);
+    el.rate.textContent = v.puntos[mio] > v.puntos[1 - mio] ? "Vas ganando"
+                        : v.puntos[mio] < v.puntos[1 - mio] ? "Vas perdiendo" : "Empate";
     el.lost.textContent = G.stats.hits;
     el.alarma.hidden = true;
     bau.boton.hidden = true; bau.soltar.hidden = true; bau.bajar.hidden = true;
@@ -10530,7 +10596,7 @@ function aLaCancha(){
   pops = []; puffs = [];
   document.getElementById("app").classList.toggle("dos", !!G.local2);
   document.getElementById("app").classList.toggle("partido",
-    G.reglas?.modo === "futbol" || G.reglas?.modo === "tenis");
+    !!elPartido());
   el.title.hidden = true;
   el.end.hidden = true;
   el.arm.hidden = true;
@@ -10628,6 +10694,29 @@ function endGame(ganador){
       : ganaste ? "A cobrar en el recreo." : "La revancha es ahí mismo, en el patio.";
     document.getElementById("stSteals").textContent = f.goles[mio];
     document.getElementById("stHits").textContent = f.goles[1 - mio];
+    document.getElementById("stTime").textContent = mmss(G.t);
+    document.getElementById("stRate").textContent = G.stats.hits;
+    document.getElementById("btnVolverBarrio").hidden = !aventuraEnEspera;
+    el.end.hidden = false;
+    if (ganaste) Snd.win();
+    return;
+  }
+
+  /* ---- cómo acabó el vóley ---- */
+  if (G.reglas?.modo === "voley"){
+    const v = G.voley;
+    const mio = G.player.equipo ?? 0;
+    const ganaste = v.ganador === mio;
+    document.getElementById("lbSteals").textContent = "Tus puntos";
+    document.getElementById("lbHits").textContent = "Los del otro";
+    document.getElementById("lbRate").textContent = "Chancletazos que diste";
+    document.getElementById("endEyebrow").textContent = "Se acabó el partido";
+    document.getElementById("endTitle").innerHTML = ganaste
+      ? "¡<em>Ganaron</em> ustedes!" : "Ganaron <em>ellos</em>";
+    document.getElementById("endSub").textContent = ganaste
+      ? "Ni una tocó tu arena." : "El suelo no perdona. Otra y lo das vuelta.";
+    document.getElementById("stSteals").textContent = v.puntos[mio];
+    document.getElementById("stHits").textContent = v.puntos[1 - mio];
     document.getElementById("stTime").textContent = mmss(G.t);
     document.getElementById("stRate").textContent = G.stats.hits;
     document.getElementById("btnVolverBarrio").hidden = !aventuraEnEspera;

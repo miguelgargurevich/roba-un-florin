@@ -3,7 +3,7 @@
 
 import type {
   Base, Billar, DesfileItem, Estado, Evento, Florin, Jugador, Laser, Pedestal, RefObjetivo,
-  Rect, RefPed, Reglas, SitioDeJuego, JuegoDeSitio, Sonido, Tenis, Trasto, Variante,
+  Rect, RefPed, Reglas, SitioDeJuego, JuegoDeSitio, Sonido, Tenis, Trasto, Variante, Voley,
 } from "./tipos.js";
 import {
   ESCENARIOS, FLORES, GOAL, LASER_CARGA, PATIOS_PRECIO, TIERS, TRASTOS_ESCENARIO,
@@ -847,7 +847,9 @@ export const esMinijuego = (modo: Reglas["modo"]): modo is JuegoDeSitio =>
     Se resuelve al preguntar y no al cargar el módulo: `TENIS_MAX` se declara
     más abajo, con el resto del tenis. */
 const cupoDe = (juego: JuegoDeSitio): number =>
-  juego === "futbol" ? FUTBOL_MAX : juego === "tenis" ? TENIS_MAX : 2;
+  juego === "futbol" ? FUTBOL_MAX
+  : juego === "tenis" || juego === "voley" ? TENIS_MAX      // individual o dobles
+  : 2;
 
 /* ---- los sitios con minijuego ----
    Sitios del mundo a los que te metes y se arma un partido, sin pasar por el
@@ -892,7 +894,7 @@ const SITIOS: {
   { juego: "bolos", rotulo: "LOS BOLOS", medida: MED_BOLOS, donde: "colegio", listo: false },
   { juego: "lucha", rotulo: "EL RING", medida: MED_LUCHA, donde: "colegio", listo: false },
   { juego: "dardos", rotulo: "LOS DARDOS", medida: MED_DARDOS, donde: "colegio", listo: false },
-  { juego: "voley", rotulo: "LA CANCHA DE VOLEY", medida: MED_VOLEY, donde: "colegio", listo: false },
+  { juego: "voley", rotulo: "LA CANCHA DE VÓLEY", medida: MED_VOLEY, donde: "colegio", listo: true },
   { juego: "carreraObs", rotulo: "LA CARRERA", medida: MED_CARRERA_OBS, donde: "colegio", listo: false },
   { juego: "laberinto", rotulo: "EL LABERINTO", medida: MED_LABERINTO, donde: "colegio", listo: false },
   { juego: "billar", rotulo: "EL BILLAR", medida: MED_BILLAR, donde: "colegio", listo: false },
@@ -1260,19 +1262,75 @@ export function aAirHockey(e: Estado): void {
   }
 }
 
-/* ---- voley ---- */
-const VOLEY_META = 5;
+/* ---- vóley ----
+   El mismo esqueleto que el tenis —dos lados, una red, la pelota con altura—
+   con una regla menos y una más: aquí el suelo NO es legal (un toque de suelo
+   es el punto) y hay tres toques por lado antes de pasarla. */
+export const CANCHA_VOLEY_JUEGO = { w: 1400, h: 760 };
+export const VOLEY_META = 5, VOLEY_SAQUE = 2.2, VOLEY_RED_ALTO = 62;
+/** Toques que puede dar un lado antes de mandarla al otro. */
+export const VOLEY_TOQUES = 3;
 
 export function aLaCanchaDeVoley(e: Estado): void {
   const { cx, cy } = centroDelMapa();
-  const cancha = { x: Math.round(cx - 300), y: Math.round(cy - 180), w: 600, h: 360 };
-  const redY = cy;
-  e.voley = { cancha, redY, pelota: { x: cx, y: cy - 100, vx: 0, vy: 0 }, puntos: [0, 0], meta: VOLEY_META, saque: 2, ganador: null };
-  repartirEquipos(e);
-  for (const p of e.players) {
-    const lado = p.equipo === 0 ? -1 : 1;
-    p.x = cx + lado * 160; p.y = cy + 80; p.vx = 0; p.vy = 0; p.stun = 0; p.montado = null;
+  const cancha = {
+    x: Math.round(cx - CANCHA_VOLEY_JUEGO.w / 2), y: Math.round(cy - CANCHA_VOLEY_JUEGO.h / 2),
+    w: CANCHA_VOLEY_JUEGO.w, h: CANCHA_VOLEY_JUEGO.h,
+  };
+
+  /* La pelota es un trasto, como la del fútbol y la del tenis: así vuela con la
+     misma `z`, la misma gravedad y el mismo código de dibujo con sombra. */
+  let balon = e.trastos.find(t => t.tipo === "pelota");
+  if (!balon) {
+    balon = { id: nuevoId(e), tipo: "pelota", x: cx, y: cy, z: 0, vz: 0, vx: 0, vy: 0,
+              montadoPor: null, pateadoPor: null, giro: 0, variante: 0 };
+    e.trastos.push(balon);
   }
+  e.trastos = e.trastos.filter(t => t === balon);
+
+  e.voley = {
+    cancha, redX: Math.round(cx), redAlto: VOLEY_RED_ALTO, balon: balon.id,
+    puntos: [0, 0], meta: VOLEY_META, saque: VOLEY_SAQUE, sacador: 0,
+    ultimoToque: null, toques: 0, enviada: false, bloqueo: 0,
+    ultimoPunto: null, ganador: null,
+  };
+  repartirEquipos(e);
+  colocarParaElSaqueDeVoley(e);
+}
+
+/** En qué mitad cae una x. La 0 es la de la izquierda. */
+export const ladoDeVoley = (v: Voley, x: number): 0 | 1 => (x < v.redX ? 0 : 1);
+
+/** Cada uno en su mitad y la pelota en la mano del que saca. */
+export function colocarParaElSaqueDeVoley(e: Estado): void {
+  const v = e.voley;
+  if (!v) return;
+  const c = v.cancha, cy = c.y + c.h / 2, medio = c.w / 2;
+
+  const balon = e.trastos.find(x => x.id === v.balon);
+  const haciaSacador = v.sacador === 0 ? -1 : 1;
+  if (balon) {
+    balon.x = v.redX + haciaSacador * medio * 0.82;
+    balon.y = cy;
+    balon.vx = 0; balon.vy = 0; balon.z = 0; balon.vz = 0;
+    balon.pateadoPor = null;
+  }
+  v.ultimoToque = null;
+  v.toques = 0;
+  v.enviada = false;
+  v.bloqueo = 0;
+
+  const porEquipo = [0, 1].map(q => e.players.filter(p => p.equipo === q));
+  porEquipo.forEach((equipo, q) => {
+    const suLado = q === 0 ? -1 : 1;
+    equipo.forEach((p, k) => {
+      p.x = v.redX + suLado * medio * (0.62 - k * 0.30);
+      p.y = cy + (k - (equipo.length - 1) / 2) * 190;
+      p.vx = 0; p.vy = 0;
+      p.stun = 0;
+      p.montado = null;
+    });
+  });
 }
 
 /* ---- la parrilla ----

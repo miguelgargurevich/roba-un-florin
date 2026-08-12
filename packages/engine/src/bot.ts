@@ -308,21 +308,72 @@ function aDondeVoyEnHockey(e: Estado, p: Jugador): { x: number; y: number } | nu
   return { x: h.puck.x, y: h.puck.y };
 }
 
-/** A dónde va en voley: perseguir la pelota. */
+/* ---- el bot voleibolista ----
+   Lo mismo que el tenista: no persigue la pelota, se pone donde VA A CAER. Y
+   aquí importa el doble, porque en vóley el suelo es el punto — llegar tarde no
+   te cuesta un bote, te cuesta el tanto. */
 function aDondeVoyEnVoley(e: Estado, p: Jugador): { x: number; y: number } | null {
-  const v = e.voley!;
-  return { x: v.pelota.x, y: v.pelota.y };
+  const v = e.voley;
+  if (!v) return null;
+  const balon = e.trastos.find(x => x.id === v.balon);
+  if (!balon) return null;
+
+  const mio = (p.equipo ?? 0) as 0 | 1;
+  const c = v.cancha, cy = c.y + c.h / 2;
+  const haciaMi = mio === 0 ? -1 : 1;
+  const suyos = e.players.filter(q => (q.equipo ?? 0) === mio);
+  const puesto = suyos.findIndex(q => q.idx === p.idx);
+  const casa = { x: v.redX + haciaMi * (c.w / 2) * (0.55 - puesto * 0.28), y: cy };
+
+  if (v.saque > 0) return casa;
+  const caída = dondeVaAPicar(balon);
+  /* Si va a caer enfrente no es cosa suya. Y si cae de este lado sí lo es
+     SIEMPRE, aunque la haya tocado él: en vóley tu propio pase también hay que
+     ir a buscarlo — es justo de lo que va el juego. */
+  if ((caída.x < v.redX ? 0 : 1) !== mio) return casa;
+  return {
+    x: clamp(caída.x, c.x + 40, c.x + c.w - 40),
+    y: clamp(caída.y, c.y + 40, c.y + c.h - 40),
+  };
+}
+
+/** A dónde piensa mandarla: al hueco, con el mismo desvío medido del tenis. */
+function aDondeLaMandoEnVoley(e: Estado, p: Jugador): { x: number; y: number } | null {
+  const v = e.voley;
+  if (!v || v.ganador != null || v.saque > 0) return null;
+  const mio = (p.equipo ?? 0) as 0 | 1;
+  const c = v.cancha, cy = c.y + c.h / 2;
+  const rivales = e.players.filter(q => (q.equipo ?? 0) !== mio);
+  const suY = rivales.length ? rivales.reduce((s, q) => s + q.y, 0) / rivales.length : cy;
+  const desvío = 140 + 150 * Math.abs(Math.sin(e.t * 0.9 + p.idx * 1.7));
+  return { x: v.redX, y: clamp(suY + (suY > cy ? -1 : 1) * desvío, c.y + 70, c.y + c.h - 70) };
+}
+
+/** ¿Le da, y cómo? Levanta la primera y remata la segunda. */
+function toqueDelBot(e: Estado, p: Jugador): number | null {
+  const v = e.voley;
+  if (!v || v.ganador != null || v.saque > 0 || v.bloqueo > 0 || p.stun > 0) return null;
+  const balon = e.trastos.find(x => x.id === v.balon);
+  if (!balon) return null;
+  const mio = (p.equipo ?? 0) as 0 | 1;
+  if ((balon.x < v.redX ? 0 : 1) !== mio) return null;
+  if ((balon.z ?? 0) > 170) return null;
+  if (dist2(p.x, p.y, balon.x, balon.y) > 112 * 112) return null;
+  /* Nunca se queda la pelota: el tercer toque cruza solo, y eso lo impone el
+     motor, no el bot. */
+  const suyos = v.ultimoToque === mio ? v.toques : 0;
+  return suyos === 0 ? 0.2 : 0.85;
 }
 
 /** A dónde va: lo que lleva pesa más que lo que podría llevarse. */
 function aDondeVoy(e: Estado, p: Jugador): { x: number; y: number } | null {
   if (e.reglas.modo === "futbol") return aDondeVoyEnElPartido(e, p);
   if (e.reglas.modo === "tenis") return aDondeVoyEnElTenis(e, p);
+  if (e.reglas.modo === "voley") return aDondeVoyEnVoley(e, p);
   if (e.basquet) return aDondeVoyEnBasquet(e, p);
   if (e.bolos) return aDondeVoyEnBolos(e, p);
   if (e.lucha) return aDondeVoyEnLucha(e, p);
   if (e.dardos) return aDondeVoyEnDardos(e, p);
-  if (e.voley) return aDondeVoyEnVoley(e, p);
   if (e.carreraObs) return aDondeVoyEnCarreraObs(e, p);
   if (e.laberinto) return aDondeVoyEnLaberinto(e, p);
   if (e.billar) return aDondeVoyEnBillar(e, p);
@@ -411,15 +462,17 @@ export function pensarBot(e: Estado, p: Jugador, dt: number): PlanBot {
   if (p.stun > 0) return { entrada: QUIETO, usar: false, patear: null };
 
   const esJuego = !!(e.basquet || e.bolos || e.lucha || e.dardos || e.carreraObs || e.laberinto || e.billar || e.hockey);
-  const tenis = e.reglas.modo === "tenis";
-  const raqueta = tenis ? golpeDelBot(e, p) : null;
+  const tenis = e.reglas.modo === "tenis", voley = e.reglas.modo === "voley";
+  const raqueta = tenis ? golpeDelBot(e, p) : voley ? toqueDelBot(e, p) : null;
   const enLucha = !!e.lucha;
   const rivalEnLucha = enLucha ? e.players.find(q => q.idx !== p.idx) : null;
   const blancoLucha = rivalEnLucha && dist2(p.x, p.y, rivalEnLucha.x, rivalEnLucha.y) < 60 * 60
     ? { x: rivalEnLucha.x, y: rivalEnLucha.y } : null;
-  const blanco = tenis ? aDondeLaMando(e, p) : enLucha ? blancoLucha : aQuienLeTiro(e, p);
+  const blanco = tenis ? aDondeLaMando(e, p)
+               : voley ? aDondeLaMandoEnVoley(e, p)
+               : enLucha ? blancoLucha : aQuienLeTiro(e, p);
   const usarLucha = enLucha && !!blancoLucha;
-  const usar = !tenis && !esJuego && !!blanco && p.cd <= 0 && p.chancla.state === "held";
+  const usar = !tenis && !voley && !esJuego && !!blanco && p.cd <= 0 && p.chancla.state === "held";
 
   /* La meta se recuerda un rato. Recalculándola cada frame, dos Florines a la
      misma distancia lo dejaban temblando en el sitio sin ir a por ninguno. */
@@ -433,7 +486,8 @@ export function pensarBot(e: Estado, p: Jugador, dt: number): PlanBot {
                 /* En el tenis, cada dos fotogramas: el sitio donde va a picar
                    cambia con cada bote y con cada golpe, y medio segundo tarde
                    es medio campo tarde. */
-                (e.reglas.modo === "tenis" && b.repensar <= REPENSAR - 0.03);
+                ((e.reglas.modo === "tenis" || e.reglas.modo === "voley") &&
+                 b.repensar <= REPENSAR - 0.03);
   if (b.repensar <= 0 || llegó) {
     const meta = aDondeVoy(e, p);
     b.repensar = REPENSAR;
@@ -460,10 +514,9 @@ export function pensarBot(e: Estado, p: Jugador, dt: number): PlanBot {
      palanca del problema medido: los bots le sacaban dos vueltas a un jugador
      en red. */
   const brío = e.reglas.modo === "carrera" ? dificultadDe(e.reglas).rivales
-             : e.reglas.modo === "tenis" ? TENIS_BRIO
+             : e.reglas.modo === "tenis" || e.reglas.modo === "voley" ? TENIS_BRIO
              : e.bolos ? 0.8
              : e.dardos ? 0.7
-             : e.voley ? 0.8
              : e.laberinto ? 0.75
              : e.billar ? 0.6
              : e.hockey ? 0.85
