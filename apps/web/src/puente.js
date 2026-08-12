@@ -18,6 +18,7 @@ import {
   VUELTAS, CIRCUITOS, JUGADORES_MAX, pensarBot, GARAJE, TRASTOS_ESCENARIO,
   darleVehiculo, vehiculoDelSitio, esEspecial, ANCHO_PISTA, enLaPista, aparcarNuevo, comprarPatio,
   ponerFiesta, enFiesta, patear, TENIS_META, JUEGOS_LISTOS, VOLEY_META, VOLEY_TOQUES, VOLEY_ALCANCE,
+  BASQUET_META,
   usarPotenciador, potenciadoresDe, potenciadorPorId, colocarPuestos,
   DIFICULTADES, dificultadDe, fijarMundo, MUNDO_NORMAL, fundir, queSaleDeFundir,
   aLaCanchaDeBasquet, aLaPistaDeBolos, aLaLucha, aLosDardos, aLaCanchaDeVoley, aLaCarreraDeObs, aElLaberinto,
@@ -38,6 +39,7 @@ export {
   VUELTAS, CIRCUITOS, JUGADORES_MAX, pensarBot, GARAJE, TRASTOS_ESCENARIO,
   darleVehiculo, vehiculoDelSitio, esEspecial, ANCHO_PISTA, enLaPista, DIFICULTADES, dificultadDe, aparcarNuevo, comprarPatio,
   ponerFiesta, enFiesta, patear, TENIS_META, JUEGOS_LISTOS, VOLEY_META, VOLEY_TOQUES, VOLEY_ALCANCE,
+  BASQUET_META,
   fundir, queSaleDeFundir,
   usarPotenciador, potenciadoresDe, potenciadorPorId, colocarPuestos,
   aLaCanchaDeBasquet, aLaPistaDeBolos, aLaLucha, aLosDardos, aLaCanchaDeVoley, aLaCarreraDeObs, aElLaberinto,
@@ -283,7 +285,7 @@ export function nuevaPartidaMotor(modo, escenarioId, carrera = false, dificultad
          entera y llega al 81 % de las pelotas; con compañero, al 97-100 %
          (medido). Y además el vóley es de equipo: pasarle al otro es medio
          juego. */
-      jugadores: mini === "voley" ? 4 : 2,
+      jugadores: mini === "voley" ? 4 : mini === "basquet" ? 6 : 2,
       escenario: cancha,
       armas: idsDeArmas(),
       reglas: { modo: mini },

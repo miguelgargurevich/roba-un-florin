@@ -20,7 +20,7 @@ import {
   centroDelMapa, WORLD_W, WORLD_H, OCHO_A, colocarPuestos, ponerFiesta, enFiesta, enElMar,
   nivelDeVitrina, nombreDeHito, HITOS_MAX, vitrinaDe, venderFlorin, precioDeVenta, soltarCarga,
   patear, TENIS_META, TENIS_ALCANCE, ladoDeLaCancha, esMinijuego, JUEGOS_LISTOS,
-  VOLEY_META, VOLEY_TOQUES, ladoDeVoley,
+  VOLEY_META, VOLEY_TOQUES, ladoDeVoley, BASQUET_META, BASQUET_ALCANCE,
   type EntradaJugador, type Estado,
 } from "../src/index.js";
 
@@ -1806,6 +1806,112 @@ describe("tenis", () => {
   });
 });
 
+describe("básquet", () => {
+  const basquet = (jugadores = 6, semilla = 1) =>
+    crearPartida({ jugadores, escenario: "colegio", semilla, armas: idsDeArmas(),
+                   reglas: { modo: "basquet" } as any });
+  const bola = (e: Estado) => e.trastos.find(x => x.id === e.basquet!.balon)!;
+
+  function jugar(e: Estado, segundos: number){
+    for (let k = 0; k < 60 * segundos && !e.over; k++){
+      const ent: Record<number, EntradaJugador> = {};
+      const tiran: [any, number][] = [];
+      for (const p of e.players){
+        const plan = pensarBot(e, p, 1 / 60);
+        ent[p.idx] = plan.entrada;
+        if (plan.patear != null) tiran.push([p, plan.patear]);
+      }
+      for (const [p, f] of tiran) patear(e, p, f);
+      avanzar(e, ent, 1 / 60);
+    }
+  }
+
+  it("hay cancha, dos aros redondos y UNA pelota", () => {
+    const e = basquet();
+    const b = e.basquet!;
+    expect(b).not.toBe(null);
+    expect(e.trastos.length, "quedaron trastos que estorban").toBe(1);
+    expect(b.aros.length).toBe(2);
+    expect(b.aros[0].r).toBeGreaterThan(0);
+  });
+
+  it("la pelota se lleva: se recoge sola al llegar y va con quien la lleva", () => {
+    const e = basquet(2);
+    const b = e.basquet!;
+    b.saque = 0;
+    const p = e.players[0], bo = bola(e);
+    bo.x = p.x + 20; bo.y = p.y; bo.z = 0; bo.vz = 0; bo.vx = 0; bo.vy = 0;
+    avanzar(e, nada(2), 1 / 60);
+    expect(b.conLaBola, "no la recogió teniéndola al lado").toBe(p.idx);
+    p.x += 200;
+    avanzar(e, nada(2), 1 / 60);
+    expect(Math.hypot(bola(e).x - p.x, bola(e).y - p.y),
+           "la pelota se quedó atrás").toBeLessThan(60);
+  });
+
+  it("un chanclazo se la tira al suelo", () => {
+    const e = basquet(2);
+    const b = e.basquet!;
+    b.saque = 0;
+    const p = e.players[0], bo = bola(e);
+    bo.x = p.x + 20; bo.y = p.y; bo.z = 0;
+    avanzar(e, nada(2), 1 / 60);
+    expect(b.conLaBola).toBe(p.idx);
+    p.stun = 2;
+    avanzar(e, nada(2), 1 / 60);
+    expect(b.conLaBola, "aguantó la pelota noqueado").toBe(null);
+  });
+
+  it("solo tira el que la lleva", () => {
+    const e = basquet(2);
+    const b = e.basquet!;
+    b.saque = 0;
+    const p = e.players[0], otro = e.players[1];
+    const bo = bola(e);
+    bo.x = p.x + 20; bo.y = p.y; bo.z = 0;
+    avanzar(e, nada(2), 1 / 60);
+    expect(patear(e, otro, 0.8), "tiró uno que no tenía la pelota").toBe(null);
+    expect(patear(e, p, 0.8), "el que la llevaba no pudo tirar").toBe("tiro");
+    expect(b.conLaBola, "siguió con la pelota después de tirar").toBe(null);
+  });
+
+  it("de cerca entra siempre y de lejos casi nunca", () => {
+    /* El error es un radio y la canasta mide 44: acierta 44/err. Es lo que
+       hace que el juego sea colocarse y no apretar en el momento justo. */
+    const encestes = (dist: number) => {
+      let dentro = 0;
+      for (let s = 0; s < 40; s++){
+        const e = basquet(2, s + 1);
+        const b = e.basquet!;
+        b.saque = 0;
+        const p = e.players.find(q => q.equipo === 0)!;
+        const aro = b.aros[1];
+        p.x = aro.x - dist; p.y = aro.y;
+        /* Sin nadie encima: el defensor se va lejos. */
+        e.players.filter(q => q !== p).forEach(q => { q.x = b.cancha.x + 30; q.y = b.cancha.y + 30; });
+        const bo = bola(e);
+        bo.x = p.x + 10; bo.y = p.y; bo.z = 0;
+        avanzar(e, nada(2), 1 / 60);
+        patear(e, p, 0.8);
+        for (let k = 0; k < 200 && b.puntos[0] === 0 && !e.over; k++) avanzar(e, nada(2), 1 / 60);
+        if (b.puntos[0] > 0) dentro++;
+      }
+      return dentro / 40;
+    };
+    expect(encestes(90), "la bandeja no entra").toBeGreaterThan(0.9);
+    expect(encestes(520), "desde el otro campo entran demasiadas").toBeLessThan(0.55);
+  });
+
+  it("los bots juegan de verdad: encestan y el partido acaba solo", () => {
+    const e = basquet();
+    jugar(e, 300);
+    const b = e.basquet!;
+    expect(b.puntos[0] + b.puntos[1], "tres minutos y nadie encestó").toBeGreaterThan(0);
+    expect(e.over, "el partido no terminó solo").toBe(true);
+    expect(b.puntos[0] >= b.meta || b.puntos[1] >= b.meta || b.reloj <= 0).toBe(true);
+  });
+});
+
 describe("vóley", () => {
   const voley = (jugadores = 2, semilla = 5) =>
     crearPartida({ jugadores, escenario: "colegio", semilla, armas: idsDeArmas(),
@@ -1985,6 +2091,7 @@ describe("un minijuego apaga el barrio", () => {
       expect(JUEGOS_LISTOS, "colgó " + s.juego + ", que no está listo").toContain(s.juego);
     expect(e.sitios.length).toBe(JUEGOS_LISTOS.length);
     expect(JUEGOS_LISTOS, "el vóley ya se juega entero").toContain("voley");
+    expect(JUEGOS_LISTOS, "el básquet ya se juega entero").toContain("basquet");
   });
 });
 

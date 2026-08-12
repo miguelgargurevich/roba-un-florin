@@ -332,15 +332,34 @@ export interface Tenis {
   ganador: 0 | 1 | null;
 }
 
-/* ---- Básquet ---- */
+/** Un partido de básquet.
+
+    Lo que lo separa del fútbol —que también es dos equipos y una pelota— es
+    que aquí la pelota se LLEVA. De ahí salen sus tres cosas: botarla mientras
+    corres, tirar a un aro que está en el suelo visto desde arriba (la pelota
+    entra cayendo), y que te la quiten de un chanclazo.
+
+    Y de ahí sale también la única decisión del tiro: no aciertas por apretar
+    en el momento justo, sino por **dónde tiras desde**. Cuanto más lejos y con
+    más gente encima, más se abre el error. */
 export interface Basquet {
   cancha: Rect;
-  aros: [Rect, Rect];
+  /** Los dos aros. El equipo 0 ataca el `aros[1]`. */
+  aros: [Circulo, Circulo];
+  /** Desde más lejos que esto, la canasta vale tres. */
+  triple: number;
   balon: number;
+  /** idx del que la lleva botando, o null si anda suelta. */
+  conLaBola: number | null;
+  /** Segundos en que el que acaba de tirar no puede recogerla él mismo. */
+  suelta: number;
+  /** Desde qué distancia salió el último tiro: decide si vale 2 o 3. */
+  tiroDesde: number;
   puntos: [number, number];
   meta: number;
   reloj: number;
   saque: number;
+  ultimaCanasta: { equipo: 0 | 1; vale: number } | null;
   ganador: 0 | 1 | null;
 }
 

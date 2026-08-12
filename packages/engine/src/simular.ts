@@ -28,6 +28,7 @@ import {
   polvo, ponerLaser, puedeMojarse, puntoDelDesfile, sacarDelCentro, sonar, texto, trastoDe, dentroDeLaPista,
   sobreLaPista, ladoDeLaCancha, colocarParaElSaque, TENIS_SAQUE,
   ladoDeVoley, colocarParaElSaqueDeVoley, VOLEY_SAQUE, VOLEY_TOQUES,
+  sacarDeMedioBasquet, BASQUET_SAQUE,
 } from "./estado.js";
 
 /* Cualquier cosa a la que se pueda golpear */
@@ -1192,7 +1193,7 @@ export function avanzar(e: Estado, entradas: Record<number, EntradaJugador>, dt:
     se quedaba corto y caía en el propio campo: partidos enteros de puros
     saques fallados, medido. */
 const balonEnElAire = (e: Estado): number | null =>
-  e.tenis ? e.tenis.balon : e.voley ? e.voley.balon : null;
+  e.tenis ? e.tenis.balon : e.voley ? e.voley.balon : e.basquet ? e.basquet.balon : null;
 
 /** Le pone el Florín en las manos y, si iba montado, lo baja: el vehículo es
     para llegar, no para escapar con el botín. */
@@ -1293,6 +1294,9 @@ function avanzarTrastos(e: Estado, dt: number): void {
        cualquier pelota. En vóley no hay bote bueno, así que siempre. */
     const enElAire = v.id === balonEnElAire(e) && (v.z ?? 0) > 0 &&
                      (!e.tenis || e.tenis.botes === 0);
+    /* Y la del básquet, mientras la lleva alguien, no se mueve sola: la
+       coloca `pasoBasquet` delante del que bota. */
+    if (e.basquet && v.id === e.basquet.balon && e.basquet.conLaBola != null) continue;
     v.x += v.vx * dt;
     v.y += v.vy * dt;
     v.giro += Math.hypot(v.vx, v.vy) * dt * 0.06;
@@ -1596,12 +1600,13 @@ function balonAlAlcance(e: Estado, p: Jugador): Trasto | null {
  * Devuelve qué pasó, para que el cliente lo cuente.
  */
 export function patear(e: Estado, p: Jugador,
-                       fuerza = 0): "patada" | "cabezazo" | "golpe" | "pase" | "remate" | null {
+                       fuerza = 0): "patada" | "cabezazo" | "golpe" | "pase" | "remate" | "tiro" | null {
   /* El mismo botón es la raqueta en el tenis y las manos en el vóley. Se
      reparte aquí y no en el cliente para que teclado, botón y sala pidan
      siempre lo mismo. */
   if (e.tenis) return golpeDeTenis(e, p, clamp(fuerza, 0, 1));
   if (e.voley) return golpeDeVoley(e, p, clamp(fuerza, 0, 1));
+  if (e.basquet) return tiroDeBasquet(e, p, clamp(fuerza, 0, 1));
   const f = e.futbol;
   if (!f || f.ganador != null || p.stun > 0) return null;
   const b = balonAlAlcance(e, p);
@@ -1971,45 +1976,206 @@ function terminarJuegoIndividual(e: Estado, ganador: number | null): void {
 /* ============================================================
    Básquet
    ============================================================ */
-function pasoBasquet(e: Estado, dt: number): void {
+/* ---- básquet ----
+   Lo que lo separa del fútbol, que también es dos equipos y una pelota, es que
+   aquí la pelota se LLEVA. De eso salen sus tres cosas: botarla mientras
+   corres, tirar a un aro que —visto desde arriba— es un círculo en el suelo por
+   el que la pelota entra cayendo, y que te la quiten de un chanclazo.
+
+   Y de eso sale su única decisión: no aciertas por apretar en el momento justo
+   —eso ya se probó en el vóley y era una lotería—, sino por DÓNDE TIRAS DESDE.
+   Cerca y sin nadie encima, entra. Desde el otro campo y con un defensor en la
+   cara, no. Aguantar el botón afina la puntería, pero no arregla la distancia. */
+export const BASQUET_ALCANCE = 62;
+/** Altura a la que la pelota pasa por el aro, y a la que sale de las manos. */
+const ARO_ALTO = 88, TIRO_SALIDA = 62;
+/** Cuánto se abre el error: por cada píxel de distancia, y con un defensor. */
+/* Calibrado para que la bandeja entre siempre y el tiro de media se falle la
+   mitad: el error es un radio y la canasta mide 44, así que acierta
+   `44/err`. A 100 px err vale 34 (entra seguro), a 200 son 68 (65 %), a 300
+   son 102 (43 %) y de tres, uno de cada tres — que por eso vale tres. */
+const ERROR_POR_PX = 0.62, ERROR_DEFENSOR = 62;
+
+/** ¿Quién la lleva? */
+const conLaBolaDe = (e: Estado): Jugador | null => {
+  const b = e.basquet;
+  return b && b.conLaBola != null ? (e.players.find(p => p.idx === b.conLaBola) ?? null) : null;
+};
+
+/** El rival más cercano que le está respirando encima al tirador. */
+function defensorEncima(e: Estado, p: Jugador): number {
+  let d = Infinity;
+  for (const q of e.players)
+    if ((q.equipo ?? 0) !== (p.equipo ?? 0) && q.stun <= 0)
+      d = Math.min(d, Math.hypot(q.x - p.x, q.y - p.y));
+  return d;
+}
+
+/**
+ * Tirar al aro. Siempre apunta al aro: lo que decide si entra es de dónde
+ * tiras y quién tienes encima. La carga es apuntar —aguantando se afina hasta
+ * un 45 %—, y el motor la recorta, así que un cliente que mande 99 no apunta
+ * mejor que uno honesto.
+ */
+function tiroDeBasquet(e: Estado, p: Jugador, k: number): "tiro" | null {
+  const b = e.basquet;
+  if (!b || b.ganador != null || b.saque > 0 || p.stun > 0) return null;
+  if (b.conLaBola !== p.idx) return null;
+  const bola = e.trastos.find(t => t.id === b.balon);
+  if (!bola) return null;
+
+  const mio = (p.equipo ?? 0) as 0 | 1;
+  const aro = b.aros[1 - mio];
+  const d = Math.hypot(aro.x - p.x, aro.y - p.y);
+
+  /* El error: crece con la distancia y con quien te tapa, y se cierra
+     apuntando. Sale del azar del motor, así que la partida sigue siendo
+     reproducible. */
+  const encima = defensorEncima(e, p);
+  const err = (d * ERROR_POR_PX + (encima < 90 ? ERROR_DEFENSOR * (1 - encima / 90) : 0))
+            * (1 - 0.45 * k);
+  const ang = rnd(e, 0, Math.PI * 2), radio = rnd(e, 0, err);
+  const tx = aro.x + Math.cos(ang) * radio, ty = aro.y + Math.sin(ang) * radio;
+
+  /* Un tiro es una parábola que pasa por el aro CAYENDO: se resuelve al revés,
+     como el resto de este juego — se elige dónde llega y se despeja la fuerza. */
+  const T = 0.62 + d / 900;
+  bola.x = p.x; bola.y = p.y;
+  bola.z = TIRO_SALIDA;
+  bola.vx = (tx - bola.x) / T;
+  bola.vy = (ty - bola.y) / T;
+  bola.vz = (ARO_ALTO - TIRO_SALIDA + GRAVEDAD * T * T / 2) / T;
+  bola.pateadoPor = p.idx;
+
+  b.conLaBola = null;
+  b.suelta = 0.5;                  // que no se la recoja él mismo al vuelo
+  b.tiroDesde = d;
+  polvo(e, p.x, p.y - 30, "#FFEFE2", 5);
+  sonar(e, "throw");
+  return "tiro";
+}
+
+function canasta(e: Estado, equipo: 0 | 1, vale: number): void {
   const b = e.basquet!;
-  if (b.ganador != null) return;
-  b.reloj -= dt;
-  if (b.saque > 0) { b.saque -= dt; return; }
-  const balon = e.trastos.find(t => t.id === b.balon);
-  if (!balon) return;
-  // gravity
-  if ((balon.z ?? 0) > 0 || (balon.vz ?? 0) !== 0) {
-    balon.vz = (balon.vz ?? 0) - GRAVEDAD * dt;
-    balon.z = (balon.z ?? 0) + balon.vz * dt;
-    if (balon.z <= 0) { balon.z = 0; balon.vz = -Math.abs(balon.vz) * 0.5; if (Math.abs(balon.vz) < 40) balon.vz = 0; }
+  b.puntos[equipo] += vale;
+  b.ultimaCanasta = { equipo, vale };
+  const color = equipo === 0 ? "#3DDC97" : "#FF5C86";
+  const aro = b.aros[1 - equipo];
+  texto(e, aro.x, aro.y - 60, vale === 3 ? "¡TRIPLE!" : "¡CANASTA!", color);
+  polvo(e, aro.x, aro.y, color, 22);
+  sonar(e, "swish");
+  e.eventos.push({ t: "gol", equipo, goles: [b.puntos[0], b.puntos[1]] });
+  if (b.puntos[equipo] >= b.meta) {
+    b.ganador = equipo;
+    terminarJuegoIndividual(e, e.players.find(p => p.equipo === equipo)?.idx ?? null);
+    return;
   }
-  // score check
-  for (let q = 0; q < 2; q++) {
-    const aro = b.aros[q];
-    const marca = (1 - q) as 0 | 1;
-    if (balon.z !== undefined && balon.z < 20 && balon.z > -10 &&
-        Math.abs(balon.y - (aro.y + aro.h / 2)) < 30 &&
-        Math.abs(balon.x - (q === 0 ? aro.x + aro.w : aro.x)) < 20) {
-      b.puntos[marca]++;
-      texto(e, balon.x, balon.y - 60, "¡CANASTA!", marca === 0 ? "#3DDC97" : "#FF5C86");
-      sonar(e, "swish");
-      e.eventos.push({ t: "gol", equipo: marca, goles: [...b.puntos] });
-      if (b.puntos[marca] >= b.meta) { b.ganador = marca; terminarJuegoIndividual(e, e.players.find(p => p.equipo === marca)?.idx ?? null); return; }
-      // reset
-      balon.x = b.cancha.x + b.cancha.w / 2; balon.y = b.cancha.y + b.cancha.h / 2;
-      balon.vx = 0; balon.vy = 0; balon.z = 0; balon.vz = 0; balon.pateadoPor = null;
-      b.saque = 1.5;
+  b.saque = BASQUET_SAQUE;
+  sacarDeMedioBasquet(e);
+}
+
+function pasoBasquet(e: Estado, dt: number): void {
+  const b = e.basquet;
+  if (!b || b.ganador != null) return;
+  const bola = e.trastos.find(t => t.id === b.balon);
+  if (!bola) return;
+  const c = b.cancha;
+
+  /* Nadie se sale de la cancha. */
+  for (const p of e.players) {
+    p.x = clamp(p.x, c.x + 24, c.x + c.w - 24);
+    p.y = clamp(p.y, c.y + 24, c.y + c.h - 24);
+  }
+
+  if (b.saque > 0) {
+    b.saque -= dt;
+    bola.vx = 0; bola.vy = 0; bola.vz = 0; bola.z = 0;
+    return;
+  }
+  b.reloj -= dt;
+  if (b.suelta > 0) b.suelta -= dt;
+
+  /* ---- la lleva alguien ---- */
+  const dueño = conLaBolaDe(e);
+  if (dueño) {
+    if (dueño.stun > 0) {
+      /* Chanclazo: se le cae y queda suelta ahí mismo. Quitarle la pelota al
+         que la lleva es la defensa de este juego. */
+      b.conLaBola = null;
+      b.suelta = 0.25;
+      bola.vx = dueño.vx * 0.3; bola.vy = dueño.vy * 0.3;
+      bola.z = 0; bola.vz = 0;
+      texto(e, dueño.x, dueño.y - 50, "¡Se le cayó!", "#FFC53D");
+    } else {
+      /* Botando: la pelota va delante de quien corre, y sube y baja. */
+      const m = Math.hypot(dueño.vx, dueño.vy) || 1;
+      bola.x = dueño.x + (dueño.vx / m) * 20;
+      bola.y = dueño.y + (dueño.vy / m) * 20 + 10;
+      bola.vx = 0; bola.vy = 0; bola.vz = 0;
+      bola.z = 14 + Math.abs(Math.sin(e.t * 9)) * 20;
+      if (b.reloj <= 0) finBasquet(e);
       return;
     }
   }
-  // bounds
-  const c = b.cancha;
-  if (balon.x < c.x + 10) { balon.x = c.x + 10; balon.vx = Math.abs(balon.vx) * 0.7; }
-  if (balon.x > c.x + c.w - 10) { balon.x = c.x + c.w - 10; balon.vx = -Math.abs(balon.vx) * 0.7; }
-  if (balon.y < c.y + 10) { balon.y = c.y + 10; balon.vy = Math.abs(balon.vy) * 0.7; }
-  if (balon.y > c.y + c.h - 10) { balon.y = c.y + c.h - 10; balon.vy = -Math.abs(balon.vy) * 0.7; }
-  if (b.reloj <= 0) { b.ganador = b.puntos[0] > b.puntos[1] ? 0 : b.puntos[1] > b.puntos[0] ? 1 : null; terminarJuegoIndividual(e, b.ganador != null ? (e.players.find(p => p.equipo === b.ganador!)?.idx ?? null) : null); }
+
+  /* ---- suelta: vuela, bota y rueda ---- */
+  const antesZ = bola.z ?? 0;
+  if (antesZ > 0 || (bola.vz ?? 0) !== 0) {
+    bola.vz = (bola.vz ?? 0) - GRAVEDAD * dt;
+    bola.z = antesZ + bola.vz * dt;
+    if ((bola.z ?? 0) <= 0) {
+      bola.z = 0;
+      const golpe = Math.abs(bola.vz ?? 0);
+      bola.vz = golpe > 150 ? golpe * 0.52 : 0;
+    }
+  }
+
+  /* ---- ¿entró? ----
+     Cayendo (`vz < 0`), dentro del aro y a la altura del aro. Se mira cayendo
+     porque una pelota que sube y roza el aro por debajo no es canasta: es una
+     pelota que pasa por ahí. */
+  if ((bola.vz ?? 0) < 0 && (bola.z ?? 0) > ARO_ALTO - 34 && (bola.z ?? 0) < ARO_ALTO + 34) {
+    for (const q of [0, 1] as const) {
+      const aro = b.aros[q];
+      if (dist2(bola.x, bola.y, aro.x, aro.y) > aro.r * aro.r) continue;
+      /* En el aro del 0 encesta el equipo 1: cada uno ataca el de enfrente. */
+      const marca = (1 - q) as 0 | 1;
+      canasta(e, marca, b.tiroDesde > b.triple ? 3 : 2);
+      return;
+    }
+  }
+
+  /* ---- recogerla ---- */
+  if (b.suelta <= 0 && (bola.z ?? 0) < 70) {
+    let mejor: Jugador | null = null, md = BASQUET_ALCANCE * BASQUET_ALCANCE;
+    for (const p of e.players) {
+      if (p.stun > 0) continue;
+      const d = dist2(p.x, p.y, bola.x, bola.y);
+      if (d < md) { md = d; mejor = p; }
+    }
+    if (mejor) {
+      b.conLaBola = mejor.idx;
+      bola.vx = 0; bola.vy = 0; bola.vz = 0;
+      sonar(e, "grab");
+    }
+  }
+
+  /* La pelota no se sale: rebota en la banda. */
+  const R = 14;
+  if (bola.x < c.x + R) { bola.x = c.x + R; bola.vx = Math.abs(bola.vx) * 0.6; }
+  if (bola.x > c.x + c.w - R) { bola.x = c.x + c.w - R; bola.vx = -Math.abs(bola.vx) * 0.6; }
+  if (bola.y < c.y + R) { bola.y = c.y + R; bola.vy = Math.abs(bola.vy) * 0.6; }
+  if (bola.y > c.y + c.h - R) { bola.y = c.y + c.h - R; bola.vy = -Math.abs(bola.vy) * 0.6; }
+
+  if (b.reloj <= 0) finBasquet(e);
+}
+
+function finBasquet(e: Estado): void {
+  const b = e.basquet!;
+  b.reloj = 0;
+  b.ganador = b.puntos[0] === b.puntos[1] ? null : (b.puntos[0] > b.puntos[1] ? 0 : 1);
+  terminarJuegoIndividual(e, b.ganador == null
+    ? null : (e.players.find(p => p.equipo === b.ganador)?.idx ?? null));
 }
 
 /* ============================================================

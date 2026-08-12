@@ -229,21 +229,40 @@ function golpeDelBot(e: Estado, p: Jugador): number | null {
   return 0.62 + Math.sin(e.t * 1.3 + p.idx * 2.3) * 0.3;
 }
 
-/** A dónde va en básquet: el más cercano va por el balón, el resto defiende. */
+/* ---- el bot basquetbolista ----
+   Tres papeles y ninguno más: el que la lleva va al aro y tira en cuanto está
+   a tiro; los suyos se abren para no taparle; y si anda suelta, todos a por
+   ella. */
 function aDondeVoyEnBasquet(e: Estado, p: Jugador): { x: number; y: number } | null {
-  const b = e.basquet!;
+  const b = e.basquet;
+  if (!b) return null;
   const balon = e.trastos.find(t => t.id === b.balon);
   if (!balon) return null;
-  const mio = p.equipo ?? 0;
-  const arcoRival = b.aros[1 - mio];
-  const compis = e.players.filter(q => (q.equipo ?? 0) === mio && q.stun <= 0);
-  const yoVoy = compis.every(q => q.idx === p.idx || dist2(p.x, p.y, balon.x, balon.y) <= dist2(q.x, q.y, balon.x, balon.y));
-  if (yoVoy) {
-    const dx = arcoRival.x + arcoRival.w / 2 - balon.x, dy = arcoRival.y + arcoRival.h / 2 - balon.y;
-    const d = Math.hypot(dx, dy) || 1;
-    return { x: balon.x - (dx / d) * 60, y: balon.y - (dy / d) * 60 };
+  const mio = (p.equipo ?? 0) as 0 | 1;
+  const aro = b.aros[1 - mio];
+
+  if (b.conLaBola === p.idx) return { x: aro.x, y: aro.y };
+
+  const laLlevaUnMio = b.conLaBola != null &&
+    (e.players.find(q => q.idx === b.conLaBola)?.equipo ?? 0) === mio;
+  if (laLlevaUnMio) {
+    /* Abrirse: dos amontonados en el aro se estorban y encima le tapan el tiro
+       al que la lleva. */
+    const haciaDentro = aro.x > b.cancha.x + b.cancha.w / 2 ? -1 : 1;
+    return { x: aro.x + haciaDentro * 200, y: aro.y + (p.idx % 2 ? 200 : -200) };
   }
-  return { x: arcoRival.x + arcoRival.w / 2, y: arcoRival.y + arcoRival.h / 2 };
+  /* La lleva el rival, o anda suelta: a por ella. */
+  return { x: balon.x, y: balon.y };
+}
+
+/** ¿Tira? Solo si la lleva y está a tiro: de lejos el error del motor se abre
+    tanto que tirar es regalar la pelota. */
+function tiroDelBot(e: Estado, p: Jugador): number | null {
+  const b = e.basquet;
+  if (!b || b.ganador != null || b.saque > 0 || p.stun > 0) return null;
+  if (b.conLaBola !== p.idx) return null;
+  const aro = b.aros[1 - ((p.equipo ?? 0) as 0 | 1)];
+  return Math.hypot(aro.x - p.x, aro.y - p.y) > 300 ? null : 0.8;
 }
 
 /** A dónde va en bolos: el que le toca tira, el otro espera. */
@@ -376,7 +395,7 @@ function aDondeVoy(e: Estado, p: Jugador): { x: number; y: number } | null {
   if (e.reglas.modo === "futbol") return aDondeVoyEnElPartido(e, p);
   if (e.reglas.modo === "tenis") return aDondeVoyEnElTenis(e, p);
   if (e.reglas.modo === "voley") return aDondeVoyEnVoley(e, p);
-  if (e.basquet) return aDondeVoyEnBasquet(e, p);
+  if (e.reglas.modo === "basquet") return aDondeVoyEnBasquet(e, p);
   if (e.bolos) return aDondeVoyEnBolos(e, p);
   if (e.lucha) return aDondeVoyEnLucha(e, p);
   if (e.dardos) return aDondeVoyEnDardos(e, p);
@@ -469,7 +488,10 @@ export function pensarBot(e: Estado, p: Jugador, dt: number): PlanBot {
 
   const esJuego = !!(e.basquet || e.bolos || e.lucha || e.dardos || e.carreraObs || e.laberinto || e.billar || e.hockey);
   const tenis = e.reglas.modo === "tenis", voley = e.reglas.modo === "voley";
-  const raqueta = tenis ? golpeDelBot(e, p) : voley ? toqueDelBot(e, p) : null;
+  const basquet = e.reglas.modo === "basquet";
+  const raqueta = tenis ? golpeDelBot(e, p)
+                : voley ? toqueDelBot(e, p)
+                : basquet ? tiroDelBot(e, p) : null;
   const enLucha = !!e.lucha;
   const rivalEnLucha = enLucha ? e.players.find(q => q.idx !== p.idx) : null;
   const blancoLucha = rivalEnLucha && dist2(p.x, p.y, rivalEnLucha.x, rivalEnLucha.y) < 60 * 60
@@ -492,8 +514,8 @@ export function pensarBot(e: Estado, p: Jugador, dt: number): PlanBot {
                 /* En el tenis, cada dos fotogramas: el sitio donde va a picar
                    cambia con cada bote y con cada golpe, y medio segundo tarde
                    es medio campo tarde. */
-                ((e.reglas.modo === "tenis" || e.reglas.modo === "voley") &&
-                 b.repensar <= REPENSAR - 0.03);
+                ((e.reglas.modo === "tenis" || e.reglas.modo === "voley" ||
+                  e.reglas.modo === "basquet") && b.repensar <= REPENSAR - 0.03);
   if (b.repensar <= 0 || llegó) {
     const meta = aDondeVoy(e, p);
     b.repensar = REPENSAR;

@@ -8,7 +8,7 @@ Monorepo con workspaces npm:
 
 | Paquete | Qué es |
 |---|---|
-| `packages/engine` | el juego sin navegador: determinista, JSON serializable, 204 pruebas |
+| `packages/engine` | el juego sin navegador: determinista, JSON serializable, 210 pruebas |
 | `apps/web` | el cliente (Vite + canvas 2D). Solo dibuja y escucha teclas |
 | `apps/api` | cuentas, álbum, guardado, fiestas y avisos (.NET 9, Clean Arch + CQRS), 47 pruebas |
 | `apps/salas` | servidor de salas autoritativo (Node + `ws`), 36 pruebas |
@@ -23,6 +23,33 @@ A medias / sin hacer: el modo cooperativo (aplazado a propósito — una sala en
 aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Última sesión
+
+- 2026-08-11 (claude-code): **el básquet, terminado**. Cuarto minijuego que se
+  juega entero (`JUEGOS_LISTOS`: fútbol, tenis, vóley, básquet). **Tres contra
+  tres**, primero a 11, tres minutos de reloj.
+  Lo que lo separa del fútbol —que también es dos equipos y una pelota— es que
+  aquí la pelota **se lleva**: se recoge sola al llegar (62 px), va botando
+  delante de ti, y **de un chanclazo se le cae al que la lleva**, que es toda
+  la defensa que este juego necesita. Los aros son círculos de verdad en el
+  suelo: visto desde arriba, la canasta es la pelota entrando **cayendo**
+  (`vz < 0` y a la altura del aro), que es justo lo que se ve desde arriba.
+  **La decisión del tiro no es apretar en el momento justo** —eso ya se probó
+  en el vóley y era una lotería—, sino **desde dónde tiras**. El error es un
+  radio que crece con la distancia y con el defensor que tengas encima, y la
+  canasta mide 44: aciertas `44/err`. Calibrado y medido: la bandeja (90 px)
+  entra siempre, de media (200) entra el 65 %, de 300 el 43 %, y el triple
+  ronda un tercio — que por eso vale tres. Aguantar el botón afina hasta un
+  45 %, pero no arregla la distancia.
+  Medido con bots: 40-50 % de acierto, partidos de 47 a 65 s, y en 3v3 salen
+  11-10 (en 1v1 y 2v2 gana casi siempre el equipo 1, por eso se arma 3v3).
+  Y medido como humano —uno que va a por la pelota y tira cerca del aro—:
+  **la agarra 4-6 veces por partido y gana 12-8 en 3v3**.
+  Gotcha, el tercero de la misma familia: la pelota del básquet también tenía
+  que entrar en `balonEnElAire`. Con el rozamiento de rodar aplicándose en
+  vuelo, 131 tiros acabaron en 0 canastas — la parábola se calcula al tirar y
+  el roce la dejaba corta. Es el mismo fallo que ya se pagó en el saque de
+  vóley: **cualquier pelota cuya trayectoria se resuelva al golpearla tiene que
+  estar en esa lista**.
 
 - 2026-08-11 (claude-code): **en el vóley la pelota se toca sola** («parece que
   nunca toco el balón»). La sesión anterior arregló *llegar* (del 36 % al 97 %

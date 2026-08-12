@@ -3,7 +3,7 @@
 
 import type {
   Base, Billar, DesfileItem, Estado, Evento, Florin, Jugador, Laser, Pedestal, RefObjetivo,
-  Rect, RefPed, Reglas, SitioDeJuego, JuegoDeSitio, Sonido, Tenis, Trasto, Variante, Voley,
+  Rect, RefPed, Reglas, SitioDeJuego, JuegoDeSitio, Sonido, Tenis, Trasto, Variante, Voley, Circulo,
 } from "./tipos.js";
 import {
   ESCENARIOS, FLORES, GOAL, LASER_CARGA, PATIOS_PRECIO, TIERS, TRASTOS_ESCENARIO,
@@ -849,6 +849,7 @@ export const esMinijuego = (modo: Reglas["modo"]): modo is JuegoDeSitio =>
 const cupoDe = (juego: JuegoDeSitio): number =>
   juego === "futbol" ? FUTBOL_MAX
   : juego === "tenis" || juego === "voley" ? TENIS_MAX      // individual o dobles
+  : juego === "basquet" ? 6                                 // hasta 3 contra 3
   : 2;
 
 /* ---- los sitios con minijuego ----
@@ -890,7 +891,7 @@ const SITIOS: {
 }[] = [
   { juego: "futbol", rotulo: "LA PICHANGA", medida: CANCHITA, donde: "colegio", listo: true },
   { juego: "tenis", rotulo: "LA CANCHA DE TENIS", medida: CANCHA_TENIS, donde: "colegio", listo: true },
-  { juego: "basquet", rotulo: "LA CANCHA DE BÁSQUET", medida: MED_BASQUET, donde: "colegio", listo: false },
+  { juego: "basquet", rotulo: "LA CANCHA DE BÁSQUET", medida: MED_BASQUET, donde: "colegio", listo: true },
   { juego: "bolos", rotulo: "LOS BOLOS", medida: MED_BOLOS, donde: "colegio", listo: false },
   { juego: "lucha", rotulo: "EL RING", medida: MED_LUCHA, donde: "colegio", listo: false },
   { juego: "dardos", rotulo: "LOS DARDOS", medida: MED_DARDOS, donde: "colegio", listo: false },
@@ -1116,26 +1117,67 @@ export function colocarParaElSaque(e: Estado): void {
   });
 }
 
-/* ---- básquet ---- */
-const BASQUET_META = 5, BASQUET_RELOJ = 180;
-const ARCO_BASQUET = { w: 60, h: 10 };
+/* ---- básquet ----
+   Dos equipos, una pelota que se LLEVA y dos aros. Los aros son círculos de
+   verdad y están en el suelo: visto desde arriba, la canasta es la pelota
+   cayendo dentro del aro, que es exactamente lo que se ve desde arriba. */
+export const CANCHA_BASQUET = { w: 1400, h: 820 };
+export const BASQUET_META = 11, BASQUET_RELOJ = 180, BASQUET_SAQUE = 1.8;
+/** Lo que mide el aro y desde dónde vale tres. */
+export const ARO_R = 44, BASQUET_TRIPLE = 330;
 
 export function aLaCanchaDeBasquet(e: Estado): void {
   const { cx, cy } = centroDelMapa();
-  const cancha = { x: Math.round(cx - 300), y: Math.round(cy - 210), w: 600, h: 420 };
-  const aros: [Rect, Rect] = [
-    { x: cancha.x, y: Math.round(cy - ARCO_BASQUET.h / 2), w: ARCO_BASQUET.w, h: ARCO_BASQUET.h },
-    { x: cancha.x + cancha.w - ARCO_BASQUET.w, y: Math.round(cy - ARCO_BASQUET.h / 2), w: ARCO_BASQUET.w, h: ARCO_BASQUET.h },
+  const cancha = {
+    x: Math.round(cx - CANCHA_BASQUET.w / 2), y: Math.round(cy - CANCHA_BASQUET.h / 2),
+    w: CANCHA_BASQUET.w, h: CANCHA_BASQUET.h,
+  };
+  const aros: [Circulo, Circulo] = [
+    { x: Math.round(cancha.x + cancha.w * 0.10), y: cy, r: ARO_R },
+    { x: Math.round(cancha.x + cancha.w * 0.90), y: cy, r: ARO_R },
   ];
+
   let balon = e.trastos.find(t => t.tipo === "pelota");
   if (!balon) {
-    balon = { id: nuevoId(e), tipo: "pelota", x: cx, y: cy, vx: 0, vy: 0,
+    balon = { id: nuevoId(e), tipo: "pelota", x: cx, y: cy, z: 0, vz: 0, vx: 0, vy: 0,
               montadoPor: null, pateadoPor: null, giro: 0, variante: 0 };
     e.trastos.push(balon);
   }
   e.trastos = e.trastos.filter(t => t === balon);
-  e.basquet = { cancha, aros, balon: balon.id, puntos: [0, 0], meta: BASQUET_META, reloj: BASQUET_RELOJ, saque: 2, ganador: null };
+
+  e.basquet = {
+    cancha, aros, triple: BASQUET_TRIPLE, balon: balon.id, conLaBola: null,
+    suelta: 0, tiroDesde: 0, puntos: [0, 0], meta: BASQUET_META,
+    reloj: BASQUET_RELOJ, saque: BASQUET_SAQUE, ultimaCanasta: null, ganador: null,
+  };
   repartirEquipos(e);
+  sacarDeMedioBasquet(e);
+}
+
+/** Salto inicial: la pelota al centro y cada equipo en su mitad. */
+export function sacarDeMedioBasquet(e: Estado): void {
+  const b = e.basquet;
+  if (!b) return;
+  const c = b.cancha, cx = c.x + c.w / 2, cy = c.y + c.h / 2;
+  const balon = e.trastos.find(t => t.id === b.balon);
+  if (balon) {
+    balon.x = cx; balon.y = cy; balon.vx = 0; balon.vy = 0;
+    balon.z = 0; balon.vz = 0; balon.pateadoPor = null;
+  }
+  b.conLaBola = null;
+  b.suelta = 0;
+
+  const porEquipo = [0, 1].map(q => e.players.filter(p => p.equipo === q));
+  porEquipo.forEach((equipo, q) => {
+    const lado = q === 0 ? -1 : 1;
+    equipo.forEach((p, k) => {
+      p.x = cx + lado * (150 + k * 130);
+      p.y = cy + (k - (equipo.length - 1) / 2) * 200;
+      p.vx = 0; p.vy = 0;
+      p.stun = 0;
+      p.montado = null;
+    });
+  });
 }
 
 /* ---- bolos ---- */
