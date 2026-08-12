@@ -24,6 +24,26 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Última sesión
 
+- 2026-08-11 (claude-code): **el vóley, jugable de verdad** («no chapo ni una
+  bola»). Estaba calibrado contra bots que resuelven la parábola; un humano no.
+  Se midió lo que un humano puede hacer —correr a 268 px/s con 0,25 s de
+  reacción— contra dónde va a caer cada pelota que cruza la red: **llegaba al
+  36 %**. Ahora, al 81 % en individual y al **97-100 % en dobles**.
+  Tres cambios, y el orden importa:
+  1. **La pelota, mucho más generosa**: vuelo de 1,25-1,45 s (era 0,92-1,45),
+     saque de 1,55 s, alcance 178 y techo 230, y cancha más chica (1180×620).
+  2. **Dos palancas separadas, no una.** Con la pelota así de generosa el bot
+     tampoco falla nunca: 0-0 en cinco minutos, el mismo precipicio del tenis.
+     La pelota decide si llegas TÚ; el brío del bot decide si llega ÉL.
+     `VOLEY_BRIO = 0.44` (el tenista corre a 0,68) abre la banda en la que tú
+     llegas y él no. Medido: 5-3, 3-5, 5-2 en 60-90 s, con 5-6,5 toques por punto.
+  3. **Se arma DOS CONTRA DOS.** Individual tapas media cancha entera tú solo;
+     con compañero, casi todas. Y el vóley es de equipo: pasarle al otro es
+     medio juego.
+  Y lo que un humano no puede sacar de la pantalla: **dónde va a caer**. La
+  sombra del trasto va debajo de la PELOTA, no de donde acabará. Ahora hay un
+  aro punteado en la arena, verde si cae de tu lado y rojo si del otro.
+
 - 2026-08-11 (claude-code): **el vóley, terminado**. Es el tercer minijuego que
   se juega entero, y salió barato porque es el esqueleto del tenis con **una
   regla menos y una más**:

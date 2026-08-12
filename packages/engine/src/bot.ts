@@ -124,6 +124,12 @@ const REACCION = 0.35;
     cuesta. Corriendo un poco más lento, las que van al rincón se le escapan y
     las de al lado no: eso sí es una cuesta. */
 const TENIS_BRIO = 0.68;
+/** Y el del vóley, aparte. Aquí la pelota es MUY generosa a propósito —tiene
+    que serlo, o un humano no llega a una sola: 36 % de las que cruzaban,
+    medido—, y con una pelota así el bot no falla nunca: 0-0 en cinco minutos.
+    Las dos palancas son independientes: la pelota decide si TÚ llegas, y esto
+    decide si ÉL llega. */
+const VOLEY_BRIO = 0.44;
 
 /** Dónde va a picar la pelota, resolviendo su vuelo. */
 function dondeVaAPicar(b: { x: number; y: number; z?: number; vz?: number; vx: number; vy: number }) {
@@ -345,7 +351,7 @@ function aDondeLaMandoEnVoley(e: Estado, p: Jugador): { x: number; y: number } |
   const c = v.cancha, cy = c.y + c.h / 2;
   const rivales = e.players.filter(q => (q.equipo ?? 0) !== mio);
   const suY = rivales.length ? rivales.reduce((s, q) => s + q.y, 0) / rivales.length : cy;
-  const desvío = 140 + 150 * Math.abs(Math.sin(e.t * 0.9 + p.idx * 1.7));
+  const desvío = 120 + 180 * Math.abs(Math.sin(e.t * 0.9 + p.idx * 1.7));
   return { x: v.redX, y: clamp(suY + (suY > cy ? -1 : 1) * desvío, c.y + 70, c.y + c.h - 70) };
 }
 
@@ -357,8 +363,8 @@ function toqueDelBot(e: Estado, p: Jugador): number | null {
   if (!balon) return null;
   const mio = (p.equipo ?? 0) as 0 | 1;
   if ((balon.x < v.redX ? 0 : 1) !== mio) return null;
-  if ((balon.z ?? 0) > 170) return null;
-  if (dist2(p.x, p.y, balon.x, balon.y) > 112 * 112) return null;
+  if ((balon.z ?? 0) > 230) return null;
+  if (dist2(p.x, p.y, balon.x, balon.y) > 120 * 120) return null;
   /* Nunca se queda la pelota: el tercer toque cruza solo, y eso lo impone el
      motor, no el bot. */
   const suyos = v.ultimoToque === mio ? v.toques : 0;
@@ -514,7 +520,8 @@ export function pensarBot(e: Estado, p: Jugador, dt: number): PlanBot {
      palanca del problema medido: los bots le sacaban dos vueltas a un jugador
      en red. */
   const brío = e.reglas.modo === "carrera" ? dificultadDe(e.reglas).rivales
-             : e.reglas.modo === "tenis" || e.reglas.modo === "voley" ? TENIS_BRIO
+             : e.reglas.modo === "tenis" ? TENIS_BRIO
+             : e.reglas.modo === "voley" ? VOLEY_BRIO
              : e.bolos ? 0.8
              : e.dardos ? 0.7
              : e.laberinto ? 0.75

@@ -1266,7 +1266,7 @@ export function aAirHockey(e: Estado): void {
    El mismo esqueleto que el tenis —dos lados, una red, la pelota con altura—
    con una regla menos y una más: aquí el suelo NO es legal (un toque de suelo
    es el punto) y hay tres toques por lado antes de pasarla. */
-export const CANCHA_VOLEY_JUEGO = { w: 1400, h: 760 };
+export const CANCHA_VOLEY_JUEGO = { w: 1180, h: 620 };
 export const VOLEY_META = 5, VOLEY_SAQUE = 2.2, VOLEY_RED_ALTO = 62;
 /** Toques que puede dar un lado antes de mandarla al otro. */
 export const VOLEY_TOQUES = 3;

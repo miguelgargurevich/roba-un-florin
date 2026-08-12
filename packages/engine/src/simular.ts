@@ -2246,13 +2246,13 @@ function pasoHockey(e: Estado, dt: number): void {
       eso la carga del botón elige entre PASAR (se queda de tu lado, bien alta)
       y REMATAR (cruza la red). El tercer toque cruza sí o sí: si no, un lado
       podría quedarse la pelota para siempre. */
-export const VOLEY_ALCANCE = 130;
+export const VOLEY_ALCANCE = 178;
 /** Por encima de esto la pelota va demasiado alta para tocarla. Es lo que hace
     que un pase alto haya que esperarlo, en vez de volver a darle al salir. */
-const VOLEY_TECHO = 170;
+const VOLEY_TECHO = 230;
 const VOLEY_SALIDA = 40;
 /** Lo que tarda en llegar un pase (alto y lento) y un remate (tenso). */
-const VOLEY_T_PASE = 1.30, VOLEY_T_REMATE = 0.92;
+const VOLEY_T_PASE = 1.45, VOLEY_T_REMATE = 1.25;
 
 /** ¿Puede este jugador tocarla ahora mismo? */
 function alAlcanceDeVoley(e: Estado, p: Jugador): Trasto | null {
@@ -2338,7 +2338,7 @@ function saqueDeVoley(e: Estado): void {
   const haciaElRival = v.sacador === 0 ? 1 : -1;
   const tx = v.redX + haciaElRival * (c.w / 2) * 0.55;
   const ty = c.y + c.h / 2 + rnd(e, -c.h * 0.30, c.h * 0.30);
-  const T = 1.15;
+  const T = 1.55;
   b.z = 48;
   b.vx = (tx - b.x) / T;
   b.vy = (ty - b.y) / T;

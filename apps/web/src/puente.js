@@ -279,7 +279,11 @@ export function nuevaPartidaMotor(modo, escenarioId, carrera = false, dificultad
      ladrones, el desfile y los puestos. */
   if (mini) {
     const G = conAtajos(crearPartida({
-      jugadores: 2,
+      /* El vóley se arma DOS CONTRA DOS. Individual, uno solo tapa media cancha
+         entera y llega al 81 % de las pelotas; con compañero, al 97-100 %
+         (medido). Y además el vóley es de equipo: pasarle al otro es medio
+         juego. */
+      jugadores: mini === "voley" ? 4 : 2,
       escenario: cancha,
       armas: idsDeArmas(),
       reglas: { modo: mini },

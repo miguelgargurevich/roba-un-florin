@@ -1294,6 +1294,7 @@ function pintarAccion(){
       : cual === "fus" ? "⚗️ Abrir la Fusionadora"
       : cual === "sitio:futbol" ? "⚽ Armar la pichanga · " + ladoSel + " contra " + ladoSel
       : cual === "sitio:tenis" ? "🎾 Jugar tenis · uno contra uno"
+      : cual === "sitio:voley" ? "🏐 Jugar vóley · dos contra dos"
       : cual === "sitio:basquet" ? "🏀 Jugar básquet · uno contra uno"
       : cual === "sitio:bolos" ? "🎳 Jugar bolos · dos turnos"
       : cual === "sitio:lucha" ? "🥊 Pelear en el ring · uno contra uno"
@@ -1333,7 +1334,7 @@ const MINIJUEGOS = {
   bolos:      "🎳 ¡A bolos! Dos turnos.",
   lucha:      "🥊 ¡Al ring! Derriba al rival.",
   dardos:     "🎯 ¡Dardos! 5 tiradas cada uno.",
-  voley:      "🏐 ¡Voley! Primero en 5 puntos.",
+  voley:      "🏐 ¡Vóley, dos contra dos! Primero en " + VOLEY_META + " puntos.",
   carreraObs: "🏃 ¡Carrera de obstáculos!",
   laberinto:  "🔮 ¡Al laberinto! Recoge todas las gemas.",
   billar:     "🎱 ¡Billar! Entran todas las bolas.",
@@ -9177,6 +9178,26 @@ function drawCanchaVoley(){
   ctx.moveTo(v.redX - ataque, c.y); ctx.lineTo(v.redX - ataque, c.y + c.h);
   ctx.moveTo(v.redX + ataque, c.y); ctx.lineTo(v.redX + ataque, c.y + c.h);
   ctx.stroke();
+
+  /* Dónde va a caer. Es lo único que un humano no puede sacar de la pantalla
+     —la pelota va por el aire y la sombra va debajo de ELLA, no de donde
+     acabará—, y sin eso no se llega ni queriendo: 36 % de las que cruzaban, con
+     el bot resolviendo la parábola y tú adivinando. */
+  const bola = G.trastos.find(t => t.id === v.balon);
+  if (bola && ((bola.z || 0) > 4 || (bola.vz || 0) !== 0)){
+    const z = bola.z || 0, vz = bola.vz || 0;
+    const T = (vz + Math.sqrt(vz * vz + 2 * 1600 * z)) / 1600;
+    const cx2 = bola.x + bola.vx * T, cy2 = bola.y + bola.vy * T;
+    const mio = (G.player.equipo ?? 0) === (cx2 < v.redX ? 0 : 1);
+    ctx.save();
+    ctx.strokeStyle = mio ? "rgba(61,220,151,.85)" : "rgba(255,92,134,.6)";
+    ctx.lineWidth = 4;
+    ctx.setLineDash([9, 7]);
+    ctx.lineDashOffset = -G.t * 26;
+    ctx.beginPath(); ctx.ellipse(cx2, cy2, 34, 20, 0, 0, 6.283); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
 
   // la red, más alta que la del tenis y con su cinta blanca
   const rx = v.redX - 8;
