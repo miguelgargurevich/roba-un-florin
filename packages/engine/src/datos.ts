@@ -1107,7 +1107,19 @@ export const ESCENARIOS: Escenario[] = ([
       { id:"luna",          x0: 82800, x1: 86400 },
     ],
     casas:[sitio(0.0208,0.02),sitio(0.0625,0.9),sitio(0.1042,0.02),sitio(0.1458,0.9),sitio(0.1875,0.02),sitio(0.2292,0.9),sitio(0.2708,0.02),sitio(0.3125,0.9),sitio(0.3542,0.02),sitio(0.3958,0.9),sitio(0.4375,0.02),sitio(0.4792,0.9),sitio(0.5208,0.02),sitio(0.5625,0.9),sitio(0.6042,0.02),sitio(0.6458,0.9),sitio(0.6875,0.02),sitio(0.7292,0.9),sitio(0.7708,0.02),sitio(0.8125,0.9),sitio(0.8542,0.02),sitio(0.8958,0.9),sitio(0.9375,0.02),sitio(0.9792,0.9)],
-    patios:[sitio(0.004,0.5),sitio(0.004,0.02),sitio(0.004,0.9),sitio(0.028,0.02),sitio(0.028,0.9)] },
+    /* Los patios NO van todos en la primera zona. El Multiverso mide 86 400 px
+       —cinco minutos y medio de punta a punta— y con los cinco amontonados en
+       la catarata, cada Florín que cogías en la Luna era un viaje de vuelta de
+       dos minutos y medio.
+       Ahora: el tuyo (el gratis) se queda en la zona 0, con la pasarela, el
+       portal y los puestos de casa; y los cuatro comprables van repartidos cada
+       cinco zonas —Nueva York, el Mirador, la Construcción y el Zoo—, así que
+       desde cualquier punto del mapa tienes uno a dos o tres zonas.
+       A media altura (0,5) a propósito: las casas de los vecinos van a 0,02 y
+       0,9, y el mar de las cinco zonas que lo tienen empieza a 1 766 de 2 100.
+       Comprar un patio lejos es una DECISIÓN, no un regalo: cada vitrina que
+       tienes es otra que defender, y la alarma solo puede sonar en un sitio. */
+    patios:[sitio(0.004,0.5),sitio(0.229,0.5),sitio(0.4375,0.5),sitio(0.6458,0.5),sitio(0.854,0.5)] },
 
   /* ---- las canchas ----
      Sitios que solo existen para el fútbol. No tienen casas ni patios que valgan

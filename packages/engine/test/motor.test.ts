@@ -2884,6 +2884,48 @@ describe("los sitios con minijuego", () => {
 
 });
 
+describe("los patios del Multiverso", () => {
+  const multi = () => partida({ escenario: "multiverso", reglas: { patiosExtra: true } });
+  const mios = (e: Estado) => e.bases.filter(b => b.isPlayer || b.locked);
+
+  it("están repartidos por el mapa, no amontonados en la primera zona", () => {
+    const e = multi();
+    const zonas = e.esc.zonas!;
+    const dónde = new Set(mios(e).map(b => {
+      const cx = b.rect.x + b.rect.w / 2;
+      return zonas.find(z => cx >= z.x0 && cx < z.x1)?.id;
+    }));
+    expect(dónde.size, "los patios siguen todos en la misma zona").toBeGreaterThan(3);
+  });
+
+  it("desde cualquier zona tienes un patio a menos de un minuto", () => {
+    /* Es LA razón de repartirlos: con los cinco en la catarata, volver desde la
+       Luna eran 84 000 px, o sea 313 s andando a 268 px/s. Un Florín cogido al
+       final del mapa costaba cinco minutos de viaje. */
+    const e = multi();
+    const centros = mios(e).map(b => ({ x: b.rect.x + b.rect.w / 2, y: b.rect.y + b.rect.h / 2 }));
+    for (const z of e.esc.zonas!) {
+      const cx = (z.x0 + z.x1) / 2;
+      const cerca = Math.min(...centros.map(m => Math.hypot(m.x - cx, m.y - 1050)));
+      expect(cerca / 268, "desde " + z.id + " se anda demasiado").toBeLessThan(60);
+    }
+  });
+
+  it("ningún patio nace en el mar, encima de otra base ni sobre un puesto", () => {
+    const e = multi();
+    const choca = (a2: any, b2: any) =>
+      a2.x < b2.x + b2.w && a2.x + a2.w > b2.x && a2.y < b2.y + b2.h && a2.y + a2.h > b2.y;
+    for (const b of mios(e)) {
+      expect(enElMar(e, b.rect.x + b.rect.w / 2, b.rect.y + b.rect.h / 2),
+             b.name + " nació en el mar").toBe(false);
+      for (const o of e.bases)
+        if (o !== b) expect(choca(b.rect, o.rect), b.name + " pisa " + o.name).toBe(false);
+      for (const a2 of e.armerias)
+        expect(choca(b.rect, a2), b.name + " pisa una Armería").toBe(false);
+    }
+  });
+});
+
 describe("el Multiverso", () => {
   const multi = () => partida({ escenario: "multiverso" });
 

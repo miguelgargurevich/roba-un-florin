@@ -1,6 +1,6 @@
 # Handoff — Roba un Florín
 
-> Actualizado: 2026-08-11 por claude-code
+> Actualizado: 2026-08-21 por claude-code
 
 ## Estado actual
 
@@ -23,6 +23,18 @@ A medias / sin hacer: el modo cooperativo (aplazado a propósito — una sala en
 aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Última sesión
+
+- 2026-08-21 (claude-code): **los patios del Multiverso, repartidos** (pedido: «es
+  muy grande para estar regresando al mismo punto»). Los cinco estaban en la
+  primera zona (la catarata) —eso era el problema, no cuántos había—. Ahora el
+  tuyo, el gratis, se queda en casa con la pasarela y el portal, y los cuatro
+  comprables van cada cinco zonas: **Nueva York, el Mirador, la Construcción y
+  el Zoo**. Medido: volver desde la Luna eran **313 s** andando y ahora son
+  **41 s** en el peor caso de todo el mapa. A media altura a propósito (las
+  casas de los vecinos van a 0,02 y 0,9; el mar de las cinco zonas que lo tienen
+  empieza a 1 766 de 2 100). Tres pruebas nuevas lo fijan: repartidos en zonas
+  distintas, nadie a más de un minuto, y ningún patio en el mar ni encima de
+  otra base o de una Armería. 252 pruebas de motor.
 
 - 2026-08-11 (claude-code): **memoria y criterio para el bot del laberinto**
   (pedido). Era el más flojo de los once: entre huir y buscar se le iba media
