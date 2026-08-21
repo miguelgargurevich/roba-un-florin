@@ -24,6 +24,29 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Última sesión
 
+- 2026-08-11 (claude-code): **el despliegue limpia solo**. El runbook decía "el
+  `builder prune` tras cada build no es opcional" y aun así había que acordarse
+  de teclearlo: en tres despliegues el disco pasaba del 77 % al 86 %, justo
+  donde entra `vps-autoclean` a lo bruto. Ahora hay scripts y la limpieza no se
+  puede olvidar.
+  En el VPS, `/opt/florin-api/desplegar-salas.sh` y `desplegar-api.sh`: git,
+  build, recrear el contenedor, y `builder prune` + `image prune` **en un
+  `trap`**, así que limpian también si el build falla — que es exactamente
+  cuando el disco está más justo. Imprimen disco antes/después, el commit
+  desplegado y el estado del contenedor. `LEEME.md` ya documenta el script en
+  lugar del comando a mano.
+  En el repo, **`scripts/desplegar-web.sh`** para el cliente: build con
+  `VITE_API`/`VITE_SALAS`, y la comprobación de `localhost` como **corte, no
+  aviso** — si el bundle la trae, no sube nada y sale con 1. Verificado a mano:
+  con las variables mal, aborta y producción se queda como estaba. También
+  avisa si hay cambios sin commitear y comprueba que el `index.html` servido
+  apunta al bundle nuevo.
+  Gotcha que el propio script pisó al escribirlo: **`grep` sale con 1 cuando NO
+  encuentra nada**, y con `set -o pipefail` eso mata el script justo en el caso
+  bueno. De ahí el `|| true` dentro de las llaves.
+  Limpieza de esta sesión: 86 % → 77 % (5,66 GB de caché de build y 5,2 GB de
+  dos imágenes de rollback viejas de Coolify, dejando una por app).
+
 - 2026-08-11 (claude-code): **la carrera de obstáculos, terminada**. Séptimo
   minijuego entero (`JUEGOS_LISTOS`: fútbol, tenis, vóley, básquet, hockey,
   lucha, carreraObs). **Cinco corredores**, tres vueltas, a pie.
