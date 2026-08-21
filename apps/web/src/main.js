@@ -1380,7 +1380,7 @@ function pintarAccion(){
       : cual === "sitio:carreraObs" ? "🏃 Correr los obstáculos · cinco"
       : cual === "sitio:bolos" ? "🎳 Jugar bolos · cinco manos"
       : cual === "sitio:dardos" ? "🎯 Tirar dardos · seis cada uno"
-      : cual === "sitio:laberinto" ? "🔮 Entrar al laberinto · a por las gemas"
+      : cual === "sitio:laberinto" ? "🔮 Entrar al laberinto · rescata a tus amigos"
       : cual === "sitio:billar" ? "🎱 Jugar billar · siete bolas"
       : "🎰 Girar la Ruleta · " + money(RULETA_PRECIO);
   }
@@ -1416,7 +1416,7 @@ const MINIJUEGOS = {
   dardos:     "🎯 ¡Dardos! Seis cada uno. Aguanta el botón para afinar el pulso — y cuidado con la chancla del otro.",
   voley:      "🏐 ¡Vóley, dos contra dos! La tocas con solo llegar; aguanta el botón para rematar.",
   carreraObs: "🏃 ¡Carrera de obstáculos! Tres vueltas a pie. Los conos te tumban.",
-  laberinto:  "🔮 ¡Al laberinto! Coge más gemas que el otro. Y si el fantasma te pilla, te quita una.",
+  laberinto:  "🔮 ¡Al laberinto! Saca a tus amigos de las jaulas. Tres fases, y cada una con otro fantasma.",
   billar:     "🎱 ¡Al billar! Si metes, sigues tirando. Si cuelas la blanca, pierdes el turno.",
   hockey:     "🏒 ¡Air hockey! Primero a 5. No hay botón: el disco sale al chocar con él.",
 };
@@ -9383,17 +9383,14 @@ function drawLaberinto(){
   const c = l.celda, ox = l.origen.x, oy = l.origen.y;
   ctx.save();
 
-  /* El suelo del laberinto, para que se vea dónde acaba. El origen sale del
-     ESTADO: antes se calculaba desde la primera gema, así que el laberinto
-     entero se desplazaba en cuanto alguien cogía una. */
+  /* El origen sale del ESTADO: antes se calculaba desde la primera jaula, así
+     que el laberinto entero se desplazaba en cuanto se abría una. */
   ctx.fillStyle = "#1E1226";
   ctx.fillRect(ox, oy, l.ancho * c, l.alto * c);
-
   for (let y = 0; y < l.alto; y++){
     for (let x = 0; x < l.ancho; x++){
       const px = ox + x * c, py = oy + y * c;
       if (l.celdas[y][x]){
-        // pared: bloque con brillo arriba, para que se lea el volumen
         ctx.fillStyle = "#4A3560";
         ctx.fillRect(px, py, c, c);
         ctx.fillStyle = "rgba(255,255,255,.09)";
@@ -9401,44 +9398,96 @@ function drawLaberinto(){
         ctx.fillStyle = "rgba(0,0,0,.20)";
         ctx.fillRect(px, py + c - 7, c, 7);
       } else {
-        // pasillo: unas losetas tenues
         ctx.fillStyle = "rgba(255,255,255,.035)";
         ctx.fillRect(px + 6, py + 6, c - 12, c - 12);
       }
     }
   }
 
-  // las gemas, girando
-  for (const g of l.gemas){
-    const k = 1 + Math.sin(G.t * 3 + g.x * 0.01) * 0.16;
-    ctx.fillStyle = "#FFC53D";
-    ctx.beginPath();
-    ctx.moveTo(g.x, g.y - 15 * k); ctx.lineTo(g.x + 11 * k, g.y);
-    ctx.lineTo(g.x, g.y + 15 * k); ctx.lineTo(g.x - 11 * k, g.y);
-    ctx.closePath(); ctx.fill();
-    ctx.fillStyle = "rgba(255,255,255,.45)";
-    ctx.beginPath();
-    ctx.moveTo(g.x, g.y - 15 * k); ctx.lineTo(g.x + 11 * k, g.y); ctx.lineTo(g.x, g.y);
-    ctx.closePath(); ctx.fill();
+  /* Las jaulas, con el amigo dentro. Un amigo liberado NO desaparece: se queda
+     ahí celebrando con los barrotes tirados, que es la mitad del premio. */
+  for (const j of l.jaulas){
+    const K = LADRONES[j.quien] || {};
+    const R = 30;
+    if (!j.libre){
+      // el suelo de la jaula y los barrotes
+      ctx.fillStyle = "rgba(0,0,0,.35)";
+      roundRect(j.x - R, j.y - R, R * 2, R * 2, 8); ctx.fill();
+      drawPerson(j.x, j.y + 4, 1, 0, { skin:K.skin, shirt:K.shirt, hair:K.hair,
+                                       cap:K.cap, ears:K.ears, stun:0 });
+      ctx.strokeStyle = "#C9C3CF"; ctx.lineWidth = 4;
+      for (let k = -2; k <= 2; k++){
+        ctx.beginPath();
+        ctx.moveTo(j.x + k * 13, j.y - R); ctx.lineTo(j.x + k * 13, j.y + R);
+        ctx.stroke();
+      }
+      ctx.beginPath();
+      ctx.moveTo(j.x - R, j.y - R); ctx.lineTo(j.x + R, j.y - R);
+      ctx.moveTo(j.x - R, j.y + R); ctx.lineTo(j.x + R, j.y + R);
+      ctx.stroke();
+      // el candado
+      ctx.fillStyle = "#FFC53D";
+      ctx.beginPath(); ctx.arc(j.x, j.y + R, 6, 0, 6.283); ctx.fill();
+    } else {
+      // libre: dando saltos, con los barrotes en el suelo
+      const salto = Math.abs(Math.sin(G.t * 5 + j.x * 0.01)) * 7;
+      ctx.strokeStyle = "rgba(201,195,207,.45)"; ctx.lineWidth = 4;
+      for (let k = -2; k <= 2; k++){
+        ctx.beginPath();
+        ctx.moveTo(j.x + k * 13 - 10, j.y + R - 2); ctx.lineTo(j.x + k * 13 + 10, j.y + R + 2);
+        ctx.stroke();
+      }
+      drawPerson(j.x, j.y - salto, 1, G.t * 9, { skin:K.skin, shirt:K.shirt, hair:K.hair,
+                                                 cap:K.cap, ears:K.ears, stun:0 });
+      ctx.fillStyle = "#FFC53D";
+      ctx.font = "800 12px system-ui, sans-serif";
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText("¡libre!", j.x, j.y - 34 - salto);
+    }
+    // quién es, para que rescatar a alguien tenga nombre
+    if (!j.libre && K.label){
+      ctx.font = "800 11px system-ui, sans-serif";
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.lineWidth = 3.5; ctx.strokeStyle = "rgba(15,7,14,.85)";
+      ctx.strokeText(K.label, j.x, j.y + R + 14);
+      ctx.fillStyle = "#F3EAF0";
+      ctx.fillText(K.label, j.x, j.y + R + 14);
+    }
   }
 
-  /* El fantasma: sábana con dos ojos y el borde ondulado. Se pinta después de
-     las gemas y antes de la gente, que es el orden en el que importa. */
-  const f = l.fantasma;
-  ctx.fillStyle = "rgba(255,61,110,.20)";
-  ctx.beginPath(); ctx.arc(f.x, f.y, 30, 0, 6.283); ctx.fill();
-  ctx.fillStyle = "#F3EAF0";
-  ctx.beginPath();
-  ctx.arc(f.x, f.y - 3, 16, Math.PI, 0);
-  for (let k = 0; k < 4; k++){
-    const x0 = f.x + 16 - k * 8;
-    ctx.quadraticCurveTo(x0 - 4, f.y + (k % 2 ? 20 : 10), x0 - 8, f.y + 14);
+  /* Los fantasmas: sábana con dos ojos y el borde ondulado. */
+  for (const f of l.fantasmas){
+    ctx.fillStyle = "rgba(255,61,110,.20)";
+    ctx.beginPath(); ctx.arc(f.x, f.y, 30, 0, 6.283); ctx.fill();
+    ctx.fillStyle = "#F3EAF0";
+    ctx.beginPath();
+    ctx.arc(f.x, f.y - 3, 16, Math.PI, 0);
+    for (let k = 0; k < 4; k++){
+      const x0 = f.x + 16 - k * 8;
+      ctx.quadraticCurveTo(x0 - 4, f.y + (k % 2 ? 20 : 10), x0 - 8, f.y + 14);
+    }
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "#2A1226";
+    const mx = Math.sign(f.vx) * 3;
+    ctx.beginPath(); ctx.arc(f.x - 5 + mx, f.y - 5, 3, 0, 6.283); ctx.fill();
+    ctx.beginPath(); ctx.arc(f.x + 5 + mx, f.y - 5, 3, 0, 6.283); ctx.fill();
   }
-  ctx.closePath(); ctx.fill();
-  ctx.fillStyle = "#2A1226";
-  const mx = Math.sign(f.vx) * 3;
-  ctx.beginPath(); ctx.arc(f.x - 5 + mx, f.y - 5, 3, 0, 6.283); ctx.fill();
-  ctx.beginPath(); ctx.arc(f.x + 5 + mx, f.y - 5, 3, 0, 6.283); ctx.fill();
+
+  /* El cartel de fase, en el descanso. */
+  if (l.entreFases > 0){
+    const cx = ox + (l.ancho * c) / 2, cy = oy + (l.alto * c) / 2;
+    ctx.fillStyle = "rgba(42,18,38,.85)";
+    roundRect(cx - 230, cy - 60, 460, 120, 20); ctx.fill();
+    ctx.strokeStyle = "#3DDC97"; ctx.lineWidth = 4;
+    roundRect(cx - 230, cy - 60, 460, 120, 20); ctx.stroke();
+    ctx.fillStyle = "#3DDC97";
+    ctx.font = "800 34px system-ui, sans-serif";
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText("¡Fase " + (l.fase + 2) + " de " + l.fases + "!", cx, cy - 14);
+    ctx.fillStyle = "#F3EAF0";
+    ctx.font = "700 17px system-ui, sans-serif";
+    ctx.fillText("Más grande, y con otro fantasma", cx, cy + 24);
+  }
   ctx.restore();
 }
 
@@ -10964,11 +11013,15 @@ function hud(){
     const l = G.laberinto;
     const yo = G.players.indexOf(G.player);
     const suyos = Math.max(...l.puntos.filter((_, i) => i !== yo));
+    const presos = l.jaulas.filter(j => !j.libre).length;
     el.goalLabel.textContent = l.ganador != null ? "Se acabó"
+      : l.entreFases > 0 ? "¡Fase " + (l.fase + 2) + " de " + l.fases + "!"
       : G.player.stun > 0 ? "¡El fantasma!"
-      : "Quedan " + l.gemas.length + " gemas";
+      : "Fase " + (l.fase + 1) + "/" + l.fases + " · quedan " + presos + " en jaulas";
     el.goal.textContent = l.puntos[yo] + " – " + suyos;
-    el.bar.style.width = clamp(l.puntos[yo] / Math.max(1, l.total) * 100, 0, 100).toFixed(1) + "%";
+    /* La barra mide la FASE, no la partida: es lo que puedes terminar ahora. */
+    const abiertas = l.jaulas.filter(j => j.libre).length;
+    el.bar.style.width = clamp(abiertas / Math.max(1, l.jaulas.length) * 100, 0, 100).toFixed(1) + "%";
     el.goalCard.classList.toggle("fiesta", l.puntos[yo] > suyos);
     el.money.textContent = mmss(Math.max(0, l.reloj));
     el.rate.textContent = l.puntos[yo] > suyos ? "Vas ganando"
@@ -11376,16 +11429,17 @@ function endGame(ganador){
     const yo = G.players.indexOf(G.player);
     const suyos = Math.max(...l.puntos.filter((_, i) => i !== yo));
     const ganaste = l.ganador === yo, empate = l.ganador == null;
-    document.getElementById("lbSteals").textContent = "Gemas que cogiste";
-    document.getElementById("lbHits").textContent = "Las del otro";
+    document.getElementById("lbSteals").textContent = "Amigos que rescataste";
+    document.getElementById("lbHits").textContent = "Los del otro";
     document.getElementById("lbRate").textContent = "Chancletazos que diste";
     document.getElementById("endEyebrow").textContent = "Se acabó el laberinto";
     document.getElementById("endTitle").innerHTML = empate
       ? "Quedaron <em>iguales</em>"
-      : ganaste ? "¡<em>Más gemas</em> que nadie!" : "Te <em>ganaron</em>";
+      : ganaste ? "¡<em>Rescataste</em> a más!" : "Rescataron <em>más que tú</em>";
     document.getElementById("endSub").textContent = empate
-      ? "Mismas gemas los dos."
-      : ganaste ? "Y sin que te pillara." : "El fantasma te cuesta una cada vez.";
+      ? "Los mismos amigos los dos."
+      : ganaste ? "Fase " + (l.fase + 1) + " de " + l.fases + ", y el patio entero fuera de las jaulas."
+                : "Cada vez que te pilla el fantasma, vuelve a encerrar a uno.";
     document.getElementById("stSteals").textContent = l.puntos[yo];
     document.getElementById("stHits").textContent = suyos;
     document.getElementById("stTime").textContent = mmss(G.t);

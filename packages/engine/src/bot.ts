@@ -439,13 +439,15 @@ function aDondeVoyEnCarreraObs(e: Estado, p: Jugador): { x: number; y: number } 
    empujando la pared. Se recorre la rejilla a lo ancho (BFS) desde su celda, que
    con 13x13 es baratísimo y da el camino más corto DE VERDAD.
 
-   Y cada uno va a una gema DISTINTA: con todos detrás de la misma iban en fila
-   india, el de delante se las comía todas y los de atrás no cogían ni una
+   Y cada uno va a una jaula DISTINTA: con todos detrás de la misma iban en fila
+   india, el de delante las abría todas y los de atrás no cogían ni una
    —medido: 0-5, 0-6, y la partida sin acabar— y acababan los dos parados en la
    misma celda. */
 function aDondeVoyEnLaberinto(e: Estado, p: Jugador): { x: number; y: number } | null {
   const l = e.laberinto;
-  if (!l || !l.gemas.length) return null;
+  if (!l) return null;
+  const cerradas = l.jaulas.filter(j => !j.libre);
+  if (!cerradas.length) return null;
   const c = l.celda;
   const celdaDe = (x: number, y: number): [number, number] =>
     [Math.floor((x - l.origen.x) / c), Math.floor((y - l.origen.y) / c)];
@@ -460,31 +462,43 @@ function aDondeVoyEnLaberinto(e: Estado, p: Jugador): { x: number; y: number } |
   const [px, py] = celdaLibreDe(l, p.x, p.y);
   const inicio = py * l.ancho + px;
 
-  /* El fantasma encima: huir por el pasillo que más lo aleje. Una gema no vale
-     la que te va a quitar. */
-  const gh = l.fantasma;
+  /* El fantasma MÁS CERCANO encima: huir por el pasillo que más lo aleje. Un
+     amigo no vale el que te va a volver a encerrar. */
+  const gh = l.fantasmas.length
+    ? l.fantasmas.reduce((m, f) => dist2(p.x, p.y, f.x, f.y) < dist2(p.x, p.y, m.x, m.y) ? f : m)
+    : null;
   /* Huir solo cuando el fantasma está DE VERDAD encima: una celda. Con 200 px
-     —dos celdas— el bot alternaba entre huir e ir a por la gema en cada
+     —dos celdas— el bot alternaba entre huir e ir a por la jaula en cada
      replanteo, y el resultado era subir, bajar, subir… sin moverse del sitio.
      Costó encontrarlo porque las dos decisiones eran correctas por separado. */
-  if (dist2(p.x, p.y, gh.x, gh.y) < 110 * 110) {
+  if (gh && dist2(p.x, p.y, gh.x, gh.y) < 110 * 110) {
     const [fx, fy] = celdaLibreDe(l, gh.x, gh.y);
     const salidas = ([[0,-1],[0,1],[-1,0],[1,0]] as [number, number][])
-      .map(([dx, dy]) => [px + dx, py + dy] as [number, number])
-      .filter(([x, y]) => !esPared(l, x, y));
+      .map(([dx, dy]) => [dx, dy, px + dx, py + dy] as [number, number, number, number])
+      .filter(([, , x, y]) => !esPared(l, x, y));
     if (salidas.length) {
       const lejos = salidas.reduce((m, s) =>
-        Math.abs(s[0] - fx) + Math.abs(s[1] - fy) > Math.abs(m[0] - fx) + Math.abs(m[1] - fy) ? s : m);
-      return centro(lejos[1] * l.ancho + lejos[0]);
+        Math.abs(s[2] - fx) + Math.abs(s[3] - fy) > Math.abs(m[2] - fx) + Math.abs(m[3] - fy) ? s : m);
+      /* Y se huye HASTA EL FINAL DEL PASILLO, no una celda. Huyendo una celda
+         llegaba, replanteaba, el fantasma seguía pegado, y volvía a huir: se
+         quedaba en el sitio con el fantasma encima. Ganando cuatro celdas de
+         una vez, se despega de verdad. */
+      let [dx, dy, cx2, cy2] = lejos;
+      for (let n = 0; n < 4; n++) {
+        const nx = cx2 + dx, ny = cy2 + dy;
+        if (esPared(l, nx, ny)) break;
+        cx2 = nx; cy2 = ny;
+      }
+      return centro(cy2 * l.ancho + cx2);
     }
   }
 
   /* Una gema por celda, con su posición real: hay que ir a la GEMA, no al
      centro de la celda — orbitando el centro no se coge nunca. */
-  const gemaEn = new Map<number, { x: number; y: number }>();
-  for (const g of l.gemas) {
-    const [gx, gy] = celdaLibreDe(l, g.x, g.y);
-    gemaEn.set(gy * l.ancho + gx, g);
+  const jaulaEn = new Map<number, { x: number; y: number }>();
+  for (const j of cerradas) {
+    const [gx, gy] = celdaLibreDe(l, j.x, j.y);
+    jaulaEn.set(gy * l.ancho + gx, j);
   }
 
   /* BFS: distancia y primer paso hacia cada celda alcanzable. */
@@ -508,27 +522,27 @@ function aDondeVoyEnLaberinto(e: Estado, p: Jugador): { x: number; y: number } |
 
   /* Las gemas alcanzables, en orden de cercanía por pasillo (`orden` ya viene
      ordenado por el BFS). Cada bot coge la que le toca por su puesto. */
-  const alcanzables = orden.filter(id => gemaEn.has(id));
+  const alcanzables = orden.filter(id => jaulaEn.has(id));
   if (!alcanzables.length) {
-    const g = l.gemas.reduce((m, x) =>
+    const j = cerradas.reduce((m, x) =>
       dist2(p.x, p.y, x.x, x.y) < dist2(p.x, p.y, m.x, m.y) ? x : m);
-    return { x: g.x, y: g.y };
+    return { x: j.x, y: j.y };
   }
   /* ---- comprometerse ----
-     Si sigue habiendo gema donde dijo que iba, se sigue yendo ahí. Eligiendo
+     Si sigue habiendo jaula donde dijo que iba, se sigue yendo ahí. Eligiendo
      cada vez «la más cercana», en el borde de dos celdas la más cercana cambia
      de una a otra: el bot subía, bajaba, subía… y se quedaba en el sitio para
      siempre. Medido: los dos jugadores clavados en la misma celda desde el
      segundo veinte hasta el final de la prueba. */
   const puesto = Math.max(0, e.players.indexOf(p));
   const antesMeta = p.bot?.meta;
-  const sigue = antesMeta != null && gemaEn.has(antesMeta) && antes.has(antesMeta);
+  const sigue = antesMeta != null && jaulaEn.has(antesMeta) && antes.has(antesMeta);
   const meta = sigue ? antesMeta! : alcanzables[Math.min(puesto, alcanzables.length - 1)];
   if (p.bot) p.bot.meta = meta;
 
-  /* Si la gema está en mi celda o en la de al lado, voy DERECHO a ella. */
-  const gema = gemaEn.get(meta)!;
-  if (meta === inicio || antes.get(meta) === inicio) return { x: gema.x, y: gema.y };
+  /* Si la jaula está en mi celda o en la de al lado, voy DERECHO a ella. */
+  const jaula = jaulaEn.get(meta)!;
+  if (meta === inicio || antes.get(meta) === inicio) return { x: jaula.x, y: jaula.y };
 
   /* Si no, al primer paso del camino más corto. */
   let paso = meta, prev = antes.get(paso) ?? -1;

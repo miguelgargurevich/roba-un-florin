@@ -8,7 +8,7 @@ Monorepo con workspaces npm:
 
 | Paquete | Qué es |
 |---|---|
-| `packages/engine` | el juego sin navegador: determinista, JSON serializable, 244 pruebas |
+| `packages/engine` | el juego sin navegador: determinista, JSON serializable, 245 pruebas |
 | `apps/web` | el cliente (Vite + canvas 2D). Solo dibuja y escucha teclas |
 | `apps/api` | cuentas, álbum, guardado, fiestas y avisos (.NET 9, Clean Arch + CQRS), 47 pruebas |
 | `apps/salas` | servidor de salas autoritativo (Node + `ws`), 36 pruebas |
@@ -23,6 +23,30 @@ A medias / sin hacer: el modo cooperativo (aplazado a propósito — una sala en
 aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Última sesión
+
+- 2026-08-11 (claude-code): **el laberinto, con fases y rescate de amigos**
+  (pedido). Ya no son gemas: son **los amigos del colegio metidos en jaulas** —
+  Mayo, el Sobri, la Prima Yuli, el Marciano…, la misma gente de los vecinos, con
+  su cara y su nombre bajo la jaula. Y un amigo liberado NO desaparece: se queda
+  ahí dando saltos con los barrotes en el suelo, que es la mitad del premio.
+  **Tres fases**, cada una más grande y con un fantasma más: 15x15 con 4 jaulas y
+  1 fantasma, 19x19 con 5 y 2, 23x23 con 6 y 3. Reloj de 240 s para las tres.
+  Dos cosas que hubo que medir para que funcionara:
+  - **las jaulas van repartidas, no al fondo.** Puestas en las celdas más
+    lejanas (que era la idea bonita), el laberinto se convertía en una
+    excursión: 4 rescates en tres minutos. Ahora se toma uno de cada N
+    callejones a lo largo de la rejilla;
+  - **el fantasma ya NO vuelve a encerrar a nadie.** Esa era mi idea y era
+    mala: deshacía rescates más rápido de lo que se hacían, el marcador volvía a
+    cero y la fase no se cerraba jamás (2-0 al minuto, 0-0 a los cuatro). Ahora
+    solo te clava en el sitio, y lo que cuesta un rescate es TIEMPO — que ya
+    aprieta, porque hay reloj y hay tres fases. **Un juego de avanzar necesita
+    que lo avanzado se quede.**
+  Y el bot huye **hasta el final del pasillo**, no una celda: huyendo una celda
+  llegaba, replanteaba, el fantasma seguía pegado y volvía a huir sin moverse
+  del sitio.
+  Medido en cuatro semillas: todas avanzan de fase (la 2 entre 44 y 83 s, la 3
+  entre 139 y 194 s), con 6-4, 4-1, 7-5 y un 3-3, y los dos bots aportan.
 
 - 2026-08-11 (claude-code): **el laberinto. Los once minijuegos están enteros**
   (`JUEGOS_LISTOS`: fútbol, tenis, vóley, básquet, hockey, lucha, carreraObs,

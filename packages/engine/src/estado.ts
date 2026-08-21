@@ -3,7 +3,7 @@
 
 import type {
   Base, Billar, DesfileItem, Estado, Evento, Florin, Jugador, Laser, Pedestal, RefObjetivo,
-  Rect, RefPed, Reglas, SitioDeJuego, JuegoDeSitio, Sonido, Tenis, Trasto, Variante, Voley, Circulo, Pino, Dardos, Bola, Laberinto,
+  Rect, RefPed, Reglas, SitioDeJuego, JuegoDeSitio, Sonido, Tenis, Trasto, Variante, Voley, Circulo, Pino, Dardos, Bola, Laberinto, Jaula, Fantasma,
 } from "./tipos.js";
 import {
   ESCENARIOS, FLORES, GOAL, LASER_CARGA, PATIOS_PRECIO, TIERS, TRASTOS_ESCENARIO,
@@ -1427,37 +1427,61 @@ export function aLaCarreraDeObs(e: Estado): void {
 
 
 /* ---- el laberinto ----
-   Trece por trece, cavado con vuelta atrás recursiva. La celda mide 92 px
-   porque un jugador ocupa 40 de ancho: con los 40 de antes no cabía por su
-   propio pasillo.
+   Cavado con vuelta atrás recursiva. La celda mide 92 px porque un jugador ocupa
+   unos 40 de ancho: con celdas más chicas no cabe por su propio pasillo.
 
-   Las gemas no van en todas las celdas libres —serían ochenta y cinco, y coger
-   ochenta y cinco cosas no es un juego— sino en los CALLEJONES SIN SALIDA y en
-   una de cada tres del resto. Los callejones son justamente donde no quieres
-   estar con un fantasma detrás, y ahí está la decisión. */
-export const LAB_CELDA = 92, LAB_LADO = 13;
+   Va por FASES: cada una es más grande, con más jaulas y un fantasma más. Y lo
+   que se busca no son gemas: son los **amigos del colegio metidos en jaulas**.
+   Un amigo liberado no desaparece — se queda ahí celebrando, que es la mitad
+   del premio. */
+export const LAB_CELDA = 92;
+/** El lado de la rejilla en cada fase: 17, 21, 25. Impar siempre, que es como
+    funciona el cavado (celdas de paso en las impares, paredes en las pares). */
+export const LAB_LADOS = [15, 19, 23];
+export const LAB_FASES = LAB_LADOS.length;
+/** Jaulas por fase, y fantasmas por fase. */
+export const LAB_JAULAS = [4, 5, 6], LAB_FANTASMAS = [1, 2, 3];
 /** El radio de quien anda por ahí, para las paredes. Va HOLGADO a propósito:
     con 22 sobre pasillos de 92 px, cualquiera que fuera un poco descentrado se
-    clavaba en la esquina de la celda de al lado y el empujón de salida le
-    cancelaba el avance. Con 15 quedan 31 px de margen a cada lado y el atasco
-    de esquina deja de existir. */
+    clavaba en la esquina de la celda de al lado. */
 export const LAB_BULTO = 15;
-/** Lo que corre el fantasma y lo que te cuesta que te pille. */
+/** Lo que corren los fantasmas y lo que cuesta que te pillen. */
 export const FANTASMA_VEL = 168, FANTASMA_STUN = 1.4;
-/** Lo que dura la partida. */
-export const LAB_RELOJ = 120;
+/** Lo que dura la partida entera, y el descanso entre fases. */
+export const LAB_RELOJ = 240, LAB_ENTRE_FASES = 2.2;
+/** Los amigos que pueden estar en las jaulas. */
+export const AMIGOS = ["mayo", "sobri", "yuli", "marcia", "meche", "chato", "wilber", "charo"];
 
 export function aElLaberinto(e: Estado): void {
+  /* El laberinto se queda SOLO. Los demás minijuegos ya limpian sus trastos;
+     aquí es todavía más necesario, porque una patineta tirada en un pasillo se
+     monta sola al pisarla y te lleva a donde ella quiera. */
+  e.trastos = [];
+  e.laberinto = {
+    origen: { x: 0, y: 0 }, celda: LAB_CELDA, celdas: [], ancho: 0, alto: 0,
+    fase: 0, fases: LAB_FASES, jaulas: [], fantasmas: [],
+    puntos: e.players.map(() => 0), entreFases: 0,
+    reloj: LAB_RELOJ, ganador: null,
+  };
+  repartirEquipos(e);
+  montarFaseDelLaberinto(e, 0);
+}
+
+/** Monta una fase: rejilla nueva, jaulas nuevas y fantasmas nuevos. */
+export function montarFaseDelLaberinto(e: Estado, fase: number): void {
+  const l = e.laberinto;
+  if (!l) return;
   const { cx, cy } = centroDelMapa();
-  const ancho = LAB_LADO, alto = LAB_LADO, c = LAB_CELDA;
-  const origen = { x: Math.round(cx - (ancho * c) / 2), y: Math.round(cy - (alto * c) / 2) };
+  const lado = LAB_LADOS[Math.min(fase, LAB_LADOS.length - 1)];
+  const c = LAB_CELDA;
+  const origen = { x: Math.round(cx - (lado * c) / 2), y: Math.round(cy - (lado * c) / 2) };
   const centroDe = (gx: number, gy: number) =>
     ({ x: origen.x + gx * c + c / 2, y: origen.y + gy * c + c / 2 });
 
-  /* Todo pared, y se cava. La pila es de dos en dos: una celda de paso y una de
-     pared entre medias, que es lo que hace que salgan pasillos y no una sala. */
+  /* Todo pared, y se cava de dos en dos: una celda de paso y una de pared entre
+     medias, que es lo que hace que salgan pasillos y no una sala. */
   const celdas: boolean[][] = [];
-  for (let y = 0; y < alto; y++) { celdas[y] = []; for (let x = 0; x < ancho; x++) celdas[y][x] = true; }
+  for (let y = 0; y < lado; y++) { celdas[y] = []; for (let x = 0; x < lado; x++) celdas[y][x] = true; }
   const pila: [number, number][] = [[1, 1]];
   celdas[1][1] = false;
   while (pila.length) {
@@ -1471,39 +1495,63 @@ export function aElLaberinto(e: Estado): void {
     pila.push([gx + dx, gy + dy]);
   }
 
-  /* Las gemas: los callejones sin salida, y una de cada tres del resto. */
   const libres: [number, number][] = [];
-  for (let y = 0; y < alto; y++) for (let x = 0; x < ancho; x++)
+  for (let y = 0; y < lado; y++) for (let x = 0; x < lado; x++)
     if (!celdas[y][x] && !(x === 1 && y === 1)) libres.push([x, y]);
+
+  /* Las jaulas van en los CALLEJONES SIN SALIDA —un amigo al fondo de un
+     callejón con un fantasma detrás es justo la decisión que este juego
+     quiere—, pero REPARTIDAS por todo el laberinto y no amontonadas al fondo.
+     Poniéndolas en las celdas más lejanas, el laberinto de 17 se convertía en
+     una excursión: cuatro rescates en tres minutos, medido. */
   const salidas = (x: number, y: number) =>
-    [[0,-1],[0,1],[-1,0],[1,0]].filter(([dx, dy]) => celdas[y+dy]?.[x+dx] === false).length;
-  const gemas = libres
-    .filter(([x, y], k) => salidas(x, y) === 1 || k % 3 === 0)
-    .map(([x, y]) => centroDe(x, y));
+    ([[0,-1],[0,1],[-1,0],[1,0]] as [number, number][])
+      .filter(([dx, dy]) => celdas[y + dy]?.[x + dx] === false).length;
+  const cuantas = LAB_JAULAS[Math.min(fase, LAB_JAULAS.length - 1)];
+  const callejones = libres.filter(([x, y]) => salidas(x, y) === 1);
+  /* Uno de cada N a lo largo de la lista, que recorre la rejilla en orden: así
+     salen esparcidos por el mapa y no todos en la misma esquina. */
+  const salto = Math.max(1, Math.floor(callejones.length / cuantas));
+  const candidatas = callejones.filter((_, k) => k % salto === 0);
+  /* Si el cavado dejó pocos callejones, se rellena con las celdas más lejanas. */
+  const elegidas = candidatas.slice(0, cuantas);
+  if (elegidas.length < cuantas) {
+    const resto = libres
+      .filter(([x, y]) => !elegidas.some(([ex, ey]) => ex === x && ey === y))
+      .sort((a, b) => (b[0] + b[1]) - (a[0] + a[1]));
+    elegidas.push(...resto.slice(0, cuantas - elegidas.length));
+  }
+  const jaulas: Jaula[] = elegidas.map(([x, y], k) => ({
+    ...centroDe(x, y),
+    quien: AMIGOS[(fase * 3 + k) % AMIGOS.length],
+    libre: false, porQuien: null,
+  }));
 
-  /* El fantasma nace lo más lejos posible de la entrada. */
-  const lejos = libres.reduce((mejor, [x, y]) =>
-    (x + y > mejor[0] + mejor[1] ? [x, y] : mejor), [1, 1]);
+  /* Los fantasmas nacen repartidos por las esquinas del fondo. */
+  const cuantosF = LAB_FANTASMAS[Math.min(fase, LAB_FANTASMAS.length - 1)];
+  const esquinas: [number, number][] = [
+    [lado - 2, lado - 2], [1, lado - 2], [lado - 2, 1], [Math.floor(lado / 2), Math.floor(lado / 2)],
+  ];
+  const fantasmas: Fantasma[] = [];
+  for (let k = 0; k < cuantosF; k++) {
+    const [ex, ey] = esquinas[k % esquinas.length];
+    const cerca = libres.reduce((m, [x, y]) =>
+      Math.abs(x - ex) + Math.abs(y - ey) < Math.abs(m[0] - ex) + Math.abs(m[1] - ey) ? [x, y] : m, libres[0]);
+    fantasmas.push({ ...centroDe(cerca[0], cerca[1]), vx: 0, vy: 0 });
+  }
 
-  /* Y el laberinto se queda SOLO. Los demás minijuegos ya limpian sus trastos
-     («en un partido tiene que haber UNA pelota»); aquí es todavía más
-     necesario, porque una patineta tirada en un pasillo se monta sola al
-     pisarla y te lleva a donde ella quiera. Costó encontrarlo: el bot empujaba
-     hacia abajo y su velocidad iba hacia arriba. */
-  e.trastos = [];
+  l.origen = origen; l.celda = c; l.celdas = celdas;
+  l.ancho = lado; l.alto = lado;
+  l.fase = fase; l.jaulas = jaulas; l.fantasmas = fantasmas;
+  l.entreFases = 0;
 
-  e.laberinto = {
-    origen, celda: c, celdas, ancho, alto, gemas,
-    fantasma: { ...centroDe(lejos[0], lejos[1]), vx: 0, vy: 0 },
-    puntos: e.players.map(() => 0), total: gemas.length,
-    reloj: LAB_RELOJ, ganador: null,
-  };
   /* Todos salen de la entrada, separados un poco para no nacer encajados. */
   const entrada = centroDe(1, 1);
   e.players.forEach((p, i) => {
     p.x = entrada.x + (i % 2 ? 16 : -16);
     p.y = entrada.y + (i > 1 ? 16 : -16);
-    p.vx = 0; p.vy = 0; p.stun = 0; p.montado = null;
+    p.vx = 0; p.vy = 0; p.stun = 0; p.inmune = 0; p.montado = null;
+    if (p.bot) p.bot.meta = undefined;
   });
 }
 

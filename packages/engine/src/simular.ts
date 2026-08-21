@@ -33,7 +33,8 @@ import {
   colocarParaTirar, reponerLosPinos, BOLA_R, PINO_R,
   colocarParaTirarDardo, valorDelDardo, DIANA_ANILLOS, DARDOS_ESPERA,
   colocarParaTacar, reponerLaBlanca, BOLA_BILLAR_R, HOYA_R, BILLAR_ESPERA,
-  esPared, LAB_BULTO, FANTASMA_VEL, FANTASMA_STUN, celdaLibreDe, centroDeCelda, LAB_RELOJ,
+  esPared, LAB_BULTO, FANTASMA_VEL, FANTASMA_STUN, celdaLibreDe, centroDeCelda,
+  LAB_RELOJ, LAB_ENTRE_FASES, montarFaseDelLaberinto,
 } from "./estado.js";
 
 /* Cualquier cosa a la que se pueda golpear */
@@ -2744,105 +2745,118 @@ function pasoLaberinto(e: Estado, dt: number): void {
   /* ---- las paredes ---- */
   for (const p of e.players) {
     empujarFueraDeParedes(l, p, LAB_BULTO);
-    /* Y de la rejilla no se sale: el borde es todo pared, pero un empujón
-       fuerte podría cruzarlo entre fotogramas. */
     p.x = clamp(p.x, l.origen.x + LAB_BULTO, l.origen.x + l.ancho * l.celda - LAB_BULTO);
     p.y = clamp(p.y, l.origen.y + LAB_BULTO, l.origen.y + l.alto * l.celda - LAB_BULTO);
   }
 
-  /* ---- las gemas ---- */
-  for (let i = l.gemas.length - 1; i >= 0; i--) {
-    const g = l.gemas[i];
-    for (const p of e.players) {
-      if (p.stun > 0) continue;
-      /* Media celda de radio. Con 30 px sobre celdas de 92, el bot orbitaba el
-         centro a 32 px y no cogía la gema en la que estaba parado encima: dos
-         de cada tres partidas no acababan nunca. */
-      if (dist2(p.x, p.y, g.x, g.y) > (l.celda * 0.5) ** 2) continue;
-      l.gemas.splice(i, 1);
-      const k = e.players.indexOf(p);
-      l.puntos[k]++;
-      texto(e, g.x, g.y - 22, "+1", "#FFC53D");
-      polvo(e, g.x, g.y, "#FFC53D", 6);
-      sonar(e, "grab");
-      break;
-    }
-  }
-
   l.reloj -= dt;
-  /* Se acaba por gemas o por reloj: lo segundo es lo que hace que la partida
-     tenga final aunque nadie sepa recorrer el laberinto entero. */
-  if (!l.gemas.length || l.reloj <= 0) {
-    l.reloj = Math.max(0, l.reloj);
-    const mejor = Math.max(...l.puntos);
-    const empate = l.puntos.filter(x => x === mejor).length > 1;
-    l.ganador = empate ? null : l.puntos.indexOf(mejor);
-    terminarJuegoIndividual(e, l.ganador == null ? null : e.players[l.ganador].idx);
+
+  /* ---- el descanso entre fases ---- */
+  if (l.entreFases > 0) {
+    l.entreFases -= dt;
+    if (l.entreFases <= 0) montarFaseDelLaberinto(e, l.fase + 1);
     return;
   }
 
-  /* ---- el fantasma ----
-     Persigue al más cercano, pero POR LOS PASILLOS: prueba primero el eje en el
-     que está más lejos y, si ahí hay pared, el otro. Sin esto atravesaba los
-     muros y correr por un pasillo no servía de nada. */
-  const gh = l.fantasma;
-  let presa: Jugador | null = null, nd = Infinity;
-  for (const p of e.players) {
-    const d = dist2(p.x, p.y, gh.x, gh.y);
-    if (d < nd) { nd = d; presa = p; }
-  }
-  if (presa) {
-    const dx = presa.x - gh.x, dy = presa.y - gh.y;
-    const paso = FANTASMA_VEL * dt;
-    const intentos: [number, number][] = Math.abs(dx) > Math.abs(dy)
-      ? [[Math.sign(dx), 0], [0, Math.sign(dy)]]
-      : [[0, Math.sign(dy)], [Math.sign(dx), 0]];
-    let anduvo = false;
-    for (const [ix, iy] of intentos) {
-      if (!ix && !iy) continue;
-      const nx = gh.x + ix * paso, ny = gh.y + iy * paso;
-      const prueba = { x: nx, y: ny };
-      empujarFueraDeParedes(l, prueba, LAB_BULTO);
-      /* Si al empujarlo vuelve casi al sitio, ese camino está tapiado. */
-      if (Math.hypot(prueba.x - nx, prueba.y - ny) > paso * 0.5) continue;
-      gh.x = prueba.x; gh.y = prueba.y;
-      gh.vx = ix * FANTASMA_VEL; gh.vy = iy * FANTASMA_VEL;
-      anduvo = true;
+  /* ---- abrir jaulas ----
+     Un amigo liberado NO desaparece: se queda ahí celebrando. Ver el pasillo
+     lleno de gente que has sacado es la mitad del premio. */
+  for (const j of l.jaulas) {
+    if (j.libre) continue;
+    for (const p of e.players) {
+      if (p.stun > 0) continue;
+      if (dist2(p.x, p.y, j.x, j.y) > (l.celda * 0.5) ** 2) continue;
+      const k = e.players.indexOf(p);
+      j.libre = true;
+      j.porQuien = k;
+      l.puntos[k]++;
+      texto(e, j.x, j.y - 30, "¡Libre!", "#FFC53D");
+      polvo(e, j.x, j.y, "#FFC53D", 14);
+      sonar(e, "win");
       break;
-    }
-    /* Y si los dos caminos estaban tapiados, se recentra en su pasillo. Un
-       fantasma congelado deja de ser una amenaza y se queda de adorno: pasó, y
-       se quedó clavado en la misma celda los cinco minutos de la prueba. */
-    if (!anduvo) {
-      const [cx, cy] = celdaLibreDe(l, gh.x, gh.y);
-      const c = centroDeCelda(l, cx, cy);
-      gh.x += (c.x - gh.x) * Math.min(1, dt * 6);
-      gh.y += (c.y - gh.y) * Math.min(1, dt * 6);
-      gh.vx = 0; gh.vy = 0;
     }
   }
 
-  /* ---- te pilla ----
-     No te mata: te cuesta una gema, que vuelve al laberinto donde te pilló. Es
-     lo que hace que meterse en un callejón sin salida sea una decisión. */
-  for (const p of e.players) {
-    if (p.stun > 0 || p.inmune > 0) continue;
-    if (dist2(p.x, p.y, gh.x, gh.y) > 30 * 30) continue;
-    const k = e.players.indexOf(p);
-    zap(e, p, FANTASMA_STUN, false);
-    p.inmune = FANTASMA_STUN + 0.8;
-    if (l.puntos[k] > 0) {
-      l.puntos[k]--;
-      l.gemas.push({ x: gh.x, y: gh.y });
-      texto(e, p.x, p.y - 46, "¡Te quitó una!", "#FF5C86");
-    } else {
-      texto(e, p.x, p.y - 46, "¡Te atrapó!", "#FF5C86");
+  /* ---- ¿se acabó la fase? ---- */
+  if (l.jaulas.every(j => j.libre)) {
+    if (l.fase + 1 < l.fases) {
+      texto(e, l.origen.x + (l.ancho * l.celda) / 2, l.origen.y + 40,
+            "¡Fase " + (l.fase + 2) + " de " + l.fases + "!", "#3DDC97");
+      sonar(e, "win");
+      l.entreFases = LAB_ENTRE_FASES;
+      return;
     }
-    polvo(e, p.x, p.y, "#FF3D6E", 12);
-    sonar(e, "ouch");
+    finDelLaberinto(e);
+    return;
+  }
+  if (l.reloj <= 0) { l.reloj = 0; finDelLaberinto(e); return; }
+
+  /* ---- los fantasmas ----
+     Cada uno persigue al más cercano, y POR LOS PASILLOS: prueba primero el eje
+     en el que está más lejos y, si ahí hay pared, el otro. Sin esto atravesaban
+     los muros y correr por un pasillo no servía de nada. */
+  for (const gh of l.fantasmas) {
+    let presa: Jugador | null = null, nd = Infinity;
+    for (const p of e.players) {
+      const d = dist2(p.x, p.y, gh.x, gh.y);
+      if (d < nd) { nd = d; presa = p; }
+    }
+    if (presa) {
+      const dx = presa.x - gh.x, dy = presa.y - gh.y;
+      const paso = FANTASMA_VEL * dt;
+      const intentos: [number, number][] = Math.abs(dx) > Math.abs(dy)
+        ? [[Math.sign(dx), 0], [0, Math.sign(dy)]]
+        : [[0, Math.sign(dy)], [Math.sign(dx), 0]];
+      let anduvo = false;
+      for (const [ix, iy] of intentos) {
+        if (!ix && !iy) continue;
+        const nx = gh.x + ix * paso, ny = gh.y + iy * paso;
+        const prueba = { x: nx, y: ny };
+        empujarFueraDeParedes(l, prueba, LAB_BULTO);
+        if (Math.hypot(prueba.x - nx, prueba.y - ny) > paso * 0.5) continue;
+        gh.x = prueba.x; gh.y = prueba.y;
+        gh.vx = ix * FANTASMA_VEL; gh.vy = iy * FANTASMA_VEL;
+        anduvo = true;
+        break;
+      }
+      /* Y si los dos caminos estaban tapiados, se recentra en su pasillo: un
+         fantasma congelado deja de ser una amenaza y se queda de adorno. */
+      if (!anduvo) {
+        const [cx2, cy2] = celdaLibreDe(l, gh.x, gh.y);
+        const c2 = centroDeCelda(l, cx2, cy2);
+        gh.x += (c2.x - gh.x) * Math.min(1, dt * 6);
+        gh.y += (c2.y - gh.y) * Math.min(1, dt * 6);
+        gh.vx = 0; gh.vy = 0;
+      }
+    }
+
+    /* ---- te pilla ----
+       Te clava en el sitio un momento, y ya. NO vuelve a encerrar a nadie: eso
+       se probó y era peor de lo que parece — el fantasma deshacía rescates más
+       rápido de lo que se hacían, el marcador volvía a cero y la fase no se
+       cerraba nunca (medido: 2-0 al minuto, 0-0 a los cuatro).
+
+       Lo que un rescate cuesta es TIEMPO, y el tiempo ya aprieta: hay reloj y
+       hay tres fases. Un juego de avanzar necesita que lo avanzado se quede. */
+    for (const p of e.players) {
+      if (p.stun > 0 || p.inmune > 0) continue;
+      if (dist2(p.x, p.y, gh.x, gh.y) > 30 * 30) continue;
+      zap(e, p, FANTASMA_STUN, false);
+      p.inmune = FANTASMA_STUN + 0.8;
+      texto(e, p.x, p.y - 46, "¡Te atrapó!", "#FF5C86");
+      polvo(e, p.x, p.y, "#FF3D6E", 12);
+      sonar(e, "ouch");
+    }
   }
 }
-/* ============================================================
+
+function finDelLaberinto(e: Estado): void {
+  const l = e.laberinto!;
+  const mejor = Math.max(...l.puntos);
+  const empate = l.puntos.filter(x => x === mejor).length > 1;
+  l.ganador = empate ? null : l.puntos.indexOf(mejor);
+  terminarJuegoIndividual(e, l.ganador == null ? null : e.players[l.ganador].idx);
+}/* ============================================================
    Billar
    ============================================================ */
 /* ---- el billar ----

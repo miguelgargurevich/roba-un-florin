@@ -20,6 +20,7 @@ import {
   centroDelMapa, WORLD_W, WORLD_H, OCHO_A, colocarPuestos, ponerFiesta, enFiesta, enElMar,
   nivelDeVitrina, nombreDeHito, HITOS_MAX, vitrinaDe, venderFlorin, precioDeVenta, soltarCarga,
   valorDelDardo, DIANA_ANILLOS, BILLAR_COLORES, BOLA_BILLAR_R, esPared,
+  LAB_FASES, LAB_LADOS, LAB_JAULAS,
   patear, TENIS_META, TENIS_ALCANCE, ladoDeLaCancha, esMinijuego, JUEGOS_LISTOS,
   VOLEY_META, VOLEY_TOQUES, ladoDeVoley, BASQUET_META, BASQUET_ALCANCE,
   type EntradaJugador, type Estado,
@@ -1831,9 +1832,9 @@ describe("el laberinto", () => {
   const enPared = (l: any, x: number, y: number) =>
     esPared(l, Math.floor((x - l.origen.x) / l.celda), Math.floor((y - l.origen.y) / l.celda));
 
-  it("el laberinto está conectado: se llega a todas las gemas", () => {
-    /* Si una gema queda al otro lado de un muro sin camino, la partida no se
-       puede terminar cogiéndolas todas. */
+  it("el laberinto está conectado: se llega a todas las jaulas", () => {
+    /* Si una jaula queda al otro lado de un muro sin camino, la fase no se
+       puede terminar abriéndolas todas. */
     const e = lab();
     const l = e.laberinto!;
     const inicio = [1, 1];
@@ -1849,10 +1850,10 @@ describe("el laberinto", () => {
         vistos.add(id); cola.push([nx, ny]);
       }
     }
-    for (const g of l.gemas) {
-      const gx = Math.floor((g.x - l.origen.x) / l.celda);
-      const gy = Math.floor((g.y - l.origen.y) / l.celda);
-      expect(vistos.has(gy * l.ancho + gx), "una gema quedó incomunicada").toBe(true);
+    for (const j of l.jaulas) {
+      const gx = Math.floor((j.x - l.origen.x) / l.celda);
+      const gy = Math.floor((j.y - l.origen.y) / l.celda);
+      expect(vistos.has(gy * l.ancho + gx), "una jaula quedó incomunicada").toBe(true);
     }
   });
 
@@ -1875,35 +1876,51 @@ describe("el laberinto", () => {
     }
   });
 
-  it("el fantasma te quita una gema, y no te la quita dos veces seguidas", () => {
+  it("el fantasma te clava, pero un rescate no se deshace nunca", () => {
+    /* Deshaciendo rescates, el fantasma los quitaba más rápido de lo que se
+       hacían: el marcador volvía a cero y la fase no se cerraba nunca. Un juego
+       de avanzar necesita que lo avanzado se quede. */
     const e = lab();
     const l = e.laberinto!;
     const p = e.players[0];
-    l.puntos[0] = 3;
-    l.fantasma.x = p.x; l.fantasma.y = p.y;
-    avanzar(e, nada(2), 1 / 60);
-    expect(l.puntos[0], "no te quitó la gema").toBe(2);
-    expect(p.stun, "no te aturdió").toBeGreaterThan(0);
-    /* Y la gema VUELVE al laberinto: no desaparece del mundo, se puede volver a
-       coger. (Aquí las tres del jugador se pusieron a mano sin quitarlas del
-       tablero, así que la devuelta suma una más.) */
-    expect(l.gemas.length, "la gema no volvió al tablero").toBe(l.total + 1);
-    const tras = l.puntos[0];
-    for (let k = 0; k < 30; k++) avanzar(e, nada(2), 1 / 60);
-    expect(l.puntos[0], "te desplumó en medio segundo").toBe(tras);
+    l.jaulas[0].libre = true; l.jaulas[0].porQuien = 0;
+    l.puntos[0] = 1;
+    l.fantasmas[0].x = p.x; l.fantasmas[0].y = p.y;
+    for (let k = 0; k < 60; k++) avanzar(e, nada(2), 1 / 60);
+    expect(p.stun > 0 || p.inmune > 0, "el fantasma no hizo nada").toBe(true);
+    expect(l.puntos[0], "le quitó un rescate").toBe(1);
+    expect(l.jaulas[0].libre, "volvió a encerrar al amigo").toBe(true);
   });
 
-  it("acaba por gemas o por reloj, y siempre con un resultado", () => {
+  it("va por fases, y cada una es más grande que la anterior", () => {
     const e = lab();
-    for (let k = 0; k < 60 * 200 && !e.over; k++) {
+    const l = e.laberinto!;
+    expect(l.fases).toBe(LAB_FASES);
+    expect(l.fase).toBe(0);
+    expect(l.ancho).toBe(LAB_LADOS[0]);
+    expect(l.jaulas.length).toBe(LAB_JAULAS[0]);
+    /* Se abren todas las de la fase: pasa a la siguiente, más grande. */
+    for (const j of l.jaulas) { j.libre = true; j.porQuien = 0; }
+    l.puntos[0] = l.jaulas.length;
+    for (let k = 0; k < 60 * 4; k++) avanzar(e, nada(2), 1 / 60);
+    expect(l.fase, "no pasó de fase").toBe(1);
+    expect(l.ancho, "la fase 2 no es más grande").toBeGreaterThan(LAB_LADOS[0]);
+    expect(l.fantasmas.length, "la fase 2 no trae más fantasmas").toBeGreaterThan(1);
+    expect(l.jaulas.some(j => !j.libre), "la fase 2 nació resuelta").toBe(true);
+  });
+
+  it("acaba por fases o por reloj, y siempre con un resultado", () => {
+    const e = lab();
+    /* Por encima del reloj (240 s), que es la garantía de que acaba. */
+    for (let k = 0; k < 60 * 300 && !e.over; k++) {
       const ent: Record<number, EntradaJugador> = {};
       for (const p of e.players) ent[p.idx] = pensarBot(e, p, 1 / 60).entrada;
       avanzar(e, ent, 1 / 60);
     }
     const l = e.laberinto!;
-    expect(e.over, "la partida no acabó ni por gemas ni por reloj").toBe(true);
-    expect(!l.gemas.length || l.reloj <= 0).toBe(true);
-    expect(l.puntos[0] + l.puntos[1], "no se cogió ni una gema").toBeGreaterThan(0);
+    expect(e.over, "la partida no acabó ni por fases ni por reloj").toBe(true);
+    expect(l.jaulas.every(j => j.libre) || l.reloj <= 0).toBe(true);
+    expect(l.puntos[0] + l.puntos[1], "no se rescató a nadie").toBeGreaterThan(0);
   });
 
   it("en el laberinto no hay trastos: una patineta te lleva donde ella quiera", () => {

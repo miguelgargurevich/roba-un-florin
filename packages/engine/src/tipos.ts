@@ -490,6 +490,30 @@ export interface CarreraObs {
     La rejilla se guarda con su ORIGEN y el tamaño de celda, no derivados de
     otra cosa: el dibujo los sacaba de la primera gema, así que el laberinto
     entero se desplazaba al coger una. */
+/** Una jaula del laberinto, con un amigo del colegio dentro. */
+export interface Jaula {
+  x: number; y: number;
+  /** Quién está dentro: una clave de los vecinos (`mayo`, `chato`, …). */
+  quien: string;
+  /** Ya rescatado, y para siempre: el fantasma NO vuelve a encerrar a nadie.
+      Deshaciendo rescates, el marcador volvía a cero y la fase no se cerraba
+      nunca. Un juego de avanzar necesita que lo avanzado se quede. */
+  libre: boolean;
+  /** Quién lo sacó, para el marcador. */
+  porQuien: number | null;
+}
+
+/** Un fantasma del laberinto. */
+export interface Fantasma { x: number; y: number; vx: number; vy: number }
+
+/** El laberinto. Es el único minijuego que pedía algo que el motor no tenía:
+    **paredes que paran**. Todo lo demás se apoya en eso — sin paredes, un
+    laberinto es un dibujo y se va en línea recta.
+
+    Va por FASES, y cada fase es más grande y con un fantasma más. La rejilla se
+    guarda con su ORIGEN y el tamaño de celda, no derivados de otra cosa: el
+    dibujo los sacaba de la primera jaula, así que el laberinto entero se
+    desplazaba en cuanto se abría una. */
 export interface Laberinto {
   /** Esquina de arriba a la izquierda de la rejilla, en píxeles. */
   origen: { x: number; y: number };
@@ -499,16 +523,17 @@ export interface Laberinto {
   celdas: boolean[][];
   ancho: number;
   alto: number;
-  gemas: { x: number; y: number }[];
-  /** El fantasma también respeta las paredes: si no, ir por un pasillo no
+  /** En qué fase va y cuántas hay. */
+  fase: number;
+  fases: number;
+  jaulas: Jaula[];
+  /** Los fantasmas también respetan las paredes: si no, ir por un pasillo no
       sirve de nada. */
-  fantasma: { x: number; y: number; vx: number; vy: number };
-  /** Gemas cogidas por cada uno: esto es una carrera, no una recolecta. */
+  fantasmas: Fantasma[];
+  /** Amigos rescatados por cada uno, sumando todas las fases. */
   puntos: number[];
-  total: number;
-  /** El reloj. Es lo que garantiza que la partida acabe pase lo que pase: gana
-      quien más lleve cuando se agote, y no hace falta que nadie sepa recorrer
-      el laberinto entero para que haya resultado. */
+  /** Segundos de descanso entre fase y fase, para leer el cartel. */
+  entreFases: number;
   reloj: number;
   ganador: number | null;
 }
