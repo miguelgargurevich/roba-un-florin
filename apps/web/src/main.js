@@ -23,6 +23,7 @@ import {
   monstruoDelNivel, varianteDelNivel, especialesDelNivel, armaPorId, comidaPorId,
   montarFaseDelLaberinto,
   colorDeBicho,
+  LAB_TEMAS, temaDelNivel,
   fundir, queSaleDeFundir,
   TRASTOS_ESCENARIO, darleVehiculo, esEspecial, ANCHO_PISTA, aparcarNuevo, comprarPatio,
   ponerFiesta, enFiesta, patear, TENIS_META, JUEGOS_LISTOS, VOLEY_META, VOLEY_TOQUES, VOLEY_ALCANCE,
@@ -1453,7 +1454,7 @@ const MINIJUEGOS = {
   dardos:     "🎯 ¡Dardos! Seis cada uno. La mano se va sola de lado a lado: SUELTA cuando la marca cruce el centro. El palo pone la altura, aguantar cierra el temblor — y cuidado con la chancla del otro.",
   voley:      "🏐 ¡Vóley, dos contra dos! La tocas con solo llegar; aguanta el botón para rematar.",
   carreraObs: "🏃 ¡Carrera de obstáculos! Tres vueltas a pie. Los conos te tumban.",
-  laberinto:  "🔮 ¡Al laberinto! Saca a tus amigos de las jaulas. Tres fases, y cada una con otro fantasma.",
+  laberinto:  "🔮 ¡Al laberinto! 99 niveles. Saca a los de las jaulas antes de que se acabe el reloj: en el colegio son tus amigos, en el zoológico los animales, en la nave los marcianitos. Cada tres niveles cambia todo — otro monstruo, otra forma y dos especiales que buscar (uno de comer y un arma). Y un chanclazo congela al bicho.",
   billar:     "🎱 ¡Al billar! Si metes, sigues tirando. Si cuelas la blanca, pierdes el turno.",
   hockey:     "🏒 ¡Air hockey! Primero a 5. No hay botón: el disco sale al chocar con él.",
 };
@@ -6474,48 +6475,17 @@ function decoNevado(c, E){
 }
 
 /* ---------- El Zoológico ---------- */
-function decoZoo(c, E){
-  c.fillStyle = E.mancha;
-  for (let i=0;i<18;i++){
-    const x = azEntre(i+21,0,DECO_W), y = azEntre(i+51,0,DECO_H), r = 44+az(i)*64;
-    c.beginPath(); c.ellipse(x,y,r,r*.42,i,0,6.283); c.fill();
-  }
-  /* los caminos de gravilla entre recintos */
-  c.strokeStyle = "rgba(190,175,140,.4)"; c.lineWidth = 58; c.lineCap = "round";
-  c.beginPath(); c.moveTo(120, DECO_H*.5); c.bezierCurveTo(DECO_W*.35, DECO_H*.2, DECO_W*.65, DECO_H*.8, DECO_W-120, DECO_H*.5); c.stroke();
+/* ---- los animales del zoo, dibujados ----
+   Estaban escritos DENTRO de `decoZoo`, en una cadena de `if` que solo servía
+   para el decorado. Se saca aquí porque ahora hacen falta en dos sitios: en el
+   recinto del zoo y DENTRO DE LAS JAULAS del laberinto, cuando el bloque toca
+   tema de zoológico. Copiarlos habría sido garantizar que un día se cambie uno
+   y no el otro.
 
-  /* los recintos: un rectángulo de hierba cercado, con su animal y su cartel */
-  const bichos = ["jirafa", "leon", "mono", "flamenco", "oso"];
-  /* Con `sembrar` casi ninguno encontraba sitio: un recinto es más grande que
-     una casa y el reparto se rinde a los 26 intentos, igual que pasó con los
-     volcanes de la Prehistoria. `huecoGrande` barre el mapa entero. */
-  const recintos = [];
-  for (let k = 0; k < 6; k++){
-    const sitio = huecoGrande(8800 + k * 131, 130, 220, DECO_H - 220);
-    if (sitio) recintos.push(sitio);
-  }
-  recintos.forEach(([x, y], i) => {
-    const an = 210, al = 150;
-    vetoDeco.push({ x:x-an/2-14, y:y-al/2-30, w:an+28, h:al+60 });
-    c.fillStyle = "#7E9A52";                              // la hierba del recinto
-    rr(c, x-an/2, y-al/2, an, al, 12); c.fill();
-    c.fillStyle = "rgba(255,255,255,.08)";
-    rr(c, x-an/2, y-al/2, an, al*.4, 12); c.fill();
-    /* la reja */
-    c.strokeStyle = "#5A6E4A"; c.lineWidth = 5;
-    rr(c, x-an/2, y-al/2, an, al, 12); c.stroke();
-    c.strokeStyle = "#7A8E5A"; c.lineWidth = 2.5;
-    for (let k=1;k<12;k++){
-      c.beginPath(); c.moveTo(x-an/2+k*(an/12), y-al/2); c.lineTo(x-an/2+k*(an/12), y+al/2); c.stroke();
-    }
-    /* el cartel */
-    c.fillStyle = "#8A6A3C"; c.fillRect(x-3, y+al/2, 6, 20);
-    c.fillStyle = "#E4DCC8"; rr(c, x-40, y+al/2+16, 80, 18, 3); c.fill();
-    c.fillStyle = "#5A4526"; rr(c, x-32, y+al/2+22, 64, 5, 2); c.fill();
-    /* el animal */
-    const cual = bichos[i % bichos.length];
-    c.save(); c.translate(x, y+10);
-    if (cual === "jirafa"){
+   Dibuja en el origen que le pongas: quien llama hace el `translate`. */
+const ANIMALES_ZOO = ["jirafa", "leon", "mono", "flamenco", "oso"];
+function dibujarAnimal(c, cual){
+  if (cual === "jirafa"){
       c.fillStyle = "#E8B84D";
       c.fillRect(-4, -70, 12, 60);                        // el cuello larguísimo
       c.beginPath(); c.ellipse(-8, -20, 26, 16, 0, 0, 6.283); c.fill();
@@ -6572,6 +6542,49 @@ function decoZoo(c, E){
       c.fillStyle = "#C9A46A";
       c.beginPath(); c.ellipse(23, -19, 6, 4.5, 0, 0, 6.283); c.fill();
     }
+}
+
+function decoZoo(c, E){
+  c.fillStyle = E.mancha;
+  for (let i=0;i<18;i++){
+    const x = azEntre(i+21,0,DECO_W), y = azEntre(i+51,0,DECO_H), r = 44+az(i)*64;
+    c.beginPath(); c.ellipse(x,y,r,r*.42,i,0,6.283); c.fill();
+  }
+  /* los caminos de gravilla entre recintos */
+  c.strokeStyle = "rgba(190,175,140,.4)"; c.lineWidth = 58; c.lineCap = "round";
+  c.beginPath(); c.moveTo(120, DECO_H*.5); c.bezierCurveTo(DECO_W*.35, DECO_H*.2, DECO_W*.65, DECO_H*.8, DECO_W-120, DECO_H*.5); c.stroke();
+
+  /* los recintos: un rectángulo de hierba cercado, con su animal y su cartel */
+  const bichos = ANIMALES_ZOO;
+  /* Con `sembrar` casi ninguno encontraba sitio: un recinto es más grande que
+     una casa y el reparto se rinde a los 26 intentos, igual que pasó con los
+     volcanes de la Prehistoria. `huecoGrande` barre el mapa entero. */
+  const recintos = [];
+  for (let k = 0; k < 6; k++){
+    const sitio = huecoGrande(8800 + k * 131, 130, 220, DECO_H - 220);
+    if (sitio) recintos.push(sitio);
+  }
+  recintos.forEach(([x, y], i) => {
+    const an = 210, al = 150;
+    vetoDeco.push({ x:x-an/2-14, y:y-al/2-30, w:an+28, h:al+60 });
+    c.fillStyle = "#7E9A52";                              // la hierba del recinto
+    rr(c, x-an/2, y-al/2, an, al, 12); c.fill();
+    c.fillStyle = "rgba(255,255,255,.08)";
+    rr(c, x-an/2, y-al/2, an, al*.4, 12); c.fill();
+    /* la reja */
+    c.strokeStyle = "#5A6E4A"; c.lineWidth = 5;
+    rr(c, x-an/2, y-al/2, an, al, 12); c.stroke();
+    c.strokeStyle = "#7A8E5A"; c.lineWidth = 2.5;
+    for (let k=1;k<12;k++){
+      c.beginPath(); c.moveTo(x-an/2+k*(an/12), y-al/2); c.lineTo(x-an/2+k*(an/12), y+al/2); c.stroke();
+    }
+    /* el cartel */
+    c.fillStyle = "#8A6A3C"; c.fillRect(x-3, y+al/2, 6, 20);
+    c.fillStyle = "#E4DCC8"; rr(c, x-40, y+al/2+16, 80, 18, 3); c.fill();
+    c.fillStyle = "#5A4526"; rr(c, x-32, y+al/2+22, 64, 5, 2); c.fill();
+    /* el animal, del mismo dibujo que usan las jaulas del laberinto */
+    c.save(); c.translate(x, y+10);
+    dibujarAnimal(c, bichos[i % bichos.length]);
     c.restore();
   });
   /* papeleras y bancos del paseo */
@@ -9742,6 +9755,156 @@ function drawPistaObs(){
   ctx.restore();
 }
 
+/* ---- a quién rescatas ----
+   Depende del tema del bloque: en el colegio son los vecinos, en el zoológico
+   los animales de los recintos (el MISMO dibujo, `dibujarAnimal`), en la nave
+   los marcianitos, en la Prehistoria los dinos y en Egipto las momias.
+
+   Los marcianitos son los vecinos Marcianos que este juego tiene desde el
+   primer día, con su traje y su visor: no son el personaje de ningún otro
+   juego. Lo mismo con los dinos y las momias — el escalofrío del género sin el
+   personaje de otro.
+
+   Todos dibujan centrados en (x, y) y con `R` de radio, para que quepan igual
+   en una jaula y andando en tu fila. */
+const PRESOS = {
+  persona(x, y, R, quien, t){
+    const K = LADRONES[quien] || {};
+    drawPerson(x, y + R * 0.1, 1, t, { skin:K.skin, shirt:K.shirt, hair:K.hair,
+                                       cap:K.cap, ears:K.ears, stun:0 });
+  },
+  animal(x, y, R, quien){
+    ctx.save();
+    ctx.translate(x, y + R * 0.5);
+    /* Los del recinto están dibujados para ~50 px; en la jaula hay menos sitio. */
+    const k = R / 34;
+    ctx.scale(k, k);
+    dibujarAnimal(ctx, quien);
+    ctx.restore();
+  },
+  marcianito(x, y, R, quien, t){
+    const COL = { rojo:"#FF5C86", cian:"#5CE1EA", amarillo:"#FFC53D",
+                  verde:"#3DDC97", morado:"#B98CFF" };
+    const col = COL[quien] || "#5CE1EA";
+    const bota = Math.sin(t * 6) * R * 0.06;
+    // el cuerpo rechoncho del traje
+    ctx.fillStyle = col;
+    ctx.beginPath();
+    ctx.moveTo(x - R * 0.42, y + R * 0.6 + bota);
+    ctx.lineTo(x - R * 0.42, y - R * 0.2);
+    ctx.quadraticCurveTo(x - R * 0.42, y - R * 0.75, x, y - R * 0.75);
+    ctx.quadraticCurveTo(x + R * 0.42, y - R * 0.75, x + R * 0.42, y - R * 0.2);
+    ctx.lineTo(x + R * 0.42, y + R * 0.6 + bota);
+    ctx.closePath(); ctx.fill();
+    // la mochila del traje
+    ctx.fillStyle = "rgba(0,0,0,.25)";
+    roundRect(x + R * 0.34, y - R * 0.34, R * 0.22, R * 0.62, R * 0.1); ctx.fill();
+    // el visor
+    ctx.fillStyle = "#BFE7F5";
+    roundRect(x - R * 0.3, y - R * 0.56, R * 0.5, R * 0.34, R * 0.16); ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,.55)";
+    roundRect(x - R * 0.24, y - R * 0.5, R * 0.2, R * 0.12, R * 0.06); ctx.fill();
+    // las patitas
+    ctx.fillStyle = col;
+    ctx.fillRect(x - R * 0.36, y + R * 0.55 + bota, R * 0.26, R * 0.2);
+    ctx.fillRect(x + R * 0.1, y + R * 0.55 - bota, R * 0.26, R * 0.2);
+  },
+  dino(x, y, R, quien, t){
+    const COL = { cuellilargo:"#6FCF6A", pinchudo:"#E8B84D",
+                  chiquito:"#5CE1EA", cornudo:"#FF9E5C" };
+    const col = COL[quien] || "#6FCF6A";
+    const paso = Math.sin(t * 7) * R * 0.08;
+    ctx.fillStyle = col;
+    // el cuerpo y la cola
+    ctx.beginPath();
+    ctx.ellipse(x, y + R * 0.14, R * 0.5, R * 0.34, 0, 0, 6.283); ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(x - R * 0.36, y + R * 0.1);
+    ctx.quadraticCurveTo(x - R * 0.9, y + R * 0.05, x - R * 0.95, y + R * 0.4);
+    ctx.quadraticCurveTo(x - R * 0.6, y + R * 0.3, x - R * 0.3, y + R * 0.34);
+    ctx.closePath(); ctx.fill();
+    if (quien === "cuellilargo"){
+      ctx.fillRect(x + R * 0.2, y - R * 0.8, R * 0.18, R * 0.9);
+      ctx.beginPath(); ctx.ellipse(x + R * 0.36, y - R * 0.86, R * 0.24, R * 0.16, -0.2, 0, 6.283); ctx.fill();
+    } else {
+      ctx.beginPath(); ctx.ellipse(x + R * 0.42, y - R * 0.22, R * 0.3, R * 0.24, 0, 0, 6.283); ctx.fill();
+    }
+    if (quien === "pinchudo"){
+      ctx.fillStyle = "#8A5A22";
+      for (let k = 0; k < 4; k++){
+        ctx.beginPath();
+        ctx.moveTo(x - R * 0.3 + k * R * 0.2, y - R * 0.16);
+        ctx.lineTo(x - R * 0.22 + k * R * 0.2, y - R * 0.56);
+        ctx.lineTo(x - R * 0.14 + k * R * 0.2, y - R * 0.16);
+        ctx.closePath(); ctx.fill();
+      }
+    }
+    if (quien === "cornudo"){
+      ctx.strokeStyle = "#F3EAF0"; ctx.lineWidth = R * 0.1; ctx.lineCap = "round";
+      for (const d of [-1, 0, 1]){
+        ctx.beginPath();
+        ctx.moveTo(x + R * 0.42 + d * R * 0.14, y - R * 0.4);
+        ctx.lineTo(x + R * 0.5 + d * R * 0.2, y - R * 0.66);
+        ctx.stroke();
+      }
+    }
+    // el ojo y las patas
+    ctx.fillStyle = "#2A1226";
+    ctx.beginPath();
+    ctx.arc(quien === "cuellilargo" ? x + R * 0.42 : x + R * 0.5,
+            quien === "cuellilargo" ? y - R * 0.9 : y - R * 0.28, R * 0.06, 0, 6.283);
+    ctx.fill();
+    ctx.fillStyle = col;
+    ctx.fillRect(x - R * 0.24, y + R * 0.4 + paso, R * 0.18, R * 0.34);
+    ctx.fillRect(x + R * 0.1, y + R * 0.4 - paso, R * 0.18, R * 0.34);
+  },
+  momia(x, y, R, quien, t){
+    const bota = Math.sin(t * 5) * R * 0.05;
+    ctx.fillStyle = "#E8DCC0";
+    // el cuerpo vendado
+    roundRect(x - R * 0.34, y - R * 0.3 + bota, R * 0.68, R * 0.95, R * 0.18); ctx.fill();
+    ctx.beginPath(); ctx.arc(x, y - R * 0.5 + bota, R * 0.34, 0, 6.283); ctx.fill();
+    // las vendas
+    ctx.strokeStyle = "rgba(140,120,80,.55)"; ctx.lineWidth = R * 0.06;
+    for (let k = 0; k < 5; k++){
+      const yy = y - R * 0.2 + bota + k * R * 0.2;
+      ctx.beginPath();
+      ctx.moveTo(x - R * 0.34, yy); ctx.lineTo(x + R * 0.34, yy - R * 0.05);
+      ctx.stroke();
+    }
+    // la venda que cuelga, y los ojos en la rendija
+    ctx.strokeStyle = "#E8DCC0"; ctx.lineWidth = R * 0.1;
+    ctx.beginPath();
+    ctx.moveTo(x + R * 0.3, y + R * 0.2 + bota);
+    ctx.quadraticCurveTo(x + R * 0.6, y + R * 0.5, x + R * 0.44, y + R * 0.8);
+    ctx.stroke();
+    ctx.fillStyle = "#2A1226";
+    ctx.beginPath(); ctx.arc(x - R * 0.12, y - R * 0.52 + bota, R * 0.06, 0, 6.283); ctx.fill();
+    ctx.beginPath(); ctx.arc(x + R * 0.12, y - R * 0.52 + bota, R * 0.06, 0, 6.283); ctx.fill();
+    if (quien === "momia2"){                        // el faraón, con su tocado
+      ctx.fillStyle = "#FFC53D";
+      ctx.beginPath();
+      ctx.moveTo(x - R * 0.4, y - R * 0.6 + bota); ctx.lineTo(x + R * 0.4, y - R * 0.6 + bota);
+      ctx.lineTo(x + R * 0.3, y - R * 0.9 + bota); ctx.lineTo(x - R * 0.3, y - R * 0.9 + bota);
+      ctx.closePath(); ctx.fill();
+    }
+  },
+};
+
+/** Dibuja al preso del tema que toque. */
+function drawPreso(x, y, R, quien, t){
+  const tema = LAB_TEMAS.find(T => T.id === (G.laberinto?.tema ?? "colegio")) || LAB_TEMAS[0];
+  (PRESOS[tema.pinta] || PRESOS.persona)(x, y, R, quien, t);
+}
+/** El nombre del preso, del tema. */
+function nombreDePreso(quien){
+  for (const T of LAB_TEMAS){
+    const p = T.presos.find(x => x.id === quien);
+    if (p) return T.id === "colegio" ? (LADRONES[quien]?.label || p.label) : p.label;
+  }
+  return "";
+}
+
 /* ---- el mapita del laberinto ----
    Aparece SOLO cuando el laberinto no cabe en la pantalla, y entonces no es un
    adorno: es la única forma de saber dónde queda la jaula que te falta. Sin él,
@@ -10202,7 +10365,11 @@ function drawLaberinto(){
 
   /* El origen sale del ESTADO: antes se calculaba desde la primera jaula, así
      que el laberinto entero se desplazaba en cuanto se abría una. */
-  ctx.fillStyle = "#150E1F";
+  /* Los colores son DEL TEMA: el zoológico va en verde, la nave en cian, la
+     Prehistoria en tierra. Es el cambio que más se nota al pasar de bloque —
+     antes los 99 niveles eran el mismo violeta. */
+  const T = LAB_TEMAS.find(x => x.id === l.tema) || LAB_TEMAS[0];
+  ctx.fillStyle = T.fondo;
   ctx.fillRect(ox, oy, W, H);
 
   /* El suelo, celda por celda, con un tablero de ajedrez muy flojo: sin él un
@@ -10210,7 +10377,7 @@ function drawLaberinto(){
   for (let y = 0; y < l.alto; y++)
     for (let x = 0; x < l.ancho; x++){
       if (l.celdas[y][x]) continue;
-      ctx.fillStyle = (x + y) % 2 ? "#2C1C40" : "#28183A";
+      ctx.fillStyle = (x + y) % 2 ? T.suelo : T.suelo2;
       ctx.fillRect(ox + x * c, oy + y * c, c, c);
     }
 
@@ -10228,9 +10395,12 @@ function drawLaberinto(){
       if (!pared(x + 1, y)) { borde.moveTo(px + c, py); borde.lineTo(px + c, py + c); }
     }
   ctx.lineJoin = "round"; ctx.lineCap = "round";
-  ctx.strokeStyle = "rgba(124,92,255,.22)"; ctx.lineWidth = pp(9);
+  const nPared = parseInt(T.pared.slice(1), 16);
+  ctx.strokeStyle = "rgba(" + ((nPared >> 16) & 255) + "," + ((nPared >> 8) & 255) + ","
+                    + (nPared & 255) + ",.22)";
+  ctx.lineWidth = pp(9);
   ctx.stroke(borde);
-  ctx.strokeStyle = "#8B6BEE"; ctx.lineWidth = pp(3);
+  ctx.strokeStyle = T.pared; ctx.lineWidth = pp(3);
   ctx.stroke(borde);
 
   /* Penumbra en los bordes y una lucecita donde estás. La penumbra NO tapa: el
@@ -10293,8 +10463,7 @@ function drawLaberinto(){
 
       ctx.fillStyle = "rgba(10,5,14,.55)";
       roundRect(j.x - R, j.y - R, R * 2, R * 2, pp(5)); ctx.fill();
-      drawPerson(j.x, j.y + R * 0.12, 1, 0, { skin:K.skin, shirt:K.shirt, hair:K.hair,
-                                              cap:K.cap, ears:K.ears, stun:0 });
+      drawPreso(j.x, j.y + R * 0.06, R * 0.9, j.quien, 0);
       // los barrotes, con su brillo: hierro y no rayas
       for (let k = -2; k <= 2; k++){
         const bx = j.x + k * R * 0.43;
@@ -10337,8 +10506,9 @@ function drawLaberinto(){
       ctx.fillText("✓", j.x, j.y);
     }
     // quién es, para que rescatar a alguien tenga nombre
-    if (!j.libre && K.label){
-      const t = K.label;
+    const comoSeLlama = nombreDePreso(j.quien);
+    if (!j.libre && comoSeLlama){
+      const t = comoSeLlama;
       ctx.font = "800 " + pp(10) + "px system-ui, sans-serif";
       ctx.textAlign = "center"; ctx.textBaseline = "middle";
       const an = ctx.measureText(t).width + pp(10);
@@ -10371,11 +10541,8 @@ function drawLaberinto(){
     for (const j of lista) ctx.lineTo(j.amigo.x, j.amigo.y);
     ctx.stroke();
     ctx.setLineDash([]);
-    for (const j of lista){
-      const K = LADRONES[j.quien] || {};
-      drawPerson(j.amigo.x, j.amigo.y, 1, G.t * 7 + j.puesto, { skin:K.skin, shirt:K.shirt,
-                 hair:K.hair, cap:K.cap, ears:K.ears, stun:0 });
-    }
+    for (const j of lista)
+      drawPreso(j.amigo.x, j.amigo.y, c * 0.32, j.quien, G.t * 7 + j.puesto);
   }
 
   /* Las rayas de tiza: son una pared de verdad mientras duran, así que se

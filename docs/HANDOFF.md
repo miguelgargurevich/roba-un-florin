@@ -47,8 +47,14 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
   - **La chancla por fin sirve aquí**: un chanclazo congela al bicho, y ahora
     choca con las paredes (si las atravesara, se mataría desde otro pasillo).
   - Reloj POR NIVEL, no por partida. 265 pruebas de motor.
-  - Pendiente: los temas por escenario (rescatar animales en el zoo,
-    marcianitos en la nave) y que el bot recoja los especiales.
+  - **Temas por escenario** (pedido): cada bloque se ambienta en uno de los
+    escenarios del juego y cambia a quién rescatas — amigos en el colegio,
+    animales en el zoológico (el MISMO dibujo del recinto, `dibujarAnimal`
+    extraído de `decoZoo`), marcianitos en la nave, dinos en la Prehistoria,
+    momias en Egipto. Con su color de paredes y de suelo, que es lo que más se
+    nota al cambiar de bloque.
+  - Pendiente: que el bot recoja los especiales (hoy los ignora), y más temas
+    (Amazonas, Volcán, Luna) — añadir uno es añadir una fila en `LAB_TEMAS`.
 
 - 2026-08-21 (claude-code): **los dardos con péndulo, y cada puerta con su
   pinta** (dos pedidos).

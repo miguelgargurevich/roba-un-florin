@@ -1575,6 +1575,54 @@ export function monstruosDelNivel(n: number): number {
   return Math.min(1 + escalon(n), BESTIARIO.length);
 }
 
+/** Los amigos que pueden estar en las jaulas. */
+export const AMIGOS = ["mayo", "sobri", "yuli", "marcia", "meche", "chato", "wilber", "charo"];
+
+/* ---- los temas ----
+   El laberinto no vive solo en el colegio: cada bloque de tres niveles se
+   ambienta en uno de los escenarios que ya tiene el juego, y con el escenario
+   cambia A QUIÉN RESCATAS. En el zoológico son los animales de los recintos; en
+   la nave, los marcianitos; en la Prehistoria, los dinos. Es lo que hace que
+   subir de nivel se sienta como VIAJAR y no como repetir el mismo pasillo.
+
+   Los presos y los colores salen de aquí, así que añadir un tema es añadir una
+   fila — y los dibujos de los animales son LOS MISMOS del recinto del zoo, no
+   una copia (`dibujarAnimal` en el cliente).
+
+   `pinta` le dice al cliente con qué mano dibujarlos. Los marcianitos son los
+   vecinos Marcianos que este juego ya tiene desde el primer día, con su traje;
+   no son el personaje de ningún otro juego. */
+export const LAB_TEMAS: {
+  id: string; nombre: string; pinta: string;
+  presos: { id: string; label: string }[];
+  pared: string; suelo: string; suelo2: string; fondo: string;
+}[] = [
+  { id: "colegio", nombre: "EL COLEGIO", pinta: "persona",
+    presos: AMIGOS.map(a => ({ id: a, label: a })),
+    pared: "#8B6BEE", suelo: "#2C1C40", suelo2: "#28183A", fondo: "#150E1F" },
+  { id: "zoo", nombre: "EL ZOOLÓGICO", pinta: "animal",
+    presos: [{ id: "jirafa", label: "Jirafa" }, { id: "leon", label: "León" },
+             { id: "mono", label: "Mono" }, { id: "flamenco", label: "Flamencos" },
+             { id: "oso", label: "Oso" }],
+    pared: "#6FCF6A", suelo: "#1E3320", suelo2: "#1A2C1C", fondo: "#0E1810" },
+  { id: "nave", nombre: "LA NAVE ESPACIAL", pinta: "marcianito",
+    presos: [{ id: "rojo", label: "el Rojo" }, { id: "cian", label: "el Cian" },
+             { id: "amarillo", label: "el Amarillo" }, { id: "verde", label: "el Verde" },
+             { id: "morado", label: "el Morado" }],
+    pared: "#5CE1EA", suelo: "#16283A", suelo2: "#122334", fondo: "#0A1420" },
+  { id: "prehistoria", nombre: "LA PREHISTORIA", pinta: "dino",
+    presos: [{ id: "cuellilargo", label: "Cuellilargo" }, { id: "pinchudo", label: "Pinchudo" },
+             { id: "chiquito", label: "Chiquito" }, { id: "cornudo", label: "Tricornio" }],
+    pared: "#FF9E5C", suelo: "#3A2416", suelo2: "#331F13", fondo: "#1C120A" },
+  { id: "egipto", nombre: "EGIPTO", pinta: "momia",
+    presos: [{ id: "momia1", label: "la Momia" }, { id: "momia2", label: "el Faraón" },
+             { id: "momia3", label: "el Escriba" }, { id: "momia4", label: "la Reina" }],
+    pared: "#FFC53D", suelo: "#3A3016", suelo2: "#332A13", fondo: "#1C170A" },
+];
+export function temaDelNivel(n: number) {
+  return LAB_TEMAS[escalon(n) % LAB_TEMAS.length];
+}
+
 /* ---- los especiales del bloque ----
    Cada tres niveles cambia la pareja: una comida y un arma. Es lo que mantiene
    los 99 niveles distintos DESPUÉS de que el tamaño y la cantidad topen —
@@ -1682,8 +1730,6 @@ export const LAB_RELOJ = 240, LAB_ENTRE_FASES = 2.2;
     ciento veinte migas de 10 px hay 1 200 px de fila: de sobra para los nueve
     amigos de la última fase. */
 export const LAB_FILA = 46, LAB_MIGA = 10, LAB_RASTRO = 120;
-/** Los amigos que pueden estar en las jaulas. */
-export const AMIGOS = ["mayo", "sobri", "yuli", "marcia", "meche", "chato", "wilber", "charo"];
 
 export function aElLaberinto(e: Estado): void {
   /* El laberinto se queda SOLO. Los demás minijuegos ya limpian sus trastos;
@@ -1697,7 +1743,7 @@ export function aElLaberinto(e: Estado): void {
     entrada: { x: 0, y: 0 }, rastros: e.players.map(() => []),
     ronda: FANTASMA_CAZA, entreFases: 0,
     caza: FANTASMA_CAZA, retirada: FANTASMA_RETIRADA, forma: "sin vueltas",
-    especiales: [], tizas: [],
+    especiales: [], tizas: [], tema: LAB_TEMAS[0].id,
     poderes: e.players.map(() => null), bolsas: e.players.map(() => null),
     reloj: relojDelNivel(0), ganador: null,
   };
@@ -1744,6 +1790,7 @@ export function montarFaseDelLaberinto(e: Estado, fase: number): void {
      Se tumba la pared que da a OTRO PASILLO, no una cualquiera: tumbar paredes
      al azar deja salas, y una sala no es un laberinto. */
   const V = varianteDelNivel(fase);
+  const T = temaDelNivel(fase);
   const salidasDe = (x: number, y: number) =>
     ([[0, -1], [0, 1], [-1, 0], [1, 0]] as [number, number][])
       .filter(([dx, dy]) => celdas[y + dy]?.[x + dx] === false).length;
@@ -1802,7 +1849,7 @@ export function montarFaseDelLaberinto(e: Estado, fase: number): void {
     const sitio = centroDe(x, y);
     return {
       ...sitio,
-      quien: AMIGOS[(fase * 3 + k) % AMIGOS.length],
+      quien: T.presos[(fase * 3 + k) % T.presos.length].id,
       libre: false, porQuien: null, puesto: 0,
       amigo: { ...sitio },
     };
@@ -1859,6 +1906,7 @@ export function montarFaseDelLaberinto(e: Estado, fase: number): void {
 
   /* El ritmo también es del nivel: arriba persiguen más y descansan menos. */
   l.caza = V.caza; l.retirada = V.retirada; l.forma = V.nombre;
+  l.tema = T.id;
   l.ronda = V.caza;
   /* El reloj es DE ESTE NIVEL, no de la partida. Con 99 niveles un solo reloj
      no significa nada: o sobra para los tres primeros o no llega ni al décimo. */

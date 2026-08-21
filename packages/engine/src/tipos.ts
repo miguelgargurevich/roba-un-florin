@@ -603,6 +603,10 @@ export interface Laberinto {
       atajos» o «todo bucles». Uno con bucles se juega distinto —se le puede dar
       la vuelta a un monstruo—, así que se avisa. */
   forma: string;
+  /** El tema del bloque: en qué escenario del juego estamos y, con él, a QUIÉN
+      rescatas — animales en el zoológico, marcianitos en la nave, dinos en la
+      Prehistoria. Es lo que hace que subir de nivel se sienta como viajar. */
+  tema: string;
   /** Los dos especiales del bloque, tirados por el laberinto. */
   especiales: Especial[];
   /** Las rayas de tiza puestas, con lo que les queda. */

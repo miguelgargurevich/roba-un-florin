@@ -24,7 +24,7 @@ import {
   LAB_FASES, LAB_NIVELES, ladoDelNivel, jaulasDelNivel, monstruosDelNivel,
   relojDelNivel, BESTIARIO, monstruoDelNivel, monstruosDe, montarFaseDelLaberinto,
   LAB_ESCALON, varianteDelNivel, anchoDelNivel, altoDelNivel,
-  especialesDelNivel, LAB_COMIDAS, LAB_ARMAS,
+  especialesDelNivel, LAB_COMIDAS, LAB_ARMAS, LAB_TEMAS, temaDelNivel,
   patear, TENIS_META, TENIS_ALCANCE, ladoDeLaCancha, esMinijuego, JUEGOS_LISTOS,
   VOLEY_META, VOLEY_TOQUES, ladoDeVoley, BASQUET_META, BASQUET_ALCANCE,
   type EntradaJugador, type Estado,
@@ -2091,6 +2091,37 @@ describe("el laberinto", () => {
         expect(Math.hypot(f.x - l.entrada.x, f.y - l.entrada.y),
                "nivel " + n + ": un monstruo nació encima de la entrada").toBeGreaterThan(l.celda * 2);
       }
+    }
+  });
+
+  it("cada bloque se ambienta en un escenario, y cambia a quién rescatas", () => {
+    /* El pedido: usar los escenarios y los personajes del juego — animales en
+       el zoológico, marcianitos en la nave. Es lo que hace que subir de nivel se
+       sienta como viajar y no como repetir el mismo pasillo. */
+    const e = lab();
+    const temas = new Set<string>();
+    for (let n = 0; n < LAB_NIVELES; n++){
+      montarFaseDelLaberinto(e, n);
+      const l = e.laberinto!;
+      const T = temaDelNivel(n);
+      expect(l.tema, "nivel " + n).toBe(T.id);
+      temas.add(l.tema);
+      /* Y los presos son LOS DEL TEMA: un león en la nave espacial sería un
+         error que solo se ve jugando, y aquí salta. */
+      for (const j of l.jaulas)
+        expect(T.presos.some(p => p.id === j.quien),
+               "nivel " + n + " (" + T.id + "): rescatando a un " + j.quien).toBe(true);
+    }
+    expect(temas.size, "no se recorren todos los escenarios").toBe(LAB_TEMAS.length);
+  });
+
+  it("cada tema tiene su color, y ninguno repite el del vecino", () => {
+    /* El color del laberinto es lo que más se nota al cambiar de bloque. Dos
+       temas seguidos del mismo color serían dos bloques que parecen uno. */
+    for (let k = 0; k < LAB_TEMAS.length; k++){
+      const a2 = LAB_TEMAS[k], b2 = LAB_TEMAS[(k + 1) % LAB_TEMAS.length];
+      expect(a2.pared, a2.id + " y " + b2.id + " tienen la misma pared").not.toBe(b2.pared);
+      expect(a2.presos.length, a2.id + " no tiene presos").toBeGreaterThan(3);
     }
   });
 
