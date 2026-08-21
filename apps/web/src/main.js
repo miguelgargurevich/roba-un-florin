@@ -22,7 +22,7 @@ import {
   fundir, queSaleDeFundir,
   TRASTOS_ESCENARIO, darleVehiculo, esEspecial, ANCHO_PISTA, aparcarNuevo, comprarPatio,
   ponerFiesta, enFiesta, patear, TENIS_META, JUEGOS_LISTOS, VOLEY_META, VOLEY_TOQUES, VOLEY_ALCANCE,
-  BASQUET_META,
+  BASQUET_META, DIANA_ANILLOS,
   usarPotenciador, potenciadoresDe, potenciadorPorId,
   soltarCarga, trastoDe,
   venderFlorin,
@@ -412,14 +412,14 @@ window.addEventListener("keydown", e => {
   if (k === "x") usarMiItem();       // la E ya cambia de arma
   /* La B abre el álbum… salvo en un partido, donde es la de patear: a media
      pichanga nadie quiere el álbum, y el que lo quiera tiene el botón 📖. */
-  if (k === "b" && !elPartido() && !(G && (G.bolos || G.hockey)))
+  if (k === "b" && !elPartido() && !(G && (G.bolos || G.hockey || G.dardos)))
     { if (document.getElementById("album").hidden) abrirAlbum(); else cerrarAlbum(); }
   if (k === "t") togglePanel("arm");
   if (k === "r") togglePanel("rul");
   if (k === "escape" && !document.getElementById("album").hidden) cerrarAlbum();
   if (k === "escape" && !elTienda.hidden) cerrarTienda();
   /* En teclado se patea con B, aguantándola para cargar. */
-  if (k === "b" && (elPartido() || (G && (G.bolos || G.hockey))) && G.started && !G.over && !pateo.desde)
+  if (k === "b" && (elPartido() || (G && (G.bolos || G.hockey || G.dardos))) && G.started && !G.over && !pateo.desde)
     pateo.desde = performance.now();
   if (k === "escape" && !document.getElementById("salirAviso").hidden) cerrarSalir();
   if (k >= "1" && k <= "9") elegirArma(+k - 1);
@@ -1063,7 +1063,7 @@ const elPartido = () => (G && (G.futbol || G.tenis || G.voley || G.basquet)) || 
     la clase `partido` del CSS, el minimapa y las tarjetas del HUD preguntan lo
     mismo y se les había ido contestando de una en una. */
 const enMinijuego = () => !!(G && G.reglas &&
-  ["futbol","tenis","voley","basquet","hockey","lucha","carreraObs","bolos"]
+  ["futbol","tenis","voley","basquet","hockey","lucha","carreraObs","bolos","dardos"]
     .includes(G.reglas.modo));
 
 const laMesaOCancha = () => {
@@ -1081,6 +1081,13 @@ const laMesaOCancha = () => {
   if (G && G.bolos){
     const p = G.bolos.pista;
     return { x: p.x - 60, y: p.y - 40, w: p.w + 120, h: p.h + 80 };
+  }
+  /* Los dardos: la diana Y la raya en el mismo cuadro. Si no ves las dos, no
+     sabes dónde estás apuntando desde. */
+  if (G && G.dardos){
+    const t = G.dardos.tablero;
+    return { x: t.x - 400, y: t.y - t.r - 80,
+             w: 800, h: (G.dardos.raya + 140) - (t.y - t.r - 80) };
   }
   const j = elPartido() || (G && (G.hockey || G.lucha)) || null;
   if (!j) return null;
@@ -1113,7 +1120,7 @@ function soltarPateo(){
   elPateo.querySelector(".carga b").style.width = "0%";
   if (sala) sala.patear(f);
   /* En vóley el toque ya salió solo mientras aguantabas: soltar no repite. */
-  else if ((elPartido() || G.bolos || G.hockey) && !G.voley) patear(G, G.player, f);
+  else if ((elPartido() || G.bolos || G.hockey || G.dardos) && !G.voley) patear(G, G.player, f);
   Snd.unlock();
 }
 elPateo.addEventListener("pointerdown", e => {
@@ -1360,7 +1367,7 @@ function pintarAccion(){
       : cual === "sitio:lucha" ? "🥊 Luchar en el ring · uno contra uno"
       : cual === "sitio:carreraObs" ? "🏃 Correr los obstáculos · cinco"
       : cual === "sitio:bolos" ? "🎳 Jugar bolos · cinco manos"
-      : cual === "sitio:dardos" ? "🎯 Tirar dardos · cinco tiros"
+      : cual === "sitio:dardos" ? "🎯 Tirar dardos · seis cada uno"
       : cual === "sitio:laberinto" ? "🔮 Entrar al laberinto · recoge las gemas"
       : cual === "sitio:billar" ? "🎱 Jugar billar · una bola a la vez"
       : "🎰 Girar la Ruleta · " + money(RULETA_PRECIO);
@@ -1394,7 +1401,7 @@ const MINIJUEGOS = {
   basquet:    "🏀 ¡Básquet, tres contra tres! Primero a " + BASQUET_META + ". Chanclazo al que la lleva.",
   bolos:      "🎳 ¡A los bolos! Cinco manos, dos bolas cada una. Apunta y carga: la carga es la fuerza.",
   lucha:      "🥊 ¡La lucha del patio! Sácalo del ring 3 veces. Embiste corriendo, y hay chancla.",
-  dardos:     "🎯 ¡Dardos! 5 tiradas cada uno.",
+  dardos:     "🎯 ¡Dardos! Seis cada uno. Aguanta el botón para afinar el pulso — y cuidado con la chancla del otro.",
   voley:      "🏐 ¡Vóley, dos contra dos! La tocas con solo llegar; aguanta el botón para rematar.",
   carreraObs: "🏃 ¡Carrera de obstáculos! Tres vueltas a pie. Los conos te tumban.",
   laberinto:  "🔮 ¡Al laberinto! Recoge todas las gemas.",
@@ -9228,23 +9235,63 @@ function drawRing(){
 }
 
 /* ---- los dardos ---- */
-function drawDardos(){
+function drawDiana(){
   const d = G.dardos;
   if (!d) return;
   const t = d.tablero;
   ctx.save();
-  ctx.fillStyle = "#2A1226";
-  ctx.beginPath(); ctx.arc(t.x, t.y, t.r, 0, 6.283); ctx.fill();
-  // anillos
-  for (let i = 0; i < 5; i++){
-    ctx.strokeStyle = i % 2 ? "#FF5C86" : "#FFC53D";
-    ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.arc(t.x, t.y, 20 + i * 14, 0, 6.283); ctx.stroke();
+
+  /* La diana: anillos de dentro hacia fuera, cada uno con su valor escrito. Sin
+     los números hay que adivinar qué vale cada aro, y el juego entero es
+     decidir a qué aro apuntas. */
+  const paso = t.r / DIANA_ANILLOS.length;
+  const COLOR = ["#FFC53D", "#3DDC97", "#5CE1EA", "#8B6BEE", "#FF5C86"];
+  for (let i = DIANA_ANILLOS.length - 1; i >= 0; i--){
+    ctx.fillStyle = COLOR[i];
+    ctx.beginPath(); ctx.arc(t.x, t.y, paso * (i + 1), 0, 6.283); ctx.fill();
+    ctx.strokeStyle = "rgba(42,18,38,.35)"; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(t.x, t.y, paso * (i + 1), 0, 6.283); ctx.stroke();
   }
-  // dardos clavados
+  ctx.fillStyle = "#2A1226";
+  ctx.font = "700 15px system-ui, sans-serif";
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  DIANA_ANILLOS.forEach((v, i) => {
+    if (i === 0) { ctx.fillText(String(v), t.x, t.y); return; }
+    ctx.fillText(String(v), t.x, t.y - paso * (i + 0.5));
+  });
+  // el aro de fuera, para que se vea dónde acaba y empieza el cero
+  ctx.strokeStyle = "rgba(42,18,38,.6)"; ctx.lineWidth = 6;
+  ctx.beginPath(); ctx.arc(t.x, t.y, t.r, 0, 6.283); ctx.stroke();
+
+  /* La raya de tiro: no se pasa, y saberlo es la mitad de la puntería. */
+  ctx.strokeStyle = "#FF5C86"; ctx.lineWidth = 6;
+  ctx.setLineDash([22, 16]);
+  ctx.beginPath();
+  ctx.moveTo(t.x - 340, d.raya); ctx.lineTo(t.x + 340, d.raya);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = "rgba(255,92,134,.85)";
+  ctx.font = "700 13px system-ui, sans-serif";
+  ctx.fillText("LA RAYA", t.x - 300, d.raya - 16);
+
+  // los dardos clavados, del color de quien los tiró
   for (const dar of d.dardos){
-    ctx.fillStyle = dar.dueño === 0 ? "#3DDC97" : "#FF5C86";   // el estado dice `dueño`
-    ctx.beginPath(); ctx.arc(dar.x, dar.y, 4, 0, 6.283); ctx.fill();
+    const mio = dar.dueño === G.players.indexOf(G.player);
+    ctx.strokeStyle = mio ? "#2A1226" : "#F3EAF0";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(dar.x + 9, dar.y + 9); ctx.lineTo(dar.x, dar.y);
+    ctx.stroke();
+    ctx.fillStyle = mio ? "#3DDC97" : "#FF5C86";
+    ctx.beginPath(); ctx.arc(dar.x, dar.y, 5, 0, 6.283); ctx.fill();
+  }
+
+  /* A quién le toca. Con turnos, no saberlo es no saber nada. */
+  const suyo = G.players[d.turno];
+  if (suyo){
+    ctx.strokeStyle = suyo.idx === G.player.idx ? "rgba(255,197,61,.95)" : "rgba(255,255,255,.45)";
+    ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.ellipse(suyo.x, suyo.y + 16, 28, 14, 0, 0, 6.283); ctx.stroke();
   }
   ctx.restore();
 }
@@ -10209,12 +10256,12 @@ function draw(){
     drawPistaObs();
   } else if (G.reglas?.modo === "bolos"){
     drawPistaBolos();
+  } else if (G.reglas?.modo === "dardos"){
+    drawDiana();
   } else if (corriendo){
     drawCircuito();                  // la pista es lo único que importa
   } else if (G.basquet){
     drawBasquet();
-  } else if (G.dardos){
-    drawDardos();
   } else if (G.voley){
     drawVoley();
   } else if (G.laberinto){
@@ -10722,13 +10769,14 @@ function hud(){
   /* Los bolos también tienen botón (la bola) y el hockey también (el zurdazo).
      En el hockey el choque con la paleta sigue siendo automático: el botón es
      el disparo fuerte que decides tú, no la única forma de tocar el disco. */
-  const enPartido = (!!elPartido() || !!G.bolos || !!G.hockey) && G.started && !G.over;
+  const enPartido = (!!elPartido() || !!G.bolos || !!G.hockey || !!G.dardos)
+                    && G.started && !G.over;
   elPateo.hidden = !enPartido;
   /* En el tenis el mismo botón es la raqueta: con la pelotita se entiende sin
      leer nada. */
   if (enPartido) elPateo.querySelector(".ic").textContent =
     G.tenis ? "🎾" : G.voley ? "🏐" : G.basquet ? "🏀" : G.bolos ? "🎳"
-    : G.hockey ? "🏒" : "⚽";
+    : G.hockey ? "🏒" : G.dardos ? "🎯" : "⚽";
   if (enPartido && pateo.desde)
     elPateo.querySelector(".carga b").style.width = (fuerzaDePateo() * 100).toFixed(0) + "%";
   if (G.reglas?.modo === "futbol"){
@@ -10797,6 +10845,36 @@ function hud(){
     el.alarma.hidden = true;
     bau.boton.hidden = true; bau.soltar.hidden = true; bau.bajar.hidden = true;
     cerrarArmasRapidas();
+    pintarAccion();
+    return;
+  }
+
+  /* ---- el marcador de los dardos ---- */
+  if (G.reglas?.modo === "dardos"){
+    const d = G.dardos;
+    const yo = G.players.indexOf(G.player);
+    const suyos = d.puntos.filter((_, i) => i !== yo)[0];
+    const miTurno = d.turno === yo;
+    /* La carga aquí es PULSO, no fuerza: el cartel lo dice, porque un botón que
+       se llama igual y hace otra cosa se entiende mal una sola vez. */
+    el.goalLabel.textContent = d.ganador != null ? "Se acabó"
+      : d.espera > 0 ? (d.ultimo ? (d.ultimo.vale === 0 ? "¡Fuera!" : "+" + d.ultimo.vale) : "…")
+      : miTurno ? "Aguanta el pulso · te quedan " + (d.total - d.tiros[yo])
+      : "Tira el otro";
+    el.goal.textContent = d.puntos[yo] + " – " + suyos;
+    el.bar.style.width = clamp(d.tiros[yo] / d.total * 100, 0, 100).toFixed(1) + "%";
+    el.goalCard.classList.toggle("fiesta", !!d.ultimo && d.ultimo.centro);
+    el.money.textContent = mmss(G.t);
+    el.rate.textContent = d.puntos[yo] > suyos ? "Vas ganando"
+                        : d.puntos[yo] < suyos ? "Vas perdiendo" : "Empate";
+    el.lost.textContent = G.stats.hits;
+    el.alarma.hidden = true;
+    bau.boton.hidden = true; bau.soltar.hidden = true; bau.bajar.hidden = true;
+    cerrarArmasRapidas();
+    /* La chancla SÍ existe aquí: es el único precio de tomarse su tiempo. */
+    const wD = WEAPONS[G.wsel];
+    el.throwB.classList.toggle("cool", G.cd > 0 ||
+      (wD.id === "chancla" ? G.chancla.state !== "held" : G.ammo[wD.id] <= 0));
     pintarAccion();
     return;
   }
@@ -11126,6 +11204,33 @@ function endGame(ganador){
       : ganaste ? "A cobrar en el recreo." : "La revancha es ahí mismo, en el patio.";
     document.getElementById("stSteals").textContent = f.goles[mio];
     document.getElementById("stHits").textContent = f.goles[1 - mio];
+    document.getElementById("stTime").textContent = mmss(G.t);
+    document.getElementById("stRate").textContent = G.stats.hits;
+    document.getElementById("btnVolverBarrio").hidden = !aventuraEnEspera;
+    el.end.hidden = false;
+    if (ganaste) Snd.win();
+    return;
+  }
+
+  /* ---- cómo acabaron los dardos ---- */
+  if (G.reglas?.modo === "dardos"){
+    const d = G.dardos;
+    const yo = G.players.indexOf(G.player);
+    const suyos = d.puntos.filter((_, i) => i !== yo);
+    const ganaste = d.ganador === yo, empate = d.ganador == null;
+    const centros = d.dardos.filter(x => x.dueño === yo && x.vale === DIANA_ANILLOS[0]).length;
+    document.getElementById("lbSteals").textContent = "Tus puntos";
+    document.getElementById("lbHits").textContent = "Centros que clavaste";
+    document.getElementById("lbRate").textContent = "Chancletazos que diste";
+    document.getElementById("endEyebrow").textContent = "Se acabaron los dardos";
+    document.getElementById("endTitle").innerHTML = empate
+      ? "Quedaron <em>iguales</em>"
+      : ganaste ? "¡<em>Ganaste</em> la diana!" : "Te <em>ganaron</em>";
+    document.getElementById("endSub").textContent = empate
+      ? "Mismo pulso los dos."
+      : ganaste ? "Pulso de cirujano." : "Aguanta más el botón. Y esquiva la chancla.";
+    document.getElementById("stSteals").textContent = d.puntos[yo];
+    document.getElementById("stHits").textContent = centros;
     document.getElementById("stTime").textContent = mmss(G.t);
     document.getElementById("stRate").textContent = G.stats.hits;
     document.getElementById("btnVolverBarrio").hidden = !aventuraEnEspera;

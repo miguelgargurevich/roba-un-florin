@@ -8,7 +8,7 @@ Monorepo con workspaces npm:
 
 | Paquete | Qué es |
 |---|---|
-| `packages/engine` | el juego sin navegador: determinista, JSON serializable, 229 pruebas |
+| `packages/engine` | el juego sin navegador: determinista, JSON serializable, 234 pruebas |
 | `apps/web` | el cliente (Vite + canvas 2D). Solo dibuja y escucha teclas |
 | `apps/api` | cuentas, álbum, guardado, fiestas y avisos (.NET 9, Clean Arch + CQRS), 47 pruebas |
 | `apps/salas` | servidor de salas autoritativo (Node + `ws`), 36 pruebas |
@@ -23,6 +23,28 @@ A medias / sin hacer: el modo cooperativo (aplazado a propósito — una sala en
 aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Última sesión
+
+- 2026-08-11 (claude-code): **los dardos**. Noveno minijuego entero
+  (`JUEGOS_LISTOS`: fútbol, tenis, vóley, básquet, hockey, lucha, carreraObs,
+  bolos, dardos). Seis dardos cada uno, por turnos, gana quien sume más.
+  Lo interesante es qué hace la carga: **aquí no es fuerza, es PULSO**. Un dardo
+  no llega más al centro por tirarlo fuerte, así que aguantar el botón **cierra
+  el error** (de 84 px a 38) en vez de empujar más. Medido apuntando al centro:
+  29 de media a pulso 0, 38 a medio, 47 a pulso lleno, sobre un máximo de 50.
+  Y el precio de tomarse el tiempo **no es un medidor que castigue por pasarse**
+  —eso ya se probó en el vóley y es una lotería— sino **el otro jugador: te
+  puede chanclear mientras apuntas**, y un dardo aturdido no sale. Para eso hubo
+  que sacar los dardos (y la lucha) de la lista `esJuego` que apagaba la chancla
+  del bot, y **acercar al que espera de 320 a 200 px**: fuera del alcance de la
+  chancla, aguantar el pulso al máximo no costaba nada. Medido después: 4
+  chanclazos por cabeza en una partida, y aun así se tiran los doce dardos.
+  Con `DARDO_ERROR_MIN` a 26 el centro estaba **garantizado** (el error entero
+  caía dentro del anillo de 30, que mide `r/5`); a 38 es probable pero no
+  seguro, y eso es lo que lo convierte en una decisión.
+  Medido: partidas de 11 s, 215-190 / 165-140 / 190-200 (con empate incluido) y
+  ganadores distintos.
+  La diana se dibuja con **el valor escrito en cada anillo**: el juego entero es
+  decidir a qué aro apuntas, y sin los números hay que adivinarlo.
 
 - 2026-08-11 (claude-code): **los bolos**, más **el zurdazo del hockey** y **el
   antiatasco del fútbol**. Octavo minijuego entero (`JUEGOS_LISTOS`: fútbol,

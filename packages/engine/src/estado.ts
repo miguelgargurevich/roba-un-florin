@@ -3,7 +3,7 @@
 
 import type {
   Base, Billar, DesfileItem, Estado, Evento, Florin, Jugador, Laser, Pedestal, RefObjetivo,
-  Rect, RefPed, Reglas, SitioDeJuego, JuegoDeSitio, Sonido, Tenis, Trasto, Variante, Voley, Circulo, Pino,
+  Rect, RefPed, Reglas, SitioDeJuego, JuegoDeSitio, Sonido, Tenis, Trasto, Variante, Voley, Circulo, Pino, Dardos,
 } from "./tipos.js";
 import {
   ESCENARIOS, FLORES, GOAL, LASER_CARGA, PATIOS_PRECIO, TIERS, TRASTOS_ESCENARIO,
@@ -903,7 +903,7 @@ const SITIOS: {
   { juego: "basquet", rotulo: "LA CANCHA DE BÁSQUET", medida: MED_BASQUET, donde: "colegio", listo: true },
   { juego: "bolos", rotulo: "LOS BOLOS", medida: MED_BOLOS, donde: "colegio", listo: true },
   { juego: "lucha", rotulo: "EL RING", medida: MED_LUCHA, donde: "colegio", listo: true },
-  { juego: "dardos", rotulo: "LOS DARDOS", medida: MED_DARDOS, donde: "colegio", listo: false },
+  { juego: "dardos", rotulo: "LOS DARDOS", medida: MED_DARDOS, donde: "colegio", listo: true },
   { juego: "voley", rotulo: "LA CANCHA DE VÓLEY", medida: MED_VOLEY, donde: "colegio", listo: true },
   { juego: "carreraObs", rotulo: "LA CARRERA", medida: MED_CARRERA_OBS, donde: "colegio", listo: true },
   { juego: "laberinto", rotulo: "EL LABERINTO", medida: MED_LABERINTO, donde: "colegio", listo: false },
@@ -1310,14 +1310,53 @@ export function colocarEnElRing(e: Estado): void {
   });
 }
 
-/* ---- dardos ---- */
-const DARDOS_META = 50;
+/* ---- los dardos ----
+   Por turnos, seis cada uno. La diana es de anillos concéntricos y el centro
+   vale cincuenta; lo que decide no es la fuerza —un dardo no llega más al centro
+   por tirarlo fuerte— sino el PULSO: el error se cierra mientras aguantas.
+
+   Y lo que le da precio a tomarse el tiempo no es un medidor tramposo, es el
+   otro: te puede chanclear mientras apuntas. */
+export const DARDOS_CADA_UNO = 6, DARDOS_ESPERA = 0.9;
+export const DIANA_R = 150;
+/** Lo que vale cada anillo, de dentro hacia fuera. El último es el borde. */
+export const DIANA_ANILLOS = [50, 25, 15, 10, 5];
 
 export function aLosDardos(e: Estado): void {
   const { cx, cy } = centroDelMapa();
-  e.dardos = { tablero: { x: cx, y: cy - 160, r: 80 }, dardos: [], turno: 0, puntos: [0, 0], meta: DARDOS_META, ganador: null };
-  for (const p of e.players) { p.x = cx; p.y = cy + 120; p.vx = 0; p.vy = 0; p.stun = 0; p.montado = null; }
+  const tablero = { x: cx, y: cy - 300, r: DIANA_R };
+  const raya = cy + 120;
+  e.dardos = {
+    tablero, raya, dardos: [], turno: 0,
+    tiros: e.players.map(() => 0), puntos: e.players.map(() => 0),
+    total: DARDOS_CADA_UNO, ultimo: null, espera: 0, ganador: null,
+  };
+  repartirEquipos(e);
+  colocarParaTirarDardo(e);
 }
+
+/** Lo que vale un dardo según lo cerca del centro que haya caído. */
+export function valorDelDardo(d: Dardos, x: number, y: number): number {
+  const dist = Math.hypot(x - d.tablero.x, y - d.tablero.y);
+  if (dist > d.tablero.r) return 0;                 // fuera de la diana
+  const paso = d.tablero.r / DIANA_ANILLOS.length;
+  return DIANA_ANILLOS[Math.min(DIANA_ANILLOS.length - 1, Math.floor(dist / paso))];
+}
+
+/** El que tira, en la raya; el que espera, a un lado. */
+export function colocarParaTirarDardo(e: Estado): void {
+  const d = e.dardos;
+  if (!d) return;
+  d.espera = 0;
+  e.players.forEach((p, i) => {
+    if (i === d.turno) { p.x = d.tablero.x; p.y = d.raya + 40; }
+    /* El que espera, al lado y CERCA: a 320 px se quedaba fuera del alcance de
+       la chancla, y sin chancla aguantar el pulso al máximo no cuesta nada. */
+    else { p.x = d.tablero.x + 200 + (i % 2) * 60; p.y = d.raya; }
+    p.vx = 0; p.vy = 0; p.montado = null;
+  });
+}
+
 
 /* ---- la carrera de obstáculos ----
    La hermana chica del modo carrera: mismos puntos de paso en bucle y mismo

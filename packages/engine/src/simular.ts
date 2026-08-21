@@ -31,6 +31,7 @@ import {
   sacarDeMedioBasquet, BASQUET_SAQUE, sacarEnHockey, HOCKEY_SAQUE,
   colocarEnElRing, LUCHA_SAQUE, OBS_TROPIEZO,
   colocarParaTirar, reponerLosPinos, BOLA_R, PINO_R,
+  colocarParaTirarDardo, valorDelDardo, DIANA_ANILLOS, DARDOS_ESPERA,
 } from "./estado.js";
 
 /* Cualquier cosa a la que se pueda golpear */
@@ -1608,7 +1609,7 @@ function balonAlAlcance(e: Estado, p: Jugador): Trasto | null {
  */
 export function patear(e: Estado, p: Jugador,
                        fuerza = 0): "patada" | "cabezazo" | "golpe" | "pase" | "remate"
-                                  | "tiro" | "bola" | "zurdazo" | null {
+                                  | "tiro" | "bola" | "zurdazo" | "dardo" | null {
   /* El mismo botón es la raqueta en el tenis y las manos en el vóley. Se
      reparte aquí y no en el cliente para que teclado, botón y sala pidan
      siempre lo mismo. */
@@ -1617,6 +1618,7 @@ export function patear(e: Estado, p: Jugador,
   if (e.basquet) return tiroDeBasquet(e, p, clamp(fuerza, 0, 1));
   if (e.bolos) return tirarBolos(e, p, clamp(fuerza, 0, 1));
   if (e.hockey) return golpeDeHockey(e, p, clamp(fuerza, 0, 1));
+  if (e.dardos) return tirarDardo(e, p, clamp(fuerza, 0, 1));
   const f = e.futbol;
   if (!f || f.ganador != null || p.stun > 0) return null;
   const b = balonAlAlcance(e, p);
@@ -2505,9 +2507,88 @@ function pasoLucha(e: Estado, dt: number): void {
 /* ============================================================
    Dardos
    ============================================================ */
-function pasoDardos(e: Estado, _dt: number): void {
-  const d = e.dardos!;
-  if (d.ganador != null) return;
+/* ---- los dardos ----
+   La carga NO es fuerza: es PULSO. Un dardo no llega más al centro por tirarlo
+   fuerte, así que aguantar el botón CIERRA EL ERROR en vez de empujar más. De
+   0 a 1 el radio de error baja de 84 px a 17: con la diana en anillos de 30, eso
+   es la diferencia entre acertar el anillo que buscas y acertar cualquiera.
+
+   Y lo que le pone precio a tomarse el tiempo no es un medidor que castigue por
+   pasarse —eso ya se probó en el vóley y es una lotería— sino el otro jugador:
+   te puede chanclear mientras apuntas, y un dardo aturdido no sale. */
+export const DARDO_ALCANCE = 90;
+/** El error, del pulso más malo al mejor. */
+/* A pulso máximo el error son 38 px y el anillo del centro mide 30, así que el
+   cincuenta es probable pero NO seguro. Con 26 lo era siempre —el error caía
+   entero dentro del anillo— y un cincuenta garantizado no es una decisión.
+   Medido apuntando al centro: unos 29 de media a pulso 0 y unos 44 a pulso
+   lleno, sobre un máximo de 50. */
+const DARDO_ERROR_MAX = 84, DARDO_ERROR_MIN = 38;
+
+/** Tirar un dardo. Solo el que tiene el turno, desde detrás de la raya. */
+function tirarDardo(e: Estado, p: Jugador, k: number): "dardo" | null {
+  const d = e.dardos;
+  if (!d || d.ganador != null || d.espera > 0 || p.stun > 0) return null;
+  const i = e.players.indexOf(p);
+  if (i !== d.turno) return null;
+  if (d.tiros[i] >= d.total) return null;
+  /* Desde detrás de la raya: acercarse a la diana no es tirar mejor, es hacer
+     trampa. El motor ya no te deja pasarla, y aquí se comprueba igual. */
+  if (p.y < d.raya - 10) return null;
+
+  /* A dónde apuntas, y si no apuntas, al centro. */
+  const a = p.apunta;
+  const mx = a.on ? a.wx : d.tablero.x;
+  const my = a.on ? a.wy : d.tablero.y;
+  const err = DARDO_ERROR_MAX - (DARDO_ERROR_MAX - DARDO_ERROR_MIN) * clamp(k, 0, 1);
+  const ang = rnd(e, 0, Math.PI * 2), radio = rnd(e, 0, err);
+  const x = mx + Math.cos(ang) * radio, y = my + Math.sin(ang) * radio;
+
+  const vale = valorDelDardo(d, x, y);
+  const centro = vale === DIANA_ANILLOS[0];
+  d.dardos.push({ x, y, dueño: i, vale });
+  d.puntos[i] += vale;
+  d.tiros[i]++;
+  d.ultimo = { quien: i, vale, centro };
+  d.espera = DARDOS_ESPERA;
+
+  const color = vale === 0 ? "#FF5C86" : centro ? "#FFC53D" : "#3DDC97";
+  texto(e, x, y - 34, vale === 0 ? "¡Fuera!" : centro ? "¡CENTRO! 50" : "+" + vale, color);
+  if (centro) polvo(e, x, y, "#FFC53D", 20);
+  sonar(e, vale === 0 ? "ouch" : centro ? "win" : "grab");
+  e.eventos.push({ t: "punto", equipo: (i % 2) as 0 | 1,
+                   puntos: [d.puntos[0] ?? 0, d.puntos[1] ?? 0],
+                   motivo: vale === 0 ? "fuera" : vale + " puntos" });
+  return "dardo";
+}
+
+function pasoDardos(e: Estado, dt: number): void {
+  const d = e.dardos;
+  if (!d || d.ganador != null) return;
+
+  /* La raya no se pasa, y de la diana no se acerca nadie. */
+  for (const p of e.players) p.y = Math.max(p.y, d.raya);
+
+  if (d.espera <= 0) return;
+  d.espera -= dt;
+  if (d.espera > 0) return;
+
+  /* Se acabó la espera: o le toca al otro, o se acabó la partida. */
+  if (d.tiros.every((t, i) => t >= d.total)) {
+    const mejor = Math.max(...d.puntos);
+    const empate = d.puntos.filter(x => x === mejor).length > 1;
+    d.ganador = empate ? null : d.puntos.indexOf(mejor);
+    terminarJuegoIndividual(e, d.ganador == null ? null : e.players[d.ganador].idx);
+    return;
+  }
+  /* Al siguiente que le queden dardos. */
+  let siguiente = d.turno;
+  for (let n = 1; n <= e.players.length; n++) {
+    const cand = (d.turno + n) % e.players.length;
+    if (d.tiros[cand] < d.total) { siguiente = cand; break; }
+  }
+  d.turno = siguiente;
+  colocarParaTirarDardo(e);
 }
 
 /* ============================================================

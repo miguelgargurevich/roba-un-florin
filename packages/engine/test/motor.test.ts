@@ -19,6 +19,7 @@ import {
   nuevoFlorin, baseDe, patiosDe, zap, multDeMontura, puntoDelDesfile, puntoDelOcho,
   centroDelMapa, WORLD_W, WORLD_H, OCHO_A, colocarPuestos, ponerFiesta, enFiesta, enElMar,
   nivelDeVitrina, nombreDeHito, HITOS_MAX, vitrinaDe, venderFlorin, precioDeVenta, soltarCarga,
+  valorDelDardo, DIANA_ANILLOS,
   patear, TENIS_META, TENIS_ALCANCE, ladoDeLaCancha, esMinijuego, JUEGOS_LISTOS,
   VOLEY_META, VOLEY_TOQUES, ladoDeVoley, BASQUET_META, BASQUET_ALCANCE,
   type EntradaJugador, type Estado,
@@ -1823,6 +1824,98 @@ describe("tenis", () => {
   });
 });
 
+describe("los dardos", () => {
+  const diana = (semilla = 1) =>
+    crearPartida({ jugadores: 2, escenario: "colegio", semilla, armas: idsDeArmas(),
+                   reglas: { modo: "dardos" } as any });
+  /** Pone al que le toca en la raya, apuntando a `p`, y tira. */
+  function tirar(e: Estado, hacia: { x: number; y: number }, pulso = 1){
+    const d = e.dardos!;
+    const p = e.players[d.turno];
+    p.y = d.raya + 40; p.stun = 0;
+    p.apunta.on = true; p.apunta.wx = hacia.x; p.apunta.wy = hacia.y;
+    return patear(e, p, pulso);
+  }
+
+  it("la diana vale más en el centro y nada fuera", () => {
+    const e = diana();
+    const d = e.dardos!;
+    expect(valorDelDardo(d, d.tablero.x, d.tablero.y)).toBe(DIANA_ANILLOS[0]);
+    expect(valorDelDardo(d, d.tablero.x + d.tablero.r + 20, d.tablero.y),
+           "fuera de la diana puntuó").toBe(0);
+    /* Y de dentro hacia fuera, nunca sube. */
+    let previo = Infinity;
+    for (let k = 0; k < DIANA_ANILLOS.length; k++){
+      const v = valorDelDardo(d, d.tablero.x + d.tablero.r * (k + 0.5) / DIANA_ANILLOS.length, d.tablero.y);
+      expect(v).toBeLessThanOrEqual(previo);
+      previo = v;
+    }
+  });
+
+  it("solo tira el que le toca, y desde detrás de la raya", () => {
+    const e = diana();
+    const d = e.dardos!;
+    const otro = e.players[1 - d.turno];
+    otro.y = d.raya + 40;
+    otro.apunta.on = true; otro.apunta.wx = d.tablero.x; otro.apunta.wy = d.tablero.y;
+    expect(patear(e, otro, 1), "tiró uno que no le tocaba").toBe(null);
+    const suyo = e.players[d.turno];
+    suyo.y = d.raya - 200;                // pasado de la raya
+    suyo.apunta.on = true; suyo.apunta.wx = d.tablero.x; suyo.apunta.wy = d.tablero.y;
+    expect(patear(e, suyo, 1), "tiró pasado de la raya").toBe(null);
+  });
+
+  it("el pulso es lo que acerca al centro, no la fuerza", () => {
+    /* Es LA decisión del juego: aguantar el botón cierra el error. */
+    const media = (pulso: number) => {
+      let suma = 0;
+      for (let s = 0; s < 40; s++){
+        const e = diana(s + 1);
+        tirar(e, e.dardos!.tablero, pulso);
+        suma += e.dardos!.dardos[0]?.vale ?? 0;
+      }
+      return suma / 40;
+    };
+    const flojo = media(0), lleno = media(1);
+    expect(lleno, "aguantar el pulso no sirve de nada").toBeGreaterThan(flojo + 8);
+    expect(lleno, "a pulso lleno el centro está garantizado")
+      .toBeLessThan(DIANA_ANILLOS[0]);
+  });
+
+  it("un dardo aturdido no sale: para eso está la chancla", () => {
+    const e = diana();
+    const d = e.dardos!;
+    const p = e.players[d.turno];
+    p.y = d.raya + 40;
+    p.apunta.on = true; p.apunta.wx = d.tablero.x; p.apunta.wy = d.tablero.y;
+    p.stun = 2;
+    expect(patear(e, p, 1), "tiró estando aturdido").toBe(null);
+  });
+
+  it("seis cada uno, por turnos, y sale ganador o empate", () => {
+    const e = diana();
+    for (let k = 0; k < 60 * 300 && !e.over; k++){
+      const ent: Record<number, EntradaJugador> = {};
+      const usan: any[] = [];
+      const tiran: [any, number][] = [];
+      for (const p of e.players){
+        const plan = pensarBot(e, p, 1 / 60);
+        ent[p.idx] = plan.entrada;
+        if (plan.usar) usan.push(p);
+        if (plan.patear != null) tiran.push([p, plan.patear]);
+      }
+      for (const p of usan) usarArma(e, p);
+      for (const [p, f] of tiran) patear(e, p, f);
+      avanzar(e, ent, 1 / 60);
+    }
+    const d = e.dardos!;
+    expect(e.over, "la partida no acabó").toBe(true);
+    expect(d.tiros).toEqual([d.total, d.total]);
+    expect(d.dardos.length).toBe(d.total * 2);
+    expect(d.puntos[0] + d.puntos[1], "no se clavó ni un dardo").toBeGreaterThan(0);
+  });
+});
+
 describe("los bolos", () => {
   const bolera = (semilla = 1) =>
     crearPartida({ jugadores: 2, escenario: "colegio", semilla, armas: idsDeArmas(),
@@ -2403,6 +2496,7 @@ describe("un minijuego apaga el barrio", () => {
     expect(JUEGOS_LISTOS, "la lucha ya se juega entera").toContain("lucha");
     expect(JUEGOS_LISTOS, "la carrera de obstáculos ya se juega entera").toContain("carreraObs");
     expect(JUEGOS_LISTOS, "los bolos ya se juegan enteros").toContain("bolos");
+    expect(JUEGOS_LISTOS, "los dardos ya se juegan enteros").toContain("dardos");
   });
 });
 

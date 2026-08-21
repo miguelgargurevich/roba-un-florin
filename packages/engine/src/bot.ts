@@ -348,10 +348,45 @@ function aDondeVoyEnLucha(e: Estado, p: Jugador): { x: number; y: number } | nul
   return { x: detrasX, y: detrasY };
 }
 
-/** A dónde va en dardos: al tablero. */
+/* ---- el bot tirador ----
+   Al que le toca se pone en la raya; el que espera, a un lado. Y apunta al
+   centro con un temblor: si apuntara clavado al centro sacaría cincuenta cada
+   vez, y no habría partida. */
 function aDondeVoyEnDardos(e: Estado, p: Jugador): { x: number; y: number } | null {
-  const d = e.dardos!;
-  return { x: d.tablero.x, y: d.tablero.y + 120 };
+  const d = e.dardos;
+  if (!d) return null;
+  const i = e.players.indexOf(p);
+  if (i !== d.turno) return { x: d.tablero.x + 320, y: d.raya };
+  return { x: d.tablero.x, y: d.raya + 40 };
+}
+
+/** A dónde apunta. Se calcula SIEMPRE que sea su turno: el motor lee
+    `p.apunta` del tick anterior, y calculándola solo al tirar el primer dardo
+    saldría sin puntería. Es el bicho que ya mordió en el tenis y en los bolos. */
+function aDondeApuntaElTirador(e: Estado, p: Jugador): { x: number; y: number } | null {
+  const d = e.dardos;
+  if (!d || d.ganador != null) return null;
+  if (e.players.indexOf(p) !== d.turno) return null;
+  /* El temblor sale del reloj y del asiento: reproducible, y distinto para cada
+     uno. Del tamaño de un anillo, así que a veces cae en el 25 y a veces en el
+     centro. */
+  const anillo = d.tablero.r / 5;
+  return {
+    x: d.tablero.x + Math.sin(e.t * 1.9 + p.idx * 2.3) * anillo * 1.1,
+    y: d.tablero.y + Math.cos(e.t * 1.4 + p.idx * 1.7) * anillo * 1.1,
+  };
+}
+
+/** ¿Tira ya? Cuando está en la raya y con la puntería puesta. Aguanta casi
+    todo el pulso: un bot que tira a lo loco no es rival. */
+function tiroDelTirador(e: Estado, p: Jugador): number | null {
+  const d = e.dardos;
+  if (!d || d.ganador != null || d.espera > 0 || p.stun > 0) return null;
+  const i = e.players.indexOf(p);
+  if (i !== d.turno || d.tiros[i] >= d.total) return null;
+  if (Math.abs(p.y - (d.raya + 40)) > 60) return null;
+  if (!p.apunta.on) return null;
+  return 0.82;
 }
 
 /* ---- el bot de la carrera de obstáculos ----
@@ -560,7 +595,7 @@ function aDondeVoy(e: Estado, p: Jugador): { x: number; y: number } | null {
   if (e.reglas.modo === "lucha") return aDondeVoyEnLucha(e, p);
   if (e.reglas.modo === "carreraObs") return aDondeVoyEnCarreraObs(e, p);
   if (e.reglas.modo === "bolos") return aDondeVoyEnBolos(e, p);
-  if (e.dardos) return aDondeVoyEnDardos(e, p);
+  if (e.reglas.modo === "dardos") return aDondeVoyEnDardos(e, p);
   if (e.laberinto) return aDondeVoyEnLaberinto(e, p);
   if (e.billar) return aDondeVoyEnBillar(e, p);
   /* Corriendo solo existe el siguiente punto de paso. Mira un poco más allá
@@ -646,10 +681,16 @@ function aDondeVoy(e: Estado, p: Jugador): { x: number; y: number } | null {
 export function pensarBot(e: Estado, p: Jugador, dt: number): PlanBot {
   if (p.stun > 0) return { entrada: QUIETO, usar: false, patear: null };
 
-  const esJuego = !!(e.basquet || e.bolos || e.lucha || e.dardos || e.carreraObs || e.laberinto || e.billar || e.hockey);
+  /* En estos juegos la chancla no pinta nada y encima estorba… salvo en dos: en
+     la LUCHA es media pelea, y en los DARDOS es el único precio de tomarse su
+     tiempo apuntando. Sin ella, aguantar el pulso al máximo es un cincuenta
+     gratis y el juego no tiene decisión. */
+  const esJuego = !!(e.basquet || e.bolos || e.carreraObs || e.laberinto || e.billar || e.hockey);
   const tenis = e.reglas.modo === "tenis", voley = e.reglas.modo === "voley";
   const basquet = e.reglas.modo === "basquet", bolos = e.reglas.modo === "bolos";
-  const hockey = e.reglas.modo === "hockey";
+  const hockey = e.reglas.modo === "hockey", dardos = e.reglas.modo === "dardos";
+  const dardo = dardos ? tiroDelTirador(e, p) : null;
+  const puntoDardo = dardos ? aDondeApuntaElTirador(e, p) : null;
   const zurdazo = hockey ? zurdazoDelBot(e, p) : null;
   const bolear = bolos ? tiroDelBolichero(e, p) : null;
   const puntoBolos = bolos ? aDondeApuntaElBolichero(e, p) : null;
@@ -657,9 +698,12 @@ export function pensarBot(e: Estado, p: Jugador, dt: number): PlanBot {
                 : voley ? toqueDelBot(e, p)
                 : basquet ? tiroDelBot(e, p)
                 : zurdazo ? zurdazo.fuerza
-                : bolear;
-  const enLucha = !!e.lucha;
-  const rivalEnLucha = enLucha ? e.players.find(q => q.idx !== p.idx) : null;
+                : dardo ?? bolear;
+  const enLucha = !!e.lucha || !!e.dardos;
+  /* Y en los dardos, el que espera hostiga al que tira. */
+  const aTirando = e.dardos && e.players.indexOf(p) !== e.dardos.turno
+    ? e.players[e.dardos.turno] : null;
+  const rivalEnLucha = enLucha ? e.players.find(q => q.idx !== p.idx) : aTirando;
   /* En la lucha la chancla es la mitad del juego: a uno aturdido se le empuja
      dos veces y media más. A 60 px solo se la tiraba pegado —o sea, casi
      nunca—, y contra un humano que sí la usaba desde lejos la pelea era 3-0 en
@@ -669,6 +713,7 @@ export function pensarBot(e: Estado, p: Jugador, dt: number): PlanBot {
   const blanco = tenis ? aDondeLaMando(e, p)
                : voley ? aDondeLaMandoEnVoley(e, p)
                : bolos ? puntoBolos
+               : dardos ? puntoDardo
                : hockey ? (zurdazo ? zurdazo.apunta : null)
                : enLucha ? blancoLucha : aQuienLeTiro(e, p);
   const usarLucha = enLucha && !!blancoLucha;

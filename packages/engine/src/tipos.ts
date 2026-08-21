@@ -427,13 +427,32 @@ export interface Lucha {
 }
 
 /* ---- Dardos ---- */
+/** Un dardo clavado: dónde cayó, de quién es y lo que valió. */
+export interface Dardo { x: number; y: number; dueño: number; vale: number }
+
+/** Los dardos. Por turnos, seis cada uno, y aquí la carga NO es fuerza: es
+    PULSO. Tirar más fuerte no acerca un dardo al centro — lo que lo acerca es
+    tomarse su tiempo, y el error se cierra mientras aguantas.
+
+    El precio de tomarse el tiempo no es un medidor que castigue por pasarse
+    (eso ya se probó y es una lotería): es que **el otro puede chanclearte
+    mientras apuntas**. Un chanclazo a tiempo te tira el dardo. */
 export interface Dardos {
-  tablero: { x: number; y: number; r: number };
-  dardos: { x: number; y: number; dueño: number }[];
+  tablero: Circulo;
+  /** La línea de tiro: no se pasa de aquí. */
+  raya: number;
+  dardos: Dardo[];
   turno: number;
-  puntos: [number, number];
-  meta: number;
-  ganador: 0 | 1 | null;
+  /** Dardos tirados por cada uno, y sus puntos. */
+  tiros: number[];
+  puntos: number[];
+  /** Cuántos dardos tira cada uno. */
+  total: number;
+  /** El último, para el cartel: cuánto valió y si fue centro. */
+  ultimo: { quien: number; vale: number; centro: boolean } | null;
+  /** Pausa entre dardo y dardo, para verlo clavado. */
+  espera: number;
+  ganador: number | null;
 }
 
 /* ---- Carrera de obstáculos ---- */
