@@ -24,6 +24,32 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Última sesión
 
+- 2026-08-21 (claude-code): **los dardos con péndulo, y cada puerta con su
+  pinta** (dos pedidos).
+  - **Dardos**: antes apuntabas al centro y aguantabas — un dado con el radio
+    más chico. Ahora la mano va sola de lado a lado y el dardo cae donde esté
+    el péndulo al soltar; el arco (176) es más ancho que la diana (150) para
+    que soltar a destiempo FALLE el tablero. El error residual baja de 84→38 a
+    36→9. La guía (carril, topes, muesca, marca, círculo) sale de
+    `puntoDelPendulo` y `errorDelDardo`, las mismas funciones del motor, y hay
+    una prueba que impide que se separen. Medido: ±30 ms ganas 88 %, ±70 ms
+    60 %, ±140 ms 28 %.
+  - **Las puertas**: `dibujarSitio` tenía tres casos y un `else` con césped,
+    círculo central y arcos, así que 7 de 11 minijuegos eran canchas de fútbol
+    con otro rótulo (y icono ⚽). Ahora hay una tabla `PUERTAS` con un pintor
+    por juego — pista de bolos con canaletas y palos, mesa de billar con seis
+    hoyas, hielo con ranuras, ring con cuerdas, óvalo con conos, laberinto con
+    jaula, diana. Un juego nuevo sin pintor se nota; no hereda el fútbol.
+  - **La diana, de verdad**: los cinco aros de arcoíris parecían la Ruleta.
+    Ahora gajos negro/crema, doble y triple en rojo y verde, bull verde y
+    centro rojo — en la puerta con proporciones reales y dentro del juego con
+    las bandas del marcador (quintos exactos), porque ahí las bandas SON el
+    puntaje.
+  - **`window.dev`** solo en desarrollo (`import.meta.env.DEV`, verificado que
+    no llega al bundle): el panel del navegador congela `requestAnimationFrame`
+    cuando no compone, así que sin esto no hay forma de mirar una puerta al
+    otro lado del mapa.
+
 - 2026-08-21 (claude-code): **los patios del Multiverso, repartidos** (pedido: «es
   muy grande para estar regresando al mismo punto»). Los cinco estaban en la
   primera zona (la catarata) —eso era el problema, no cuántos había—. Ahora el

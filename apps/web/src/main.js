@@ -383,6 +383,28 @@ window.addEventListener("resize", resize);
    ============================================================ */
 let G = null;
 
+/* Un enganche SOLO en desarrollo. No es un lujo: el panel del navegador con el
+   que se verifica esto congela `requestAnimationFrame` cuando no está
+   componiendo, así que no se puede caminar hasta el otro lado del mapa para
+   mirar una cancha — hay que poder plantar al jugador ahí y pedir un cuadro.
+
+   `import.meta.env.DEV` lo borra del bundle de producción, así que no hay forma
+   de que un jugador se teletransporte con esto. */
+if (import.meta.env.DEV){
+  window.dev = {
+    get G(){ return G; },
+    /** Planta al jugador donde esté el sitio que le pidas, y pinta un cuadro. */
+    aLaPuerta(juego){
+      const s = (G?.sitios || []).find(x => x.juego === juego);
+      if (!s) return "no hay puerta de " + juego;
+      G.player.x = s.rect.x + s.rect.w / 2;
+      G.player.y = s.rect.y + s.rect.h + 90;
+      return juego + " @ " + Math.round(G.player.x) + "," + Math.round(G.player.y);
+    },
+    puertas(){ return (G?.sitios || []).map(s => s.juego); },
+  };
+}
+
 
 /* Teclas de cada jugador. Con un jugador, WASD y flechas hacen lo mismo. */
 const TECLAS_1P = { up:["w","arrowup"], down:["s","arrowdown"], left:["a","arrowleft"], right:["d","arrowright"], fire:[" "] };
@@ -8843,28 +8865,78 @@ function drawCanchita(){
   for (const sitio of G.sitios || []) dibujarSitio(sitio);
 }
 
-function dibujarSitio(sitio){
-  const c = sitio.rect;
-  const esTenis = sitio.juego === "tenis";
-  const esVoley = sitio.juego === "voley";
-  const esBasquet = sitio.juego === "basquet";
-  const conRed = esTenis || esVoley;
-  ctx.save();
-  /* La superficie dice a qué se juega antes de leer el cartel: césped y arcos
-     de fierro para la pichanga, tierra y red para el tenis. Dos canchas verdes
-     con arcos, una al lado de la otra, se leerían como una sola partida en dos. */
-  ctx.fillStyle = esTenis ? "rgba(193,102,63,.62)"
-                : esVoley ? "rgba(224,190,132,.62)"
-                : esBasquet ? "rgba(201,143,78,.66)"
-                : "rgba(94,154,82,.55)";
-  ctx.fillRect(c.x, c.y, c.w, c.h);
-  ctx.strokeStyle = "rgba(255,255,255,.7)"; ctx.lineWidth = 5;
-  ctx.strokeRect(c.x, c.y, c.w, c.h);
-  ctx.beginPath();
-  ctx.moveTo(c.x + c.w/2, c.y); ctx.lineTo(c.x + c.w/2, c.y + c.h); ctx.stroke();
+/* ---- las puertas de los minijuegos ----
+   Cada puerta se pinta como LO QUE ES. Antes había tres casos especiales
+   (tenis, vóley, básquet) y un `else` con césped, círculo central y dos arcos
+   de fierro: o sea que los bolos, los dardos, el billar, el hockey, el ring, la
+   carrera y el laberinto —siete de once— eran canchas de fútbol con otro
+   rótulo. Hasta el icono era ⚽ en todas. Desde tres metros no se distinguía
+   una de otra, y el mapa del colegio parecía siete pichangas.
 
-  if (esBasquet){
-    /* Dos aros y la línea de medio campo: se lee de un vistazo. */
+   La tabla es a propósito: un juego nuevo sin su pintor salta a la vista aquí
+   —se queda sin entrada— en vez de heredar en silencio la cancha de fútbol. */
+const SUELO_PUERTA = {
+  futbol:     "rgba(94,154,82,.55)",    // césped
+  tenis:      "rgba(193,102,63,.62)",   // polvo de ladrillo
+  voley:      "rgba(224,190,132,.62)",  // arena
+  basquet:    "rgba(201,143,78,.66)",   // duela
+  bolos:      "rgba(206,164,106,.72)",  // madera clara
+  dardos:     "rgba(70,52,66,.66)",     // un rincón bajo techo
+  billar:     "rgba(38,102,74,.78)",    // paño
+  hockey:     "rgba(178,214,232,.72)",  // hielo
+  lucha:      "rgba(120,74,96,.66)",    // lona
+  carreraObs: "rgba(150,120,86,.6)",    // tierra
+  laberinto:  "rgba(58,46,72,.72)",     // penumbra
+};
+const ICONO_PUERTA = {
+  futbol: "⚽", tenis: "🎾", voley: "🏐", basquet: "🏀", bolos: "🎳",
+  dardos: "🎯", billar: "🎱", hockey: "🏒", lucha: "🥊", carreraObs: "🏃",
+  laberinto: "🔮",
+};
+
+/* Cada pintor recibe el rect de la puerta y dibuja SOLO sus marcas: el suelo,
+   el borde y el cartel los pone `dibujarSitio`, que es lo único común. */
+const PUERTAS = {
+  futbol(c){
+    linea(c.x + c.w/2, c.y, c.x + c.w/2, c.y + c.h);
+    ctx.strokeStyle = "rgba(255,255,255,.7)"; ctx.lineWidth = 5;
+    ctx.beginPath(); ctx.arc(c.x + c.w/2, c.y + c.h/2, 78, 0, 6.283); ctx.stroke();
+    for (const lado of [0, 1]){                       // los arquitos de fierro
+      const ax = lado ? c.x + c.w - 12 : c.x - 22;
+      ctx.fillStyle = "#D8CFD4";
+      ctx.fillRect(ax, c.y + c.h/2 - 90, 34, 12);
+      ctx.fillRect(ax, c.y + c.h/2 + 78, 34, 12);
+      ctx.fillRect(lado ? ax + 24 : ax, c.y + c.h/2 - 90, 10, 180);
+      ctx.strokeStyle = "rgba(255,255,255,.45)"; ctx.lineWidth = 2;
+      for (let y = c.y + c.h/2 - 84; y < c.y + c.h/2 + 84; y += 16)
+        linea(ax + 2, y, ax + 32, y);
+    }
+  },
+
+  tenis(c){
+    red(c);
+    ctx.strokeStyle = "rgba(255,255,255,.55)"; ctx.lineWidth = 3;
+    const pas = c.h * 0.12, saq = c.w * 0.24;
+    ctx.beginPath();
+    ctx.moveTo(c.x, c.y + pas); ctx.lineTo(c.x + c.w, c.y + pas);
+    ctx.moveTo(c.x, c.y + c.h - pas); ctx.lineTo(c.x + c.w, c.y + c.h - pas);
+    ctx.moveTo(c.x + c.w/2 - saq, c.y + pas); ctx.lineTo(c.x + c.w/2 - saq, c.y + c.h - pas);
+    ctx.moveTo(c.x + c.w/2 + saq, c.y + pas); ctx.lineTo(c.x + c.w/2 + saq, c.y + c.h - pas);
+    ctx.stroke();
+  },
+
+  voley(c){
+    red(c);
+    ctx.strokeStyle = "rgba(255,255,255,.55)"; ctx.lineWidth = 3;
+    const at = c.w * 0.17;
+    ctx.beginPath();
+    ctx.moveTo(c.x + c.w/2 - at, c.y); ctx.lineTo(c.x + c.w/2 - at, c.y + c.h);
+    ctx.moveTo(c.x + c.w/2 + at, c.y); ctx.lineTo(c.x + c.w/2 + at, c.y + c.h);
+    ctx.stroke();
+  },
+
+  basquet(c){
+    linea(c.x + c.w/2, c.y, c.x + c.w/2, c.y + c.h);
     ctx.strokeStyle = "rgba(255,255,255,.6)"; ctx.lineWidth = 3;
     ctx.beginPath(); ctx.arc(c.x + c.w/2, c.y + c.h/2, Math.min(c.w, c.h) * 0.16, 0, 6.283);
     ctx.stroke();
@@ -8873,48 +8945,265 @@ function dibujarSitio(sitio){
       ctx.strokeStyle = "#FF7A3D"; ctx.lineWidth = 5;
       ctx.beginPath(); ctx.arc(ax, c.y + c.h/2, 22, 0, 6.283); ctx.stroke();
     }
-  } else if (conRed){
-    // la red, con su cinta blanca arriba
-    ctx.fillStyle = "rgba(28,20,26,.55)";
-    ctx.fillRect(c.x + c.w/2 - 5, c.y - 8, 10, c.h + 16);
-    ctx.fillStyle = "#F3EAF0";
-    ctx.fillRect(c.x + c.w/2 - 8, c.y - 11, 16, 6);
-    ctx.fillRect(c.x + c.w/2 - 8, c.y + c.h + 5, 16, 6);
-    /* Las rayas de dentro son lo que distingue una cancha de otra de un
-       vistazo: cuadros de saque en el tenis, líneas de ataque en el vóley. */
-    ctx.strokeStyle = "rgba(255,255,255,.55)"; ctx.lineWidth = 3;
-    ctx.beginPath();
-    if (esVoley){
-      const at = c.w * 0.17;
-      ctx.moveTo(c.x + c.w/2 - at, c.y); ctx.lineTo(c.x + c.w/2 - at, c.y + c.h);
-      ctx.moveTo(c.x + c.w/2 + at, c.y); ctx.lineTo(c.x + c.w/2 + at, c.y + c.h);
-    } else {
-      const pas = c.h * 0.12, saq = c.w * 0.24;
-      ctx.moveTo(c.x, c.y + pas); ctx.lineTo(c.x + c.w, c.y + pas);
-      ctx.moveTo(c.x, c.y + c.h - pas); ctx.lineTo(c.x + c.w, c.y + c.h - pas);
-      ctx.moveTo(c.x + c.w/2 - saq, c.y + pas); ctx.lineTo(c.x + c.w/2 - saq, c.y + c.h - pas);
-      ctx.moveTo(c.x + c.w/2 + saq, c.y + pas); ctx.lineTo(c.x + c.w/2 + saq, c.y + c.h - pas);
-    }
-    ctx.stroke();
-  } else {
-    ctx.beginPath(); ctx.arc(c.x + c.w/2, c.y + c.h/2, 78, 0, 6.283); ctx.stroke();
-    // los dos arquitos de fierro
-    for (const lado of [0, 1]){
-      const ax = lado ? c.x + c.w - 12 : c.x - 22;
-      ctx.fillStyle = "#D8CFD4";
-      ctx.fillRect(ax, c.y + c.h/2 - 90, 34, 12);
-      ctx.fillRect(ax, c.y + c.h/2 + 78, 34, 12);
-      ctx.fillRect(lado ? ax + 24 : ax, c.y + c.h/2 - 90, 10, 180);
-      ctx.strokeStyle = "rgba(255,255,255,.45)"; ctx.lineWidth = 2;
-      for (let y = c.y + c.h/2 - 84; y < c.y + c.h/2 + 84; y += 16){
-        ctx.beginPath(); ctx.moveTo(ax + 2, y); ctx.lineTo(ax + 32, y); ctx.stroke();
+  },
+
+  /* Una pista de bolos es LARGA y estrecha, con canaletas a los lados y los
+     diez palos al fondo. Nada de círculo central: aquí no hay dos mitades. */
+  bolos(c){
+    const cana = c.w * 0.13;
+    ctx.fillStyle = "rgba(40,26,36,.5)";
+    ctx.fillRect(c.x, c.y, cana, c.h);
+    ctx.fillRect(c.x + c.w - cana, c.y, cana, c.h);
+    // las duelas, a lo largo
+    ctx.strokeStyle = "rgba(120,82,48,.35)"; ctx.lineWidth = 2;
+    for (let x = c.x + cana + 10; x < c.x + c.w - cana; x += 18)
+      linea(x, c.y + 8, x, c.y + c.h - 8);
+    // los diez palos, en triángulo al fondo
+    const cx = c.x + c.w/2, base = c.y + c.h * 0.20;
+    for (let fila = 0; fila < 4; fila++)
+      for (let k = 0; k <= fila; k++){
+        const px = cx + (k - fila/2) * 19, py = base - fila * 17;
+        ctx.fillStyle = "#F3EAF0";
+        ctx.beginPath(); ctx.arc(px, py, 6, 0, 6.283); ctx.fill();
+        ctx.strokeStyle = "#FF5C86"; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(px, py, 6, 3.6, 5.8); ctx.stroke();
       }
+    // la raya de no pasar, y las flechas de puntería
+    ctx.strokeStyle = "rgba(255,92,134,.8)"; ctx.lineWidth = 4;
+    linea(c.x + cana, c.y + c.h * 0.82, c.x + c.w - cana, c.y + c.h * 0.82);
+    ctx.fillStyle = "rgba(255,197,61,.75)";
+    for (const d of [-1, 0, 1]){
+      const fx = cx + d * 34, fy = c.y + c.h * 0.62;
+      ctx.beginPath(); ctx.moveTo(fx, fy); ctx.lineTo(fx - 6, fy + 13); ctx.lineTo(fx + 6, fy + 13);
+      ctx.closePath(); ctx.fill();
     }
+  },
+
+  /* Los dardos: la diana en la pared del fondo y la raya de tiro. Los mismos
+     colores que la diana de dentro, para que se reconozca al entrar. */
+  dardos(c){
+    const cx = c.x + c.w/2, cy = c.y + c.h * 0.38, r = Math.min(c.w, c.h) * 0.29;
+    /* Proporciones de diana de verdad: el bull es diminuto y los aros del doble
+       y del triple son finos. En la puerta se puede, porque aquí no se puntúa. */
+    dianaDeVerdad(cx, cy, [r * 0.075, r * 0.19, r * 0.63, r * 0.955, r]);
+    ctx.strokeStyle = "#FF5C86"; ctx.lineWidth = 4;
+    ctx.setLineDash([14, 10]);
+    linea(c.x + 12, c.y + c.h * 0.86, c.x + c.w - 12, c.y + c.h * 0.86);
+    ctx.setLineDash([]);
+  },
+
+  /* El billar: paño, marco de madera y SEIS hoyas. Las hoyas son lo que lo
+     distingue de cualquier otra cosa verde. */
+  billar(c){
+    ctx.strokeStyle = "rgba(96,58,34,.9)"; ctx.lineWidth = 14;
+    ctx.strokeRect(c.x + 7, c.y + 7, c.w - 14, c.h - 14);
+    for (const [hx, hy] of [[0,0],[0.5,0],[1,0],[0,1],[0.5,1],[1,1]]){
+      ctx.fillStyle = "rgba(24,14,20,.92)";
+      ctx.beginPath();
+      ctx.arc(c.x + 16 + hx * (c.w - 32), c.y + 16 + hy * (c.h - 32), 11, 0, 6.283);
+      ctx.fill();
+    }
+    // el triángulo de bolas y la blanca al otro lado
+    const bx = c.x + c.w * 0.66, by = c.y + c.h/2;
+    const COL = ["#FFC53D","#5CE1EA","#FF5C86","#8B6BEE","#3DDC97","#F3EAF0"];
+    let n = 0;
+    for (let fila = 0; fila < 3; fila++)
+      for (let k = 0; k <= fila; k++){
+        ctx.fillStyle = COL[n++ % COL.length];
+        ctx.beginPath();
+        ctx.arc(bx + fila * 15, by + (k - fila/2) * 15, 6.5, 0, 6.283); ctx.fill();
+      }
+    ctx.fillStyle = "#F3EAF0";
+    ctx.beginPath(); ctx.arc(c.x + c.w * 0.26, by, 6.5, 0, 6.283); ctx.fill();
+  },
+
+  /* Air hockey: hielo, la línea roja del medio y las dos bocas de arco. Nada de
+     redes de fierro — un arco de hockey es una RANURA en el borde. */
+  hockey(c){
+    ctx.strokeStyle = "rgba(214,64,96,.85)"; ctx.lineWidth = 5;
+    linea(c.x + c.w/2, c.y, c.x + c.w/2, c.y + c.h);
+    ctx.strokeStyle = "rgba(90,140,170,.7)"; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(c.x + c.w/2, c.y + c.h/2, Math.min(c.w, c.h) * 0.19, 0, 6.283);
+    ctx.stroke();
+    const boca = c.h * 0.34;
+    for (const lado of [0, 1]){
+      const bx = lado ? c.x + c.w - 9 : c.x + 1;
+      ctx.fillStyle = "rgba(24,14,20,.85)";
+      ctx.fillRect(bx, c.y + c.h/2 - boca/2, 8, boca);
+      ctx.strokeStyle = "#FFC53D"; ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(lado ? bx : bx + 8, c.y + c.h/2 - boca/2);
+      ctx.lineTo(lado ? bx : bx + 8, c.y + c.h/2 + boca/2);
+      ctx.stroke();
+    }
+    // el disco, en el medio
+    ctx.fillStyle = "#2A1226";
+    ctx.beginPath(); ctx.arc(c.x + c.w/2, c.y + c.h/2, 9, 0, 6.283); ctx.fill();
+  },
+
+  /* El ring: lona, cuerdas por los cuatro lados y las esquineras. */
+  lucha(c){
+    const m = 16;
+    ctx.fillStyle = "rgba(196,148,168,.35)";
+    ctx.fillRect(c.x + m, c.y + m, c.w - m*2, c.h - m*2);
+    for (const off of [0, 7, 14]){                     // tres cuerdas
+      ctx.strokeStyle = off === 7 ? "rgba(255,197,61,.8)" : "rgba(243,234,240,.75)";
+      ctx.lineWidth = 3;
+      ctx.strokeRect(c.x + m - off, c.y + m - off, c.w - (m - off)*2, c.h - (m - off)*2);
+    }
+    for (const [ex, ey] of [[0,0],[1,0],[0,1],[1,1]]){  // las esquineras
+      ctx.fillStyle = ex === ey ? "#FF5C86" : "#5CE1EA";
+      ctx.beginPath();
+      ctx.arc(c.x + m + ex * (c.w - m*2), c.y + m + ey * (c.h - m*2), 10, 0, 6.283);
+      ctx.fill();
+    }
+  },
+
+  /* La carrera de obstáculos: el óvalo por donde se corre, los conos EN la
+     línea (que es la regla del juego) y la meta a cuadros. */
+  carreraObs(c){
+    const rx = c.w * 0.34, ry = c.h * 0.30, cx = c.x + c.w/2, cy = c.y + c.h/2;
+    ctx.strokeStyle = "rgba(255,255,255,.45)"; ctx.lineWidth = 26;
+    ctx.setLineDash([]);
+    ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, 0, 0, 6.283); ctx.stroke();
+    ctx.strokeStyle = "rgba(255,255,255,.7)"; ctx.lineWidth = 3;
+    ctx.setLineDash([16, 14]);
+    ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, 0, 0, 6.283); ctx.stroke();
+    ctx.setLineDash([]);
+    for (let k = 0; k < 8; k++){                       // los conos, repartidos
+      const a = k / 8 * 6.283;
+      const px = cx + Math.cos(a) * rx, py = cy + Math.sin(a) * ry;
+      ctx.fillStyle = "#FF7A3D";
+      ctx.beginPath(); ctx.moveTo(px, py - 9); ctx.lineTo(px - 6, py + 6); ctx.lineTo(px + 6, py + 6);
+      ctx.closePath(); ctx.fill();
+    }
+    for (let k = 0; k < 6; k++){                       // la meta
+      ctx.fillStyle = k % 2 ? "#2A1226" : "#F3EAF0";
+      ctx.fillRect(cx - 3 + (k % 2) * 0, cy - ry - 13 + k * 5, 12, 5);
+    }
+  },
+
+  /* El laberinto: paredes y una jaula. El dibujo sale de la posición de la
+     puerta, no de un azar: dos partidas seguidas no pueden pintar dos
+     laberintos distintos en el mismo sitio del mapa. */
+  laberinto(c){
+    const paso = 34;
+    ctx.strokeStyle = "rgba(150,120,190,.55)"; ctx.lineWidth = 6;
+    for (let gx = 1; gx * paso < c.w - 10; gx++)
+      for (let gy = 1; gy * paso < c.h - 10; gy++){
+        const semilla = (gx * 7 + gy * 13 + Math.round(c.x / 10) + Math.round(c.y / 10)) % 5;
+        if (semilla === 0)
+          linea(c.x + gx * paso, c.y + gy * paso, c.x + gx * paso + paso, c.y + gy * paso);
+        else if (semilla === 1)
+          linea(c.x + gx * paso, c.y + gy * paso, c.x + gx * paso, c.y + gy * paso + paso);
+      }
+    // la jaula del fondo: es lo que se va a rescatar
+    const jx = c.x + c.w * 0.68, jy = c.y + c.h * 0.66, jr = 21;
+    ctx.fillStyle = "rgba(24,14,20,.55)";
+    ctx.fillRect(jx - jr, jy - jr, jr*2, jr*2);
+    ctx.strokeStyle = "#FFC53D"; ctx.lineWidth = 3;
+    ctx.strokeRect(jx - jr, jy - jr, jr*2, jr*2);
+    for (let k = 1; k < 4; k++) linea(jx - jr + k * jr/2, jy - jr, jx - jr + k * jr/2, jy + jr);
+  },
+};
+
+/* ---- una diana de verdad ----
+   La primera versión eran cinco aros de colores del arcoíris: se leía, pero
+   parecía una diana de juguete de feria. Una diana de verdad tiene gajos
+   negros y crema, el aro del DOBLE por fuera y el del TRIPLE por dentro en
+   rojo y verde alternos, el bull verde y el centro rojo. Con eso puesto se
+   reconoce al instante, y es lo que se espera al leer «dardos».
+
+   Los radios los manda quien llama, y ahí está el detalle que importa: dentro
+   del juego las bandas TIENEN que ser las del marcador (quintos exactos, que
+   es como puntúa el motor), mientras que en la puerta —que es decorado y no
+   puntúa nada— se usan las proporciones reales, más bonitas. Los colores son
+   los mismos en los dos sitios, así que la puerta y la diana de dentro se
+   reconocen como la misma cosa. */
+const GAJOS = 20;
+function dianaDeVerdad(cx, cy, radios){
+  const paso = 6.283185 / GAJOS, giro = -1.5708 - paso / 2;
+  const [rBull, rOjo, rTriple, rLiso, rDoble] = radios;
+
+  /* De fuera hacia dentro, por gajos. El aro de fuera es el DOBLE y el de en
+     medio el TRIPLE: en los dos alternan rojo y verde, y en las bandas lisas
+     alternan negro y crema. */
+  const bandas = [
+    { de: rLiso, a: rDoble, par: "#D8383A", impar: "#2FA45B" },   // doble
+    { de: rTriple, a: rLiso, par: "#1C1119", impar: "#E8DCC0" },  // liso de fuera
+    { de: rOjo, a: rTriple, par: "#D8383A", impar: "#2FA45B" },   // triple
+  ];
+  for (const b of bandas)
+    for (let k = 0; k < GAJOS; k++){
+      ctx.fillStyle = k % 2 ? b.impar : b.par;
+      ctx.beginPath();
+      ctx.arc(cx, cy, b.a, giro + k * paso, giro + (k + 1) * paso);
+      ctx.arc(cx, cy, b.de, giro + (k + 1) * paso, giro + k * paso, true);
+      ctx.closePath(); ctx.fill();
+    }
+  /* La banda de dentro, entre el bull y el triple: gajos otra vez, y aquí es
+     donde se ve que la diana tiene veinte y no cinco aros. */
+  for (let k = 0; k < GAJOS; k++){
+    ctx.fillStyle = k % 2 ? "#E8DCC0" : "#1C1119";
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, rOjo, giro + k * paso, giro + (k + 1) * paso);
+    ctx.closePath(); ctx.fill();
+  }
+  // el bull verde y el centro rojo
+  ctx.fillStyle = "#2FA45B";
+  ctx.beginPath(); ctx.arc(cx, cy, rOjo * 0.42, 0, 6.283); ctx.fill();
+  ctx.fillStyle = "#D8383A";
+  ctx.beginPath(); ctx.arc(cx, cy, rBull, 0, 6.283); ctx.fill();
+
+  // los alambres: los radiales y los dos aros
+  ctx.strokeStyle = "rgba(214,207,212,.65)"; ctx.lineWidth = 1.5;
+  for (let k = 0; k < GAJOS; k++){
+    const a = giro + k * paso;
+    ctx.beginPath();
+    ctx.moveTo(cx + Math.cos(a) * rOjo * 0.42, cy + Math.sin(a) * rOjo * 0.42);
+    ctx.lineTo(cx + Math.cos(a) * rDoble, cy + Math.sin(a) * rDoble);
+    ctx.stroke();
+  }
+  for (const r of [rOjo * 0.42, rOjo, rTriple, rLiso, rDoble]){
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, 6.283); ctx.stroke();
+  }
+  // el marco negro de fuera, que es lo que la despega del suelo
+  ctx.strokeStyle = "#120C13"; ctx.lineWidth = 5;
+  ctx.beginPath(); ctx.arc(cx, cy, rDoble + 2.5, 0, 6.283); ctx.stroke();
+}
+
+/** Dos ayudas para no repetir quince `beginPath` iguales. */
+function linea(x1, y1, x2, y2){
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+}
+/** La red del tenis y del vóley, con su cinta blanca. */
+function red(c){
+  ctx.fillStyle = "rgba(28,20,26,.55)";
+  ctx.fillRect(c.x + c.w/2 - 5, c.y - 8, 10, c.h + 16);
+  ctx.fillStyle = "#F3EAF0";
+  ctx.fillRect(c.x + c.w/2 - 8, c.y - 11, 16, 6);
+  ctx.fillRect(c.x + c.w/2 - 8, c.y + c.h + 5, 16, 6);
+}
+
+function dibujarSitio(sitio){
+  const c = sitio.rect;
+  ctx.save();
+  /* La superficie dice a qué se juega antes de leer el cartel. */
+  ctx.fillStyle = SUELO_PUERTA[sitio.juego] || "rgba(94,154,82,.55)";
+  ctx.fillRect(c.x, c.y, c.w, c.h);
+  ctx.strokeStyle = "rgba(255,255,255,.7)"; ctx.lineWidth = 5;
+  ctx.strokeRect(c.x, c.y, c.w, c.h);
+
+  const pintar = PUERTAS[sitio.juego];
+  if (pintar){
+    ctx.strokeStyle = "rgba(255,255,255,.7)"; ctx.lineWidth = 5;
+    pintar(c);
   }
 
   // el cartel
   const dentro = G.player.enSitio === sitio.juego;
-  const ico = esTenis ? "🎾" : esVoley ? "🏐" : esBasquet ? "🏀" : "⚽";
+  const ico = ICONO_PUERTA[sitio.juego] || "🎮";
   const rot = dentro ? ico + " TOCA EL BOTÓN Y SE ARMA" : ico + " " + sitio.rotulo;
   const lw = rot.length * 11 + 30;
   /* El cartel va DENTRO del borde de arriba, no encima. Fuera se choca con lo
@@ -9256,27 +9545,29 @@ function drawDiana(){
   const t = d.tablero;
   ctx.save();
 
-  /* La diana: anillos de dentro hacia fuera, cada uno con su valor escrito. Sin
-     los números hay que adivinar qué vale cada aro, y el juego entero es
-     decidir a qué aro apuntas. */
+  /* La diana, con la pinta de una de verdad —gajos, aro del doble, aro del
+     triple, bull— pero con LAS BANDAS DEL MARCADOR: quintos exactos del radio,
+     porque así es como puntúa el motor (`valorDelDardo`). Pintarla con las
+     proporciones reales sería más bonito y una mentira: el jugador vería un aro
+     fino de triple donde el motor cuenta una banda gorda de 15.
+
+     Y los números encima, que es lo que de verdad hace falta para decidir a
+     qué apuntas. Sin ellos hay que adivinar qué vale cada banda. */
   const paso = t.r / DIANA_ANILLOS.length;
-  const COLOR = ["#FFC53D", "#3DDC97", "#5CE1EA", "#8B6BEE", "#FF5C86"];
-  for (let i = DIANA_ANILLOS.length - 1; i >= 0; i--){
-    ctx.fillStyle = COLOR[i];
-    ctx.beginPath(); ctx.arc(t.x, t.y, paso * (i + 1), 0, 6.283); ctx.fill();
-    ctx.strokeStyle = "rgba(42,18,38,.35)"; ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.arc(t.x, t.y, paso * (i + 1), 0, 6.283); ctx.stroke();
-  }
-  ctx.fillStyle = "#2A1226";
+  dianaDeVerdad(t.x, t.y, [paso, paso * 2, paso * 3, paso * 4, paso * 5]);
+
   ctx.font = "700 15px system-ui, sans-serif";
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
   DIANA_ANILLOS.forEach((v, i) => {
-    if (i === 0) { ctx.fillText(String(v), t.x, t.y); return; }
-    ctx.fillText(String(v), t.x, t.y - paso * (i + 0.5));
+    /* Con fondo oscuro detrás, el número va en claro y con sombra: sobre los
+       gajos negro y crema alternos, un número de un solo color se pierde en la
+       mitad de los gajos. */
+    const py = i === 0 ? t.y : t.y - paso * (i + 0.5);
+    ctx.lineWidth = 4; ctx.strokeStyle = "rgba(18,12,19,.9)";
+    ctx.strokeText(String(v), t.x, py);
+    ctx.fillStyle = "#FFF3D6";
+    ctx.fillText(String(v), t.x, py);
   });
-  // el aro de fuera, para que se vea dónde acaba y empieza el cero
-  ctx.strokeStyle = "rgba(42,18,38,.6)"; ctx.lineWidth = 6;
-  ctx.beginPath(); ctx.arc(t.x, t.y, t.r, 0, 6.283); ctx.stroke();
 
   /* La raya de tiro: no se pasa, y saberlo es la mitad de la puntería. */
   ctx.strokeStyle = "#FF5C86"; ctx.lineWidth = 6;
