@@ -24,6 +24,27 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Última sesión
 
+- 2026-08-11 (claude-code): **el menú vuelve a hacer caso** («presiono la casa,
+  selecciono otro escenario y no funciona bien»). El botón del minijuego se
+  quedaba seleccionado de la partida anterior: elegías La Playa, dabas a Jugar
+  y salía el minijuego en el colegio otra vez. Tres arreglos y un principio:
+  - **tocar un escenario significa "quiero jugar AHÍ"**: si el modo elegido lo
+    ignora (cualquier minijuego), `elegirEscenario` vuelve solo a la aventura;
+  - los escenarios **ya no se deshabilitan** con un minijuego elegido — la
+    lista que los bloqueaba estaba copiada a mano y se había quedado corta
+    (sin tenis ni vóley), así que unos minijuegos bloqueaban y otros no;
+  - **el tenis no tenía botón en el menú** (estaba terminado y solo se podía
+    jugar desde la canchita del mundo) y a vóley/tenis les faltaba el rótulo
+    del botón grande.
+  De paso: `startGame` descarta `aventuraEnEspera` — empezar desde el menú
+  enterraba mal una pichanga a medias y el cartel final ofrecía "Volver al
+  barrio" hacia un estado de hace dos partidas (esa aventura ya está guardada
+  desde que pulsaste la casa).
+  **Pasada de humo en navegador**: los 8 modos del menú (aventura, carrera y
+  los seis minijuegos listos) arrancan sin errores de consola, y el flujo
+  minijuego → 🏠 → otro escenario → Jugar cae en la aventura del escenario
+  elegido (verificado en La Playa).
+
 - 2026-08-11 (claude-code): **la lucha del patio, terminada**. Sexto minijuego
   entero (`JUEGOS_LISTOS`: fútbol, tenis, vóley, básquet, hockey, lucha). Uno
   contra uno, primero a 5, dos minutos.

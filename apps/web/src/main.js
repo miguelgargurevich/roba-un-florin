@@ -1650,9 +1650,14 @@ function elegirModoLocal(m){
     b.classList.toggle("sel", suyo);
     b.setAttribute("aria-pressed", String(suyo));
   }
-  const esMinijuego = ["basquet","bolos","lucha","dardos","carreraObs","laberinto","billar","hockey"].includes(m);
+  /* Con un minijuego elegido los escenarios SIGUEN activos: tocar uno te
+     devuelve a la aventura (ver `elegirEscenario`). Deshabilitarlos era la
+     mitad del lío — la lista de aquí estaba copiada a mano y se había quedado
+     corta (sin tenis ni vóley), así que unos minijuegos bloqueaban los
+     escenarios y otros no, y ninguno de los dos caminos hacía lo que el
+     jugador esperaba. */
   escBtns.forEach((b, k) => {
-    const no = (m === "carrera" && !puedeCorrer(k)) || esMinijuego;
+    const no = m === "carrera" && !puedeCorrer(k);
     b.classList.toggle("nocorre", no);
     b.disabled = no;
   });
@@ -1681,13 +1686,21 @@ function rotularBotonJugar(){
   if (m === "carrera"){ b.textContent = "Correr ▸"; return; }
   const labels = { basquet:"Jugar básquet ▸", bolos:"Jugar bolos ▸", lucha:"Pelear ▸",
     dardos:"Tirar dardos ▸", carreraObs:"Correr obstáculos ▸", laberinto:"Entrar al laberinto ▸",
-    billar:"Jugar billar ▸", hockey:"Jugar air hockey ▸" };
+    billar:"Jugar billar ▸", hockey:"Jugar air hockey ▸",
+    tenis:"Jugar tenis ▸", voley:"Jugar vóley ▸" };
   if (labels[m]){ b.textContent = labels[m]; return; }
   b.textContent = (typeof guardadaEnLaNube !== "undefined" && guardadaEnLaNube
     ? "Empezar de cero ▸" : "Jugar solo ▸");
 }
 
 function elegirEscenario(i){
+  /* Tocar un escenario significa "quiero jugar AHÍ". Si el modo elegido lo
+     ignora —los minijuegos se juegan en su cancha, elijas lo que elijas—, se
+     vuelve a la aventura. Sin esto, el botón del minijuego se quedaba
+     seleccionado desde la partida anterior: elegías La Playa, dabas a Jugar y
+     salía el minijuego en el colegio otra vez, como si el menú no te hiciera
+     caso. */
+  if (MINIJUEGOS[modoElegido()]) { escSel = i; elegirModoLocal("aventura"); }
   escSel = i;
   try { localStorage.setItem("florin_escenario", ESCENARIOS[i].id); } catch (_){}
   escBtns.forEach((b, k) => {
@@ -10793,6 +10806,10 @@ function hud(){
    ============================================================ */
 function startGame(modo){
   if (sala) salirDeLaSala();
+  /* Empezar desde el menú entierra lo que hubiera en espera: esa aventura ya
+     se guardó al pulsar la casa, y ofrecer "Volver al barrio" hacia un estado
+     de hace dos partidas es volver a un fantasma. */
+  aventuraEnEspera = null;
   const m = modo === 2 ? 2 : (modo === 1 ? 1 : (G && G.local2 ? 2 : 1));
   G = nuevaPartida(m);
   G.started = true;
