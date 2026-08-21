@@ -114,7 +114,15 @@ export interface Jugador {
       punto: en el laberinto, elegir cada vez «la gema más cercana» hace que en
       el borde de dos celdas la más cercana cambie de una a otra y el bot se
       quede yendo y viniendo para siempre. Comprometerse lo arregla. */
-  bot?: { x: number; y: number; repensar: number; meta?: number };
+  bot?: {
+    x: number; y: number; repensar: number;
+    /** A qué se ha comprometido, cuando el sitio importa más que el punto. */
+    meta?: number;
+    /** Segundos que le quedan de huida. Es la memoria que le permite RETOMAR:
+        mientras corre, no se replantea el objetivo, y al agotarse vuelve a por
+        la misma jaula en vez de elegir otra desde cero. */
+    huyendo?: number;
+  };
   /** Cómo se llama, cuando no es "J2": los vecinos que juegan solos llevan el
       nombre del que vive en esa casa. */
   apodo?: string;

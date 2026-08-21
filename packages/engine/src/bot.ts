@@ -462,16 +462,42 @@ function aDondeVoyEnLaberinto(e: Estado, p: Jugador): { x: number; y: number } |
   const [px, py] = celdaLibreDe(l, p.x, p.y);
   const inicio = py * l.ancho + px;
 
-  /* El fantasma MÁS CERCANO encima: huir por el pasillo que más lo aleje. Un
-     amigo no vale el que te va a volver a encerrar. */
+  /* ---- ¿huir, o seguir a lo mío? ----
+     El fantasma más cercano. Y aquí va el criterio, que es lo que le faltaba:
+     no se huye porque haya un fantasma cerca, se huye **si te corta el
+     camino**. Uno que viene por detrás mientras tú te alejas no es una amenaza;
+     tratarlo como tal era lo que le hacía perder media partida yendo y
+     viniendo.
+
+     Y la huida DURA: `huyendo` es su memoria. Mientras corre no se replantea el
+     objetivo, y al agotarse vuelve a por LA MISMA jaula —eso lo guarda `meta`—
+     en vez de elegir otra desde cero. */
   const gh = l.fantasmas.length
     ? l.fantasmas.reduce((m, f) => dist2(p.x, p.y, f.x, f.y) < dist2(p.x, p.y, m.x, m.y) ? f : m)
     : null;
-  /* Huir solo cuando el fantasma está DE VERDAD encima: una celda. Con 200 px
-     —dos celdas— el bot alternaba entre huir e ir a por la jaula en cada
-     replanteo, y el resultado era subir, bajar, subir… sin moverse del sitio.
-     Costó encontrarlo porque las dos decisiones eran correctas por separado. */
-  if (gh && dist2(p.x, p.y, gh.x, gh.y) < 140 * 140) {
+  const dGh = gh ? dist2(p.x, p.y, gh.x, gh.y) : Infinity;
+  /* Encima de verdad (menos de una celda), o cortándome el paso: en la
+     dirección en la que quiero ir, y a tiro. */
+  let corta = dGh < 85 * 85;
+  if (!corta && gh && dGh < 170 * 170 && p.bot?.meta != null) {
+    const jaulaMeta = l.jaulas.find(j => !j.libre &&
+      celdaLibreDe(l, j.x, j.y).join(",") ===
+        [p.bot!.meta! % l.ancho, Math.floor(p.bot!.meta! / l.ancho)].join(","));
+    if (jaulaMeta) {
+      const ax = jaulaMeta.x - p.x, ay = jaulaMeta.y - p.y;
+      const bx = gh.x - p.x, by = gh.y - p.y;
+      corta = ax * bx + ay * by > 0;      // el fantasma está en mi camino
+    } else corta = true;
+  }
+  /* Y con los fantasmas RETIRADOS no se huye: la ventana existe precisamente
+     para poder pasar. Sin esto, una jaula que quedaba detrás de un fantasma lo
+     dejaba huyendo la partida entera —cero capturas y un solo rescate,
+     medido— porque «me corta el camino» era verdad para siempre. Solo un
+     fantasma literalmente encima (media celda) sigue asustando. */
+  if (l.ronda <= 0 && dGh > 55 * 55) corta = false;
+  if (p.bot && corta) p.bot.huyendo = Math.max(p.bot.huyendo ?? 0, 0.8);
+  else if (p.bot && l.ronda <= 0) p.bot.huyendo = 0;
+  if (gh && ((p.bot?.huyendo ?? 0) > 0 || corta)) {
     const [fx, fy] = celdaLibreDe(l, gh.x, gh.y);
     const salidas = ([[0,-1],[0,1],[-1,0],[1,0]] as [number, number][])
       .map(([dx, dy]) => [dx, dy, px + dx, py + dy] as [number, number, number, number])
@@ -887,6 +913,8 @@ export function pensarBot(e: Estado, p: Jugador, dt: number): PlanBot {
   /* La memoria, antes de decidir: el laberinto la usa para comprometerse con su
      gema, y sin ella creada no habría dónde apuntarlo. */
   const b = (p.bot ??= { x: p.x, y: p.y, repensar: 0 });
+  /* La huida se gasta con el reloj: mientras dura, el bot no cambia de idea. */
+  if (b.huyendo) b.huyendo = Math.max(0, b.huyendo - dt);
   b.repensar -= dt;
   /* En el partido se replantea casi cada frame: la pelota se mueve, y un bot
      que apunta a donde estaba hace medio segundo llega tarde a todo. */

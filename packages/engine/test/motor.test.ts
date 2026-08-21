@@ -1960,6 +1960,45 @@ describe("el laberinto", () => {
     expect(l.jaulas[0].libre).toBe(true);
   });
 
+  it("el bot huye con memoria y RETOMA la misma jaula", () => {
+    /* Sin memoria, al pasar el peligro elegía objetivo desde cero y se le iba
+       media partida yendo y viniendo. */
+    const e = lab();
+    const l = e.laberinto!;
+    const bot = e.players[1];
+    /* Un par de segundos para que elija jaula y se comprometa. */
+    for (let k = 0; k < 60 * 2; k++) {
+      const ent: Record<number, EntradaJugador> = {};
+      for (const p of e.players) ent[p.idx] = pensarBot(e, p, 1 / 60).entrada;
+      avanzar(e, ent, 1 / 60);
+    }
+    const suJaula = bot.bot?.meta;
+    expect(suJaula, "el bot no se comprometió con ninguna jaula").not.toBe(undefined);
+
+    /* Se le pone un fantasma encima: tiene que echar a correr y acordarse. */
+    l.ronda = 5;                          // en modo caza, para que asuste
+    l.fantasmas[0].x = bot.x + 40; l.fantasmas[0].y = bot.y;
+    /* Se fuerza el replanteo: el bot no decide cada fotograma, decide al llegar
+       o cada 0,8 s. Sin esto la prueba mira antes de que haya pensado. */
+    bot.bot!.repensar = 0;
+    pensarBot(e, bot, 1 / 60);
+    expect(bot.bot?.huyendo, "no huyó").toBeGreaterThan(0);
+    expect(bot.bot?.meta, "se olvidó de su jaula al huir").toBe(suJaula);
+
+    /* Y al pasar el susto sigue siendo la misma. */
+    l.fantasmas.forEach(f => { f.x = l.origen.x + 10; f.y = l.origen.y + 10; });
+    for (let k = 0; k < 60; k++) {
+      const ent: Record<number, EntradaJugador> = {};
+      for (const p of e.players) ent[p.idx] = pensarBot(e, p, 1 / 60).entrada;
+      avanzar(e, ent, 1 / 60);
+    }
+    const sigueViva = l.jaulas.some(j => !j.libre &&
+      Math.floor((j.y - l.origen.y) / l.celda) * l.ancho +
+      Math.floor((j.x - l.origen.x) / l.celda) === suJaula);
+    if (sigueViva)
+      expect(bot.bot?.meta, "cambió de jaula sin motivo").toBe(suJaula);
+  });
+
   it("los fantasmas se retiran cada cierto tiempo", () => {
     /* Es lo del Pac-Man: sin ventanas de descanso el juego es huir o que te
        cacen, y no queda rato para rescatar a nadie. */

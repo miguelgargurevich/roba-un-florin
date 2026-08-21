@@ -8,7 +8,7 @@ Monorepo con workspaces npm:
 
 | Paquete | Qué es |
 |---|---|
-| `packages/engine` | el juego sin navegador: determinista, JSON serializable, 248 pruebas |
+| `packages/engine` | el juego sin navegador: determinista, JSON serializable, 249 pruebas |
 | `apps/web` | el cliente (Vite + canvas 2D). Solo dibuja y escucha teclas |
 | `apps/api` | cuentas, álbum, guardado, fiestas y avisos (.NET 9, Clean Arch + CQRS), 47 pruebas |
 | `apps/salas` | servidor de salas autoritativo (Node + `ws`), 36 pruebas |
@@ -23,6 +23,28 @@ A medias / sin hacer: el modo cooperativo (aplazado a propósito — una sala en
 aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Última sesión
+
+- 2026-08-11 (claude-code): **memoria y criterio para el bot del laberinto**
+  (pedido). Era el más flojo de los once: entre huir y buscar se le iba media
+  partida. Tres cambios, y el del medio es el que de verdad importaba:
+  - **memoria** (`Jugador.bot.huyendo`): la huida dura 0,8 s y mientras corre no
+    se replantea el objetivo. Al agotarse retoma **la misma jaula** — eso ya lo
+    guardaba `meta`, pero sin la huida acotada volvía a elegir desde cero;
+  - **criterio**: no se huye porque haya un fantasma cerca, se huye **si te
+    corta el camino** — o sea, si está en la dirección en la que quieres ir, o
+    literalmente encima (menos de media celda). Uno que viene por detrás
+    mientras te alejas no es una amenaza, y tratarlo como tal era lo que le
+    hacía ir y venir;
+  - **usa la ventana de retirada**: con los fantasmas retirados no huye. Sin
+    esto, una jaula que quedaba detrás de un fantasma lo dejaba huyendo la
+    partida entera —cero capturas y un solo rescate, medido—, porque «me corta
+    el camino» era verdad para siempre.
+  Medido, cuatro semillas: **dos llegan a la fase 3** (antes ninguna) y otra a la
+  2, con 9-2, 3-2, 2-1 y 5-4. Las capturas siguen en 10-20, así que el fantasma
+  no ha dejado de dar miedo.
+  Y una cosa **probada y descartada**: al huir, elegir la salida que aleja del
+  fantasma *sin dar la espalda a las jaulas*. Sonaba mejor y medía peor (una
+  semilla bajaba de la fase 3 a la 2), así que fuera. La versión simple gana.
 
 - 2026-08-11 (claude-code): **los amigos te siguen y el fantasma te devuelve a
   la entrada** (pedido).
