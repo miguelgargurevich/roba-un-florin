@@ -1445,10 +1445,23 @@ export const LAB_JAULAS = [4, 5, 6], LAB_FANTASMAS = [1, 2, 3];
     con 22 sobre pasillos de 92 px, cualquiera que fuera un poco descentrado se
     clavaba en la esquina de la celda de al lado. */
 export const LAB_BULTO = 15;
-/** Lo que corren los fantasmas y lo que cuesta que te pillen. */
-export const FANTASMA_VEL = 168, FANTASMA_STUN = 1.4;
+/** Lo que corren los fantasmas y lo que cuesta que te pillen.
+
+    Van más lentos que tú a propósito (tú vas a 268): el castigo de que te
+    pillen es volver a la entrada, y eso ya es carísimo en un laberinto de 23
+    celdas. Cuando iban a 168 te cazaban veinte o treinta veces por partida y el
+    juego era un pasillo de ida y vuelta. */
+export const FANTASMA_VEL = 132, FANTASMA_STUN = 1.2;
+/** Lo que te dejan en paz después de devolverte a la entrada. */
+export const FANTASMA_TREGUA = 3.2;
+/** La ronda: lo que persiguen y lo que se retiran. */
+export const FANTASMA_CAZA = 9, FANTASMA_RETIRADA = 5;
 /** Lo que dura la partida entera, y el descanso entre fases. */
 export const LAB_RELOJ = 240, LAB_ENTRE_FASES = 2.2;
+/** Lo que se separan los amigos en la fila, y cuánto rastro se guarda. Con
+    ciento veinte migas de 10 px hay 1 200 px de fila: de sobra para los nueve
+    amigos de la última fase. */
+export const LAB_FILA = 46, LAB_MIGA = 10, LAB_RASTRO = 120;
 /** Los amigos que pueden estar en las jaulas. */
 export const AMIGOS = ["mayo", "sobri", "yuli", "marcia", "meche", "chato", "wilber", "charo"];
 
@@ -1460,7 +1473,9 @@ export function aElLaberinto(e: Estado): void {
   e.laberinto = {
     origen: { x: 0, y: 0 }, celda: LAB_CELDA, celdas: [], ancho: 0, alto: 0,
     fase: 0, fases: LAB_FASES, jaulas: [], fantasmas: [],
-    puntos: e.players.map(() => 0), entreFases: 0,
+    puntos: e.players.map(() => 0),
+    entrada: { x: 0, y: 0 }, rastros: e.players.map(() => []),
+    ronda: FANTASMA_CAZA, entreFases: 0,
     reloj: LAB_RELOJ, ganador: null,
   };
   repartirEquipos(e);
@@ -1521,11 +1536,15 @@ export function montarFaseDelLaberinto(e: Estado, fase: number): void {
       .sort((a, b) => (b[0] + b[1]) - (a[0] + a[1]));
     elegidas.push(...resto.slice(0, cuantas - elegidas.length));
   }
-  const jaulas: Jaula[] = elegidas.map(([x, y], k) => ({
-    ...centroDe(x, y),
-    quien: AMIGOS[(fase * 3 + k) % AMIGOS.length],
-    libre: false, porQuien: null,
-  }));
+  const jaulas: Jaula[] = elegidas.map(([x, y], k) => {
+    const sitio = centroDe(x, y);
+    return {
+      ...sitio,
+      quien: AMIGOS[(fase * 3 + k) % AMIGOS.length],
+      libre: false, porQuien: null, puesto: 0,
+      amigo: { ...sitio },
+    };
+  });
 
   /* Los fantasmas nacen repartidos por las esquinas del fondo. */
   const cuantosF = LAB_FANTASMAS[Math.min(fase, LAB_FANTASMAS.length - 1)];
@@ -1537,7 +1556,8 @@ export function montarFaseDelLaberinto(e: Estado, fase: number): void {
     const [ex, ey] = esquinas[k % esquinas.length];
     const cerca = libres.reduce((m, [x, y]) =>
       Math.abs(x - ex) + Math.abs(y - ey) < Math.abs(m[0] - ex) + Math.abs(m[1] - ey) ? [x, y] : m, libres[0]);
-    fantasmas.push({ ...centroDe(cerca[0], cerca[1]), vx: 0, vy: 0 });
+    const sitio = centroDe(cerca[0], cerca[1]);
+    fantasmas.push({ ...sitio, vx: 0, vy: 0, casa: { ...sitio } });
   }
 
   l.origen = origen; l.celda = c; l.celdas = celdas;
@@ -1547,6 +1567,9 @@ export function montarFaseDelLaberinto(e: Estado, fase: number): void {
 
   /* Todos salen de la entrada, separados un poco para no nacer encajados. */
   const entrada = centroDe(1, 1);
+  l.entrada = entrada;
+  l.ronda = FANTASMA_CAZA;
+  l.rastros = e.players.map(() => [{ ...entrada }]);
   e.players.forEach((p, i) => {
     p.x = entrada.x + (i % 2 ? 16 : -16);
     p.y = entrada.y + (i > 1 ? 16 : -16);

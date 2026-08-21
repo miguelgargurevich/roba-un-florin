@@ -34,7 +34,8 @@ import {
   colocarParaTirarDardo, valorDelDardo, DIANA_ANILLOS, DARDOS_ESPERA,
   colocarParaTacar, reponerLaBlanca, BOLA_BILLAR_R, HOYA_R, BILLAR_ESPERA,
   esPared, LAB_BULTO, FANTASMA_VEL, FANTASMA_STUN, celdaLibreDe, centroDeCelda,
-  LAB_RELOJ, LAB_ENTRE_FASES, montarFaseDelLaberinto,
+  LAB_RELOJ, LAB_ENTRE_FASES, montarFaseDelLaberinto, LAB_FILA, LAB_MIGA, LAB_RASTRO,
+  FANTASMA_TREGUA, FANTASMA_CAZA, FANTASMA_RETIRADA,
 } from "./estado.js";
 
 /* Cualquier cosa a la que se pueda golpear */
@@ -2741,6 +2742,7 @@ export function empujarFueraDeParedes(
 function pasoLaberinto(e: Estado, dt: number): void {
   const l = e.laberinto;
   if (!l || l.ganador != null) return;
+  dtDeLaFila = dt;
 
   /* ---- las paredes ---- */
   for (const p of e.players) {
@@ -2748,6 +2750,20 @@ function pasoLaberinto(e: Estado, dt: number): void {
     p.x = clamp(p.x, l.origen.x + LAB_BULTO, l.origen.x + l.ancho * l.celda - LAB_BULTO);
     p.y = clamp(p.y, l.origen.y + LAB_BULTO, l.origen.y + l.alto * l.celda - LAB_BULTO);
   }
+
+  /* ---- el rastro ----
+     Una miga cada 10 px de recorrido. Los amigos van por AQUÍ y no hacia tu
+     posición: hacia la posición cortarían las esquinas y atravesarían las
+     paredes; por el rastro pisan exactamente donde pisaste tú. */
+  e.players.forEach((p, k) => {
+    const r = (l.rastros[k] ??= [{ x: p.x, y: p.y }]);
+    const ultima = r[0];
+    if (!ultima || Math.hypot(p.x - ultima.x, p.y - ultima.y) >= LAB_MIGA) {
+      r.unshift({ x: p.x, y: p.y });
+      if (r.length > LAB_RASTRO) r.length = LAB_RASTRO;
+    }
+  });
+  colocarLaFila(e);
 
   l.reloj -= dt;
 
@@ -2769,8 +2785,14 @@ function pasoLaberinto(e: Estado, dt: number): void {
       const k = e.players.indexOf(p);
       j.libre = true;
       j.porQuien = k;
+      /* Su puesto en la fila: detrás de los que ya iban. */
+      j.puesto = l.jaulas.filter(o => o.libre && o.porQuien === k && o !== j).length;
+      /* Y entra en la fila DONDE ESTÁS TÚ, no donde estaba su jaula: es donde
+         está de verdad —lo has abierto estando encima— y evita que cruce medio
+         laberinto en línea recta para colocarse. */
+      j.amigo.x = p.x; j.amigo.y = p.y;
       l.puntos[k]++;
-      texto(e, j.x, j.y - 30, "¡Libre!", "#FFC53D");
+      texto(e, j.x, j.y - 30, "¡Libre! Sígueme", "#FFC53D");
       polvo(e, j.x, j.y, "#FFC53D", 14);
       sonar(e, "win");
       break;
@@ -2795,9 +2817,17 @@ function pasoLaberinto(e: Estado, dt: number): void {
      Cada uno persigue al más cercano, y POR LOS PASILLOS: prueba primero el eje
      en el que está más lejos y, si ahí hay pared, el otro. Sin esto atravesaban
      los muros y correr por un pasillo no servía de nada. */
+  /* La ronda: persiguen un rato, se retiran otro. Sin la retirada, el juego es
+     huir o que te cacen y no queda ventana para rescatar a nadie. */
+  l.ronda -= dt;
+  if (l.ronda < -FANTASMA_RETIRADA) l.ronda = FANTASMA_CAZA;
+  const cazando = l.ronda > 0;
+
   for (const gh of l.fantasmas) {
-    let presa: Jugador | null = null, nd = Infinity;
-    for (const p of e.players) {
+    /* Cazando van a por el más cercano; retirados, a su esquina. */
+    let presa: { x: number; y: number } | null = cazando ? null : gh.casa;
+    let nd = Infinity;
+    if (cazando) for (const p of e.players) {
       const d = dist2(p.x, p.y, gh.x, gh.y);
       if (d < nd) { nd = d; presa = p; }
     }
@@ -2841,14 +2871,70 @@ function pasoLaberinto(e: Estado, dt: number): void {
     for (const p of e.players) {
       if (p.stun > 0 || p.inmune > 0) continue;
       if (dist2(p.x, p.y, gh.x, gh.y) > 30 * 30) continue;
+      const k = e.players.indexOf(p);
       zap(e, p, FANTASMA_STUN, false);
-      p.inmune = FANTASMA_STUN + 0.8;
-      texto(e, p.x, p.y - 46, "¡Te atrapó!", "#FF5C86");
-      polvo(e, p.x, p.y, "#FF3D6E", 12);
+      p.inmune = FANTASMA_TREGUA;
+      polvo(e, p.x, p.y, "#FF3D6E", 16);
       sonar(e, "ouch");
+      /* ---- de vuelta a la entrada ----
+         Con tu fila entera, que va contigo. Lo que cuesta es el camino de
+         vuelta, y en un laberinto de 23 eso es un castigo de verdad — sin
+         deshacer ni un rescate, que eso ya se probó y rompía el juego. */
+      texto(e, p.x, p.y - 46, "¡Te atrapó! Vuelta a la entrada", "#FF5C86");
+      p.x = l.entrada.x; p.y = l.entrada.y;
+      p.vx = 0; p.vy = 0;
+      l.rastros[k] = [{ ...l.entrada }];
+      if (p.bot) p.bot.meta = undefined;
+      /* Tu fila se va contigo: los amigos ya rescatados aparecen en la entrada
+         detrás de ti, no tirados a media galería. */
+      for (const o of l.jaulas)
+        if (o.libre && o.porQuien === k) { o.amigo.x = l.entrada.x; o.amigo.y = l.entrada.y; }
+      /* Y los fantasmas a su esquina, como en el Pac-Man: si se quedan encima
+         de la entrada te cazan otra vez en cuanto sales, y la partida se
+         convierte en un pasillo de ida y vuelta. */
+      for (const f of l.fantasmas) { f.x = f.casa.x; f.y = f.casa.y; f.vx = 0; f.vy = 0; }
+      polvo(e, l.entrada.x, l.entrada.y, "#5CE1EA", 16);
     }
   }
 }
+
+/** Coloca a cada amigo rescatado en su sitio de la fila, sobre el rastro de
+    quien lo sacó. Van por el rastro y no hacia el jugador: hacia el jugador
+    cortarían las esquinas y saldrían por las paredes. */
+function colocarLaFila(e: Estado): void {
+  const l = e.laberinto!;
+  for (const j of l.jaulas) {
+    if (!j.libre || j.porQuien == null) continue;
+    const r = l.rastros[j.porQuien];
+    if (!r || !r.length) continue;
+    /* A qué distancia del jugador le toca ir, medida A LO LARGO del rastro. */
+    const meta = (j.puesto + 1) * LAB_FILA;
+    let recorrido = 0;
+    let destino = r[r.length - 1];
+    for (let i = 1; i < r.length; i++) {
+      const paso = Math.hypot(r[i].x - r[i - 1].x, r[i].y - r[i - 1].y);
+      if (recorrido + paso >= meta) {
+        /* Se interpola dentro del tramo, o la fila avanza a saltos de miga. */
+        const t = paso > 0.01 ? (meta - recorrido) / paso : 0;
+        destino = { x: r[i - 1].x + (r[i].x - r[i - 1].x) * t,
+                    y: r[i - 1].y + (r[i].y - r[i - 1].y) * t };
+        break;
+      }
+      recorrido += paso;
+    }
+    /* Se acerca en vez de teleportarse: así la fila se estira y se recoge en
+       vez de parpadear cuando el rastro se corta. */
+    j.amigo.x += (destino.x - j.amigo.x) * Math.min(1, dtDeLaFila * 14);
+    j.amigo.y += (destino.y - j.amigo.y) * Math.min(1, dtDeLaFila * 14);
+    /* Y fuera de las paredes: al suavizar, un amigo puede cortar una esquina y
+       asomar medio cuerpo dentro del muro. */
+    empujarFueraDeParedes(l, j.amigo, LAB_BULTO);
+  }
+}
+
+/* El `dt` del tick, para que `colocarLaFila` pueda suavizar sin recibirlo por
+   parámetro en cada capa. Se pone al empezar el paso del laberinto. */
+let dtDeLaFila = 1 / 60;
 
 function finDelLaberinto(e: Estado): void {
   const l = e.laberinto!;

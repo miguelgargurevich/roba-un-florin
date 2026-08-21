@@ -8,7 +8,7 @@ Monorepo con workspaces npm:
 
 | Paquete | Qué es |
 |---|---|
-| `packages/engine` | el juego sin navegador: determinista, JSON serializable, 245 pruebas |
+| `packages/engine` | el juego sin navegador: determinista, JSON serializable, 248 pruebas |
 | `apps/web` | el cliente (Vite + canvas 2D). Solo dibuja y escucha teclas |
 | `apps/api` | cuentas, álbum, guardado, fiestas y avisos (.NET 9, Clean Arch + CQRS), 47 pruebas |
 | `apps/salas` | servidor de salas autoritativo (Node + `ws`), 36 pruebas |
@@ -23,6 +23,32 @@ A medias / sin hacer: el modo cooperativo (aplazado a propósito — una sala en
 aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Última sesión
+
+- 2026-08-11 (claude-code): **los amigos te siguen y el fantasma te devuelve a
+  la entrada** (pedido).
+  **La fila** va por tu **RASTRO**, no hacia tu posición: una miga cada 10 px y
+  cada amigo a 46 px por puesto a lo largo de él. Hacia la posición cortarían las
+  esquinas y saldrían por los muros — así pisan exactamente donde pisaste tú.
+  Medido: **0 de 20 017 muestras** con un amigo dentro de una pared, y la cola a
+  150 px como máximo (46 por puesto). Al liberarlo, el amigo entra en la fila
+  **donde estás tú**, no donde estaba su jaula: si no, cruza medio laberinto en
+  línea recta para colocarse.
+  **Te atrapan → a la entrada**, con tu fila entera y sin deshacer ningún
+  rescate. Dos cosas que hubo que añadir para que eso no fuera un bucle:
+  - **los fantasmas vuelven a su esquina** (como en el Pac-Man). Sin eso te
+    cazan otra vez en cuanto sales: **169 vueltas a la entrada** en una partida,
+    medido. Con la vuelta a casa, 14-23;
+  - **la ronda**: persiguen 9 s y se retiran 5 s. Sin ventanas de descanso el
+    juego es «huir o que te cacen» y no queda rato para rescatar a nadie —
+    probado con el radio de alerta del bot a 240: cero capturas y cero rescates,
+    la partida entera huyendo. En pantalla, retirados se pintan apagados: es la
+    señal de que puedes trabajar.
+  El fantasma va ahora a 132 (tú a 268) porque el castigo pasó de 1,4 s de
+  aturdimiento a la caminata de vuelta entera.
+  Medido: 3 de 4 semillas llegan a la fase 2 (a los 45-91 s), con 5-1, 3-2, 4-1
+  y 1-2. **El bot del laberinto sigue siendo el más flojo de los once**: entre
+  huir y buscar se le va media partida, y ninguna semilla completa las tres
+  fases dentro del reloj. Un humano ve el laberinto entero y esquiva mucho mejor.
 
 - 2026-08-11 (claude-code): **el laberinto, con fases y rescate de amigos**
   (pedido). Ya no son gemas: son **los amigos del colegio metidos en jaulas** —

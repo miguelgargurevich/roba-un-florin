@@ -1892,6 +1892,88 @@ describe("el laberinto", () => {
     expect(l.jaulas[0].libre, "volvió a encerrar al amigo").toBe(true);
   });
 
+  it("los amigos rescatados te siguen EN FILA, y sin cruzar paredes", () => {
+    /* Van por tu RASTRO y no hacia tu posición: hacia la posición cortarían las
+       esquinas y saldrían por los muros. */
+    const e = lab();
+    const l = e.laberinto!;
+    /* Se rescata a mano a los cuatro y se echa a andar un rato. */
+    /* Se liberan a mano, y como en el juego real entran en la fila donde está
+       quien las abre: nadie aparece a medio laberinto. */
+    const p0 = e.players[0];
+    l.jaulas.forEach((j, k) => {
+      j.libre = true; j.porQuien = 0; j.puesto = k;
+      j.amigo.x = p0.x; j.amigo.y = p0.y;
+    });
+    l.puntos[0] = l.jaulas.length;
+    const ent: Record<number, EntradaJugador> = {
+      0: { mover: { x: 1, y: 0 }, apunta: null },
+      1: { mover: { x: 0, y: 0 }, apunta: null },
+    };
+    for (let k = 0; k < 60 * 6; k++) {
+      /* Sin fantasmas: aquí se mide cómo SIGUEN, no qué pasa al ser atrapado
+         —eso tiene su propia prueba—. Un fantasma de por medio reinicia el
+         rastro en mitad de la medición. */
+      l.fantasmas.length = 0;
+      avanzar(e, ent, 1 / 60);
+      for (const j of l.jaulas)
+        expect(enPared(l, j.amigo.x, j.amigo.y), "un amigo de la fila se metió en la pared").toBe(false);
+    }
+    /* Y en orden: el primero que rescataste va delante. (No se mide «lo cerca
+       que van»: si empujas contra una pared el rastro deja de crecer y la cola
+       espera en lo más viejo que recorriste, que es lo correcto —
+       teletransportarla para que no se descuelgue sería meterla por los
+       muros.) */
+    const porPuesto = l.jaulas.slice().sort((a2, b2) => a2.puesto - b2.puesto);
+    const p = e.players[0];
+    expect(Math.hypot(porPuesto[0].amigo.x - p.x, porPuesto[0].amigo.y - p.y),
+           "el primero de la fila no es el que va más cerca")
+      .toBeLessThanOrEqual(
+        Math.hypot(porPuesto[porPuesto.length - 1].amigo.x - p.x,
+                   porPuesto[porPuesto.length - 1].amigo.y - p.y) + 1);
+  });
+
+  it("si te atrapan, vuelves a la entrada con tu fila, y los fantasmas a su esquina", () => {
+    const e = lab();
+    const l = e.laberinto!;
+    const p = e.players[0];
+    l.jaulas[0].libre = true; l.jaulas[0].porQuien = 0; l.jaulas[0].puesto = 0;
+    l.jaulas[0].amigo.x = p.x; l.jaulas[0].amigo.y = p.y;
+    l.puntos[0] = 1;
+    /* Se aleja de la entrada, y se le pone un fantasma encima. */
+    const lejos = { x: l.entrada.x, y: l.entrada.y };
+    for (let k = 0; k < 60 * 3; k++)
+      avanzar(e, { 0: { mover: { x: 1, y: 0 }, apunta: null },
+                   1: { mover: { x: 0, y: 0 }, apunta: null } }, 1 / 60);
+    expect(Math.hypot(p.x - lejos.x, p.y - lejos.y), "no se alejó").toBeGreaterThan(l.celda);
+    l.fantasmas[0].x = p.x; l.fantasmas[0].y = p.y;
+    l.fantasmas[0].casa = { x: l.origen.x + l.celda * 1.5, y: l.origen.y + l.celda * 5.5 };
+    p.inmune = 0;
+    avanzar(e, nada(2), 1 / 60);
+    expect(Math.hypot(p.x - l.entrada.x, p.y - l.entrada.y),
+           "no te devolvió a la entrada").toBeLessThan(l.celda);
+    expect(Math.hypot(l.jaulas[0].amigo.x - l.entrada.x, l.jaulas[0].amigo.y - l.entrada.y),
+           "tu fila se quedó atrás").toBeLessThan(l.celda);
+    expect(l.fantasmas[0].x, "el fantasma no volvió a su esquina").toBe(l.fantasmas[0].casa.x);
+    /* Y el rescate NO se deshace. */
+    expect(l.puntos[0], "te quitó el rescate").toBe(1);
+    expect(l.jaulas[0].libre).toBe(true);
+  });
+
+  it("los fantasmas se retiran cada cierto tiempo", () => {
+    /* Es lo del Pac-Man: sin ventanas de descanso el juego es huir o que te
+       cacen, y no queda rato para rescatar a nadie. */
+    const e = lab();
+    const l = e.laberinto!;
+    expect(l.ronda).toBeGreaterThan(0);
+    let huboRetirada = false;
+    for (let k = 0; k < 60 * 20; k++) {
+      avanzar(e, nada(2), 1 / 60);
+      if (l.ronda <= 0) huboRetirada = true;
+    }
+    expect(huboRetirada, "no se retiran nunca").toBe(true);
+  });
+
   it("va por fases, y cada una es más grande que la anterior", () => {
     const e = lab();
     const l = e.laberinto!;

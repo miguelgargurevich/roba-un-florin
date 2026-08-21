@@ -499,12 +499,22 @@ export interface Jaula {
       Deshaciendo rescates, el marcador volvía a cero y la fase no se cerraba
       nunca. Un juego de avanzar necesita que lo avanzado se quede. */
   libre: boolean;
-  /** Quién lo sacó, para el marcador. */
+  /** Quién lo sacó, para el marcador y para saber a quién sigue. */
   porQuien: number | null;
+  /** En qué orden fue rescatado por ese jugador: es su puesto en la fila. */
+  puesto: number;
+  /** Dónde está el amigo AHORA. Mientras está preso, en su jaula; una vez
+      libre, siguiendo a quien lo sacó. */
+  amigo: { x: number; y: number };
 }
 
-/** Un fantasma del laberinto. */
-export interface Fantasma { x: number; y: number; vx: number; vy: number }
+/** Un fantasma del laberinto. `casa` es su esquina de salida: al atraparte
+    vuelve ahí, como los del Pac-Man. Sin eso te caza en bucle nada más
+    devolverte a la entrada — medido, 169 vueltas en una partida. */
+export interface Fantasma {
+  x: number; y: number; vx: number; vy: number;
+  casa: { x: number; y: number };
+}
 
 /** El laberinto. Es el único minijuego que pedía algo que el motor no tenía:
     **paredes que paran**. Todo lo demás se apoya en eso — sin paredes, un
@@ -532,6 +542,21 @@ export interface Laberinto {
   fantasmas: Fantasma[];
   /** Amigos rescatados por cada uno, sumando todas las fases. */
   puntos: number[];
+  /** Dónde se entra al laberinto: es adonde te devuelve el fantasma. */
+  entrada: { x: number; y: number };
+  /** El reloj de la ronda de los fantasmas: mientras es positivo PERSIGUEN, y
+      cuando pasa a negativo se van a su esquina un rato.
+
+      Es lo del Pac-Man, y no es un adorno: un fantasma que te persigue sin
+      descanso por un laberinto entero convierte el juego en «huir o que te
+      cacen», sin ventana para hacer nada. Con la retirada hay ratos en los que
+      se puede trabajar. */
+  ronda: number;
+  /** El rastro de cada jugador: por dónde ha pasado, de lo más reciente a lo
+      más viejo. Los amigos rescatados van EN FILA por este rastro y no hacia tu
+      posición — hacia la posición cortarían por las paredes; por el rastro
+      pisan exactamente donde pisaste tú. */
+  rastros: { x: number; y: number }[][];
   /** Segundos de descanso entre fase y fase, para leer el cartel. */
   entreFases: number;
   reloj: number;

@@ -471,7 +471,7 @@ function aDondeVoyEnLaberinto(e: Estado, p: Jugador): { x: number; y: number } |
      —dos celdas— el bot alternaba entre huir e ir a por la jaula en cada
      replanteo, y el resultado era subir, bajar, subir… sin moverse del sitio.
      Costó encontrarlo porque las dos decisiones eran correctas por separado. */
-  if (gh && dist2(p.x, p.y, gh.x, gh.y) < 110 * 110) {
+  if (gh && dist2(p.x, p.y, gh.x, gh.y) < 140 * 140) {
     const [fx, fy] = celdaLibreDe(l, gh.x, gh.y);
     const salidas = ([[0,-1],[0,1],[-1,0],[1,0]] as [number, number][])
       .map(([dx, dy]) => [dx, dy, px + dx, py + dy] as [number, number, number, number])

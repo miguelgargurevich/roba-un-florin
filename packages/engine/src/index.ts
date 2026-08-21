@@ -25,6 +25,7 @@ export {
   DARDOS_CADA_UNO, DIANA_R, DIANA_ANILLOS, valorDelDardo,
   BILLAR_COLORES, BOLA_BILLAR_R, HOYA_R,
   LAB_CELDA, LAB_LADOS, LAB_FASES, LAB_JAULAS, LAB_BULTO, LAB_RELOJ, AMIGOS, esPared,
+  LAB_FILA, LAB_MIGA, LAB_RASTRO, LAB_FANTASMAS,
   freePed, freePedDe, occupied, occupiedDe, esMiPatio,
   playerIncome, florinIncome, mismoFlorin, nuevoFlorin, laserActivo,
   bloqueadoPorLaser, orbitaDelCentro, puntoDelDesfile, ponerLaser,

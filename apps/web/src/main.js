@@ -9429,20 +9429,18 @@ function drawLaberinto(){
       ctx.fillStyle = "#FFC53D";
       ctx.beginPath(); ctx.arc(j.x, j.y + R, 6, 0, 6.283); ctx.fill();
     } else {
-      // libre: dando saltos, con los barrotes en el suelo
-      const salto = Math.abs(Math.sin(G.t * 5 + j.x * 0.01)) * 7;
-      ctx.strokeStyle = "rgba(201,195,207,.45)"; ctx.lineWidth = 4;
+      /* Libre: la jaula se queda vacía y reventada donde estaba, y el amigo ya
+         no está ahí — va EN TU FILA, en `j.amigo`. */
+      ctx.strokeStyle = "rgba(201,195,207,.30)"; ctx.lineWidth = 4;
       for (let k = -2; k <= 2; k++){
         ctx.beginPath();
         ctx.moveTo(j.x + k * 13 - 10, j.y + R - 2); ctx.lineTo(j.x + k * 13 + 10, j.y + R + 2);
         ctx.stroke();
       }
-      drawPerson(j.x, j.y - salto, 1, G.t * 9, { skin:K.skin, shirt:K.shirt, hair:K.hair,
-                                                 cap:K.cap, ears:K.ears, stun:0 });
-      ctx.fillStyle = "#FFC53D";
-      ctx.font = "800 12px system-ui, sans-serif";
-      ctx.textAlign = "center"; ctx.textBaseline = "middle";
-      ctx.fillText("¡libre!", j.x, j.y - 34 - salto);
+      ctx.strokeStyle = "rgba(201,195,207,.18)"; ctx.lineWidth = 3;
+      ctx.setLineDash([7, 6]);
+      roundRect(j.x - R, j.y - R, R * 2, R * 2, 8); ctx.stroke();
+      ctx.setLineDash([]);
     }
     // quién es, para que rescatar a alguien tenga nombre
     if (!j.libre && K.label){
@@ -9455,8 +9453,28 @@ function drawLaberinto(){
     }
   }
 
-  /* Los fantasmas: sábana con dos ojos y el borde ondulado. */
+  /* La fila: los amigos rescatados, andando detrás de quien los sacó. Se
+     pintan después de las jaulas y antes de los fantasmas, que es el orden en
+     el que importan. */
+  for (const j of l.jaulas){
+    if (!j.libre) continue;
+    const K = LADRONES[j.quien] || {};
+    const mio = j.porQuien === G.players.indexOf(G.player);
+    drawPerson(j.amigo.x, j.amigo.y, 1, G.t * 7, { skin:K.skin, shirt:K.shirt, hair:K.hair,
+                                                   cap:K.cap, ears:K.ears, stun:0 });
+    /* Un hilito hasta el de delante: así se lee que van en fila y no sueltos. */
+    if (mio){
+      ctx.fillStyle = "rgba(255,197,61,.75)";
+      ctx.beginPath(); ctx.arc(j.amigo.x, j.amigo.y + 22, 3.5, 0, 6.283); ctx.fill();
+    }
+  }
+
+  /* Los fantasmas: sábana con dos ojos y el borde ondulado. Retirados —en la
+     ventana en la que se van a su esquina— se pintan apagados y con los ojos
+     hacia atrás: es la señal de que puedes trabajar tranquilo. */
+  const cazando = l.ronda > 0;
   for (const f of l.fantasmas){
+    ctx.globalAlpha = cazando ? 1 : 0.5;
     ctx.fillStyle = "rgba(255,61,110,.20)";
     ctx.beginPath(); ctx.arc(f.x, f.y, 30, 0, 6.283); ctx.fill();
     ctx.fillStyle = "#F3EAF0";
@@ -9471,6 +9489,7 @@ function drawLaberinto(){
     const mx = Math.sign(f.vx) * 3;
     ctx.beginPath(); ctx.arc(f.x - 5 + mx, f.y - 5, 3, 0, 6.283); ctx.fill();
     ctx.beginPath(); ctx.arc(f.x + 5 + mx, f.y - 5, 3, 0, 6.283); ctx.fill();
+    ctx.globalAlpha = 1;
   }
 
   /* El cartel de fase, en el descanso. */
@@ -11014,10 +11033,13 @@ function hud(){
     const yo = G.players.indexOf(G.player);
     const suyos = Math.max(...l.puntos.filter((_, i) => i !== yo));
     const presos = l.jaulas.filter(j => !j.libre).length;
+    const miFila = l.jaulas.filter(j => j.libre && j.porQuien === yo).length;
     el.goalLabel.textContent = l.ganador != null ? "Se acabó"
       : l.entreFases > 0 ? "¡Fase " + (l.fase + 2) + " de " + l.fases + "!"
-      : G.player.stun > 0 ? "¡El fantasma!"
-      : "Fase " + (l.fase + 1) + "/" + l.fases + " · quedan " + presos + " en jaulas";
+      : G.player.stun > 0 ? "¡Te atrapó! A la entrada"
+      : l.ronda <= 0 ? "Se retiran · quedan " + presos + " en jaulas"
+      : "Fase " + (l.fase + 1) + "/" + l.fases + " · " + presos + " en jaulas"
+        + (miFila ? " · te siguen " + miFila : "");
     el.goal.textContent = l.puntos[yo] + " – " + suyos;
     /* La barra mide la FASE, no la partida: es lo que puedes terminar ahora. */
     const abiertas = l.jaulas.filter(j => j.libre).length;
