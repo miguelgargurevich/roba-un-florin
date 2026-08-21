@@ -9725,135 +9725,262 @@ function drawPistaObs(){
 }
 
 /* ---- el laberinto ---- */
+/* ---- el laberinto ----
+   Dos cosas estaban mal, y la primera no era de gusto sino de lectura:
+
+   1. Las PAREDES se leían como el camino. Eran bloques claros macizos sobre
+      suelo oscuro, del mismo grosor que el pasillo, así que la vista agarraba
+      la masa clara —que es la pared— como si fuera por donde se anda. En un
+      juego de huir por pasillos, dudar medio segundo es que te cacen. Ahora es
+      al revés y como en los laberintos de siempre: la pared es OSCURA y solo
+      se dibuja su CONTORNO de neón, y el pasillo va más claro. El contorno se
+      pinta únicamente donde la pared toca el pasillo —los bordes de pared
+      contra pared no se dibujan—, y por eso el resultado son pasillos limpios
+      en vez de una cuadrícula de cajitas.
+
+   2. Todo se dibujaba en unidades del MUNDO, y el laberinto crece cada fase
+      (15 → 19 → 23 celdas de lado), así que la cámara se aleja y los rótulos y
+      los barrotes se iban encogiendo: en la fase 3 los nombres de los amigos
+      eran una manchita. Ahora se dibuja en píxeles DE PANTALLA con `pp()`, y
+      la letra mide lo mismo en las tres fases. */
 function drawLaberinto(){
   const l = G.laberinto;
   if (!l) return;
   const c = l.celda, ox = l.origen.x, oy = l.origen.y;
+  const W = l.ancho * c, H = l.alto * c;
+  /** Píxeles de PANTALLA a unidades del mundo. Lo que hace que el laberinto de
+      la fase 3 se lea igual que el de la fase 1. */
+  const pp = n => n / ZOOM;
+  const pared = (x, y) => x < 0 || y < 0 || x >= l.ancho || y >= l.alto || l.celdas[y][x];
   ctx.save();
 
   /* El origen sale del ESTADO: antes se calculaba desde la primera jaula, así
      que el laberinto entero se desplazaba en cuanto se abría una. */
-  ctx.fillStyle = "#1E1226";
-  ctx.fillRect(ox, oy, l.ancho * c, l.alto * c);
-  for (let y = 0; y < l.alto; y++){
+  ctx.fillStyle = "#150E1F";
+  ctx.fillRect(ox, oy, W, H);
+
+  /* El suelo, celda por celda, con un tablero de ajedrez muy flojo: sin él un
+     pasillo largo es una barra plana y no se nota que avanzas. */
+  for (let y = 0; y < l.alto; y++)
     for (let x = 0; x < l.ancho; x++){
-      const px = ox + x * c, py = oy + y * c;
-      if (l.celdas[y][x]){
-        ctx.fillStyle = "#4A3560";
-        ctx.fillRect(px, py, c, c);
-        ctx.fillStyle = "rgba(255,255,255,.09)";
-        ctx.fillRect(px, py, c, 7);
-        ctx.fillStyle = "rgba(0,0,0,.20)";
-        ctx.fillRect(px, py + c - 7, c, 7);
-      } else {
-        ctx.fillStyle = "rgba(255,255,255,.035)";
-        ctx.fillRect(px + 6, py + 6, c - 12, c - 12);
-      }
+      if (l.celdas[y][x]) continue;
+      ctx.fillStyle = (x + y) % 2 ? "#2C1C40" : "#28183A";
+      ctx.fillRect(ox + x * c, oy + y * c, c, c);
     }
-  }
+
+  /* El contorno: un solo camino con todos los tramos de pared-contra-pasillo.
+     Primero gordo y transparente (el resplandor) y encima fino y vivo. Hacerlo
+     de una sola pasada es lo que hace que las esquinas queden continuas. */
+  const borde = new Path2D();
+  for (let y = 0; y < l.alto; y++)
+    for (let x = 0; x < l.ancho; x++){
+      if (!l.celdas[y][x]) continue;
+      const px = ox + x * c, py = oy + y * c;
+      if (!pared(x, y - 1)) { borde.moveTo(px, py); borde.lineTo(px + c, py); }
+      if (!pared(x, y + 1)) { borde.moveTo(px, py + c); borde.lineTo(px + c, py + c); }
+      if (!pared(x - 1, y)) { borde.moveTo(px, py); borde.lineTo(px, py + c); }
+      if (!pared(x + 1, y)) { borde.moveTo(px + c, py); borde.lineTo(px + c, py + c); }
+    }
+  ctx.lineJoin = "round"; ctx.lineCap = "round";
+  ctx.strokeStyle = "rgba(124,92,255,.22)"; ctx.lineWidth = pp(9);
+  ctx.stroke(borde);
+  ctx.strokeStyle = "#8B6BEE"; ctx.lineWidth = pp(3);
+  ctx.stroke(borde);
+
+  /* Penumbra en los bordes y una lucecita donde estás. La penumbra NO tapa: el
+     laberinto se sigue viendo entero, porque planear la ruta es medio juego —
+     solo hunde las esquinas para que el sitio se sienta un sótano. */
+  ctx.save();
+  ctx.beginPath(); ctx.rect(ox, oy, W, H); ctx.clip();
+  const sombra = ctx.createRadialGradient(ox + W/2, oy + H/2, Math.min(W, H) * 0.28,
+                                          ox + W/2, oy + H/2, Math.max(W, H) * 0.72);
+  sombra.addColorStop(0, "rgba(8,4,12,0)");
+  sombra.addColorStop(1, "rgba(8,4,12,.5)");
+  ctx.fillStyle = sombra;
+  ctx.fillRect(ox, oy, W, H);
+  const luz = ctx.createRadialGradient(G.player.x, G.player.y, 0, G.player.x, G.player.y, c * 2.6);
+  luz.addColorStop(0, "rgba(255,214,150,.16)");
+  luz.addColorStop(1, "rgba(255,214,150,0)");
+  ctx.fillStyle = luz;
+  ctx.fillRect(ox, oy, W, H);
+  ctx.restore();
+
+  /* La entrada. Es adonde te devuelve el fantasma, así que verla no es adorno:
+     es saber cuánto pierdes si te pillan. */
+  const e = l.entrada;
+  ctx.fillStyle = "rgba(61,220,151,.14)";
+  ctx.beginPath(); ctx.arc(e.x, e.y, c * 0.52, 0, 6.283); ctx.fill();
+  ctx.strokeStyle = "rgba(61,220,151,.75)"; ctx.lineWidth = pp(2.5);
+  ctx.setLineDash([pp(7), pp(6)]);
+  ctx.beginPath(); ctx.arc(e.x, e.y, c * 0.38, 0, 6.283); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = "rgba(61,220,151,.9)";
+  ctx.font = "800 " + pp(10) + "px system-ui, sans-serif";
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillText("ENTRADA", e.x, e.y - c * 0.62);
 
   /* Las jaulas, con el amigo dentro. Un amigo liberado NO desaparece: se queda
      ahí celebrando con los barrotes tirados, que es la mitad del premio. */
   for (const j of l.jaulas){
     const K = LADRONES[j.quien] || {};
-    const R = 30;
+    const R = c * 0.36;
     if (!j.libre){
-      // el suelo de la jaula y los barrotes
-      ctx.fillStyle = "rgba(0,0,0,.35)";
-      roundRect(j.x - R, j.y - R, R * 2, R * 2, 8); ctx.fill();
-      drawPerson(j.x, j.y + 4, 1, 0, { skin:K.skin, shirt:K.shirt, hair:K.hair,
-                                       cap:K.cap, ears:K.ears, stun:0 });
-      ctx.strokeStyle = "#C9C3CF"; ctx.lineWidth = 4;
+      /* El resplandor ámbar es lo que hace que una jaula se vea DESDE LEJOS: sin
+         él hay que recorrer el laberinto a ver dónde hay alguien. */
+      const halo = ctx.createRadialGradient(j.x, j.y, R * 0.4, j.x, j.y, R * 2.4);
+      halo.addColorStop(0, "rgba(255,197,61,.28)");
+      halo.addColorStop(1, "rgba(255,197,61,0)");
+      ctx.fillStyle = halo;
+      ctx.beginPath(); ctx.arc(j.x, j.y, R * 2.4, 0, 6.283); ctx.fill();
+
+      ctx.fillStyle = "rgba(10,5,14,.55)";
+      roundRect(j.x - R, j.y - R, R * 2, R * 2, pp(5)); ctx.fill();
+      drawPerson(j.x, j.y + R * 0.12, 1, 0, { skin:K.skin, shirt:K.shirt, hair:K.hair,
+                                              cap:K.cap, ears:K.ears, stun:0 });
+      // los barrotes, con su brillo: hierro y no rayas
       for (let k = -2; k <= 2; k++){
-        ctx.beginPath();
-        ctx.moveTo(j.x + k * 13, j.y - R); ctx.lineTo(j.x + k * 13, j.y + R);
-        ctx.stroke();
+        const bx = j.x + k * R * 0.43;
+        ctx.strokeStyle = "#3A3040"; ctx.lineWidth = pp(4);
+        ctx.beginPath(); ctx.moveTo(bx, j.y - R); ctx.lineTo(bx, j.y + R); ctx.stroke();
+        ctx.strokeStyle = "#D8D2DE"; ctx.lineWidth = pp(1.6);
+        ctx.beginPath(); ctx.moveTo(bx - pp(.8), j.y - R); ctx.lineTo(bx - pp(.8), j.y + R); ctx.stroke();
       }
+      ctx.strokeStyle = "#C9C3CF"; ctx.lineWidth = pp(3.5);
       ctx.beginPath();
       ctx.moveTo(j.x - R, j.y - R); ctx.lineTo(j.x + R, j.y - R);
       ctx.moveTo(j.x - R, j.y + R); ctx.lineTo(j.x + R, j.y + R);
       ctx.stroke();
       // el candado
+      ctx.fillStyle = "#2A1226";
+      ctx.beginPath(); ctx.arc(j.x, j.y + R, pp(6), 0, 6.283); ctx.fill();
       ctx.fillStyle = "#FFC53D";
-      ctx.beginPath(); ctx.arc(j.x, j.y + R, 6, 0, 6.283); ctx.fill();
+      ctx.beginPath(); ctx.arc(j.x, j.y + R, pp(4.4), 0, 6.283); ctx.fill();
     } else {
       /* Libre: la jaula se queda vacía y reventada donde estaba, y el amigo ya
-         no está ahí — va EN TU FILA, en `j.amigo`. */
-      ctx.strokeStyle = "rgba(201,195,207,.30)"; ctx.lineWidth = 4;
+         no está ahí — va EN TU FILA, en `j.amigo`. El tinte verde es para que
+         de un vistazo se vea lo que ya está hecho. */
+      ctx.fillStyle = "rgba(61,220,151,.07)";
+      roundRect(j.x - R, j.y - R, R * 2, R * 2, pp(5)); ctx.fill();
+      ctx.strokeStyle = "rgba(61,220,151,.30)"; ctx.lineWidth = pp(2.5);
+      ctx.setLineDash([pp(6), pp(5)]);
+      roundRect(j.x - R, j.y - R, R * 2, R * 2, pp(5)); ctx.stroke();
+      ctx.setLineDash([]);
+      // los barrotes en el suelo, torcidos
+      ctx.strokeStyle = "rgba(201,195,207,.35)"; ctx.lineWidth = pp(3.5);
       for (let k = -2; k <= 2; k++){
+        const bx = j.x + k * R * 0.43;
         ctx.beginPath();
-        ctx.moveTo(j.x + k * 13 - 10, j.y + R - 2); ctx.lineTo(j.x + k * 13 + 10, j.y + R + 2);
+        ctx.moveTo(bx - R * 0.2, j.y + R - pp(2)); ctx.lineTo(bx + R * 0.2, j.y + R + pp(2));
         ctx.stroke();
       }
-      ctx.strokeStyle = "rgba(201,195,207,.18)"; ctx.lineWidth = 3;
-      ctx.setLineDash([7, 6]);
-      roundRect(j.x - R, j.y - R, R * 2, R * 2, 8); ctx.stroke();
-      ctx.setLineDash([]);
+      ctx.fillStyle = "rgba(61,220,151,.8)";
+      ctx.font = "800 " + pp(13) + "px system-ui, sans-serif";
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText("✓", j.x, j.y);
     }
     // quién es, para que rescatar a alguien tenga nombre
     if (!j.libre && K.label){
-      ctx.font = "800 11px system-ui, sans-serif";
+      const t = K.label;
+      ctx.font = "800 " + pp(10) + "px system-ui, sans-serif";
       ctx.textAlign = "center"; ctx.textBaseline = "middle";
-      ctx.lineWidth = 3.5; ctx.strokeStyle = "rgba(15,7,14,.85)";
-      ctx.strokeText(K.label, j.x, j.y + R + 14);
+      const an = ctx.measureText(t).width + pp(10);
+      ctx.fillStyle = "rgba(15,7,14,.85)";
+      roundRect(j.x - an/2, j.y + R + pp(4), an, pp(15), pp(5)); ctx.fill();
       ctx.fillStyle = "#F3EAF0";
-      ctx.fillText(K.label, j.x, j.y + R + 14);
+      ctx.fillText(t, j.x, j.y + R + pp(11.5));
     }
   }
 
-  /* La fila: los amigos rescatados, andando detrás de quien los sacó. Se
-     pintan después de las jaulas y antes de los fantasmas, que es el orden en
-     el que importan. */
+  /* La fila: los amigos rescatados, andando detrás de quien los sacó. La cuerda
+     punteada es lo que la hace legible como FILA — sin ella parecen vecinos
+     sueltos que casualmente van en la misma dirección. */
+  const filas = new Map();
   for (const j of l.jaulas){
-    if (!j.libre) continue;
-    const K = LADRONES[j.quien] || {};
-    const mio = j.porQuien === G.players.indexOf(G.player);
-    drawPerson(j.amigo.x, j.amigo.y, 1, G.t * 7, { skin:K.skin, shirt:K.shirt, hair:K.hair,
-                                                   cap:K.cap, ears:K.ears, stun:0 });
-    /* Un hilito hasta el de delante: así se lee que van en fila y no sueltos. */
-    if (mio){
-      ctx.fillStyle = "rgba(255,197,61,.75)";
-      ctx.beginPath(); ctx.arc(j.amigo.x, j.amigo.y + 22, 3.5, 0, 6.283); ctx.fill();
+    if (!j.libre || j.porQuien == null) continue;
+    if (!filas.has(j.porQuien)) filas.set(j.porQuien, []);
+    filas.get(j.porQuien).push(j);
+  }
+  for (const [quien, lista] of filas){
+    lista.sort((a, b) => a.puesto - b.puesto);
+    const jefe = G.players[quien];
+    if (!jefe) continue;
+    ctx.strokeStyle = quien === G.players.indexOf(G.player)
+      ? "rgba(255,197,61,.45)" : "rgba(255,255,255,.22)";
+    ctx.lineWidth = pp(2);
+    ctx.setLineDash([pp(4), pp(5)]);
+    ctx.beginPath();
+    ctx.moveTo(jefe.x, jefe.y);
+    for (const j of lista) ctx.lineTo(j.amigo.x, j.amigo.y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    for (const j of lista){
+      const K = LADRONES[j.quien] || {};
+      drawPerson(j.amigo.x, j.amigo.y, 1, G.t * 7 + j.puesto, { skin:K.skin, shirt:K.shirt,
+                 hair:K.hair, cap:K.cap, ears:K.ears, stun:0 });
     }
   }
 
-  /* Los fantasmas: sábana con dos ojos y el borde ondulado. Retirados —en la
-     ventana en la que se van a su esquina— se pintan apagados y con los ojos
-     hacia atrás: es la señal de que puedes trabajar tranquilo. */
+  /* Los fantasmas: cada uno de su color, como los de siempre — con cuatro
+     sábanas blancas iguales no se sabe cuál te viene siguiendo ni cuál está
+     retirado. Retirados se pintan translúcidos y con los ojos mirando atrás:
+     es la señal de que puedes trabajar tranquilo. */
   const cazando = l.ronda > 0;
-  for (const f of l.fantasmas){
-    ctx.globalAlpha = cazando ? 1 : 0.5;
-    ctx.fillStyle = "rgba(255,61,110,.20)";
-    ctx.beginPath(); ctx.arc(f.x, f.y, 30, 0, 6.283); ctx.fill();
-    ctx.fillStyle = "#F3EAF0";
+  const COLOR_F = ["#FF5C86", "#5CE1EA", "#FFA23D", "#B98CFF", "#3DDC97"];
+  l.fantasmas.forEach((f, i) => {
+    const R = c * 0.30;
+    const col = COLOR_F[i % COLOR_F.length];
+    if (cazando){
+      const halo = ctx.createRadialGradient(f.x, f.y, R * 0.5, f.x, f.y, R * 2.3);
+      halo.addColorStop(0, "rgba(255,61,110,.22)");
+      halo.addColorStop(1, "rgba(255,61,110,0)");
+      ctx.fillStyle = halo;
+      ctx.beginPath(); ctx.arc(f.x, f.y, R * 2.3, 0, 6.283); ctx.fill();
+    }
+    ctx.globalAlpha = cazando ? 1 : 0.45;
+    // la sábana, con el bajo ondeando
+    ctx.fillStyle = cazando ? col : "#8E9BB5";
     ctx.beginPath();
-    ctx.arc(f.x, f.y - 3, 16, Math.PI, 0);
+    ctx.arc(f.x, f.y - R * 0.18, R, Math.PI, 0);
+    const onda = Math.sin(G.t * 6 + i * 1.7) * R * 0.16;
+    ctx.lineTo(f.x + R, f.y + R * 0.62);
     for (let k = 0; k < 4; k++){
-      const x0 = f.x + 16 - k * 8;
-      ctx.quadraticCurveTo(x0 - 4, f.y + (k % 2 ? 20 : 10), x0 - 8, f.y + 14);
+      const x0 = f.x + R - k * (R / 2);
+      ctx.quadraticCurveTo(x0 - R * 0.25, f.y + R * 0.62 + (k % 2 ? onda + R * 0.3 : -onda),
+                           x0 - R / 2, f.y + R * 0.62);
     }
     ctx.closePath(); ctx.fill();
-    ctx.fillStyle = "#2A1226";
-    const mx = Math.sign(f.vx) * 3;
-    ctx.beginPath(); ctx.arc(f.x - 5 + mx, f.y - 5, 3, 0, 6.283); ctx.fill();
-    ctx.beginPath(); ctx.arc(f.x + 5 + mx, f.y - 5, 3, 0, 6.283); ctx.fill();
+    // los ojos, mirando a donde va
+    const v = Math.hypot(f.vx, f.vy) || 1;
+    const mx = (f.vx / v) * R * 0.2, my = (f.vy / v) * R * 0.2;
+    for (const lado of [-1, 1]){
+      ctx.fillStyle = "#F7F3F9";
+      ctx.beginPath(); ctx.arc(f.x + lado * R * 0.34, f.y - R * 0.22, R * 0.26, 0, 6.283); ctx.fill();
+      ctx.fillStyle = cazando ? "#2A1226" : "#5A6B8A";
+      ctx.beginPath();
+      ctx.arc(f.x + lado * R * 0.34 + mx, f.y - R * 0.22 + my, R * 0.13, 0, 6.283); ctx.fill();
+    }
     ctx.globalAlpha = 1;
-  }
+  });
 
   /* El cartel de fase, en el descanso. */
   if (l.entreFases > 0){
-    const cx = ox + (l.ancho * c) / 2, cy = oy + (l.alto * c) / 2;
-    ctx.fillStyle = "rgba(42,18,38,.85)";
-    roundRect(cx - 230, cy - 60, 460, 120, 20); ctx.fill();
-    ctx.strokeStyle = "#3DDC97"; ctx.lineWidth = 4;
-    roundRect(cx - 230, cy - 60, 460, 120, 20); ctx.stroke();
+    const cx = ox + W / 2, cy = oy + H / 2;
+    const an = pp(300), al = pp(112);
+    ctx.fillStyle = "rgba(42,18,38,.9)";
+    roundRect(cx - an/2, cy - al/2, an, al, pp(16)); ctx.fill();
+    ctx.strokeStyle = "#3DDC97"; ctx.lineWidth = pp(3);
+    roundRect(cx - an/2, cy - al/2, an, al, pp(16)); ctx.stroke();
     ctx.fillStyle = "#3DDC97";
-    ctx.font = "800 34px system-ui, sans-serif";
+    ctx.font = "800 " + pp(26) + "px system-ui, sans-serif";
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    ctx.fillText("¡Fase " + (l.fase + 2) + " de " + l.fases + "!", cx, cy - 14);
+    ctx.fillText("¡Fase " + (l.fase + 2) + " de " + l.fases + "!", cx, cy - pp(16));
     ctx.fillStyle = "#F3EAF0";
-    ctx.font = "700 17px system-ui, sans-serif";
-    ctx.fillText("Más grande, y con otro fantasma", cx, cy + 24);
+    ctx.font = "700 " + pp(13) + "px system-ui, sans-serif";
+    ctx.fillText("Más grande, y con otro fantasma", cx, cy + pp(12));
+    const mios = l.puntos[G.players.indexOf(G.player)] ?? 0;
+    ctx.fillStyle = "rgba(255,197,61,.95)";
+    ctx.font = "800 " + pp(12) + "px system-ui, sans-serif";
+    ctx.fillText("Rescatados: " + mios, cx, cy + pp(34));
   }
   ctx.restore();
 }
