@@ -2695,14 +2695,16 @@ function pasoBillar(e: Estado, dt: number): void {
 /** Radio del disco y de la paleta (tú). */
 const PUCK_R = 16, PALETA_R = 26;
 /** Lo que frena el disco por segundo, y su tope. */
-const HOCKEY_ROCE = 0.55, PUCK_MAX = 2050;
-/** El ZURDAZO: el botón de cargar, aquí. Chocar con el disco lo empuja ~700 como
-    mucho; esto llega a 1 900, así que aguantar el botón se nota de verdad.
+const HOCKEY_ROCE = 0.55, PUCK_MAX = 1400;
+/** El ZURDAZO: el botón de cargar, aquí. Un choque con la paleta empuja unos
+    660 (430 más lo que llevaras encima); esto va de 700 a 1 250, o sea hasta
+    casi el doble — se nota, y sigue siendo un disco que se puede seguir con la
+    vista. A 1 900 cruzaba la mesa en medio segundo y rebotaba como una bala.
 
     El choque sigue existiendo y sigue siendo automático: es el toque de siempre,
     el que mantiene el juego fluido. El botón es el disparo que decides tú. */
 export const HOCKEY_ALCANCE = 78;
-const ZURDAZO_MIN = 950, ZURDAZO_MAX = 1900;
+const ZURDAZO_MIN = 750, ZURDAZO_MAX = 1150;
 /** Lo que tarda en poder volver a zurdazo. */
 export const ZURDAZO_RECARGA = 1.1;
 /** Lo que empuja un choque, aparte de la velocidad que llevabas. */
@@ -2727,10 +2729,12 @@ function golpeDeHockey(e: Estado, p: Jugador, k: number): "zurdazo" | null {
   let dy = a.on ? a.wy - pk.y : (arco.y + arco.h / 2) - pk.y;
   const m = Math.hypot(dx, dy) || 1;
   const v = ZURDAZO_MIN + (ZURDAZO_MAX - ZURDAZO_MIN) * clamp(k, 0, 1);
-  /* Se lo saca de encima primero: si no, el choque automático del mismo
-     fotograma le vuelve a pegar y se come el zurdazo. */
-  pk.x = p.x + (dx / m) * (PALETA_R + PUCK_R + 2);
-  pk.y = p.y + (dy / m) * (PALETA_R + PUCK_R + 2);
+  /* Se lo saca BIEN de encima: con 2 px de margen no bastaba. El jugador se
+     mueve 4,5 px por fotograma y el disco todavía no, así que al llegar el
+     choque automático la distancia había bajado de 42 y le volvía a pegar — el
+     zurdazo de 1 250 salía convertido en un toque de 606, medido. */
+  pk.x = p.x + (dx / m) * (PALETA_R + PUCK_R + 30);
+  pk.y = p.y + (dy / m) * (PALETA_R + PUCK_R + 30);
   pk.vx = (dx / m) * v;
   pk.vy = (dy / m) * v;
   h.quieto = 0;
@@ -2800,6 +2804,10 @@ function pasoHockey(e: Estado, dt: number): void {
     const d = Math.hypot(dx, dy);
     if (d > PALETA_R + PUCK_R) continue;
     const nx = d > 0.01 ? dx / d : 1, ny = d > 0.01 ? dy / d : 0;
+    /* Y no se le pega a un disco que YA se va más rápido de lo que tú corres:
+       no lo alcanzarías. Sin esto, la paleta le robaba la velocidad a cualquier
+       disparo que le pasara cerca, empezando por los tuyos. */
+    if (pk.vx * nx + pk.vy * ny < -300) continue;
     /* Se lo saca de encima primero: sin esto vuelve a chocar el fotograma
        siguiente y el disco se queda temblando contra la paleta. */
     pk.x = p.x + nx * (PALETA_R + PUCK_R + 1);

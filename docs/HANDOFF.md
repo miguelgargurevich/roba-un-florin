@@ -52,10 +52,26 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
   colegio — la prueba de que están los ocho sitios lo cazó. La pista se monta
   aparte, en el centro del mapa.
   **Zurdazo del hockey** (pedido): el botón de cargar, con la puntería como
-  dirección. Llega a 1 900 contra los ~700 de un choque, y **tiene cadencia de
-  1,1 s** — sin ella el bot lo disparaba cada fotograma (17 968 en un partido,
-  medido) y nadie marcaba nunca: 0-0 al reloj. El choque con la paleta sigue
-  siendo automático; el botón es el disparo que decides tú.
+  dirección, y **cadencia de 1,1 s** — sin ella el bot lo disparaba cada
+  fotograma (17 968 en un partido, medido) y nadie marcaba nunca. El choque con
+  la paleta sigue siendo automático; el botón es el disparo que decides tú.
+  Calibrado a **750-1 150** tras «muy fuerte el disparo» (empezó en 1 900, que
+  cruzaba la mesa en medio segundo). Un choque empuja ~660, así que el botón va
+  de un pelo más a casi el doble.
+  Dos cosas que hubo que arreglar para que el zurdazo existiera de verdad:
+  - **el choque automático lo pisaba el mismo fotograma.** El jugador avanza
+    4,5 px, el disco todavía no, y la distancia bajaba de los 42 del contacto: un
+    zurdazo de 1 250 salía convertido en un toque de 606 (medido en partido, con
+    un banco aislado que sí daba 1 250). Ahora se separa 30 px más y **no se le
+    pega a un disco que ya se va** más rápido de lo que corres;
+  - **el bot dejó de embestir** y solo zurdaba, desde cualquier ángulo: 0-0 al
+    reloj, porque el que defiende cubre la línea al palo. Ahora solo zurda
+    **estando detrás del disco**, empujándolo hacia adelante — el mismo
+    principio de siempre.
+  Medido al final: bots **2-2 y 3-3** al reloj (antes, palizas de 0-5 en 17 s), y
+  con un humano en **cualquiera de los dos asientos** gana 5-1 y 5-3. Que se
+  pueda ganar desde los dos lados es lo que había que comprobar: con dos bots
+  idénticos y sin azar, el resultado no depende de la semilla.
   **Antiatasco del fútbol** (pedido): a los 4 s sin que la pelota vaya a ninguna
   parte, al centro. El hockey ya lo tenía y el fútbol no, que es donde más pasa
   —diez jugadores y cuatro esquinas—. Hay prueba con la pelota clavada en una

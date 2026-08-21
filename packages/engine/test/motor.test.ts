@@ -2085,7 +2085,10 @@ describe("air hockey", () => {
     p.apunta.on = true; p.apunta.wx = h.arcos[1].x; p.apunta.wy = h.arcos[1].y + 60;
     expect(patear(e, p, 1)).toBe("zurdazo");
     const fuerte = Math.hypot(h.puck.vx, h.puck.vy);
-    expect(fuerte, "el zurdazo salió flojo").toBeGreaterThan(1500);
+    /* Un choque con la paleta empuja unos 660; el zurdazo tiene que ser
+       claramente más, sin llegar a ser un disco que no se puede seguir. */
+    expect(fuerte, "el zurdazo salió flojo").toBeGreaterThan(1100);
+    expect(fuerte, "el zurdazo salió disparado").toBeLessThan(1400);
 
     /* Y no se puede repetir cada fotograma: sin cadencia, un bot lo disparaba
        17 968 veces en un partido y el disco no paraba nunca. */

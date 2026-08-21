@@ -442,7 +442,10 @@ function aDondeVoyEnHockey(e: Estado, p: Jugador): { x: number; y: number } | nu
   const parado = Math.hypot(pk.vx, pk.vy) < 40 && Math.abs(pk.x - cx) < 130;
   const suCampo = !parado && h.saque <= 0 && (pk.x < cx ? 0 : 1) !== mio;
   if (suCampo)
-    return { x: pk.x + (miArcoX - pk.x) * 0.68, y: pk.y + (miArcoY - pk.y) * 0.5 };
+    /* Cubriendo, se pega MÁS a su arco: con el zurdazo en el juego, un disco
+       lanzado desde media mesa llega en medio segundo y desde el medio del
+       campo no hay tiempo de reaccionar — salían 0-5 en diecisiete segundos. */
+    return { x: pk.x + (miArcoX - pk.x) * 0.70, y: pk.y + (miArcoY - pk.y) * 0.54 };
 
   /* Y con el disco de este lado, a pegarle: por DETRÁS, en la línea que va del
      disco al arco contrario. Es el mismo truco del bot futbolista — yendo al
@@ -505,6 +508,13 @@ function zurdazoDelBot(e: Estado, p: Jugador):
   const cx = h.mesa.x + h.mesa.w / 2;
   if ((pk.x < cx ? 0 : 1) !== mio) return null;      // el disco es del otro
   const arco = h.arcos[1 - mio];
+  /* Y solo DETRÁS del disco, empujándolo hacia adelante. Zurdando desde
+     cualquier ángulo el bot dejó de embestir —que era lo que le hacía marcar— y
+     los partidos pasaron a 0-0 al reloj: el que defiende cubre la línea al
+     palo, y un tiro de lado se lo come. Es el mismo principio de siempre: hay
+     que estar detrás. */
+  const haciaRival = Math.sign(arco.x - cx) || 1;
+  if ((pk.x - p.x) * haciaRival <= 0) return null;
   const palo = Math.sin(e.t * 0.7 + p.idx * 2.1) > 0 ? 0.16 : 0.84;
   return {
     fuerza: 0.55 + Math.abs(Math.sin(e.t * 1.1 + p.idx)) * 0.4,
