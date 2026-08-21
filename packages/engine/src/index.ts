@@ -20,6 +20,7 @@ export {
   TENIS_META, TENIS_SAQUE, RED_ALTO, RED_ANCHO, ladoDeLaCancha, colocarParaElSaque, esMinijuego, JUEGOS_LISTOS,
   VOLEY_META, VOLEY_TOQUES, ladoDeVoley, BASQUET_META, ARO_R, BASQUET_TRIPLE, HOCKEY_META,
   LUCHA_META, LUCHA_R,
+  OBS_VUELTAS, OBS_ANCHO, OBS_CONO,
   freePed, freePedDe, occupied, occupiedDe, esMiPatio,
   playerIncome, florinIncome, mismoFlorin, nuevoFlorin, laserActivo,
   bloqueadoPorLaser, orbitaDelCentro, puntoDelDesfile, ponerLaser,

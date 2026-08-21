@@ -850,6 +850,7 @@ const cupoDe = (juego: JuegoDeSitio): number =>
   juego === "futbol" ? FUTBOL_MAX
   : juego === "tenis" || juego === "voley" ? TENIS_MAX      // individual o dobles
   : juego === "basquet" ? 6                                 // hasta 3 contra 3
+  : juego === "carreraObs" ? 5                              // una carrera es de varios
   : 2;
 
 /* ---- los sitios con minijuego ----
@@ -896,7 +897,7 @@ const SITIOS: {
   { juego: "lucha", rotulo: "EL RING", medida: MED_LUCHA, donde: "colegio", listo: true },
   { juego: "dardos", rotulo: "LOS DARDOS", medida: MED_DARDOS, donde: "colegio", listo: false },
   { juego: "voley", rotulo: "LA CANCHA DE VÓLEY", medida: MED_VOLEY, donde: "colegio", listo: true },
-  { juego: "carreraObs", rotulo: "LA CARRERA", medida: MED_CARRERA_OBS, donde: "colegio", listo: false },
+  { juego: "carreraObs", rotulo: "LA CARRERA", medida: MED_CARRERA_OBS, donde: "colegio", listo: true },
   { juego: "laberinto", rotulo: "EL LABERINTO", medida: MED_LABERINTO, donde: "colegio", listo: false },
   { juego: "billar", rotulo: "EL BILLAR", medida: MED_BILLAR, donde: "colegio", listo: false },
   { juego: "hockey", rotulo: "AIR HOCKEY", medida: MED_HOCKEY, donde: "colegio", listo: true },
@@ -1241,25 +1242,70 @@ export function aLosDardos(e: Estado): void {
   for (const p of e.players) { p.x = cx; p.y = cy + 120; p.vx = 0; p.vy = 0; p.stun = 0; p.montado = null; }
 }
 
-/* ---- carrera de obstáculos ---- */
-const OBS_VUELTAS = 3;
+/* ---- la carrera de obstáculos ----
+   La hermana chica del modo carrera: mismos puntos de paso en bucle y mismo
+   "gana el primero en dar N vueltas", pero A PIE y con una regla propia — los
+   obstáculos están EN el camino y tocarlos te tumba.
+
+   El trazado es un óvalo de ocho balizas en vez de cuatro esquinas: con cuatro,
+   la línea recta entre dos de ellas se saltaba media pista y el circuito era un
+   rombo que nadie recorría. Y los obstáculos van EN la línea, alternando dentro
+   y fuera, para que la curva corta pase rozándolos: ahí está la decisión de
+   cada tramo, arriesgar por dentro o rodear seguro. */
+export const OBS_VUELTAS = 3, OBS_SALIDA = 2.4, OBS_ANCHO = 150;
+/** Lo que mide un cono y lo que te cuesta llevártelo por delante. */
+export const OBS_CONO = 46, OBS_TROPIEZO = 0.85;
 
 export function aLaCarreraDeObs(e: Estado): void {
   const { cx, cy } = centroDelMapa();
-  const trazado = [
-    { x: cx - 300, y: cy - 200 }, { x: cx + 300, y: cy - 200 },
-    { x: cx + 300, y: cy + 200 }, { x: cx - 300, y: cy + 200 },
-  ];
-  const obstaculos = [];
-  for (let i = 0; i < 8; i++) obstaculos.push({ x: cx - 250 + i * 70, y: cy + (i % 2 ? -80 : 80), w: 40, h: 40 });
-  const jugadores = e.players.map(() => ({ vuelta: 0, checkpoint: 0, fin: -1 }));
-  e.carreraObs = { trazado, ancho: 120, obstaculos, checkpoints: 4, vueltas: OBS_VUELTAS, jugadores, ganador: null };
+  /* Un óvalo de ocho balizas: 1 400 x 900, que a 268 px/s son unos 15 s de
+     vuelta y 45 s de carrera. */
+  const rx = 700, ry = 450;
+  const trazado = Array.from({ length: 8 }, (_, k) => {
+    const a = (k / 8) * Math.PI * 2 - Math.PI / 2;
+    return { x: Math.round(cx + Math.cos(a) * rx), y: Math.round(cy + Math.sin(a) * ry) };
+  });
+
+  /* Los conos se derivan de los TRAMOS, no de un reparto propio: dos por
+     tramo, a un tercio y a dos tercios del camino entre baliza y baliza, y
+     desplazados a un lado de la recta. Así ninguno cae ENCIMA de una baliza —
+     con un reparto propio de catorce conos sobre ocho balizas, alguno caía en
+     una de ellas y los bots se quedaban clavados a 175 px, esquivando el cono
+     y sin poder tocar el punto de paso (medido: cuatro de cinco atascados). */
+  const obstaculos: Rect[] = [];
+  trazado.forEach((a0, k) => {
+    const b0 = trazado[(k + 1) % trazado.length];
+    [0.34, 0.68].forEach((t, m) => {
+      const mx = a0.x + (b0.x - a0.x) * t, my = a0.y + (b0.y - a0.y) * t;
+      const dx = b0.x - a0.x, dy = b0.y - a0.y, d = Math.hypot(dx, dy) || 1;
+      /* Perpendicular a la recta, alternando lado: la curva corta pasa
+         rozándolos, que es donde está la decisión de cada tramo. */
+      const lado = (k + m) % 2 ? 1 : -1;
+      obstaculos.push({
+        x: Math.round(mx + (-dy / d) * lado * 52 - OBS_CONO / 2),
+        y: Math.round(my + (dx / d) * lado * 52 - OBS_CONO / 2),
+        w: OBS_CONO, h: OBS_CONO,
+      });
+    });
+  });
+
+  const jugadores = e.players.map(() => ({ vuelta: 0, checkpoint: 1, fin: -1 }));
+  e.carreraObs = {
+    trazado, ancho: OBS_ANCHO, obstaculos, vueltas: OBS_VUELTAS,
+    jugadores, salida: OBS_SALIDA, ganador: null,
+  };
   repartirEquipos(e);
-  for (let i = 0; i < e.players.length; i++) {
-    const p = e.players[i];
-    p.x = trazado[0].x - i * 60; p.y = trazado[0].y; p.vx = 0; p.vy = 0; p.stun = 0; p.montado = null;
-  }
+  /* En la parrilla, detrás de la primera baliza y en fila: saliendo todos del
+     mismo píxel el primer paso es un empujón. */
+  const p0 = trazado[0], p1 = trazado[1];
+  const dx = p0.x - p1.x, dy = p0.y - p1.y, d = Math.hypot(dx, dy) || 1;
+  e.players.forEach((p, i) => {
+    p.x = p0.x + (dx / d) * 40 - (dy / d) * ((i - (e.players.length - 1) / 2) * 90);
+    p.y = p0.y + (dy / d) * 40 + (dx / d) * ((i - (e.players.length - 1) / 2) * 90);
+    p.vx = 0; p.vy = 0; p.stun = 0; p.montado = null;
+  });
 }
+
 
 /* ---- laberinto ---- */
 export function aElLaberinto(e: Estado): void {

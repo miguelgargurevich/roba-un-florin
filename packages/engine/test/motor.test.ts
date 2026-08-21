@@ -1806,6 +1806,63 @@ describe("tenis", () => {
   });
 });
 
+describe("la carrera de obstáculos", () => {
+  const obs = (jugadores = 5, semilla = 1) =>
+    crearPartida({ jugadores, escenario: "colegio", semilla, armas: idsDeArmas(),
+                   reglas: { modo: "carreraObs" } as any });
+
+  it("ningún cono cae encima de una baliza", () => {
+    /* Uno que caiga ahí clava a quien la esquive justo fuera del radio del
+       punto de paso: pasó, y eran cuatro de cinco corredores. */
+    const e = obs();
+    const c = e.carreraObs!;
+    for (const t of c.trazado)
+      for (const o of c.obstaculos)
+        expect(Math.hypot(o.x + o.w / 2 - t.x, o.y + o.h / 2 - t.y),
+               "un cono encima de una baliza").toBeGreaterThan(c.ancho * 0.6);
+  });
+
+  it("el cono te tumba y te escupe fuera de él", () => {
+    const e = obs(2);
+    const c = e.carreraObs!;
+    c.salida = 0;
+    const p = e.players[0];
+    const o = c.obstaculos[0];
+    p.x = o.x + o.w / 2; p.y = o.y + o.h / 2;
+    avanzar(e, nada(2), 1 / 60);
+    expect(p.stun, "no tropezó").toBeGreaterThan(0);
+    expect(inRect(p.x, p.y, o, 12), "se quedó dentro del cono").toBe(false);
+  });
+
+  it("las balizas se cuentan EN ORDEN: no se puede cortar", () => {
+    const e = obs(2);
+    const c = e.carreraObs!;
+    c.salida = 0;
+    const p = e.players[0], j = c.jugadores[0];
+    /* Saltar a la baliza 5 no cuenta: la que toca es la 1. */
+    const b5 = c.trazado[5];
+    p.x = b5.x; p.y = b5.y;
+    avanzar(e, nada(2), 1 / 60);
+    expect(j.checkpoint, "contó una baliza que no tocaba").toBe(1);
+  });
+
+  it("los bots corren, esquivan y la carrera acaba con ganador", () => {
+    const e = obs();
+    for (let k = 0; k < 60 * 200 && !e.over; k++){
+      const ent: Record<number, EntradaJugador> = {};
+      for (const p of e.players) ent[p.idx] = pensarBot(e, p, 1 / 60).entrada;
+      avanzar(e, ent, 1 / 60);
+    }
+    const c = e.carreraObs!;
+    expect(e.over, "la carrera no acabó").toBe(true);
+    expect(c.ganador, "acabó sin ganador").not.toBe(null);
+    expect(c.jugadores[c.ganador!].vuelta).toBe(c.vueltas);
+    /* Y nadie se quedó clavado: todos dieron al menos una vuelta. */
+    for (const j of c.jugadores)
+      expect(j.vuelta, "un corredor se quedó atascado").toBeGreaterThan(0);
+  });
+});
+
 describe("la lucha del patio", () => {
   const lucha = (jugadores = 2, semilla = 1) =>
     crearPartida({ jugadores, escenario: "colegio", semilla, armas: idsDeArmas(),
@@ -2209,6 +2266,7 @@ describe("un minijuego apaga el barrio", () => {
     expect(JUEGOS_LISTOS, "el básquet ya se juega entero").toContain("basquet");
     expect(JUEGOS_LISTOS, "el air hockey ya se juega entero").toContain("hockey");
     expect(JUEGOS_LISTOS, "la lucha ya se juega entera").toContain("lucha");
+    expect(JUEGOS_LISTOS, "la carrera de obstáculos ya se juega entera").toContain("carreraObs");
   });
 });
 

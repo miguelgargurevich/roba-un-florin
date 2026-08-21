@@ -407,13 +407,25 @@ export interface Dardos {
 }
 
 /* ---- Carrera de obstáculos ---- */
+/** La carrera de obstáculos: a pie, no montado.
+
+    Es la hermana chica del modo carrera — mismos puntos de paso en bucle,
+    mismo "gana el primero en dar N vueltas"— con UNA regla propia: los
+    obstáculos están EN el camino y tocarlos te tumba. La curva más corta pasa
+    rozándolos, así que la decisión de cada tramo es la de verdad: arriesgar
+    por dentro o rodear seguro. */
 export interface CarreraObs {
+  /** Los puntos de paso, en orden y en bucle. */
   trazado: { x: number; y: number }[];
+  /** El radio de "ya pasaste por aquí". */
   ancho: number;
-  obstaculos: { x: number; y: number; w: number; h: number }[];
-  checkpoints: number;
+  obstaculos: Rect[];
   vueltas: number;
+  /** El avance de cada asiento, por índice de jugador. `fin` es en qué segundo
+      cruzó la meta, o -1 mientras corre. */
   jugadores: { vuelta: number; checkpoint: number; fin: number }[];
+  /** Cuenta atrás de la salida: mientras corre, nadie se mueve. */
+  salida: number;
   ganador: number | null;
 }
 

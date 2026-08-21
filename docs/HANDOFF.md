@@ -8,7 +8,7 @@ Monorepo con workspaces npm:
 
 | Paquete | Qué es |
 |---|---|
-| `packages/engine` | el juego sin navegador: determinista, JSON serializable, 217 pruebas |
+| `packages/engine` | el juego sin navegador: determinista, JSON serializable, 221 pruebas |
 | `apps/web` | el cliente (Vite + canvas 2D). Solo dibuja y escucha teclas |
 | `apps/api` | cuentas, álbum, guardado, fiestas y avisos (.NET 9, Clean Arch + CQRS), 47 pruebas |
 | `apps/salas` | servidor de salas autoritativo (Node + `ws`), 36 pruebas |
@@ -23,6 +23,39 @@ A medias / sin hacer: el modo cooperativo (aplazado a propósito — una sala en
 aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Última sesión
+
+- 2026-08-11 (claude-code): **la carrera de obstáculos, terminada**. Séptimo
+  minijuego entero (`JUEGOS_LISTOS`: fútbol, tenis, vóley, básquet, hockey,
+  lucha, carreraObs). **Cinco corredores**, tres vueltas, a pie.
+  Es la hermana chica del modo carrera —mismas balizas en bucle y mismo "gana
+  el primero"— con una regla propia: **los conos están EN la línea y tocarlos
+  te tumba** (0,85 s). La curva corta pasa rozándolos, así que cada tramo es
+  una decisión: por dentro y rápido, o por fuera y seguro.
+  Óvalo de **ocho** balizas, no cuatro esquinas: con cuatro, la recta entre dos
+  se saltaba media pista y el circuito era un rombo que nadie recorría.
+  Tres cosas que costaron, todas medidas:
+  - **el cono se re-disparaba** en cuanto se te pasaba el aturdimiento estando
+    encima: 682 tropiezos en cinco minutos y ni una vuelta completa. Ahora te
+    escupe fuera del cono y te da 1,2 s de inmunidad — un cono se lleva por
+    delante UNA vez;
+  - **ningún cono puede caer encima de una baliza.** Con un reparto propio de
+    catorce conos sobre ocho balizas alguno caía en una, y el bot que lo
+    esquivaba se quedaba clavado a 175 px, sin poder tocar el punto de paso:
+    cuatro de cinco corredores atascados. Los conos se derivan ahora de los
+    TRAMOS (dos por tramo, a un tercio y a dos tercios), y hay prueba de que
+    ninguno cae sobre una baliza;
+  - **el esquive del bot se topa al 55 % de lo que falta**: sin tope, con la
+    baliza cerca el empujón lateral giraba el rumbo más de 90°, cancelaba el
+    avance y el bot oscilaba justo fuera del radio.
+  Medido: carreras de 38-42 s, ganadores distintos por semilla, todos con 2-3
+  vueltas y ninguno atascado. Un humano que trace bien y no esquive gana por
+  2-4 s — o sea, está reñido.
+  De paso: los rótulos de la puerta tenían **tres ramas para la lucha, dos para
+  el básquet y dos para el vóley** (de ampliar la cadena a trozos); las de
+  abajo eran inalcanzables y el cartel mentía sobre cuánta gente juega.
+  **Sin ver en movimiento**: el panel del navegador tenía `requestAnimationFrame`
+  congelado, así que la pista, los conos, la meta y el marcador están
+  verificados en el primer frame, y la carrera en sí por medición del motor.
 
 - 2026-08-11 (claude-code): **el menú vuelve a hacer caso** («presiono la casa,
   selecciono otro escenario y no funciona bien»). El botón del minijuego se

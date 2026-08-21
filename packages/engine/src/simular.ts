@@ -29,7 +29,7 @@ import {
   sobreLaPista, ladoDeLaCancha, colocarParaElSaque, TENIS_SAQUE,
   ladoDeVoley, colocarParaElSaqueDeVoley, VOLEY_SAQUE, VOLEY_TOQUES,
   sacarDeMedioBasquet, BASQUET_SAQUE, sacarEnHockey, HOCKEY_SAQUE,
-  colocarEnElRing, LUCHA_SAQUE,
+  colocarEnElRing, LUCHA_SAQUE, OBS_TROPIEZO,
 } from "./estado.js";
 
 /* Cualquier cosa a la que se pueda golpear */
@@ -2331,18 +2331,80 @@ function pasoDardos(e: Estado, _dt: number): void {
 /* ============================================================
    Carrera de obstáculos
    ============================================================ */
-function pasoCarreraObs(e: Estado, _dt: number): void {
-  const c = e.carreraObs!;
-  if (c.ganador != null) return;
+/* ---- la carrera de obstáculos ----
+   Puntos de paso en bucle y conos que te tumban. La única regla propia es esa:
+   los conos están EN la línea, así que la curva corta pasa rozándolos y cada
+   tramo es una decisión — por dentro y rápido, o por fuera y seguro.
+
+   Los puntos de paso se cuentan EN ORDEN. Sin eso, un óvalo de ocho balizas se
+   puede recorrer al revés, o cortando por el medio, y las vueltas no significan
+   nada. */
+function pasoCarreraObs(e: Estado, dt: number): void {
+  const c = e.carreraObs;
+  if (!c || c.ganador != null) return;
+
+  if (c.salida > 0) {
+    c.salida -= dt;
+    for (const p of e.players) { p.vx = 0; p.vy = 0; }
+    if (c.salida <= 0) { c.salida = 0; texto(e, e.players[0].x, e.players[0].y - 60, "¡Ya!", "#3DDC97"); }
+    return;
+  }
+
   for (let i = 0; i < e.players.length; i++) {
     const p = e.players[i];
     const j = c.jugadores[i];
     if (j.fin >= 0) continue;
+
+    /* ---- los conos ----
+       Llevarte uno por delante te tumba un rato. No hace falta más castigo: en
+       una carrera, perder ocho décimas es perder el sitio. */
+    if (p.stun <= 0 && p.inmune <= 0) {
+      for (const o of c.obstaculos) {
+        if (!inRect(p.x, p.y, o, 12)) continue;
+        /* Y SALE DESPEDIDO del cono. Sin esto, en cuanto se le pasaba el
+           aturdimiento seguía encima, tropezaba otra vez, y así para siempre:
+           682 tropiezos en cinco minutos y ni una vuelta completa, medido.
+           Un cono se lleva por delante UNA vez. */
+        const ox = o.x + o.w / 2, oy = o.y + o.h / 2;
+        let dx = p.x - ox, dy = p.y - oy;
+        let d = Math.hypot(dx, dy);
+        /* Justo en el centro del cono no hay "hacia fuera" que calcular: se
+           usa de dónde venía, y si tampoco iba a ninguna parte, hacia atrás. */
+        if (d < 1) { dx = -p.vx; dy = -p.vy; d = Math.hypot(dx, dy); }
+        if (d < 1) { dx = -1; dy = 0; d = 1; }
+        const fuera = o.w / 2 + 30;
+        p.x = ox + (dx / d) * fuera;
+        p.y = oy + (dy / d) * fuera;
+        p.vx = 0; p.vy = 0;
+        zap(e, p, OBS_TROPIEZO, false);
+        p.inmune = OBS_TROPIEZO + 0.35;      // ni el mismo cono ni el de al lado
+        texto(e, p.x, p.y - 52, "¡Cono!", "#FF8A3D");
+        polvo(e, p.x, p.y, "#FF8A3D", 8);
+        sonar(e, "ouch");
+        break;
+      }
+    }
+
+    /* ---- el punto de paso ---- */
     const cp = c.trazado[j.checkpoint];
-    if (dist2(p.x, p.y, cp.x, cp.y) < 50 * 50) {
-      j.checkpoint++;
-      if (j.checkpoint >= c.checkpoints) { j.checkpoint = 0; j.vuelta++; }
-      if (j.vuelta >= c.vueltas) { j.fin = e.t; c.ganador = i; terminarJuegoIndividual(e, p.idx); return; }
+    if (!cp || dist2(p.x, p.y, cp.x, cp.y) > c.ancho * c.ancho) continue;
+    j.checkpoint = (j.checkpoint + 1) % c.trazado.length;
+    /* Volver a pasar por la baliza 0 es cerrar la vuelta. */
+    if (j.checkpoint !== 1) continue;
+    j.vuelta++;
+    if (j.vuelta < c.vueltas) {
+      texto(e, p.x, p.y - 60, "Vuelta " + (j.vuelta + 1) + " de " + c.vueltas, "#FFC53D");
+      continue;
+    }
+    j.fin = e.t;
+    const puesto = c.jugadores.filter(q => q.fin >= 0).length;
+    e.eventos.push({ t: "meta", jugador: p.idx, puesto, segundos: e.t });
+    texto(e, p.x, p.y - 60, puesto === 1 ? "¡PRIMERO!" : puesto + ".º", "#FFC53D");
+    sonar(e, "win");
+    if (puesto === 1) {
+      c.ganador = i;
+      terminarJuegoIndividual(e, p.idx);
+      return;
     }
   }
 }

@@ -285,7 +285,8 @@ export function nuevaPartidaMotor(modo, escenarioId, carrera = false, dificultad
          entera y llega al 81 % de las pelotas; con compañero, al 97-100 %
          (medido). Y además el vóley es de equipo: pasarle al otro es medio
          juego. */
-      jugadores: mini === "voley" ? 4 : mini === "basquet" ? 6 : 2,
+      jugadores: mini === "voley" ? 4 : mini === "basquet" ? 6
+              : mini === "carreraObs" ? 5 : 2,
       escenario: cancha,
       armas: idsDeArmas(),
       reglas: { modo: mini },

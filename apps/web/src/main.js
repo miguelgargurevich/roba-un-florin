@@ -69,6 +69,13 @@ function consumirEventos(){
         break;
       case "fin":    endGame(ev.ganador == null ? null : G.players[ev.ganador]); break;
       case "hito":   guardarPartidaAhora(); break;   // el HUD ya lo celebra leyendo G.fiesta
+      /* Los conos que TE llevaste tú: el motor lo cuenta como texto sobre la
+         cabeza de quien tropieza, así que se filtra por cercanía. Es para el
+         cartel del final y nada más. */
+      case "texto":
+        if (ev.txt === "¡Cono!" && G.player &&
+            Math.hypot(ev.x - G.player.x, ev.y - G.player.y) < 70) conosPisados++;
+        break;
     }
   }
 }
@@ -1053,6 +1060,15 @@ const elPartido = () => (G && (G.futbol || G.tenis || G.voley || G.basquet)) || 
    golpear: ahí no hay nada que apretar — la paleta eres tú y el disco sale al
    chocar con él. */
 const laMesaOCancha = () => {
+  /* La carrera de obstáculos también se ve entera: correr un óvalo sin ver la
+     curva siguiente es correr a ciegas. Su caja sale de las balizas. */
+  if (G && G.carreraObs){
+    const xs = G.carreraObs.trazado.map(t => t.x), ys = G.carreraObs.trazado.map(t => t.y);
+    const m = G.carreraObs.ancho;
+    return { x: Math.min(...xs) - m, y: Math.min(...ys) - m,
+             w: Math.max(...xs) - Math.min(...xs) + m * 2,
+             h: Math.max(...ys) - Math.min(...ys) + m * 2 };
+  }
   const j = elPartido() || (G && (G.hockey || G.lucha)) || null;
   if (!j) return null;
   /* El ring es un círculo: se le da su caja para que la cámara lo encuadre
@@ -1317,6 +1333,10 @@ function pintarAccion(){
   if (!cual || yaAbierto){ elAccion.hidden = true; accionActual = null; return; }
   if (cual !== accionActual){
     accionActual = cual;
+    /* Un rótulo por juego y UNO SOLO: esta cadena tenía tres ramas para la
+       lucha, dos para el básquet y dos para el vóley, de irla ampliando a
+       trozos. Las de abajo eran inalcanzables, así que el cartel mentía sobre
+       cuánta gente juega. */
     elAccion.textContent = cual === "arm" ? "🧰 Entrar a la Armería"
       : cual === "fus" ? "⚗️ Abrir la Fusionadora"
       : cual === "sitio:futbol" ? "⚽ Armar la pichanga · " + ladoSel + " contra " + ladoSel
@@ -1324,17 +1344,12 @@ function pintarAccion(){
       : cual === "sitio:voley" ? "🏐 Jugar vóley · dos contra dos"
       : cual === "sitio:basquet" ? "🏀 Jugar básquet · tres contra tres"
       : cual === "sitio:hockey" ? "🏒 Jugar air hockey · uno contra uno"
-      : cual === "sitio:lucha" ? "🥊 Luchar · uno contra uno"
-      : cual === "sitio:lucha" ? "🥊 Luchar · uno contra uno"
-      : cual === "sitio:basquet" ? "🏀 Jugar básquet · uno contra uno"
+      : cual === "sitio:lucha" ? "🥊 Luchar en el ring · uno contra uno"
+      : cual === "sitio:carreraObs" ? "🏃 Correr los obstáculos · cinco"
       : cual === "sitio:bolos" ? "🎳 Jugar bolos · dos turnos"
-      : cual === "sitio:lucha" ? "🥊 Pelear en el ring · uno contra uno"
       : cual === "sitio:dardos" ? "🎯 Tirar dardos · cinco tiros"
-      : cual === "sitio:voley" ? "🏐 Jugar voley · uno contra uno"
-      : cual === "sitio:carreraObs" ? "🏃 Carrera de obstáculos · contra el rival"
       : cual === "sitio:laberinto" ? "🔮 Entrar al laberinto · recoge las gemas"
       : cual === "sitio:billar" ? "🎱 Jugar billar · una bola a la vez"
-      : cual === "sitio:hockey" ? "🏒 Air hockey · uno contra uno"
       : "🎰 Girar la Ruleta · " + money(RULETA_PRECIO);
   }
   const p = G.player;
@@ -1349,6 +1364,8 @@ function pintarAccion(){
    partido se vuelve a ella con todo donde estaba: el dinero, la vitrina, los
    ladrones a medio camino. La pichanga es un rato en el patio, no mudarse. */
 let aventuraEnEspera = null;
+/** Conos que te llevaste por delante en la carrera de obstáculos. */
+let conosPisados = 0;
 
 /* Armar un minijuego es crear una partida CON ESE MODO. El motor hace el
    resto: monta su cancha y apaga el barrio.
@@ -1366,7 +1383,7 @@ const MINIJUEGOS = {
   lucha:      "🥊 ¡La lucha del patio! Sácalo del ring 3 veces. Embiste corriendo, y hay chancla.",
   dardos:     "🎯 ¡Dardos! 5 tiradas cada uno.",
   voley:      "🏐 ¡Vóley, dos contra dos! La tocas con solo llegar; aguanta el botón para rematar.",
-  carreraObs: "🏃 ¡Carrera de obstáculos!",
+  carreraObs: "🏃 ¡Carrera de obstáculos! Tres vueltas a pie. Los conos te tumban.",
   laberinto:  "🔮 ¡Al laberinto! Recoge todas las gemas.",
   billar:     "🎱 ¡Billar! Entran todas las bolas.",
   hockey:     "🏒 ¡Air hockey! Primero a 5. No hay botón: el disco sale al chocar con él.",
@@ -9171,20 +9188,67 @@ function drawDardos(){
 }
 
 /* ---- carrera de obstáculos ---- */
-function drawCarreraObs(){
+function drawPistaObs(){
   const c = G.carreraObs;
   if (!c) return;
   ctx.save();
-  ctx.strokeStyle = "rgba(255,255,255,.5)"; ctx.lineWidth = 3;
-  ctx.setLineDash([8, 8]);
-  for (let i = 0; i < c.trazado.length - 1; i++){
-    const a = c.trazado[i], b = c.trazado[i + 1];
-    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
-  }
+
+  /* La pista: una cinta gorda que une las balizas en bucle. Se pinta como
+     superficie y no como línea de puntos, porque lo que hay que ver de un
+     vistazo es POR DÓNDE se corre — los conos ya dicen por dónde no. */
+  ctx.lineJoin = "round"; ctx.lineCap = "round";
+  ctx.strokeStyle = "rgba(214,180,120,.55)"; ctx.lineWidth = c.ancho * 1.5;
+  ctx.beginPath();
+  c.trazado.forEach((t, k) => k ? ctx.lineTo(t.x, t.y) : ctx.moveTo(t.x, t.y));
+  ctx.closePath(); ctx.stroke();
+  ctx.strokeStyle = "rgba(255,255,255,.30)"; ctx.lineWidth = 5;
+  ctx.setLineDash([26, 22]); ctx.lineDashOffset = -G.t * 30;
+  ctx.beginPath();
+  c.trazado.forEach((t, k) => k ? ctx.lineTo(t.x, t.y) : ctx.moveTo(t.x, t.y));
+  ctx.closePath(); ctx.stroke();
   ctx.setLineDash([]);
-  for (const cp of c.trazado){
-    ctx.fillStyle = "#FFC53D";
-    ctx.beginPath(); ctx.arc(cp.x, cp.y, 10, 0, 6.283); ctx.fill();
+
+  /* La meta, en la baliza 0: es la única que hay que reconocer. */
+  const m0 = c.trazado[0], m1 = c.trazado[1];
+  const mdx = m1.x - m0.x, mdy = m1.y - m0.y, md = Math.hypot(mdx, mdy) || 1;
+  const nx = -mdy / md, ny = mdx / md;
+  for (let k = -3; k < 3; k++){
+    ctx.fillStyle = k % 2 ? "#F3EAF0" : "#2A1226";
+    ctx.beginPath();
+    ctx.moveTo(m0.x + nx * k * 26, m0.y + ny * k * 26);
+    ctx.lineTo(m0.x + nx * (k + 1) * 26, m0.y + ny * (k + 1) * 26);
+    ctx.lineTo(m0.x + nx * (k + 1) * 26 + mdx / md * 22, m0.y + ny * (k + 1) * 26 + mdy / md * 22);
+    ctx.lineTo(m0.x + nx * k * 26 + mdx / md * 22, m0.y + ny * k * 26 + mdy / md * 22);
+    ctx.closePath(); ctx.fill();
+  }
+
+  /* La baliza que te toca, marcada: en un óvalo de ocho, saber cuál es la
+     siguiente es la mitad de la carrera. */
+  const mia = c.jugadores[G.players.indexOf(G.player)];
+  c.trazado.forEach((t, k) => {
+    const toca = mia && k === mia.checkpoint;
+    ctx.strokeStyle = toca ? "#FFC53D" : "rgba(255,255,255,.30)";
+    ctx.lineWidth = toca ? 5 : 3;
+    ctx.beginPath(); ctx.arc(t.x, t.y, toca ? 30 : 20, 0, 6.283); ctx.stroke();
+    if (toca){
+      ctx.fillStyle = "rgba(255,197,61,.16)";
+      ctx.beginPath(); ctx.arc(t.x, t.y, 30, 0, 6.283); ctx.fill();
+    }
+  });
+
+  // los conos, con su sombra y sus rayas
+  for (const o of c.obstaculos){
+    const cx = o.x + o.w / 2, cy = o.y + o.h / 2, r = o.w / 2;
+    ctx.fillStyle = "rgba(0,0,0,.18)";
+    ctx.beginPath(); ctx.ellipse(cx, cy + r * 0.55, r, r * 0.42, 0, 0, 6.283); ctx.fill();
+    ctx.fillStyle = "#FF7A3D";
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - r);
+    ctx.lineTo(cx + r * 0.78, cy + r * 0.6);
+    ctx.lineTo(cx - r * 0.78, cy + r * 0.6);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,.75)";
+    ctx.fillRect(cx - r * 0.46, cy - r * 0.14, r * 0.92, r * 0.24);
   }
   ctx.restore();
 }
@@ -10038,7 +10102,8 @@ function draw(){
     /* En el estadio y en la calle se abre más: lo que hay ALREDEDOR —las
        tribunas, los carros, la gente— es medio chiste del sitio, y encuadrando
        solo la cancha no se ve nada de eso. */
-    const marco = G.lucha ? 420
+    const marco = G.carreraObs ? 160
+                : G.lucha ? 420
                 : G.tenis || G.voley || G.basquet || G.hockey ? 260
                 : G.esc.id === "colegio" ? 180 : 620;
     ZOOM = clamp(Math.min(VW / (c.w + marco), VH / (c.h + marco)), .18, 1.05);
@@ -10077,6 +10142,8 @@ function draw(){
     drawMesaHockey();
   } else if (G.reglas?.modo === "lucha"){
     drawRing();
+  } else if (G.reglas?.modo === "carreraObs"){
+    drawPistaObs();
   } else if (corriendo){
     drawCircuito();                  // la pista es lo único que importa
   } else if (G.basquet){
@@ -10087,8 +10154,6 @@ function draw(){
     drawDardos();
   } else if (G.voley){
     drawVoley();
-  } else if (G.carreraObs){
-    drawCarreraObs();
   } else if (G.laberinto){
     drawLaberinto();
   } else if (G.billar){
@@ -10587,7 +10652,7 @@ function hud(){
      pero debajo de carteles de la aventura: "DINERO 2:30". Es el mismo despiste
      que ya se pagó con el fútbol, y por eso `elPartido()` no vale aquí — el
      hockey no es partido para el BOTÓN, pero sí para el HUD. */
-  rotularTarjetas(!!elPartido() || !!G.hockey || !!G.lucha);
+  rotularTarjetas(!!elPartido() || !!G.hockey || !!G.lucha || !!G.carreraObs);
   /* El botón de patear solo existe en un partido, y su barra se llena mientras
      aguantas: sin verla, cargar es adivinar. En el tenis el mismo botón es la
      raqueta, y la carga manda el fondo en vez de la fuerza. */
@@ -10661,6 +10726,29 @@ function hud(){
     el.money.textContent = mmss(G.t);
     el.rate.textContent = v.puntos[mio] > v.puntos[1 - mio] ? "Vas ganando"
                         : v.puntos[mio] < v.puntos[1 - mio] ? "Vas perdiendo" : "Empate";
+    el.lost.textContent = G.stats.hits;
+    el.alarma.hidden = true;
+    bau.boton.hidden = true; bau.soltar.hidden = true; bau.bajar.hidden = true;
+    cerrarArmasRapidas();
+    pintarAccion();
+    return;
+  }
+
+  /* ---- el marcador de la carrera de obstáculos ---- */
+  if (G.reglas?.modo === "carreraObs"){
+    const c = G.carreraObs;
+    const mio = c.jugadores[G.players.indexOf(G.player)] || { vuelta: 0, checkpoint: 1 };
+    /* El puesto se cuenta por vuelta y, dentro de la vuelta, por baliza: es lo
+       que sabe cualquiera que mire la pista, y no hace falta más. */
+    const avance = j => j.vuelta * c.trazado.length + (j.checkpoint === 0 ? c.trazado.length : j.checkpoint);
+    const delante = c.jugadores.filter(j => avance(j) > avance(mio)).length;
+    el.goalLabel.textContent = c.salida > 0
+      ? "¡Preparados…!" : "Puesto " + (delante + 1) + " de " + c.jugadores.length;
+    el.goal.textContent = "Vuelta " + Math.min(c.vueltas, mio.vuelta + 1) + " / " + c.vueltas;
+    el.bar.style.width = clamp(avance(mio) / (c.vueltas * c.trazado.length) * 100, 0, 100).toFixed(1) + "%";
+    el.goalCard.classList.toggle("fiesta", delante === 0 && c.salida <= 0);
+    el.money.textContent = mmss(G.t);
+    el.rate.textContent = delante === 0 ? "Vas primero" : "Te faltan " + delante;
     el.lost.textContent = G.stats.hits;
     el.alarma.hidden = true;
     bau.boton.hidden = true; bau.soltar.hidden = true; bau.bajar.hidden = true;
@@ -10835,6 +10923,7 @@ function aLaCancha(){
   fiestaPuestaEn = null;          // partida nueva: la fiesta hay que volver a ponerla
   aplicarFiesta();
   guardaEn = GUARDA_CADA;
+  conosPisados = 0;
   pops = []; puffs = [];
   document.getElementById("app").classList.toggle("dos", !!G.local2);
   document.getElementById("app").classList.toggle("partido",
@@ -10937,6 +11026,30 @@ function endGame(ganador){
     document.getElementById("stSteals").textContent = f.goles[mio];
     document.getElementById("stHits").textContent = f.goles[1 - mio];
     document.getElementById("stTime").textContent = mmss(G.t);
+    document.getElementById("stRate").textContent = G.stats.hits;
+    document.getElementById("btnVolverBarrio").hidden = !aventuraEnEspera;
+    el.end.hidden = false;
+    if (ganaste) Snd.win();
+    return;
+  }
+
+  /* ---- cómo acabó la carrera de obstáculos ---- */
+  if (G.reglas?.modo === "carreraObs"){
+    const c = G.carreraObs;
+    const yo = G.players.indexOf(G.player);
+    const mio = c.jugadores[yo] || { vuelta: 0, fin: -1 };
+    const ganaste = c.ganador === yo;
+    document.getElementById("lbSteals").textContent = "Vueltas que diste";
+    document.getElementById("lbHits").textContent = "Conos que te llevaste";
+    document.getElementById("lbRate").textContent = "Chancletazos que diste";
+    document.getElementById("endEyebrow").textContent = "Se acabó la carrera";
+    document.getElementById("endTitle").innerHTML = ganaste
+      ? "¡<em>Primero</em>!" : "Llegaron <em>antes</em>";
+    document.getElementById("endSub").textContent = ganaste
+      ? "Ni un cono te frenó." : "Los conos están donde está el atajo. Otra.";
+    document.getElementById("stSteals").textContent = mio.vuelta;
+    document.getElementById("stHits").textContent = conosPisados;
+    document.getElementById("stTime").textContent = mmss(mio.fin >= 0 ? mio.fin : G.t);
     document.getElementById("stRate").textContent = G.stats.hits;
     document.getElementById("btnVolverBarrio").hidden = !aventuraEnEspera;
     el.end.hidden = false;

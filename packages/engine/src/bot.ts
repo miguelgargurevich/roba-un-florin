@@ -311,13 +311,48 @@ function aDondeVoyEnDardos(e: Estado, p: Jugador): { x: number; y: number } | nu
   return { x: d.tablero.x, y: d.tablero.y + 120 };
 }
 
-/** A dónde va en carrera de obstáculos. */
+/* ---- el bot de la carrera de obstáculos ----
+   Dos cosas, y las dos importan: mirar MÁS ALLÁ de la baliza —si no, va de
+   cono en cono como un cono— y apartarse del que tiene justo delante. Sin lo
+   segundo entraba en línea recta a la baliza y se comía el cono que está en esa
+   misma línea, que es exactamente donde se pusieron. */
 function aDondeVoyEnCarreraObs(e: Estado, p: Jugador): { x: number; y: number } | null {
-  const c = e.carreraObs!;
+  const c = e.carreraObs;
+  if (!c) return null;
   const idx = e.players.indexOf(p);
   const j = c.jugadores[idx];
+  if (!j) return null;
+
   const cp = c.trazado[j.checkpoint];
-  return cp ? { x: cp.x, y: cp.y } : null;
+  const sig = c.trazado[(j.checkpoint + 1) % c.trazado.length];
+  if (!cp) return null;
+  /* Corta la curva: apunta entre la baliza y la siguiente. */
+  let mx = cp.x * 0.65 + sig.x * 0.35, my = cp.y * 0.65 + sig.y * 0.35;
+
+  /* Y esquiva: si un cono le queda en el camino, empuja la meta a un lado —al
+     lado por el que ya viene escorado, que es el desvío más corto. */
+  const dx = mx - p.x, dy = my - p.y, d = Math.hypot(dx, dy) || 1;
+  for (const o of c.obstaculos) {
+    const ox = o.x + o.w / 2, oy = o.y + o.h / 2;
+    /* ¿Está delante y cerca de la línea? Proyección sobre el rumbo. */
+    const t = ((ox - p.x) * dx + (oy - p.y) * dy) / (d * d);
+    if (t < 0 || t > 1) continue;
+    if (t * d > 240) continue;                 // los de más allá, cuando lleguen
+    const px = p.x + dx * t, py = p.y + dy * t;
+    const lejos = Math.hypot(ox - px, oy - py);
+    if (lejos > o.w) continue;
+    /* Normal a la ruta, hacia el lado contrario al cono. El desvío se TOPA a
+       un 55 % de lo que falta: sin ese tope, con la baliza cerca el empujón
+       lateral giraba el rumbo más de 90°, cancelaba el avance y el bot se
+       quedaba oscilando justo fuera del radio del punto de paso. */
+    const nx = -dy / d, ny = dx / d;
+    const lado = (ox - px) * nx + (oy - py) * ny > 0 ? -1 : 1;
+    const desvio = Math.min(o.w + 46, d * 0.55);
+    mx += nx * lado * desvio;
+    my += ny * lado * desvio;
+    break;
+  }
+  return { x: mx, y: my };
 }
 
 /** A dónde va en laberinto: recoger gemas. */
@@ -450,9 +485,9 @@ function aDondeVoy(e: Estado, p: Jugador): { x: number; y: number } | null {
   if (e.reglas.modo === "basquet") return aDondeVoyEnBasquet(e, p);
   if (e.reglas.modo === "hockey") return aDondeVoyEnHockey(e, p);
   if (e.reglas.modo === "lucha") return aDondeVoyEnLucha(e, p);
+  if (e.reglas.modo === "carreraObs") return aDondeVoyEnCarreraObs(e, p);
   if (e.bolos) return aDondeVoyEnBolos(e, p);
   if (e.dardos) return aDondeVoyEnDardos(e, p);
-  if (e.carreraObs) return aDondeVoyEnCarreraObs(e, p);
   if (e.laberinto) return aDondeVoyEnLaberinto(e, p);
   if (e.billar) return aDondeVoyEnBillar(e, p);
   /* Corriendo solo existe el siguiente punto de paso. Mira un poco más allá
@@ -566,6 +601,7 @@ export function pensarBot(e: Estado, p: Jugador, dt: number): PlanBot {
      que apunta a donde estaba hace medio segundo llega tarde a todo. */
   const llegó = dist2(p.x, p.y, b.x, b.y) < PEGADO * PEGADO ||
                 (e.reglas.modo === "carrera" && b.repensar <= REPENSAR - 0.25) ||
+                (e.reglas.modo === "carreraObs" && b.repensar <= REPENSAR - 0.12) ||
                 (e.reglas.modo === "futbol" && b.repensar <= REPENSAR - 0.12) ||
                 /* En el tenis, cada dos fotogramas: el sitio donde va a picar
                    cambia con cada bote y con cada golpe, y medio segundo tarde
@@ -582,7 +618,7 @@ export function pensarBot(e: Estado, p: Jugador, dt: number): PlanBot {
   const m = Math.hypot(dx, dy);
   /* Pegado al objetivo se planta: el aro tarda 0,55 s en llenarse y si sigue
      empujando se pasa de largo y vuelve a empezar. */
-  const corriendo = e.reglas.modo === "carrera";
+  const corriendo = e.reglas.modo === "carrera" || e.reglas.modo === "carreraObs";
   const mover = m < PEGADO && !corriendo
     ? { x: 0, y: 0 }
     /* El bamboleo evita la línea recta de robot. Sale del reloj y del número de
