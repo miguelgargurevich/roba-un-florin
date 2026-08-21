@@ -21,7 +21,10 @@ import {
   puntoDelPendulo,
   nivelDeVitrina, nombreDeHito, HITOS_MAX, vitrinaDe, venderFlorin, precioDeVenta, soltarCarga,
   valorDelDardo, DIANA_ANILLOS, BILLAR_COLORES, BOLA_BILLAR_R, esPared,
-  LAB_FASES, LAB_LADOS, LAB_JAULAS,
+  LAB_FASES, LAB_NIVELES, ladoDelNivel, jaulasDelNivel, monstruosDelNivel,
+  relojDelNivel, BESTIARIO, monstruoDelNivel, monstruosDe, montarFaseDelLaberinto,
+  LAB_ESCALON, varianteDelNivel, anchoDelNivel, altoDelNivel,
+  especialesDelNivel, LAB_COMIDAS, LAB_ARMAS,
   patear, TENIS_META, TENIS_ALCANCE, ladoDeLaCancha, esMinijuego, JUEGOS_LISTOS,
   VOLEY_META, VOLEY_TOQUES, ladoDeVoley, BASQUET_META, BASQUET_ALCANCE,
   type EntradaJugador, type Estado,
@@ -1902,11 +1905,18 @@ describe("el laberinto", () => {
     /* Se liberan a mano, y como en el juego real entran en la fila donde está
        quien las abre: nadie aparece a medio laberinto. */
     const p0 = e.players[0];
+    /* Todas MENOS UNA. Con todas, el nivel se completa a los 2,2 s y se monta
+       el siguiente: la fila se deshace y a los 6 s esto medía la posición de
+       unas jaulas cerradas, no la fila. Pasaba por casualidad —la geometría de
+       la fase 2 vieja le daba la razón— y dejó de pasar al cambiar las tallas
+       de los niveles. Dejando una cerrada, el nivel no avanza y se mide lo que
+       la prueba dice medir. */
     l.jaulas.forEach((j, k) => {
+      if (k === l.jaulas.length - 1) return;
       j.libre = true; j.porQuien = 0; j.puesto = k;
       j.amigo.x = p0.x; j.amigo.y = p0.y;
     });
-    l.puntos[0] = l.jaulas.length;
+    l.puntos[0] = l.jaulas.length - 1;
     const ent: Record<number, EntradaJugador> = {
       0: { mover: { x: 1, y: 0 }, apunta: null },
       1: { mover: { x: 0, y: 0 }, apunta: null },
@@ -1918,14 +1928,15 @@ describe("el laberinto", () => {
       l.fantasmas.length = 0;
       avanzar(e, ent, 1 / 60);
       for (const j of l.jaulas)
-        expect(enPared(l, j.amigo.x, j.amigo.y), "un amigo de la fila se metió en la pared").toBe(false);
+        if (j.libre)
+          expect(enPared(l, j.amigo.x, j.amigo.y), "un amigo de la fila se metió en la pared").toBe(false);
     }
     /* Y en orden: el primero que rescataste va delante. (No se mide «lo cerca
        que van»: si empujas contra una pared el rastro deja de crecer y la cola
        espera en lo más viejo que recorriste, que es lo correcto —
        teletransportarla para que no se descuelgue sería meterla por los
        muros.) */
-    const porPuesto = l.jaulas.slice().sort((a2, b2) => a2.puesto - b2.puesto);
+    const porPuesto = l.jaulas.filter(j => j.libre).sort((a2, b2) => a2.puesto - b2.puesto);
     const p = e.players[0];
     expect(Math.hypot(porPuesto[0].amigo.x - p.x, porPuesto[0].amigo.y - p.y),
            "el primero de la fila no es el que va más cerca")
@@ -2014,27 +2025,206 @@ describe("el laberinto", () => {
     expect(huboRetirada, "no se retiran nunca").toBe(true);
   });
 
-  it("va por fases, y cada una es más grande que la anterior", () => {
+  it("va por niveles, y se pasa de nivel abriendo todas las jaulas", () => {
     const e = lab();
     const l = e.laberinto!;
-    expect(l.fases).toBe(LAB_FASES);
+    expect(l.fases).toBe(LAB_NIVELES);
     expect(l.fase).toBe(0);
-    expect(l.ancho).toBe(LAB_LADOS[0]);
-    expect(l.jaulas.length).toBe(LAB_JAULAS[0]);
-    /* Se abren todas las de la fase: pasa a la siguiente, más grande. */
+    expect(l.ancho).toBe(anchoDelNivel(0));
+    expect(l.alto).toBe(altoDelNivel(0));
+    expect(l.jaulas.length).toBe(jaulasDelNivel(0));
     for (const j of l.jaulas) { j.libre = true; j.porQuien = 0; }
     l.puntos[0] = l.jaulas.length;
     for (let k = 0; k < 60 * 4; k++) avanzar(e, nada(2), 1 / 60);
-    expect(l.fase, "no pasó de fase").toBe(1);
-    expect(l.ancho, "la fase 2 no es más grande").toBeGreaterThan(LAB_LADOS[0]);
-    expect(l.fantasmas.length, "la fase 2 no trae más fantasmas").toBeGreaterThan(1);
-    expect(l.jaulas.some(j => !j.libre), "la fase 2 nació resuelta").toBe(true);
+    expect(l.fase, "no pasó de nivel").toBe(1);
+    expect(l.jaulas.some(j => !j.libre), "el nivel 2 nació resuelto").toBe(true);
+    expect(l.reloj, "el reloj no se reinició en el nivel nuevo").toBeGreaterThan(60);
   });
 
-  it("acaba por fases o por reloj, y siempre con un resultado", () => {
+  it("crece un escalón cada tres niveles, y nada crece sin freno", () => {
+    /* El pedido: que cada tres mapas se note el cambio. Y con freno donde hace
+       falta: treinta y tres bloques sin tope serían un laberinto de 79 celdas
+       —veinte pantallas— y diecisiete monstruos, o sea un nivel sin solución. */
+    expect(altoDelNivel(0)).toBe(15);
+    expect(altoDelNivel(LAB_ESCALON - 1), "creció antes del escalón").toBe(15);
+    expect(altoDelNivel(LAB_ESCALON), "no creció en el escalón").toBe(17);
+    expect(altoDelNivel(98), "el alto no topó donde debía").toBe(33);
+    /* Y es RECTANGULAR, en la proporción de una pantalla: un laberinto cuadrado
+       dejaba dos franjas de patio vacío a los lados. */
+    for (let n = 0; n < LAB_NIVELES; n += 9){
+      const r = anchoDelNivel(n) / altoDelNivel(n);
+      expect(r, "nivel " + n + ": no llena la pantalla a lo ancho").toBeGreaterThan(1.5);
+      expect(r, "nivel " + n + ": demasiado apaisado").toBeLessThan(1.9);
+      expect(anchoDelNivel(n) % 2, "nivel " + n + ": el ancho tiene que ser impar").toBe(1);
+    }
+    for (let n = 0; n < LAB_NIVELES; n++){
+      expect(altoDelNivel(n) % 2, "nivel " + n + ": el alto tiene que ser impar").toBe(1);
+      expect(altoDelNivel(n + 1) >= altoDelNivel(n), "nivel " + n + ": encogió").toBe(true);
+      /* Los monstruos SÍ tienen tope: con seis detrás no hay pasillo libre y el
+         nivel deja de tener solución. */
+      expect(monstruosDelNivel(n), "nivel " + n).toBeLessThanOrEqual(BESTIARIO.length);
+      expect(jaulasDelNivel(n), "nivel " + n).toBeLessThanOrEqual(16);
+      /* Y el reloj tiene que dar para lo que el nivel pide. */
+      expect(relojDelNivel(n) / jaulasDelNivel(n), "nivel " + n + ": menos de 20 s por jaula")
+        .toBeGreaterThan(20);
+    }
+  });
+
+  it("los 99 niveles se montan, con sus jaulas alcanzables y sin monstruo en la entrada", () => {
+    /* La prueba que de verdad protege 99 niveles: montarlos TODOS. Un nivel que
+       nace con una jaula dentro de una pared, o con un monstruo encima de la
+       entrada, es un nivel imposible — y a mano no se revisan noventa y nueve. */
     const e = lab();
-    /* Por encima del reloj (240 s), que es la garantía de que acaba. */
-    for (let k = 0; k < 60 * 300 && !e.over; k++) {
+    for (let n = 0; n < LAB_NIVELES; n++){
+      montarFaseDelLaberinto(e, n);
+      const l = e.laberinto!;
+      expect(l.ancho, "nivel " + n).toBe(anchoDelNivel(n));
+      expect(l.alto, "nivel " + n).toBe(altoDelNivel(n));
+      expect(l.jaulas.length, "nivel " + n + ": faltan jaulas").toBe(jaulasDelNivel(n));
+      expect(l.fantasmas.length, "nivel " + n + ": faltan monstruos").toBe(monstruosDelNivel(n));
+      for (const j of l.jaulas){
+        const gx = Math.floor((j.x - l.origen.x) / l.celda), gy = Math.floor((j.y - l.origen.y) / l.celda);
+        expect(l.celdas[gy][gx], "nivel " + n + ": una jaula nació dentro de una pared").toBe(false);
+      }
+      for (const f of l.fantasmas){
+        expect(BESTIARIO.some(b => b.id === f.tipo), "nivel " + n + ": monstruo sin tipo").toBe(true);
+        expect(Math.hypot(f.x - l.entrada.x, f.y - l.entrada.y),
+               "nivel " + n + ": un monstruo nació encima de la entrada").toBeGreaterThan(l.celda * 2);
+      }
+    }
+  });
+
+  it("cada bloque de tres trae su pareja: una comida y un arma", () => {
+    /* El pedido tal cual. Y las dos tiradas por el laberinto, lejos de la
+       entrada: un especial pegado a la salida es un regalo, no una decisión. */
+    const e = lab();
+    for (let n = 0; n < LAB_NIVELES; n++){
+      montarFaseDelLaberinto(e, n);
+      const l = e.laberinto!;
+      expect(l.especiales.length, "nivel " + n + ": no hay dos especiales").toBe(2);
+      const comida = l.especiales.find(s => s.clase === "comida");
+      const arma = l.especiales.find(s => s.clase === "arma");
+      expect(comida, "nivel " + n + ": falta la comida").toBeTruthy();
+      expect(arma, "nivel " + n + ": falta el arma").toBeTruthy();
+      expect(LAB_COMIDAS.some(c => c.id === comida!.tipo)).toBe(true);
+      expect(LAB_ARMAS.some(a2 => a2.id === arma!.tipo)).toBe(true);
+      for (const sp of l.especiales){
+        const gx = Math.floor((sp.x - l.origen.x) / l.celda), gy = Math.floor((sp.y - l.origen.y) / l.celda);
+        expect(l.celdas[gy][gx], "nivel " + n + ": un especial nació en una pared").toBe(false);
+        expect(Math.hypot(sp.x - l.entrada.x, sp.y - l.entrada.y),
+               "nivel " + n + ": un especial regalado en la entrada").toBeGreaterThan(l.celda * 3);
+      }
+    }
+  });
+
+  it("la pareja rota, y no se repite hasta el bloque veinte", () => {
+    /* Cinco comidas por cuatro armas, sin divisor común: veinte parejas
+       distintas. Es lo que mantiene los niveles diferentes DESPUÉS de que el
+       tamaño y los monstruos topen. */
+    const vistas = new Set<string>();
+    for (let n = 0; n < 60; n += LAB_ESCALON){
+      const { comida, arma } = especialesDelNivel(n);
+      vistas.add(comida.id + "+" + arma.id);
+    }
+    expect(vistas.size, "la pareja se repite antes de lo debido").toBe(20);
+  });
+
+  it("recoger la comida te la pone, y se gasta sola", () => {
+    const e = lab();
+    const l = e.laberinto!;
+    const comida = l.especiales.find(s => s.clase === "comida")!;
+    const p = e.players[0];
+    p.x = comida.x; p.y = comida.y;
+    correr(e, 0.1);
+    expect(comida.tomado, "no se recogió").toBe(true);
+    /* La maracuyá no deja poder puesto: hace su cosa y se va. */
+    const c = LAB_COMIDAS.find(x => x.id === comida.tipo)!;
+    if (c.efecto !== "fila"){
+      expect(l.poderes[0], "no dejó poder").toBeTruthy();
+      expect(l.poderes[0]!.tipo).toBe(c.efecto);
+      correr(e, c.dura + 0.5);
+      expect(l.poderes[0], "el poder no se gastó nunca").toBe(null);
+    }
+  });
+
+  it("el arma se recoge, se usa y se acaba", () => {
+    const e = lab();
+    const l = e.laberinto!;
+    const arma = l.especiales.find(s => s.clase === "arma")!;
+    const p = e.players[0];
+    p.x = arma.x; p.y = arma.y;
+    correr(e, 0.1);
+    expect(l.bolsas[0], "no se recogió el arma").toBeTruthy();
+    const usos = l.bolsas[0]!.usos;
+    expect(usos).toBeGreaterThan(0);
+    /* Y hay un monstruo al lado, para que las que necesitan blanco lo tengan. */
+    l.fantasmas[0].x = p.x + l.celda; l.fantasmas[0].y = p.y;
+    p.apunta.on = true; p.apunta.wx = p.x + 200; p.apunta.wy = p.y;
+    for (let k = 0; k < usos; k++){ p.cd = 0; usarArma(e, p); }
+    expect(l.bolsas[0], "el arma no se acabó tras gastar todos los usos").toBe(null);
+  });
+
+  it("la tiza es una pared de verdad: el monstruo no la cruza", () => {
+    /* Si no lo fuera, la tiza sería un dibujito. */
+    const e = lab();
+    const l = e.laberinto!;
+    const p = e.players[0];
+    l.bolsas[0] = { tipo: "tiza", usos: 1 };
+    p.cd = 0;
+    usarArma(e, p);
+    expect(l.tizas.length, "no puso la raya").toBe(1);
+    const raya = l.tizas[0];
+    /* Un monstruo justo al otro lado, persiguiendo: no debe llegar a la raya. */
+    const gh = l.fantasmas[0];
+    gh.x = raya.x + l.celda * 2; gh.y = raya.y;
+    gh.stun = 0; gh.huye = 0;
+    p.x = raya.x - l.celda; p.y = raya.y;
+    correr(e, 3);
+    expect(Math.abs(gh.x - raya.x), "el monstruo cruzó la tiza").toBeGreaterThan(l.celda * 0.4);
+  });
+
+  it("un chanclazo congela al monstruo — la chancla por fin sirve aquí", () => {
+    /* El juego se llama Chancla Edition y en el laberinto no servía de nada. */
+    const e = lab();
+    const l = e.laberinto!;
+    const p = e.players[0];
+    const gh = l.fantasmas[0];
+    /* Y el otro jugador LEJOS: los dos nacen a 32 px en la entrada, así que un
+       chanclazo a bocajarro le daba a él y volvía. Eso es correcto —la chancla
+       noquea a quien pille— pero no es lo que se mide aquí. */
+    e.players[1].x = l.entrada.x + l.celda * 6;
+    /* En una dirección ABIERTA: puesto en una pared, la chancla choca antes de
+       llegar —y eso está bien, es la regla nueva— pero no mide lo que se quiere. */
+    const abierta = [[1, 0], [0, 1], [-1, 0], [0, -1]]
+      .find(([dx, dy]) => !enPared(l, p.x + dx * l.celda, p.y + dy * l.celda))!;
+    gh.x = p.x + abierta[0] * l.celda * 0.8;
+    gh.y = p.y + abierta[1] * l.celda * 0.8;
+    gh.stun = 0;
+    p.chancla.state = "held"; p.cd = 0;
+    p.apunta.on = true;
+    p.apunta.wx = p.x + abierta[0] * 300; p.apunta.wy = p.y + abierta[1] * 300;
+    usarArma(e, p);
+    correr(e, 0.4);
+    expect(gh.stun, "el chanclazo no lo congeló").toBeGreaterThan(0);
+  });
+
+  it("cada nivel trae un monstruo de cabecera, y el nuevo es el primero", () => {
+    /* Es lo que hace que 99 niveles no sean el mismo nivel 99 veces. */
+    for (let n = 0; n < LAB_NIVELES; n++){
+      const cabecera = monstruoDelNivel(n);
+      expect(monstruosDe(n)[0].id, "nivel " + n + ": el de cabecera no sale primero")
+        .toBe(cabecera.id);
+      expect(monstruosDe(n).length).toBe(monstruosDelNivel(n));
+    }
+    /* Y en los ocho primeros niveles cada uno estrena bicho. */
+    const primeros = new Set(Array.from({length: BESTIARIO.length}, (_, n) => monstruoDelNivel(n).id));
+    expect(primeros.size, "algún nivel de los primeros repite monstruo").toBe(BESTIARIO.length);
+  });
+
+  it("acaba por niveles o por reloj, y siempre con un resultado", () => {
+    const e = lab();
+    /* Por encima del reloj del primer nivel, que es la garantía de que acaba. */
+    for (let k = 0; k < 60 * 400 && !e.over; k++) {
       const ent: Record<number, EntradaJugador> = {};
       for (const p of e.players) ent[p.idx] = pensarBot(e, p, 1 / 60).entrada;
       avanzar(e, ent, 1 / 60);

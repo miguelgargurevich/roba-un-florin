@@ -24,6 +24,32 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Última sesión
 
+- 2026-08-21 (claude-code): **el laberinto pasa a 99 niveles** (pedido, en varias
+  vueltas). Ya no son tres fases a mano: son curvas y tablas, con **un escalón
+  cada tres niveles**.
+  - **Rectangular** (1,7:1, la proporción del mundo) y encuadrado POR ANCHO, que
+    era el pedido de llenar la pantalla: cuadrado dejaba dos franjas de patio
+    vacío a los lados. Crece de 27×15 a 57×33 celdas.
+  - **No tiene que caber**: por debajo de zoom 0,42 la cámara te sigue y hay
+    **mapita** en la esquina — sin él, un laberinto de 57×33 es andar a ciegas.
+    Y dentro del laberinto los topes del jugador y de la cámara son los del
+    LABERINTO, no los del mundo (2 100 px de alto recortaban los pasillos).
+  - **Bestiario de ocho monstruos** con silueta, color y velocidad propias (La
+    Mano corre un 12 % más, El Muñeco arrastra un 12 % menos). El color es la
+    señal que se lee a cualquier tamaño; la silueta, para cuando lo tienes
+    encima. Son bichos NUESTROS, del género pero no de otro juego.
+  - **Una pareja de especiales por bloque**: una comida (mango, chicha,
+    granadilla, helado, maracuyá) y un arma (tiza, silbato, linterna,
+    mochilazo). Cinco por cuatro sin divisor común = veinte parejas.
+  - **Variantes de forma**: sin vueltas / con atajos / todo bucles (trenzado).
+    Un laberinto con bucles se juega distinto — se le puede dar la vuelta a un
+    monstruo — y el cartel lo avisa.
+  - **La chancla por fin sirve aquí**: un chanclazo congela al bicho, y ahora
+    choca con las paredes (si las atravesara, se mataría desde otro pasillo).
+  - Reloj POR NIVEL, no por partida. 265 pruebas de motor.
+  - Pendiente: los temas por escenario (rescatar animales en el zoo,
+    marcianitos en la nave) y que el bot recoja los especiales.
+
 - 2026-08-21 (claude-code): **los dardos con péndulo, y cada puerta con su
   pinta** (dos pedidos).
   - **Dardos**: antes apuntabas al centro y aguantabas — un dado con el radio

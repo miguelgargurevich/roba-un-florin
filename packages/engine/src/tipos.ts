@@ -526,9 +526,33 @@ export interface Jaula {
 /** Un fantasma del laberinto. `casa` es su esquina de salida: al atraparte
     vuelve ahí, como los del Pac-Man. Sin eso te caza en bucle nada más
     devolverte a la entrada — medido, 169 vueltas en una partida. */
+/** Un especial tirado en el suelo del laberinto. Cada bloque de tres niveles
+    trae DOS: uno de comer y un arma. No son adornos — cada uno cambia cómo se
+    juega ese bloque, y son la razón de que el nivel 40 no sea el nivel 4 más
+    largo. */
+export interface Especial {
+  x: number; y: number;
+  clase: "comida" | "arma";
+  /** Cuál es: `mango`, `tiza`… De aquí salen su dibujo y su efecto. */
+  tipo: string;
+  tomado: boolean;
+}
+
+/** Una raya de tiza: los monstruos no la cruzan mientras dure. */
+export interface Tiza { x: number; y: number; queda: number }
+
 export interface Fantasma {
   x: number; y: number; vx: number; vy: number;
   casa: { x: number; y: number };
+  /** Congelado (chancla, linterna): no se mueve mientras dure. */
+  stun: number;
+  /** Huyendo de ti (silbato, mochilazo): corre AL CONTRARIO. */
+  huye: number;
+  /** Cuál del bestiario es: de aquí salen su dibujo y su nombre. */
+  tipo: string;
+  /** Multiplicador de velocidad, del bestiario. La Mano corre y el Muñeco
+      arrastra: es la mitad de lo que distingue un nivel del siguiente. */
+  vel: number;
 }
 
 /** El laberinto. Es el único minijuego que pedía algo que el motor no tenía:
@@ -572,6 +596,22 @@ export interface Laberinto {
       posición — hacia la posición cortarían por las paredes; por el rastro
       pisan exactamente donde pisaste tú. */
   rastros: { x: number; y: number }[][];
+  /** Lo que persiguen y lo que descansan EN ESTE NIVEL: arriba aprieta. */
+  caza: number;
+  retirada: number;
+  /** La forma del laberinto de este nivel, para el cartel: «sin vueltas», «con
+      atajos» o «todo bucles». Uno con bucles se juega distinto —se le puede dar
+      la vuelta a un monstruo—, así que se avisa. */
+  forma: string;
+  /** Los dos especiales del bloque, tirados por el laberinto. */
+  especiales: Especial[];
+  /** Las rayas de tiza puestas, con lo que les queda. */
+  tizas: Tiza[];
+  /** Lo que tiene puesto cada jugador, y lo que lleva en la mano. Van aquí y no
+      en `Jugador` porque son del laberinto y de ningún otro modo: meterlos en el
+      jugador sería ensuciar todos los minijuegos con campos que no usan. */
+  poderes: ({ tipo: string; queda: number } | null)[];
+  bolsas: ({ tipo: string; usos: number } | null)[];
   /** Segundos de descanso entre fase y fase, para leer el cartel. */
   entreFases: number;
   reloj: number;

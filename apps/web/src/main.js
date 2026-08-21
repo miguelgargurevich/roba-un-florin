@@ -20,6 +20,9 @@ import {
   bajarse, conAtajosDeSala as conAtajosMotor, nombreDeHito, patiosDe, precioDeVenta,
   puestoDe, puestosDeCarrera, VUELTAS, CIRCUITOS, pensarBot, GARAJE, VEHICULOS,
   DARDO_ARCO, puntoDelPendulo, errorDelDardo,
+  monstruoDelNivel, varianteDelNivel, especialesDelNivel, armaPorId, comidaPorId,
+  montarFaseDelLaberinto,
+  colorDeBicho,
   fundir, queSaleDeFundir,
   TRASTOS_ESCENARIO, darleVehiculo, esEspecial, ANCHO_PISTA, aparcarNuevo, comprarPatio,
   ponerFiesta, enFiesta, patear, TENIS_META, JUEGOS_LISTOS, VOLEY_META, VOLEY_TOQUES, VOLEY_ALCANCE,
@@ -402,6 +405,17 @@ if (import.meta.env.DEV){
       return juego + " @ " + Math.round(G.player.x) + "," + Math.round(G.player.y);
     },
     puertas(){ return (G?.sitios || []).map(s => s.juego); },
+    /** Salta a un nivel del laberinto: sin esto, mirar el nivel 30 son media
+        hora de partida. */
+    nivel(n){
+      if (!G?.laberinto) return "no estás en el laberinto";
+      montarFaseDelLaberinto(G, n);
+      const l = G.laberinto;
+      return { nivel: n + 1, ancho: l.ancho, alto: l.alto, forma: l.forma,
+               jaulas: l.jaulas.length, monstruos: l.fantasmas.map(f => f.tipo),
+               especiales: l.especiales.map(s => s.clase + ":" + s.tipo),
+               reloj: Math.round(l.reloj) };
+    },
   };
 }
 
@@ -2541,6 +2555,10 @@ function renderRuleta(){
    Dibujo del mundo
    ============================================================ */
 const cam = { x:0, y:0 };
+/** Por debajo de este zoom el laberinto deja de encuadrarse entero y la cámara
+    empieza a seguirte. 0,42 deja ver unas diez celdas de ancho en un móvil y
+    casi todo un laberinto de 31 en una pantalla de escritorio. */
+const LAB_ZOOM_MIN = 0.42;
 
 /* ============================================================
    El suelo y su decorado
@@ -9724,7 +9742,435 @@ function drawPistaObs(){
   ctx.restore();
 }
 
-/* ---- el laberinto ---- */
+/* ---- el mapita del laberinto ----
+   Aparece SOLO cuando el laberinto no cabe en la pantalla, y entonces no es un
+   adorno: es la única forma de saber dónde queda la jaula que te falta. Sin él,
+   un laberinto de 57 × 33 celdas con la cámara siguiéndote es andar a ciegas
+   abriendo pasillos al azar.
+
+   Se dibuja en coordenadas de PANTALLA, después del mundo: `draw()` deja puesta
+   la transformación de la cámara y aquí hace falta la esquina de la pantalla. */
+function drawMapaLaberinto(){
+  const l = G.laberinto;
+  if (!l || !l.celdas.length) return;
+  const anchoMundo = l.ancho * l.celda, altoMundo = l.alto * l.celda;
+  /* Si cabe entero en la pantalla, el mapita no hace falta: sería repetir lo
+     que ya se ve, ocupando esquina. */
+  if (anchoMundo <= VW / ZOOM && altoMundo <= VH / ZOOM) return;
+
+  const alto = Math.min(140, VH * 0.24);
+  const esc = alto / l.alto;
+  const ancho = l.ancho * esc;
+  const x0 = VW - ancho - 14, y0 = VH - alto - 14;
+
+  ctx.save();
+  ctx.fillStyle = "rgba(12,7,16,.82)";
+  roundRect(x0 - 6, y0 - 6, ancho + 12, alto + 12, 8); ctx.fill();
+  ctx.strokeStyle = "rgba(139,107,238,.6)"; ctx.lineWidth = 2;
+  roundRect(x0 - 6, y0 - 6, ancho + 12, alto + 12, 8); ctx.stroke();
+
+  // los pasillos, en claro: lo que importa es por dónde SE PUEDE ir
+  ctx.fillStyle = "rgba(140,110,190,.42)";
+  for (let y = 0; y < l.alto; y++)
+    for (let x = 0; x < l.ancho; x++)
+      if (!l.celdas[y][x]) ctx.fillRect(x0 + x * esc, y0 + y * esc, esc + 0.6, esc + 0.6);
+
+  const punto = (wx, wy, col, r) => {
+    ctx.fillStyle = col;
+    ctx.beginPath();
+    ctx.arc(x0 + (wx - l.origen.x) / l.celda * esc, y0 + (wy - l.origen.y) / l.celda * esc, r, 0, 6.283);
+    ctx.fill();
+  };
+  // la entrada, las jaulas que faltan, los especiales sin coger, los monstruos, y tú
+  punto(l.entrada.x, l.entrada.y, "rgba(61,220,151,.85)", 2.6);
+  for (const j of l.jaulas) if (!j.libre) punto(j.x, j.y, "#FFC53D", 3);
+  for (const sp of l.especiales) if (!sp.tomado)
+    punto(sp.x, sp.y, sp.clase === "comida" ? "#FF9ECF" : "#5CE1EA", 2.6);
+  for (const f of l.fantasmas) punto(f.x, f.y, f.stun > 0 ? "#5CE1EA" : "#FF3D6E", 3);
+  punto(G.player.x, G.player.y, "#F7F3F9", 3.4);
+  ctx.restore();
+}
+
+/* ---- los especiales, dibujados ----
+   Cada bloque de tres niveles trae dos cosas tiradas por el laberinto: una de
+   comer y un arma. Se dibujan con un resplandor y flotando, porque hay que
+   verlos DESDE LEJOS: desviarse a por uno cuesta tiempo, y esa es la decisión.
+   Un especial que se descubre al pisarlo no es una decisión, es una sorpresa. */
+const DIBUJO_ESPECIAL = {
+  mango(x, y, R){
+    ctx.fillStyle = "#FFC53D";
+    ctx.beginPath(); ctx.ellipse(x, y, R * 0.8, R * 0.62, -0.4, 0, 6.283); ctx.fill();
+    ctx.fillStyle = "#FF7A3D";
+    ctx.beginPath(); ctx.ellipse(x + R * 0.2, y - R * 0.1, R * 0.36, R * 0.3, -0.4, 0, 6.283); ctx.fill();
+    ctx.strokeStyle = "#3DDC97"; ctx.lineWidth = R * 0.16; ctx.lineCap = "round";
+    ctx.beginPath(); ctx.moveTo(x - R * 0.4, y - R * 0.5); ctx.lineTo(x - R * 0.7, y - R * 0.85); ctx.stroke();
+  },
+  chicha(x, y, R){                                  // el vaso de chicha morada
+    ctx.fillStyle = "#F3EAF0";
+    ctx.beginPath();
+    ctx.moveTo(x - R * 0.5, y - R * 0.7); ctx.lineTo(x + R * 0.5, y - R * 0.7);
+    ctx.lineTo(x + R * 0.34, y + R * 0.8); ctx.lineTo(x - R * 0.34, y + R * 0.8);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "#6B2E8A";
+    ctx.beginPath();
+    ctx.moveTo(x - R * 0.44, y - R * 0.34); ctx.lineTo(x + R * 0.44, y - R * 0.34);
+    ctx.lineTo(x + R * 0.32, y + R * 0.72); ctx.lineTo(x - R * 0.32, y + R * 0.72);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = "#FF5C86"; ctx.lineWidth = R * 0.14;
+    ctx.beginPath(); ctx.moveTo(x + R * 0.2, y - R * 1.0); ctx.lineTo(x + R * 0.05, y + R * 0.4); ctx.stroke();
+  },
+  granadilla(x, y, R){
+    ctx.fillStyle = "#E8B84D";
+    ctx.beginPath(); ctx.arc(x, y, R * 0.78, 0, 6.283); ctx.fill();
+    ctx.fillStyle = "#F7E7B8";
+    ctx.beginPath(); ctx.arc(x, y, R * 0.5, 0, 6.283); ctx.fill();
+    ctx.fillStyle = "#5A4526";
+    for (let k = 0; k < 7; k++){
+      const a = k / 7 * 6.283;
+      ctx.beginPath();
+      ctx.arc(x + Math.cos(a) * R * 0.26, y + Math.sin(a) * R * 0.26, R * 0.1, 0, 6.283);
+      ctx.fill();
+    }
+  },
+  helado(x, y, R){
+    ctx.fillStyle = "#C98A5A";
+    ctx.beginPath();
+    ctx.moveTo(x - R * 0.4, y - R * 0.1); ctx.lineTo(x + R * 0.4, y - R * 0.1);
+    ctx.lineTo(x, y + R * 0.9); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "#F7C7D8";
+    ctx.beginPath(); ctx.arc(x - R * 0.2, y - R * 0.36, R * 0.34, 0, 6.283); ctx.fill();
+    ctx.fillStyle = "#F3EAF0";
+    ctx.beginPath(); ctx.arc(x + R * 0.22, y - R * 0.44, R * 0.32, 0, 6.283); ctx.fill();
+  },
+  maracuya(x, y, R){
+    ctx.fillStyle = "#8A4A2A";
+    ctx.beginPath(); ctx.arc(x, y, R * 0.76, 0, 6.283); ctx.fill();
+    ctx.fillStyle = "#FFC53D";
+    ctx.beginPath(); ctx.arc(x + R * 0.12, y - R * 0.08, R * 0.46, 0, 6.283); ctx.fill();
+    ctx.fillStyle = "#5A4526";
+    for (let k = 0; k < 5; k++)
+      ctx.beginPath(),
+      ctx.arc(x + R * 0.12 + Math.cos(k * 1.26) * R * 0.2, y - R * 0.08 + Math.sin(k * 1.26) * R * 0.2, R * 0.08, 0, 6.283),
+      ctx.fill();
+  },
+  tiza(x, y, R){
+    ctx.save();
+    ctx.translate(x, y); ctx.rotate(-0.5);
+    ctx.fillStyle = "#F7F3F9";
+    ctx.fillRect(-R * 0.16, -R * 0.8, R * 0.32, R * 1.6);
+    ctx.fillStyle = "#D8D2DE";
+    ctx.fillRect(-R * 0.16, -R * 0.8, R * 0.32, R * 0.22);
+    ctx.restore();
+  },
+  silbato(x, y, R){
+    ctx.fillStyle = "#FFC53D";
+    roundRect(x - R * 0.7, y - R * 0.3, R * 1.2, R * 0.6, R * 0.2); ctx.fill();
+    ctx.fillStyle = "#2A1226";
+    ctx.beginPath(); ctx.arc(x + R * 0.28, y, R * 0.16, 0, 6.283); ctx.fill();
+    ctx.strokeStyle = "#F3EAF0"; ctx.lineWidth = R * 0.1;
+    ctx.beginPath(); ctx.arc(x - R * 0.75, y - R * 0.2, R * 0.3, 0.6, 4.2); ctx.stroke();
+  },
+  linterna(x, y, R){
+    ctx.fillStyle = "#5A6070";
+    roundRect(x - R * 0.7, y - R * 0.26, R * 1.1, R * 0.52, R * 0.14); ctx.fill();
+    ctx.fillStyle = "#FFE9A8";
+    ctx.beginPath();
+    ctx.moveTo(x + R * 0.4, y - R * 0.34); ctx.lineTo(x + R * 1.05, y - R * 0.6);
+    ctx.lineTo(x + R * 1.05, y + R * 0.6); ctx.lineTo(x + R * 0.4, y + R * 0.34);
+    ctx.closePath(); ctx.fill();
+  },
+  mochila(x, y, R){
+    ctx.fillStyle = "#FF7A3D";
+    roundRect(x - R * 0.6, y - R * 0.6, R * 1.2, R * 1.3, R * 0.24); ctx.fill();
+    ctx.fillStyle = "#D8542A";
+    roundRect(x - R * 0.38, y - R * 0.1, R * 0.76, R * 0.5, R * 0.12); ctx.fill();
+    ctx.strokeStyle = "#D8542A"; ctx.lineWidth = R * 0.12;
+    ctx.beginPath(); ctx.arc(x, y - R * 0.6, R * 0.3, Math.PI, 0); ctx.stroke();
+  },
+};
+
+/** Uno tirado en el suelo: resplandor, flotación y su dibujo. */
+function drawEspecial(sp, R, t){
+  const flota = Math.sin(t * 3 + sp.x) * R * 0.16;
+  const y = sp.y + flota;
+  const calido = sp.clase === "comida";
+  const halo = ctx.createRadialGradient(sp.x, y, R * 0.3, sp.x, y, R * 2.2);
+  halo.addColorStop(0, calido ? "rgba(255,197,61,.34)" : "rgba(92,225,234,.34)");
+  halo.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = halo;
+  ctx.beginPath(); ctx.arc(sp.x, y, R * 2.2, 0, 6.283); ctx.fill();
+  // la sombrita en el suelo, para que se vea que flota y no que vuela
+  ctx.fillStyle = "rgba(0,0,0,.3)";
+  ctx.beginPath(); ctx.ellipse(sp.x, sp.y + R * 0.9, R * 0.5, R * 0.16, 0, 0, 6.283); ctx.fill();
+  (DIBUJO_ESPECIAL[sp.tipo] || DIBUJO_ESPECIAL.mango)(sp.x, y, R);
+}
+
+/* ---- el bestiario, dibujado ----
+   Ocho bichos, uno por nivel de cabecera. El objetivo de cada dibujo es UNO:
+   que a medio pasillo, de un vistazo y en movimiento, sepas cuál te viene
+   detrás — porque de eso depende si te da tiempo a llegar a la jaula o no (La
+   Mano corre un 12 % más que tú de reacción, El Muñeco arrastra un 12 % menos).
+   Con ocho sábanas blancas iguales eso no se puede leer.
+
+   Son bichos NUESTROS. Se parecen de género a los monstruos de los juegos de
+   laberinto que le gustan al jugador —un venado con cuernos, un conejo de
+   felpa, un payaso— porque ese es el escalofrío que se busca; pero ni los
+   nombres ni los dibujos son de otro juego. Esto se publica en un dominio
+   público, y meter el personaje de otro es meterse en un lío ajeno.
+
+   Cada pintor recibe el centro, el radio y `viva` (si está cazando o retirado).
+   El resplandor, la transparencia de la retirada y los ojos comunes los pone
+   `drawMonstruo`: aquí va solo lo que distingue a cada uno. */
+const BICHOS = {
+  /* La sábana de siempre, con el bajo ondeando. Es la del primer nivel: la que
+     enseña el juego. */
+  sombra(x, y, R, viva, t){
+    ctx.fillStyle = viva ? "#FF5C86" : "#8E9BB5";
+    ctx.beginPath();
+    ctx.arc(x, y - R * 0.18, R, Math.PI, 0);
+    const onda = Math.sin(t * 6) * R * 0.16;
+    ctx.lineTo(x + R, y + R * 0.62);
+    for (let k = 0; k < 4; k++){
+      const x0 = x + R - k * (R / 2);
+      ctx.quadraticCurveTo(x0 - R * 0.25, y + R * 0.62 + (k % 2 ? onda + R * 0.3 : -onda),
+                           x0 - R / 2, y + R * 0.62);
+    }
+    ctx.closePath(); ctx.fill();
+  },
+
+  /* El venado: la cornamenta es la silueta, y por eso va ANCHA — es lo único
+     que se distingue desde el otro extremo de un pasillo. */
+  venado(x, y, R, viva, t){
+    ctx.strokeStyle = viva ? "#E8DCC0" : "#9AA3B5";
+    ctx.lineWidth = R * 0.14;
+    ctx.lineCap = "round"; ctx.lineJoin = "round";
+    for (const lado of [-1, 1]){
+      ctx.beginPath();
+      ctx.moveTo(x + lado * R * 0.35, y - R * 0.5);
+      ctx.lineTo(x + lado * R * 0.72, y - R * 1.25);
+      ctx.moveTo(x + lado * R * 0.55, y - R * 0.88);
+      ctx.lineTo(x + lado * R * 1.15, y - R * 0.95);
+      ctx.moveTo(x + lado * R * 0.66, y - R * 1.05);
+      ctx.lineTo(x + lado * R * 1.05, y - R * 1.45);
+      ctx.stroke();
+    }
+    // el hocico largo y el cuerpo alto
+    ctx.fillStyle = viva ? "#4A3524" : "#5A5F70";
+    ctx.beginPath();
+    ctx.ellipse(x, y - R * 0.1, R * 0.62, R * 0.78, 0, 0, 6.283);
+    ctx.fill();
+    ctx.fillStyle = viva ? "#3A2A1C" : "#4A4F60";
+    ctx.beginPath();
+    ctx.ellipse(x, y + R * 0.5, R * 0.42, R * 0.5 + Math.sin(t * 7) * R * 0.06, 0, 0, 6.283);
+    ctx.fill();
+  },
+
+  /* El conejo de felpa: orejas largas, costura en la boca y ojos de botón. Va
+     más lento que los demás porque va a saltitos —el rebote es la pista. */
+  conejo(x, y, R, viva, t){
+    const salto = Math.abs(Math.sin(t * 4)) * R * 0.22;
+    ctx.save();
+    ctx.translate(0, -salto);
+    ctx.fillStyle = viva ? "#E8C7D8" : "#A8AEBC";
+    for (const lado of [-1, 1]){
+      ctx.beginPath();
+      ctx.ellipse(x + lado * R * 0.38, y - R * 1.0, R * 0.20, R * 0.62,
+                  lado * 0.24, 0, 6.283);
+      ctx.fill();
+      ctx.fillStyle = viva ? "#C98BA8" : "#8A90A0";
+      ctx.beginPath();
+      ctx.ellipse(x + lado * R * 0.38, y - R * 1.0, R * 0.10, R * 0.42,
+                  lado * 0.24, 0, 6.283);
+      ctx.fill();
+      ctx.fillStyle = viva ? "#E8C7D8" : "#A8AEBC";
+    }
+    ctx.beginPath(); ctx.arc(x, y - R * 0.1, R * 0.78, 0, 6.283); ctx.fill();
+    // la costura de la boca
+    ctx.strokeStyle = viva ? "#7A2438" : "#5A6070";
+    ctx.lineWidth = R * 0.08;
+    ctx.beginPath(); ctx.moveTo(x - R * 0.34, y + R * 0.3); ctx.lineTo(x + R * 0.34, y + R * 0.3);
+    ctx.stroke();
+    for (let k = -2; k <= 2; k++){
+      ctx.beginPath();
+      ctx.moveTo(x + k * R * 0.15, y + R * 0.18); ctx.lineTo(x + k * R * 0.15, y + R * 0.42);
+      ctx.stroke();
+    }
+    ctx.restore();
+  },
+
+  /* La mano: va por el suelo, así que es PLANA y ancha. La que corre. */
+  mano(x, y, R, viva, t){
+    ctx.fillStyle = viva ? "#D8B49A" : "#9AA0AE";
+    ctx.beginPath();
+    ctx.ellipse(x, y + R * 0.25, R * 0.76, R * 0.52, 0, 0, 6.283);
+    ctx.fill();
+    // los dedos, moviéndose como si anduvieran
+    ctx.strokeStyle = viva ? "#D8B49A" : "#9AA0AE";
+    ctx.lineWidth = R * 0.20; ctx.lineCap = "round";
+    for (let k = 0; k < 4; k++){
+      const a = -2.5 + k * 0.55;
+      const largo = R * (1.0 + Math.sin(t * 9 + k * 1.4) * 0.14);
+      ctx.beginPath();
+      ctx.moveTo(x + Math.cos(a) * R * 0.5, y + R * 0.1 + Math.sin(a) * R * 0.3);
+      ctx.lineTo(x + Math.cos(a) * largo, y + R * 0.1 + Math.sin(a) * largo * 0.6);
+      ctx.stroke();
+    }
+    // el pulgar
+    ctx.beginPath();
+    ctx.moveTo(x + R * 0.55, y + R * 0.3);
+    ctx.lineTo(x + R * 1.0, y + R * 0.55);
+    ctx.stroke();
+  },
+
+  /* El payaso: la sonrisa y el pelo son la silueta. */
+  payaso(x, y, R, viva, t){
+    ctx.fillStyle = viva ? "#FF7A3D" : "#8E9BB5";
+    for (let k = 0; k < 7; k++){
+      const a = Math.PI + k * (Math.PI / 6);
+      ctx.beginPath();
+      ctx.arc(x + Math.cos(a) * R * 0.82, y - R * 0.1 + Math.sin(a) * R * 0.82,
+              R * 0.28 + Math.sin(t * 5 + k) * R * 0.04, 0, 6.283);
+      ctx.fill();
+    }
+    ctx.fillStyle = viva ? "#F7EFE6" : "#A8AEBC";
+    ctx.beginPath(); ctx.arc(x, y - R * 0.1, R * 0.74, 0, 6.283); ctx.fill();
+    // la sonrisa de oreja a oreja, y la nariz
+    ctx.strokeStyle = viva ? "#D8383A" : "#6A7080";
+    ctx.lineWidth = R * 0.13; ctx.lineCap = "round";
+    ctx.beginPath(); ctx.arc(x, y - R * 0.02, R * 0.42, 0.35, Math.PI - 0.35); ctx.stroke();
+    ctx.fillStyle = viva ? "#D8383A" : "#6A7080";
+    ctx.beginPath(); ctx.arc(x, y - R * 0.05, R * 0.17, 0, 6.283); ctx.fill();
+  },
+
+  /* La araña: las ocho patas, que se mueven. */
+  arana(x, y, R, viva, t){
+    ctx.strokeStyle = viva ? "#2A1226" : "#6A7080";
+    ctx.lineWidth = R * 0.11; ctx.lineCap = "round";
+    for (let k = 0; k < 8; k++){
+      const lado = k < 4 ? -1 : 1;
+      const i = k % 4;
+      const a = lado * (0.5 + i * 0.42);
+      const flex = Math.sin(t * 8 + k * 0.9) * R * 0.16;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.quadraticCurveTo(x + Math.cos(a) * R * 0.9, y + Math.sin(a) * R * 0.5 - R * 0.5 + flex,
+                           x + Math.cos(a) * R * 1.35, y + Math.sin(a) * R * 0.9 + flex);
+      ctx.stroke();
+    }
+    ctx.fillStyle = viva ? "#3A1F38" : "#5A6070";
+    ctx.beginPath(); ctx.ellipse(x, y + R * 0.1, R * 0.62, R * 0.72, 0, 0, 6.283); ctx.fill();
+    // los ocho ojitos
+    ctx.fillStyle = viva ? "#FFC53D" : "#9AA0AE";
+    for (let k = 0; k < 4; k++){
+      const ox2 = (k - 1.5) * R * 0.22;
+      ctx.beginPath(); ctx.arc(x + ox2, y - R * 0.32, R * 0.09, 0, 6.283); ctx.fill();
+      ctx.beginPath(); ctx.arc(x + ox2 * 0.7, y - R * 0.12, R * 0.06, 0, 6.283); ctx.fill();
+    }
+  },
+
+  /* El muñeco: de madera, con los hilos. El más lento — los hilos cuelgan y se
+     ve que lo arrastran. */
+  muneco(x, y, R, viva, t){
+    ctx.strokeStyle = viva ? "rgba(243,234,240,.45)" : "rgba(160,166,180,.3)";
+    ctx.lineWidth = R * 0.05;
+    for (const lado of [-1, 1]){
+      ctx.beginPath();
+      ctx.moveTo(x + lado * R * 0.5, y - R * 2.6);
+      ctx.lineTo(x + lado * R * (0.5 + Math.sin(t * 3) * 0.06), y - R * 0.7);
+      ctx.stroke();
+    }
+    ctx.fillStyle = viva ? "#C08A4A" : "#8A90A0";
+    // cuerpo y cabeza, de tablas
+    ctx.fillRect(x - R * 0.34, y - R * 0.2, R * 0.68, R * 0.9);
+    ctx.beginPath(); ctx.arc(x, y - R * 0.55, R * 0.5, 0, 6.283); ctx.fill();
+    ctx.strokeStyle = viva ? "#7A5228" : "#6A7080";
+    ctx.lineWidth = R * 0.07;
+    ctx.beginPath(); ctx.moveTo(x, y - R * 0.2); ctx.lineTo(x, y + R * 0.7); ctx.stroke();
+    // la boca de bisagra
+    ctx.fillStyle = viva ? "#2A1226" : "#5A6070";
+    ctx.beginPath();
+    ctx.moveTo(x - R * 0.26, y - R * 0.38);
+    ctx.lineTo(x + R * 0.26, y - R * 0.38);
+    ctx.lineTo(x, y - R * 0.06);
+    ctx.closePath(); ctx.fill();
+  },
+
+  /* La Profe. Es del colegio de ESTE juego y de ningún otro: en un laberinto
+     que es el colegio de Sta. Teresita, lo que da más miedo es que te pillen. */
+  profe(x, y, R, viva, t){
+    ctx.fillStyle = viva ? "#4A3560" : "#6A7080";
+    // el vestido largo
+    ctx.beginPath();
+    ctx.moveTo(x, y - R * 0.5);
+    ctx.lineTo(x + R * 0.7, y + R * 0.85);
+    ctx.lineTo(x - R * 0.7, y + R * 0.85);
+    ctx.closePath(); ctx.fill();
+    // el moño y la cara
+    ctx.fillStyle = viva ? "#E8C9A8" : "#A8AEBC";
+    ctx.beginPath(); ctx.arc(x, y - R * 0.62, R * 0.42, 0, 6.283); ctx.fill();
+    ctx.fillStyle = viva ? "#2A1226" : "#5A6070";
+    ctx.beginPath(); ctx.arc(x, y - R * 1.0, R * 0.26, 0, 6.283); ctx.fill();
+    // la regla, que es lo que se ve venir
+    ctx.save();
+    ctx.translate(x + R * 0.6, y - R * 0.1);
+    ctx.rotate(Math.sin(t * 8) * 0.5 - 0.4);
+    ctx.fillStyle = viva ? "#FFC53D" : "#9AA0AE";
+    ctx.fillRect(0, -R * 0.09, R * 1.2, R * 0.18);
+    ctx.strokeStyle = "rgba(42,18,38,.5)"; ctx.lineWidth = R * 0.04;
+    for (let k = 1; k < 5; k++){
+      ctx.beginPath();
+      ctx.moveTo(k * R * 0.24, -R * 0.09); ctx.lineTo(k * R * 0.24, R * 0.02);
+      ctx.stroke();
+    }
+    ctx.restore();
+  },
+};
+
+/** Pinta un monstruo: lo común aquí, lo suyo en `BICHOS`. */
+function drawMonstruo(f, R, viva){
+  /* El COLOR de cada bicho, en un halo y en un aro bajo los pies. Es la señal
+     que se lee a cualquier tamaño: en el nivel 30 el laberinto mide 57 celdas y
+     un monstruo son doce píxeles de pantalla — ahí la silueta no se distingue y
+     el color sí. La silueta es para cuando lo tienes encima, que es cuando
+     importa saber si corre (La Mano) o arrastra (El Muñeco). */
+  const n = parseInt(colorDeBicho(f.tipo).slice(1), 16);
+  const tinta = a => "rgba(" + ((n >> 16) & 255) + "," + ((n >> 8) & 255) + "," + (n & 255) + "," + a + ")";
+  if (viva){
+    const halo = ctx.createRadialGradient(f.x, f.y, R * 0.5, f.x, f.y, R * 2.4);
+    halo.addColorStop(0, tinta(.30));
+    halo.addColorStop(1, tinta(0));
+    ctx.fillStyle = halo;
+    ctx.beginPath(); ctx.arc(f.x, f.y, R * 2.4, 0, 6.283); ctx.fill();
+  }
+  ctx.strokeStyle = viva ? tinta(.85) : "rgba(142,155,181,.5)";
+  ctx.lineWidth = R * 0.16;
+  ctx.beginPath(); ctx.ellipse(f.x, f.y + R * 0.85, R * 0.72, R * 0.3, 0, 0, 6.283); ctx.stroke();
+  ctx.globalAlpha = viva ? 1 : 0.42;
+  (BICHOS[f.tipo] || BICHOS.sombra)(f.x, f.y, R, viva, G.t);
+
+  /* Los ojos son de todos: es la señal de A DÓNDE VA, y sin eso no se puede
+     decidir si te da tiempo a pasar por delante. La Mano y la Araña no llevan
+     —tienen los suyos en su dibujo—. */
+  if (f.tipo !== "mano" && f.tipo !== "arana"){
+    const v = Math.hypot(f.vx, f.vy) || 1;
+    const mx = (f.vx / v) * R * 0.2, my = (f.vy / v) * R * 0.2;
+    const alto = f.tipo === "venado" ? -R * 0.3
+               : f.tipo === "conejo" ? -R * 0.2
+               : f.tipo === "muneco" ? -R * 0.62
+               : f.tipo === "profe" ? -R * 0.66
+               : -R * 0.22;
+    for (const lado of [-1, 1]){
+      ctx.fillStyle = "#F7F3F9";
+      ctx.beginPath();
+      ctx.arc(f.x + lado * R * 0.3, f.y + alto, R * 0.22, 0, 6.283); ctx.fill();
+      ctx.fillStyle = viva ? "#2A1226" : "#5A6B8A";
+      ctx.beginPath();
+      ctx.arc(f.x + lado * R * 0.3 + mx, f.y + alto + my, R * 0.11, 0, 6.283); ctx.fill();
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+
 /* ---- el laberinto ----
    Dos cosas estaban mal, y la primera no era de gusto sino de lectura:
 
@@ -9818,6 +10264,18 @@ function drawLaberinto(){
   ctx.font = "800 " + pp(10) + "px system-ui, sans-serif";
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
   ctx.fillText("ENTRADA", e.x, e.y - c * 0.62);
+
+  /* La granadilla: mientras dure, las jaulas que faltan brillan A TRAVÉS de las
+     paredes. Es lo que convierte «explorar a ciegas» en «ir a por la de allá». */
+  if (l.poderes[G.players.indexOf(G.player)]?.tipo === "luz")
+    for (const j of l.jaulas){
+      if (j.libre) continue;
+      const halo = ctx.createRadialGradient(j.x, j.y, 0, j.x, j.y, c * 1.5);
+      halo.addColorStop(0, "rgba(255,197,61,.5)");
+      halo.addColorStop(1, "rgba(255,197,61,0)");
+      ctx.fillStyle = halo;
+      ctx.beginPath(); ctx.arc(j.x, j.y, c * 1.5, 0, 6.283); ctx.fill();
+    }
 
   /* Las jaulas, con el amigo dentro. Un amigo liberado NO desaparece: se queda
      ahí celebrando con los barrotes tirados, que es la mitad del premio. */
@@ -9920,47 +10378,57 @@ function drawLaberinto(){
     }
   }
 
-  /* Los fantasmas: cada uno de su color, como los de siempre — con cuatro
-     sábanas blancas iguales no se sabe cuál te viene siguiendo ni cuál está
-     retirado. Retirados se pintan translúcidos y con los ojos mirando atrás:
-     es la señal de que puedes trabajar tranquilo. */
-  const cazando = l.ronda > 0;
-  const COLOR_F = ["#FF5C86", "#5CE1EA", "#FFA23D", "#B98CFF", "#3DDC97"];
-  l.fantasmas.forEach((f, i) => {
-    const R = c * 0.30;
-    const col = COLOR_F[i % COLOR_F.length];
-    if (cazando){
-      const halo = ctx.createRadialGradient(f.x, f.y, R * 0.5, f.x, f.y, R * 2.3);
-      halo.addColorStop(0, "rgba(255,61,110,.22)");
-      halo.addColorStop(1, "rgba(255,61,110,0)");
-      ctx.fillStyle = halo;
-      ctx.beginPath(); ctx.arc(f.x, f.y, R * 2.3, 0, 6.283); ctx.fill();
-    }
-    ctx.globalAlpha = cazando ? 1 : 0.45;
-    // la sábana, con el bajo ondeando
-    ctx.fillStyle = cazando ? col : "#8E9BB5";
+  /* Las rayas de tiza: son una pared de verdad mientras duran, así que se
+     dibujan como una pared —gorda y opaca— y no como una raya de adorno. Se
+     desvanecen al final, que es el aviso de que se va a abrir. */
+  for (const tz of l.tizas){
+    const vida = Math.min(1, tz.queda / 3);
+    ctx.globalAlpha = vida;
+    ctx.strokeStyle = "#F7F3F9"; ctx.lineWidth = pp(7);
+    ctx.lineCap = "round";
     ctx.beginPath();
-    ctx.arc(f.x, f.y - R * 0.18, R, Math.PI, 0);
-    const onda = Math.sin(G.t * 6 + i * 1.7) * R * 0.16;
-    ctx.lineTo(f.x + R, f.y + R * 0.62);
-    for (let k = 0; k < 4; k++){
-      const x0 = f.x + R - k * (R / 2);
-      ctx.quadraticCurveTo(x0 - R * 0.25, f.y + R * 0.62 + (k % 2 ? onda + R * 0.3 : -onda),
-                           x0 - R / 2, f.y + R * 0.62);
-    }
-    ctx.closePath(); ctx.fill();
-    // los ojos, mirando a donde va
-    const v = Math.hypot(f.vx, f.vy) || 1;
-    const mx = (f.vx / v) * R * 0.2, my = (f.vy / v) * R * 0.2;
-    for (const lado of [-1, 1]){
-      ctx.fillStyle = "#F7F3F9";
-      ctx.beginPath(); ctx.arc(f.x + lado * R * 0.34, f.y - R * 0.22, R * 0.26, 0, 6.283); ctx.fill();
-      ctx.fillStyle = cazando ? "#2A1226" : "#5A6B8A";
-      ctx.beginPath();
-      ctx.arc(f.x + lado * R * 0.34 + mx, f.y - R * 0.22 + my, R * 0.13, 0, 6.283); ctx.fill();
-    }
+    ctx.moveTo(tz.x - c * 0.42, tz.y - c * 0.42); ctx.lineTo(tz.x + c * 0.42, tz.y + c * 0.42);
+    ctx.moveTo(tz.x + c * 0.42, tz.y - c * 0.42); ctx.lineTo(tz.x - c * 0.42, tz.y + c * 0.42);
+    ctx.stroke();
     ctx.globalAlpha = 1;
-  });
+  }
+
+  /* Los dos especiales del bloque, si nadie los ha cogido. */
+  for (const sp of l.especiales)
+    if (!sp.tomado) drawEspecial(sp, c * 0.24, G.t);
+
+  /* Los monstruos. Cada nivel trae el suyo de cabecera y a los seis niveles lo
+     acompañan los de antes, así que aquí puede haber hasta ocho bichos
+     distintos a la vez: por eso cada uno tiene su SILUETA y no un color de
+     sábana — de un vistazo hay que saber si el que viene es La Mano (corre) o
+     El Muñeco (arrastra), porque de eso depende si llegas a la jaula. */
+  const calma = l.poderes.some(q => q && q.tipo === "calma");
+  const cazando = l.ronda > 0 && !calma;
+  for (const f of l.fantasmas){
+    /* Más grandes: 0,30 de celda eran doce píxeles de pantalla en los niveles
+       de arriba. A 0,44 casi llenan el pasillo, como los de los laberintos de
+       siempre — y el dibujo queda algo mayor que el alcance real (30 px), que
+       es generoso con quien juega y no lo contrario. */
+    drawMonstruo(f, c * 0.44, cazando && f.stun <= 0 && f.huye <= 0);
+    /* Congelado: hielo alrededor. Es la ventana para pasarle por delante, y hay
+       que verla —si no se ve, no se aprovecha. */
+    if (f.stun > 0){
+      ctx.strokeStyle = "rgba(92,225,234,.9)"; ctx.lineWidth = pp(2.5);
+      for (let k = 0; k < 6; k++){
+        const a2 = k / 6 * 6.283 + G.t;
+        ctx.beginPath();
+        ctx.moveTo(f.x + Math.cos(a2) * c * 0.22, f.y + Math.sin(a2) * c * 0.22);
+        ctx.lineTo(f.x + Math.cos(a2) * c * 0.4, f.y + Math.sin(a2) * c * 0.4);
+        ctx.stroke();
+      }
+    } else if (f.huye > 0){
+      /* Huyendo: se dibuja al revés de cazando, y con la carita de susto. */
+      ctx.fillStyle = "rgba(92,225,234,.85)";
+      ctx.font = "800 " + pp(13) + "px system-ui, sans-serif";
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText("!", f.x, f.y - c * 0.5);
+    }
+  }
 
   /* El cartel de fase, en el descanso. */
   if (l.entreFases > 0){
@@ -9973,14 +10441,23 @@ function drawLaberinto(){
     ctx.fillStyle = "#3DDC97";
     ctx.font = "800 " + pp(26) + "px system-ui, sans-serif";
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    ctx.fillText("¡Fase " + (l.fase + 2) + " de " + l.fases + "!", cx, cy - pp(16));
+    /* El cartel dice QUÉ CAMBIA, que es lo que se quiere saber en el descanso:
+       quién es el monstruo nuevo, qué forma tiene el laberinto y qué pareja de
+       especiales trae el bloque. Un «¡Nivel 34!» a secas no dice nada. */
+    const sig = l.fase + 1;
+    ctx.fillText("¡Nivel " + (sig + 1) + " de " + l.fases + "!", cx, cy - pp(22));
     ctx.fillStyle = "#F3EAF0";
     ctx.font = "700 " + pp(13) + "px system-ui, sans-serif";
-    ctx.fillText("Más grande, y con otro fantasma", cx, cy + pp(12));
+    ctx.fillText("Llega " + monstruoDelNivel(sig).nombre + " · laberinto "
+                 + varianteDelNivel(sig).nombre, cx, cy + pp(2));
+    const par = especialesDelNivel(sig);
+    ctx.fillStyle = "rgba(92,225,234,.95)";
+    ctx.font = "700 " + pp(12) + "px system-ui, sans-serif";
+    ctx.fillText("Busca: " + par.comida.nombre + " y " + par.arma.nombre, cx, cy + pp(22));
     const mios = l.puntos[G.players.indexOf(G.player)] ?? 0;
     ctx.fillStyle = "rgba(255,197,61,.95)";
     ctx.font = "800 " + pp(12) + "px system-ui, sans-serif";
-    ctx.fillText("Rescatados: " + mios, cx, cy + pp(34));
+    ctx.fillText("Rescatados: " + mios, cx, cy + pp(40));
   }
   ctx.restore();
 }
@@ -10869,7 +11346,19 @@ function draw(){
                 : G.lucha ? 420
                 : G.tenis || G.voley || G.basquet || G.hockey ? 260
                 : G.esc.id === "colegio" ? 180 : 620;
-    ZOOM = clamp(Math.min(VW / (c.w + marco), VH / (c.h + marco)), .18, 1.05);
+    /* El laberinto ya NO tiene que caber. Con 99 niveles el último mide 3 220 px
+       de lado, y encuadrarlo entero lo dejaba en un mosaico de hormigas: por
+       debajo de este zoom se deja de encuadrar, la cámara te sigue y el mapita
+       de la esquina se encarga de que no te pierdas. */
+    /* El laberinto se encuadra POR ANCHO, no por lo que quepa entero: ahora es
+       rectangular en la proporción de una pantalla (1,7:1), así que encuadrando
+       por ancho llena la pantalla de lado a lado y a lo alto sobra o falta muy
+       poco. Encuadrando por lo que cabe —el mínimo de los dos— quedaban dos
+       franjas de patio vacío a los lados, que es justo lo que se pidió quitar. */
+    const cabe = G.laberinto
+      ? VW / (c.w + marco)
+      : Math.min(VW / (c.w + marco), VH / (c.h + marco));
+    ZOOM = clamp(G.laberinto ? Math.max(cabe, LAB_ZOOM_MIN) : cabe, .18, 1.05);
   }
   // Con dos jugadores el zoom se abre lo necesario para que ambos quepan
   else if (G.local2 && G.players.length > 1){
@@ -10879,13 +11368,28 @@ function draw(){
   }
   const visW = VW/ZOOM, visH = VH/ZOOM;
   const laCancha = laMesaOCancha();
-  const foco = laCancha
-    ? { x: laCancha.x + laCancha.w / 2, y: laCancha.y + laCancha.h / 2 }
-    : G.local2 && G.players.length > 1
-      ? { x:(G.players[0].x+G.players[1].x)/2, y:(G.players[0].y+G.players[1].y)/2 }
-      : G.player;
-  cam.x = visW >= WORLD_W ? (WORLD_W-visW)/2 : clamp(foco.x-visW/2, 0, WORLD_W-visW);
-  cam.y = visH >= WORLD_H ? (WORLD_H-visH)/2 : clamp(foco.y-visH/2, 0, WORLD_H-visH);
+  /* ¿Cabe el laberinto entero? De eso depende TODO lo demás: si cabe se
+     encuadra y la cámara no se mueve; si no, la cámara te sigue. */
+  const labSuelto = !!G.laberinto && laCancha &&
+    (laCancha.w > visW || laCancha.h > visH);
+  const foco = labSuelto ? G.player
+    : laCancha
+      ? { x: laCancha.x + laCancha.w / 2, y: laCancha.y + laCancha.h / 2 }
+      : G.local2 && G.players.length > 1
+        ? { x:(G.players[0].x+G.players[1].x)/2, y:(G.players[0].y+G.players[1].y)/2 }
+        : G.player;
+  if (labSuelto){
+    /* Y los topes de la cámara son los del LABERINTO, no los del mundo: el
+       laberinto grande se sale del mapa a propósito (dentro de él, él es el
+       mundo), así que clampar contra WORLD_H dejaba ver el vacío por abajo. */
+    cam.x = laCancha.w <= visW ? laCancha.x - (visW - laCancha.w)/2
+                               : clamp(foco.x - visW/2, laCancha.x, laCancha.x + laCancha.w - visW);
+    cam.y = laCancha.h <= visH ? laCancha.y - (visH - laCancha.h)/2
+                               : clamp(foco.y - visH/2, laCancha.y, laCancha.y + laCancha.h - visH);
+  } else {
+    cam.x = visW >= WORLD_W ? (WORLD_W-visW)/2 : clamp(foco.x-visW/2, 0, WORLD_W-visW);
+    cam.y = visH >= WORLD_H ? (WORLD_H-visH)/2 : clamp(foco.y-visH/2, 0, WORLD_H-visH);
+  }
 
   ctx.setTransform(DPR*ZOOM, 0, 0, DPR*ZOOM, -cam.x*DPR*ZOOM, -cam.y*DPR*ZOOM);
 
@@ -11108,6 +11612,12 @@ function draw(){
     ctx.fillText(q.text, q.x, q.y);
   }
   ctx.globalAlpha = 1;
+
+  /* El mapita del laberinto va en coordenadas de pantalla, como la flecha. */
+  if (G.laberinto && !G.over){
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+    drawMapaLaberinto();
+  }
 
   /* ---- flecha al borde: por dónde te están robando ----
      draw() deja puesta la transformación del mundo, así que hay que volver a
@@ -11509,12 +12019,24 @@ function hud(){
     const suyos = Math.max(...l.puntos.filter((_, i) => i !== yo));
     const presos = l.jaulas.filter(j => !j.libre).length;
     const miFila = l.jaulas.filter(j => j.libre && j.porQuien === yo).length;
+    /* Con 99 niveles el cartel tiene que decir DÓNDE ESTÁS y QUIÉN te persigue:
+       el monstruo de cabecera cambia cada nivel y su velocidad con él, así que
+       saber que hoy toca La Mano (que corre) o El Muñeco (que arrastra) cambia
+       cómo juegas. Y lo que llevas en la mano, que se gasta. */
+    const jefe = monstruoDelNivel(l.fase);
+    const bolsa = l.bolsas[yo];
+    const poder = l.poderes[yo];
+    const arma = bolsa ? armaPorId(bolsa.tipo) : null;
     el.goalLabel.textContent = l.ganador != null ? "Se acabó"
-      : l.entreFases > 0 ? "¡Fase " + (l.fase + 2) + " de " + l.fases + "!"
+      : l.entreFases > 0 ? "¡Nivel " + (l.fase + 2) + " de " + l.fases + "!"
       : G.player.stun > 0 ? "¡Te atrapó! A la entrada"
+      : bolsa && arma ? "Nivel " + (l.fase + 1) + " · " + arma.nombre + " ×" + bolsa.usos
+                        + " · " + presos + " en jaulas"
+      : poder ? "Nivel " + (l.fase + 1) + " · " + poder.tipo.toUpperCase()
+                + " " + Math.ceil(poder.queda) + "s · " + presos + " en jaulas"
       : l.ronda <= 0 ? "Se retiran · quedan " + presos + " en jaulas"
-      : "Fase " + (l.fase + 1) + "/" + l.fases + " · " + presos + " en jaulas"
-        + (miFila ? " · te siguen " + miFila : "");
+      : "Nivel " + (l.fase + 1) + "/" + l.fases + " · " + jefe.nombre + " · "
+        + presos + " en jaulas" + (miFila ? " · te siguen " + miFila : "");
     el.goal.textContent = l.puntos[yo] + " – " + suyos;
     /* La barra mide la FASE, no la partida: es lo que puedes terminar ahora. */
     const abiertas = l.jaulas.filter(j => j.libre).length;

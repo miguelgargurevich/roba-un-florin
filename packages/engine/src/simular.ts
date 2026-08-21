@@ -34,8 +34,10 @@ import {
   colocarParaTirar, reponerLosPinos, BOLA_R, PINO_R,
   colocarParaTirarDardo, valorDelDardo, DIANA_ANILLOS, DARDOS_ESPERA, DARDO_VAIVEN, puntoDelPendulo, errorDelDardo,
   colocarParaTacar, reponerLaBlanca, BOLA_BILLAR_R, HOYA_R, BILLAR_ESPERA,
+  comidaPorId, armaPorId, LAB_SILBATO, LAB_LINTERNA, LAB_MOCHILA,
+  LAB_TIZA_DURA, LAB_HUIDA, LAB_CONGELA,
   esPared, LAB_BULTO, FANTASMA_VEL, FANTASMA_STUN, celdaLibreDe, centroDeCelda,
-  LAB_RELOJ, LAB_ENTRE_FASES, montarFaseDelLaberinto, LAB_FILA, LAB_MIGA, LAB_RASTRO,
+  LAB_ENTRE_FASES, montarFaseDelLaberinto, LAB_FILA, LAB_MIGA, LAB_RASTRO,
   FANTASMA_TREGUA, FANTASMA_CAZA, FANTASMA_RETIRADA,
 } from "./estado.js";
 
@@ -405,6 +407,11 @@ export function seleccionarArma(e: Estado, p: Jugador, i: number) {
 export function usarArma(e: Estado, p: Jugador) {
   if (e.over) return;
   if (p.stun > 0 || p.cd > 0) return;
+  /* En el laberinto, si llevas el especial del bloque en la mano, el botón lo
+     usa ESO: lo has recogido a propósito y es mejor que la chancla. Cuando se
+     acaba, el mismo botón vuelve a tirar la chancla de siempre. Un botón nuevo
+     habría sido más fácil de programar y peor de jugar. */
+  if (e.laberinto && usarArmaDelLaberinto(e, p)) return;
   const w = WEAPONS[p.wsel];
   const r = rumboDeTiro(p);
   const dx = r.x, dy = r.y;
@@ -1367,11 +1374,23 @@ function avanzarJugador(e: Estado, p: Jugador, ent: EntradaJugador | undefined, 
      esto, cortar por fuera de cada curva salía gratis. */
   const hierba = e.reglas.modo === "carrera" && !dificultadDe(e.reglas).topes &&
                  !sobreLaPista(e, p) ? dificultadDe(e.reglas).fuera : 1;
-  const speed = (p.carry ? 196 : 268) * (p.boost > 0 ? 1.75 : 1) * multDeMontura(e, p) * hierba;
+  const speed = (p.carry ? 196 : 268) * (p.boost > 0 ? 1.75 : 1) * multDeMontura(e, p) * hierba
+                * veloDelLaberinto(e, p);
   p.vx = lerp(p.vx, ix * speed, 1 - Math.pow(0.0009, dt));
   p.vy = lerp(p.vy, iy * speed, 1 - Math.pow(0.0009, dt));
-  p.x = clamp(p.x + p.vx * dt, 22, WORLD_W - 22);
-  p.y = clamp(p.y + p.vy * dt, 22, WORLD_H - 22);
+  /* Los topes. Dentro del laberinto los pone EL LABERINTO y no el mundo: con
+     99 niveles el de arriba mide 3 220 px de lado y el mundo 2 100 de alto, así
+     que el borde del mapa recortaba los pasillos de fuera. Aquí el laberinto es
+     el mundo, y de todas formas `pasoLaberinto` lo vuelve a clampar contra la
+     rejilla un instante después. */
+  const lab = e.laberinto;
+  if (lab && lab.celdas.length){
+    p.x = clamp(p.x + p.vx * dt, lab.origen.x + 22, lab.origen.x + lab.ancho * lab.celda - 22);
+    p.y = clamp(p.y + p.vy * dt, lab.origen.y + 22, lab.origen.y + lab.alto * lab.celda - 22);
+  } else {
+    p.x = clamp(p.x + p.vx * dt, 22, WORLD_W - 22);
+    p.y = clamp(p.y + p.vy * dt, 22, WORLD_H - 22);
+  }
 
   /* ---- la orilla ----
      A pie el agua te para en seco; con tabla o flotador se entra. Si te bajas
@@ -1535,6 +1554,14 @@ function avanzarJugador(e: Estado, p: Jugador, ent: EntradaJugador | undefined, 
       c.x += c.vx * dt; c.y += c.vy * dt;
       c.travel += Math.hypot(c.vx, c.vy) * dt;
       if (c.travel > 420 || c.x < 14 || c.x > WORLD_W - 14 || c.y < 14 || c.y > WORLD_H - 14) c.state = "back";
+      /* En el laberinto la chancla CHOCA con las paredes: una chancla que
+         atraviesa muros mata monstruos desde el otro pasillo, y entonces no
+         hace falta ni acercarse. Al chocar se vuelve, como cuando llega al
+         final de su vuelo. */
+      const lab2 = e.laberinto;
+      if (lab2 && lab2.celdas.length &&
+          esPared(lab2, Math.floor((c.x - lab2.origen.x) / lab2.celda),
+                        Math.floor((c.y - lab2.origen.y) / lab2.celda))) c.state = "back";
     } else {
       const dx = p.x - c.x, dy = (p.y - 12) - c.y, m = Math.hypot(dx, dy) || 1;
       c.x += dx / m * 760 * dt; c.y += dy / m * 760 * dt;
@@ -1553,6 +1580,26 @@ function avanzarJugador(e: Estado, p: Jugador, ent: EntradaJugador | undefined, 
       }
       c.state = "back";
     };
+    /* ---- chanclazo a un monstruo ----
+       Esto faltaba, y era raro: el juego se llama Chancla Edition, la chancla
+       noquea ladrones y abuelas desde el primer día, y en el laberinto no
+       servía absolutamente para nada. Ahora un chanclazo congela al bicho el
+       mismo rato que la linterna — o sea que hay una respuesta SIEMPRE, aunque
+       no hayas encontrado el especial del bloque. */
+    if (e.laberinto)
+      for (const f of e.laberinto.fantasmas) {
+        if (f.stun > 0) continue;
+        if (dist2(c.x, c.y, f.x, f.y) > 34 * 34) continue;
+        f.stun = LAB_CONGELA;
+        f.vx = 0; f.vy = 0;
+        p.stats.hits++;
+        texto(e, f.x, f.y - 40, "¡CHANCLETAZO!", "#FF3D6E");
+        polvo(e, f.x, f.y, "#FFEFE2", 16);
+        sonar(e, "whack");
+        c.state = "back";
+        break;
+      }
+
     for (const t of e.thieves)
       if (t.stun <= 0 && dist2(c.x, c.y, t.x, t.y - 14) < 30 * 30) { t.isGuard = false; golpear(t, false); break; }
     if (c.state === "out")
@@ -2747,6 +2794,146 @@ export function empujarFueraDeParedes(
   }
 }
 
+/* ============================================================
+   Los especiales del laberinto
+   ============================================================
+   Cada bloque de tres niveles trae DOS cosas tiradas por el laberinto: una de
+   comer y un arma. Es lo que mantiene los 99 niveles distintos después de que
+   el tamaño y la cantidad de monstruos topen — y lo importante es que ninguno
+   es un adorno: cada uno cambia una decisión concreta.
+
+   · Mango, corres más: puedes intentar el callejón que antes no daba tiempo.
+   · Chicha, se retiran: siete segundos para trabajar sin mirar atrás.
+   · Granadilla, ves las jaulas por las paredes: se acaba explorar a ciegas.
+   · Helado, te perdonan una: la apuesta arriesgada sale a cuenta.
+   · Maracuyá, tu fila te alcanza: los amigos dejan de descolgarse.
+   · Tiza, una raya que no cruzan: cierras un pasillo y el otro lado es tuyo.
+   · Silbato, huyen de ti: te abres paso en un cruce tomado.
+   · Linterna, congela al de delante: pasas por donde no se puede pasar.
+   · Mochilazo, todos a su esquina: el botón de pánico, y solo uno. */
+
+/** Recoger lo que hay en el suelo, y los relojes de lo que llevas puesto. */
+function especialesDelLaberinto(e: Estado, dt: number): void {
+  const l = e.laberinto!;
+
+  /* Los relojes. El poder se gasta solo; el arma se gasta al usarla. */
+  l.poderes.forEach((q, i) => {
+    if (!q) return;
+    q.queda -= dt;
+    if (q.queda <= 0) l.poderes[i] = null;
+  });
+  for (const t of l.tizas) t.queda -= dt;
+  if (l.tizas.some(t => t.queda <= 0)) l.tizas = l.tizas.filter(t => t.queda > 0);
+
+  /* Recogerlos. Con el mismo alcance que abrir una jaula: si fuera más corto
+     habría que pisar el píxel exacto, y esto se juega corriendo. */
+  for (const s of l.especiales) {
+    if (s.tomado) continue;
+    for (const p of e.players) {
+      if (p.stun > 0) continue;
+      if (dist2(p.x, p.y, s.x, s.y) > (l.celda * 0.5) ** 2) continue;
+      const k = e.players.indexOf(p);
+      s.tomado = true;
+
+      if (s.clase === "arma") {
+        const a = armaPorId(s.tipo)!;
+        l.bolsas[k] = { tipo: a.id, usos: a.usos };
+        texto(e, s.x, s.y - 30, "¡" + a.nombre + "! " + a.dice, "#5CE1EA");
+        polvo(e, s.x, s.y, "#5CE1EA", 16);
+      } else {
+        const c = comidaPorId(s.tipo)!;
+        /* La maracuyá no dura: hace su cosa y se va. */
+        if (c.efecto === "fila") {
+          for (const o of l.jaulas)
+            if (o.libre && o.porQuien === k) { o.amigo.x = p.x; o.amigo.y = p.y; }
+        } else {
+          l.poderes[k] = { tipo: c.efecto, queda: c.dura };
+        }
+        texto(e, s.x, s.y - 30, "¡" + c.nombre + "! " + c.dice, "#FFC53D");
+        polvo(e, s.x, s.y, "#FFC53D", 18);
+      }
+      sonar(e, "win");
+      break;
+    }
+  }
+}
+
+/** ¿Tienes puesto este poder? */
+function tienePoder(e: Estado, p: Jugador, tipo: string): boolean {
+  const l = e.laberinto;
+  if (!l) return false;
+  const q = l.poderes[e.players.indexOf(p)];
+  return !!q && q.tipo === tipo;
+}
+
+/** Lo que corres de más en el laberinto: el mango, y nada más. */
+function veloDelLaberinto(e: Estado, p: Jugador): number {
+  return tienePoder(e, p, "veloz") ? 1.4 : 1;
+}
+
+/** Usa el arma del bloque. Devuelve `true` si la usó — y entonces el botón NO
+    tira la chancla, que es lo que hace que un botón sirva para las dos cosas
+    sin ambigüedad: mientras tengas usos, el especial; cuando se acabe, chancla. */
+function usarArmaDelLaberinto(e: Estado, p: Jugador): boolean {
+  const l = e.laberinto;
+  if (!l || l.ganador != null || l.entreFases > 0) return false;
+  const k = e.players.indexOf(p);
+  const bolsa = l.bolsas[k];
+  if (!bolsa || bolsa.usos <= 0) return false;
+
+  const cerca = (celdas: number) =>
+    l.fantasmas.filter(f => dist2(p.x, p.y, f.x, f.y) < (l.celda * celdas) ** 2);
+
+  if (bolsa.tipo === "tiza") {
+    /* La raya se pone EN TU CELDA, no donde apuntas: es una puerta que cierras
+       detrás de ti, y para eso hay que poder ponerla sin dejar de correr. */
+    const [gx, gy] = celdaLibreDe(l, p.x, p.y);
+    const c = centroDeCelda(l, gx, gy);
+    l.tizas.push({ x: c.x, y: c.y, queda: LAB_TIZA_DURA });
+    texto(e, p.x, p.y - 40, "¡Raya de tiza!", "#F3EAF0");
+    polvo(e, c.x, c.y, "#F3EAF0", 12);
+  } else if (bolsa.tipo === "silbato") {
+    const oyen = cerca(LAB_SILBATO);
+    if (!oyen.length) {
+      texto(e, p.x, p.y - 40, "Nadie lo oyó", "#8E9BB5");
+      return true;                       // gasta el uso: el silbato no adivina
+    }
+    for (const f of oyen) f.huye = LAB_HUIDA;
+    texto(e, p.x, p.y - 40, "¡Silbato! Huyen " + oyen.length, "#FFC53D");
+  } else if (bolsa.tipo === "linterna") {
+    /* Al de delante, o sea al más cercano en la dirección en la que mires. Sin
+       la dirección sería un botón de «congela al azar». */
+    const r = rumboDeTiro(p);
+    const delante = cerca(LAB_LINTERNA)
+      .filter(f => (f.x - p.x) * r.x + (f.y - p.y) * r.y > 0)
+      .sort((a, b) => dist2(p.x, p.y, a.x, a.y) - dist2(p.x, p.y, b.x, b.y))[0];
+    if (!delante) {
+      texto(e, p.x, p.y - 40, "Ahí no hay nadie", "#8E9BB5");
+      return true;
+    }
+    delante.stun = Math.max(delante.stun, LAB_CONGELA);
+    texto(e, delante.x, delante.y - 34, "¡Congelado!", "#5CE1EA");
+    polvo(e, delante.x, delante.y, "#5CE1EA", 14);
+  } else if (bolsa.tipo === "mochila") {
+    /* El botón de pánico, y solo uno por bloque: los de alrededor se van a su
+       esquina. No los congela — los MANDA LEJOS, que es distinto y peor para
+       ellos, porque tienen que volver. */
+    const alrededor = cerca(LAB_MOCHILA);
+    for (const f of alrededor) {
+      f.x = f.casa.x; f.y = f.casa.y; f.vx = 0; f.vy = 0; f.huye = LAB_HUIDA;
+    }
+    texto(e, p.x, p.y - 40, alrededor.length ? "¡MOCHILAZO! " + alrededor.length + " fuera"
+                                             : "¡Mochilazo al aire!", "#FF7A3D");
+    polvo(e, p.x, p.y, "#FF7A3D", 22);
+  } else return false;
+
+  bolsa.usos--;
+  if (bolsa.usos <= 0) l.bolsas[k] = null;
+  p.cd = 0.35;
+  sonar(e, "throw");
+  return true;
+}
+
 function pasoLaberinto(e: Estado, dt: number): void {
   const l = e.laberinto;
   if (!l || l.ganador != null) return;
@@ -2772,6 +2959,7 @@ function pasoLaberinto(e: Estado, dt: number): void {
     }
   });
   colocarLaFila(e);
+  especialesDelLaberinto(e, dt);
 
   l.reloj -= dt;
 
@@ -2828,20 +3016,33 @@ function pasoLaberinto(e: Estado, dt: number): void {
   /* La ronda: persiguen un rato, se retiran otro. Sin la retirada, el juego es
      huir o que te cacen y no queda ventana para rescatar a nadie. */
   l.ronda -= dt;
-  if (l.ronda < -FANTASMA_RETIRADA) l.ronda = FANTASMA_CAZA;
-  const cazando = l.ronda > 0;
+  if (l.ronda < -l.retirada) l.ronda = l.caza;
+  /* La chicha morada los manda a retirarse en el momento. Vale para todos los
+     que jueguen, no solo para quien la bebió: en un laberinto compartido, media
+     retirada no se puede dibujar ni entender. */
+  const calma = l.poderes.some(q => q && q.tipo === "calma");
+  const cazando = l.ronda > 0 && !calma;
 
   for (const gh of l.fantasmas) {
-    /* Cazando van a por el más cercano; retirados, a su esquina. */
+    /* Congelado (chancla, linterna): no se mueve, y ahí está su gracia — es la
+       ventana para pasar por delante o abrir la jaula que tiene detrás. */
+    if (gh.stun > 0) { gh.stun -= dt; gh.vx = 0; gh.vy = 0; continue; }
+    if (gh.huye > 0) gh.huye -= dt;
+
+    /* Cazando van a por el más cercano; retirados, a su esquina; y huyendo, al
+       revés — lo contrario de donde estés. */
     let presa: { x: number; y: number } | null = cazando ? null : gh.casa;
     let nd = Infinity;
     if (cazando) for (const p of e.players) {
       const d = dist2(p.x, p.y, gh.x, gh.y);
       if (d < nd) { nd = d; presa = p; }
     }
+    if (gh.huye > 0 && presa) presa = { x: gh.x * 2 - presa.x, y: gh.y * 2 - presa.y };
     if (presa) {
       const dx = presa.x - gh.x, dy = presa.y - gh.y;
-      const paso = FANTASMA_VEL * dt;
+      /* Cada bicho corre lo suyo: La Mano vuela y El Muñeco arrastra. */
+      const suya = FANTASMA_VEL * (gh.vel || 1);
+      const paso = suya * dt;
       const intentos: [number, number][] = Math.abs(dx) > Math.abs(dy)
         ? [[Math.sign(dx), 0], [0, Math.sign(dy)]]
         : [[0, Math.sign(dy)], [Math.sign(dx), 0]];
@@ -2849,11 +3050,15 @@ function pasoLaberinto(e: Estado, dt: number): void {
       for (const [ix, iy] of intentos) {
         if (!ix && !iy) continue;
         const nx = gh.x + ix * paso, ny = gh.y + iy * paso;
+        /* La tiza: una raya en el suelo que no cruzan. Se comprueba ANTES de
+           mover, así que sirve de pared de verdad — y por eso vale para cerrar
+           un pasillo y trabajar tranquilo al otro lado. */
+        if (l.tizas.some(t => t.queda > 0 && dist2(nx, ny, t.x, t.y) < (l.celda * 0.5) ** 2)) continue;
         const prueba = { x: nx, y: ny };
         empujarFueraDeParedes(l, prueba, LAB_BULTO);
         if (Math.hypot(prueba.x - nx, prueba.y - ny) > paso * 0.5) continue;
         gh.x = prueba.x; gh.y = prueba.y;
-        gh.vx = ix * FANTASMA_VEL; gh.vy = iy * FANTASMA_VEL;
+        gh.vx = ix * suya; gh.vy = iy * suya;
         anduvo = true;
         break;
       }
@@ -2884,9 +3089,21 @@ function pasoLaberinto(e: Estado, dt: number): void {
       p.inmune = FANTASMA_TREGUA;
       polvo(e, p.x, p.y, "#FF3D6E", 16);
       sonar(e, "ouch");
+      /* ---- el helado te perdona una ----
+         Es lo que hace que valga la pena meterse en un callejón sabiendo que hay
+         un monstruo cerca: con el escudo puesto, la apuesta sale a cuenta. */
+      const poder = l.poderes[k];
+      if (poder && poder.tipo === "escudo") {
+        l.poderes[k] = null;
+        texto(e, p.x, p.y - 46, "¡El helado te salvó!", "#5CE1EA");
+        polvo(e, p.x, p.y, "#5CE1EA", 18);
+        sonar(e, "grab");
+        continue;
+      }
+
       /* ---- de vuelta a la entrada ----
          Con tu fila entera, que va contigo. Lo que cuesta es el camino de
-         vuelta, y en un laberinto de 23 eso es un castigo de verdad — sin
+         vuelta, y en un laberinto grande eso es un castigo de verdad — sin
          deshacer ni un rescate, que eso ya se probó y rompía el juego. */
       texto(e, p.x, p.y - 46, "¡Te atrapó! Vuelta a la entrada", "#FF5C86");
       p.x = l.entrada.x; p.y = l.entrada.y;

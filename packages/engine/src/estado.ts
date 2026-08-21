@@ -3,7 +3,7 @@
 
 import type {
   Base, Billar, DesfileItem, Estado, Evento, Florin, Jugador, Laser, Pedestal, RefObjetivo,
-  Rect, RefPed, Reglas, SitioDeJuego, JuegoDeSitio, Sonido, Tenis, Trasto, Variante, Voley, Circulo, Pino, Dardos, Bola, Laberinto, Jaula, Fantasma,
+  Rect, RefPed, Reglas, SitioDeJuego, JuegoDeSitio, Sonido, Tenis, Trasto, Variante, Voley, Circulo, Pino, Dardos, Bola, Laberinto, Jaula, Fantasma, Especial,
 } from "./tipos.js";
 import {
   ESCENARIOS, FLORES, GOAL, LASER_CARGA, PATIOS_PRECIO, TIERS, TRASTOS_ESCENARIO,
@@ -1481,12 +1481,186 @@ export function aLaCarreraDeObs(e: Estado): void {
    Un amigo liberado no desaparece — se queda ahí celebrando, que es la mitad
    del premio. */
 export const LAB_CELDA = 92;
-/** El lado de la rejilla en cada fase: 17, 21, 25. Impar siempre, que es como
-    funciona el cavado (celdas de paso en las impares, paredes en las pares). */
-export const LAB_LADOS = [15, 19, 23];
-export const LAB_FASES = LAB_LADOS.length;
-/** Jaulas por fase, y fantasmas por fase. */
-export const LAB_JAULAS = [4, 5, 6], LAB_FANTASMAS = [1, 2, 3];
+
+/** NOVENTA Y NUEVE niveles. No son 99 laberintos escritos a mano: son tres
+    curvas y un bestiario, y de ahí sale cada nivel.
+
+    Antes eran tres fases con las tallas a mano (15, 19, 23). Con 99 eso no se
+    puede, y tampoco se puede dejar la talla quieta: el pedido era que crezca
+    «cada 9 niveles un poco más», y eso es exactamente lo que hace `ladoDelNivel`
+    — un escalón de dos celdas cada nueve niveles, sin tope, de 15 en el primero
+    a 35 en el último.
+
+    Que no quepa en pantalla ya no es un problema: la cámara TE SIGUE en cuanto
+    el laberinto es más grande que la vista, y hay mapita en la esquina. Lo que
+    sí es un límite de verdad es el borde del mundo (2 100 px de alto), y por eso
+    dentro del laberinto el jugador se clampa al LABERINTO y no al mundo: aquí el
+    laberinto ES el mundo. */
+/* ---- el bestiario ----
+   Cada nivel tiene su monstruo de cabecera, y a los seis niveles lo acompañan
+   los de los niveles anteriores. Es lo que hace que 99 niveles no sean el mismo
+   nivel 99 veces: cambia a QUIÉN tienes detrás, y cada uno corre lo suyo.
+
+   Son bichos NUESTROS, no los de nadie. Se parecen de género a los monstruos de
+   los juegos de laberinto que le gustan al jugador —un venado con cuernos, un
+   conejo de felpa, un payaso— porque ese es el escalofrío que se busca, pero ni
+   los nombres ni los dibujos son de otro juego: esto se publica en un dominio
+   público y meter el personaje de otro es meterse en un lío ajeno. La Profe, de
+   hecho, es del colegio de este juego y de ningún otro.
+
+   `vel` es un multiplicador sobre `FANTASMA_VEL`, y es la mitad de la
+   personalidad: La Mano corre y el Muñeco arrastra. Que se note DE UN VISTAZO
+   cuál te viene detrás es justo lo que hace que la silueta importe. */
+export const BESTIARIO: { id: string; nombre: string; vel: number; color: string }[] = [
+  { id: "sombra", nombre: "LA SOMBRA", vel: 1.00, color: "#FF5C86" },
+  { id: "venado", nombre: "EL VENADO", vel: 1.07, color: "#E8DCC0" },
+  { id: "conejo", nombre: "EL CONEJO", vel: 0.93, color: "#F7A8CF" },
+  { id: "mano",   nombre: "LA MANO",   vel: 1.12, color: "#FF9E5C" },
+  { id: "payaso", nombre: "EL PAYASO", vel: 1.00, color: "#FF7A3D" },
+  { id: "arana",  nombre: "LA ARAÑA",  vel: 1.05, color: "#B98CFF" },
+  { id: "muneco", nombre: "EL MUÑECO", vel: 0.88, color: "#C08A4A" },
+  { id: "profe",  nombre: "LA PROFE",  vel: 0.97, color: "#5CE1EA" },
+];
+/** El color de un bicho por su id. Es la señal que se lee a CUALQUIER tamaño:
+    en el nivel 30 el laberinto mide 57 celdas y un monstruo son doce píxeles de
+    pantalla — ahí la silueta no se distingue y el color sí. Es lo que hacen los
+    fantasmas del Pac-Man, y por eso lo hacen. */
+export function colorDeBicho(id: string): string {
+  return BESTIARIO.find(b => b.id === id)?.color ?? "#FF5C86";
+}
+
+export const LAB_NIVELES = 99;
+export const LAB_FASES = LAB_NIVELES;
+
+/** El escalón: cada SEIS niveles cambia todo a la vez. Con 99 niveles eso son
+    dieciséis escalones, del laberinto de 15 celdas al de 47 — 4 324 px de lado,
+    que es cuatro veces el primero. Cabe porque no tiene que caber: la cámara te
+    sigue y el mapita de la esquina te sitúa.
+
+    Que sea UN número y no uno por cosa es a propósito: si el tamaño creciera
+    cada 6, los monstruos cada 8 y las jaulas cada 5, cada nivel cambiaría algo
+    distinto y no se sabría qué. Así, cada seis niveles se nota un salto entero. */
+export const LAB_ESCALON = 3;
+const escalon = (n: number) => Math.floor(Math.max(0, n) / LAB_ESCALON);
+
+/** Impar siempre, que es como funciona el cavado (celdas de paso en las
+    impares, paredes en las pares) — y 15 + 2k lo es siempre. */
+/* ---- la forma del laberinto ----
+   No es cuadrado, y eso es a propósito: las pantallas son anchas y un laberinto
+   cuadrado dejaba dos franjas de patio vacío a los lados. Con la proporción del
+   mundo (3 600 × 2 100, o sea 1,7:1 — casi 16:9) el laberinto LLENA la pantalla
+   a lo ancho, que es lo que se pidió.
+
+   El alto crece un escalón cada tres niveles con tope: sin tope, el último
+   mediría 79 celdas de alto y cruzarlo sería un paseo, no una persecución. */
+export function altoDelNivel(n: number): number {
+  return 15 + 2 * Math.min(escalon(n), 9);
+}
+export function anchoDelNivel(n: number): number {
+  /* Impar siempre, que es como funciona el cavado. */
+  const a = Math.round(altoDelNivel(n) * 1.7);
+  return a % 2 ? a : a + 1;
+}
+/** El lado, para lo que solo necesita una medida (el reloj, las pruebas). */
+export function ladoDelNivel(n: number): number { return altoDelNivel(n); }
+/** Jaulas y monstruos. Los dos tienen tope, y los topes NO son por gusto:
+    dieciséis escalones sin freno serían veinte jaulas y diecisiete monstruos.
+    Ocho monstruos es el bestiario entero a la vez —el final de verdad— y
+    dieciséis jaulas es lo que cabe en la fila (1 200 px de rastro a 46 px de
+    separación dan para veintiséis, así que sobra). */
+export function jaulasDelNivel(n: number): number {
+  return Math.min(4 + escalon(n), 16);
+}
+export function monstruosDelNivel(n: number): number {
+  return Math.min(1 + escalon(n), BESTIARIO.length);
+}
+
+/* ---- los especiales del bloque ----
+   Cada tres niveles cambia la pareja: una comida y un arma. Es lo que mantiene
+   los 99 niveles distintos DESPUÉS de que el tamaño y la cantidad topen —
+   cinco comidas por cuatro armas por tres formas de laberinto son sesenta
+   combinaciones, y el monstruo de cabecera rota aparte.
+
+   Ninguno es un adorno. Cada uno cambia una decisión concreta del nivel: con
+   Granadilla ya no hay que explorar a ciegas, con Tiza puedes cerrar un pasillo
+   y trabajar tranquilo, con Helado te arriesgas a un callejón porque te
+   perdonan una. */
+export const LAB_COMIDAS: { id: string; nombre: string; efecto: string; dura: number; dice: string }[] = [
+  { id: "mango",      nombre: "MANGO",         efecto: "veloz",  dura: 8,  dice: "¡Corres más!" },
+  { id: "chicha",     nombre: "CHICHA MORADA", efecto: "calma",  dura: 7,  dice: "¡Se retiran!" },
+  { id: "granadilla", nombre: "GRANADILLA",    efecto: "luz",    dura: 14, dice: "¡Ves las jaulas!" },
+  { id: "helado",     nombre: "HELADO",        efecto: "escudo", dura: 25, dice: "¡Te perdonan una!" },
+  { id: "maracuya",   nombre: "MARACUYÁ",      efecto: "fila",   dura: 0,  dice: "¡Tu fila te alcanza!" },
+];
+export const LAB_ARMAS: { id: string; nombre: string; usos: number; dice: string }[] = [
+  { id: "tiza",     nombre: "TIZA",      usos: 2, dice: "una raya que no cruzan" },
+  { id: "silbato",  nombre: "SILBATO",   usos: 2, dice: "huyen de ti" },
+  { id: "linterna", nombre: "LINTERNA",  usos: 3, dice: "congela al de delante" },
+  { id: "mochila",  nombre: "MOCHILAZO", usos: 1, dice: "todos a su esquina" },
+];
+export function especialesDelNivel(n: number): {
+  comida: typeof LAB_COMIDAS[number]; arma: typeof LAB_ARMAS[number];
+} {
+  const b = escalon(n);
+  /* Cinco y cuatro, que no tienen divisor común: la pareja no se repite hasta
+     el bloque veinte, o sea el nivel sesenta. */
+  return { comida: LAB_COMIDAS[b % LAB_COMIDAS.length], arma: LAB_ARMAS[b % LAB_ARMAS.length] };
+}
+/** Lo que dura un poder, del propio catálogo. */
+export function comidaPorId(id: string) { return LAB_COMIDAS.find(c => c.id === id); }
+export function armaPorId(id: string) { return LAB_ARMAS.find(a => a.id === id); }
+/** El alcance de las armas del laberinto, en celdas. */
+export const LAB_SILBATO = 5, LAB_LINTERNA = 4, LAB_MOCHILA = 3;
+export const LAB_TIZA_DURA = 12, LAB_HUIDA = 7, LAB_CONGELA = 5;
+/** El reloj del nivel. No es uno para toda la partida —con 99 niveles eso no
+    tiene sentido—: cada nivel trae el suyo, y quedarse sin tiempo acaba la
+    racha. La cuenta sale de lo que el nivel PIDE: un rato por jaula más el
+    tamaño del laberinto, porque cruzar uno de 47 celdas cuesta lo suyo. */
+export function relojDelNivel(n: number): number {
+  /* Sale de lo que el nivel PIDE: un rato por jaula más lo que mide el
+     laberinto. El tamaño pesa el doble desde que es rectangular — el de arriba
+     mide 57 × 33 celdas y cruzarlo de punta a punta son 5 244 px. */
+  return 35 + jaulasDelNivel(n) * 12 + (anchoDelNivel(n) + altoDelNivel(n)) * 2;
+}
+
+/* ---- las variantes ----
+   El tamaño y la cantidad solos convierten el nivel 60 en el nivel 1 pero más
+   largo. Lo que de verdad cambia una persecución es la FORMA del laberinto y el
+   RITMO de los monstruos, y eso es lo que rota aquí.
+
+   El trenzado es el que más se nota: un laberinto cavado de la forma normal no
+   tiene bucles —entre dos puntos hay un solo camino—, así que huir es elegir
+   bien la primera vez y luego rezar. Tumbando algunas paredes de más aparecen
+   bucles, y con bucles se puede DAR LA VUELTA a un monstruo. Son dos juegos
+   distintos, y a partir del nivel 7 se alternan. */
+export function varianteDelNivel(n: number): {
+  trenzado: number; caza: number; retirada: number; nombre: string;
+} {
+  const forma = escalon(n) % 3;
+  return {
+    /* Qué parte de los callejones sin salida se abre. 0 es el laberinto puro. */
+    trenzado: forma === 0 ? 0 : forma === 1 ? 0.18 : 0.38,
+    /* Y el ritmo aprieta con los escalones: menos descanso arriba, con suelo.
+       Sin suelo, en el nivel 90 no habría ventana para rescatar a nadie. */
+    caza: FANTASMA_CAZA + Math.min(escalon(n) * 0.4, 6),
+    retirada: Math.max(2.5, FANTASMA_RETIRADA - escalon(n) * 0.15),
+    nombre: forma === 0 ? "sin vueltas" : forma === 1 ? "con atajos" : "todo bucles",
+  };
+}
+
+/** El de cabecera del nivel: el que se anuncia en el cartel. */
+export function monstruoDelNivel(n: number): { id: string; nombre: string; vel: number } {
+  return BESTIARIO[Math.max(0, n) % BESTIARIO.length];
+}
+/** Quiénes salen en el nivel: el de cabecera primero y detrás los ya conocidos,
+    hacia atrás. Así el monstruo nuevo es el que ves primero. */
+export function monstruosDe(n: number): { id: string; nombre: string; vel: number }[] {
+  const cuantos = monstruosDelNivel(n);
+  const salen = [];
+  for (let k = 0; k < cuantos; k++)
+    salen.push(BESTIARIO[((n - k) % BESTIARIO.length + BESTIARIO.length) % BESTIARIO.length]);
+  return salen;
+}
 /** El radio de quien anda por ahí, para las paredes. Va HOLGADO a propósito:
     con 22 sobre pasillos de 92 px, cualquiera que fuera un poco descentrado se
     clavaba en la esquina de la celda de al lado. */
@@ -1522,7 +1696,10 @@ export function aElLaberinto(e: Estado): void {
     puntos: e.players.map(() => 0),
     entrada: { x: 0, y: 0 }, rastros: e.players.map(() => []),
     ronda: FANTASMA_CAZA, entreFases: 0,
-    reloj: LAB_RELOJ, ganador: null,
+    caza: FANTASMA_CAZA, retirada: FANTASMA_RETIRADA, forma: "sin vueltas",
+    especiales: [], tizas: [],
+    poderes: e.players.map(() => null), bolsas: e.players.map(() => null),
+    reloj: relojDelNivel(0), ganador: null,
   };
   repartirEquipos(e);
   montarFaseDelLaberinto(e, 0);
@@ -1533,16 +1710,18 @@ export function montarFaseDelLaberinto(e: Estado, fase: number): void {
   const l = e.laberinto;
   if (!l) return;
   const { cx, cy } = centroDelMapa();
-  const lado = LAB_LADOS[Math.min(fase, LAB_LADOS.length - 1)];
+  /* RECTANGULAR, en la proporción del mundo: un laberinto cuadrado dejaba dos
+     franjas de patio vacío a los lados de la pantalla. */
+  const ancho = anchoDelNivel(fase), alto = altoDelNivel(fase);
   const c = LAB_CELDA;
-  const origen = { x: Math.round(cx - (lado * c) / 2), y: Math.round(cy - (lado * c) / 2) };
+  const origen = { x: Math.round(cx - (ancho * c) / 2), y: Math.round(cy - (alto * c) / 2) };
   const centroDe = (gx: number, gy: number) =>
     ({ x: origen.x + gx * c + c / 2, y: origen.y + gy * c + c / 2 });
 
   /* Todo pared, y se cava de dos en dos: una celda de paso y una de pared entre
      medias, que es lo que hace que salgan pasillos y no una sala. */
   const celdas: boolean[][] = [];
-  for (let y = 0; y < lado; y++) { celdas[y] = []; for (let x = 0; x < lado; x++) celdas[y][x] = true; }
+  for (let y = 0; y < alto; y++) { celdas[y] = []; for (let x = 0; x < ancho; x++) celdas[y][x] = true; }
   const pila: [number, number][] = [[1, 1]];
   celdas[1][1] = false;
   while (pila.length) {
@@ -1556,25 +1735,62 @@ export function montarFaseDelLaberinto(e: Estado, fase: number): void {
     pila.push([gx + dx, gy + dy]);
   }
 
+  /* ---- el trenzado ----
+     El cavado normal no deja bucles: entre dos puntos hay UN camino, así que
+     huir es acertar la primera vez y luego rezar. Abriendo parte de los
+     callejones sin salida aparecen bucles, y con bucles se puede dar la vuelta
+     a un monstruo. Son dos juegos distintos, y por eso rota por niveles.
+
+     Se tumba la pared que da a OTRO PASILLO, no una cualquiera: tumbar paredes
+     al azar deja salas, y una sala no es un laberinto. */
+  const V = varianteDelNivel(fase);
+  const salidasDe = (x: number, y: number) =>
+    ([[0, -1], [0, 1], [-1, 0], [1, 0]] as [number, number][])
+      .filter(([dx, dy]) => celdas[y + dy]?.[x + dx] === false).length;
+  if (V.trenzado > 0) {
+    const ciegos: [number, number][] = [];
+    for (let y = 1; y < alto - 1; y++) for (let x = 1; x < ancho - 1; x++)
+      if (!celdas[y][x] && salidasDe(x, y) === 1) ciegos.push([x, y]);
+    const cuantos = Math.floor(ciegos.length * V.trenzado);
+    for (let k = 0; k < cuantos; k++) {
+      const [x, y] = ciegos[Math.floor(azar(e) * ciegos.length)];
+      const opciones = ([[0, -2], [0, 2], [-2, 0], [2, 0]] as [number, number][])
+        .filter(([dx, dy]) => celdas[y + dy]?.[x + dx] === false &&
+                              celdas[y + dy / 2]?.[x + dx / 2] === true);
+      if (!opciones.length) continue;
+      const [dx, dy] = opciones[Math.floor(azar(e) * opciones.length)];
+      celdas[y + dy / 2][x + dx / 2] = false;
+    }
+  }
+
   const libres: [number, number][] = [];
-  for (let y = 0; y < lado; y++) for (let x = 0; x < lado; x++)
+  for (let y = 0; y < alto; y++) for (let x = 0; x < ancho; x++)
     if (!celdas[y][x] && !(x === 1 && y === 1)) libres.push([x, y]);
 
   /* Las jaulas van en los CALLEJONES SIN SALIDA —un amigo al fondo de un
-     callejón con un fantasma detrás es justo la decisión que este juego
+     callejón con un monstruo detrás es justo la decisión que este juego
      quiere—, pero REPARTIDAS por todo el laberinto y no amontonadas al fondo.
-     Poniéndolas en las celdas más lejanas, el laberinto de 17 se convertía en
-     una excursión: cuatro rescates en tres minutos, medido. */
-  const salidas = (x: number, y: number) =>
-    ([[0,-1],[0,1],[-1,0],[1,0]] as [number, number][])
-      .filter(([dx, dy]) => celdas[y + dy]?.[x + dx] === false).length;
-  const cuantas = LAB_JAULAS[Math.min(fase, LAB_JAULAS.length - 1)];
-  const callejones = libres.filter(([x, y]) => salidas(x, y) === 1);
+     Poniéndolas en las celdas más lejanas, el laberinto se convertía en una
+     excursión: cuatro rescates en tres minutos, medido. */
+  const cuantas = jaulasDelNivel(fase);
+  const callejones = libres.filter(([x, y]) => salidasDe(x, y) === 1);
+  /* Con trenzado quedan pocos callejones —es el punto del trenzado—, así que
+     ahí se completa con los cruces más lejanos de la entrada. Sin esto, un nivel
+     «todo bucles» nacía con dos jaulas en vez de doce. */
+  if (callejones.length < cuantas) {
+    const lejos = libres.slice()
+      .sort((a2, b2) => (Math.abs(b2[0] - 1) + Math.abs(b2[1] - 1)) -
+                        (Math.abs(a2[0] - 1) + Math.abs(a2[1] - 1)));
+    const salto2 = Math.max(1, Math.floor(lejos.length / (cuantas * 2)));
+    for (const cel of lejos.filter((_, k) => k % salto2 === 0)) {
+      if (callejones.length >= cuantas * 2) break;
+      if (!callejones.some(([x, y]) => x === cel[0] && y === cel[1])) callejones.push(cel);
+    }
+  }
   /* Uno de cada N a lo largo de la lista, que recorre la rejilla en orden: así
      salen esparcidos por el mapa y no todos en la misma esquina. */
   const salto = Math.max(1, Math.floor(callejones.length / cuantas));
   const candidatas = callejones.filter((_, k) => k % salto === 0);
-  /* Si el cavado dejó pocos callejones, se rellena con las celdas más lejanas. */
   const elegidas = candidatas.slice(0, cuantas);
   if (elegidas.length < cuantas) {
     const resto = libres
@@ -1592,29 +1808,64 @@ export function montarFaseDelLaberinto(e: Estado, fase: number): void {
     };
   });
 
-  /* Los fantasmas nacen repartidos por las esquinas del fondo. */
-  const cuantosF = LAB_FANTASMAS[Math.min(fase, LAB_FANTASMAS.length - 1)];
-  const esquinas: [number, number][] = [
-    [lado - 2, lado - 2], [1, lado - 2], [lado - 2, 1], [Math.floor(lado / 2), Math.floor(lado / 2)],
+  /* ---- los dos especiales del bloque ----
+     Uno de comer y un arma, tirados LEJOS de la entrada y lejos de las jaulas:
+     un especial pegado a la salida es un regalo, y encima de una jaula no se ve.
+     Ir por ellos tiene que ser una decisión —desviarse cuesta tiempo—, que es
+     justo lo que los hace interesantes. */
+  const { comida, arma } = especialesDelNivel(fase);
+  const ocupadas = new Set(elegidas.map(([x, y]) => x + "," + y));
+  const lejosDeTodo = libres
+    .filter(([x, y]) => !ocupadas.has(x + "," + y))
+    .filter(([x, y]) => Math.abs(x - 1) + Math.abs(y - 1) > (ancho + alto) / 4);
+  const paraEspecial = (k: number): { x: number; y: number } => {
+    if (!lejosDeTodo.length) return centroDe(Math.floor(ancho / 2), Math.floor(alto / 2));
+    /* Repartidos por la lista, que recorre la rejilla en orden: uno tira a un
+       lado del laberinto y el otro al otro. */
+    const [x, y] = lejosDeTodo[Math.floor(lejosDeTodo.length * (k === 0 ? 0.28 : 0.72))];
+    return centroDe(x, y);
+  };
+  const especiales: Especial[] = [
+    { ...paraEspecial(0), clase: "comida", tipo: comida.id, tomado: false },
+    { ...paraEspecial(1), clase: "arma", tipo: arma.id, tomado: false },
   ];
-  const fantasmas: Fantasma[] = [];
-  for (let k = 0; k < cuantosF; k++) {
+
+  /* Los monstruos nacen repartidos por las esquinas del fondo, LEJOS de la
+     entrada: nacer al lado de donde apareces es una emboscada, no un juego.
+     Cada uno trae su tipo del bestiario, y con él su dibujo y su velocidad. */
+  const quienes = monstruosDe(fase);
+  const esquinas: [number, number][] = [
+    [ancho - 2, alto - 2], [1, alto - 2], [ancho - 2, 1],
+    [Math.floor(ancho / 2), Math.floor(alto / 2)], [Math.floor(ancho / 2), alto - 2],
+    [Math.floor(ancho * 0.75), 1], [Math.floor(ancho * 0.25), alto - 2],
+    [ancho - 2, Math.floor(alto / 2)],
+  ];
+  const fantasmas: Fantasma[] = quienes.map((m, k) => {
     const [ex, ey] = esquinas[k % esquinas.length];
-    const cerca = libres.reduce((m, [x, y]) =>
-      Math.abs(x - ex) + Math.abs(y - ey) < Math.abs(m[0] - ex) + Math.abs(m[1] - ey) ? [x, y] : m, libres[0]);
+    const cerca = libres.reduce((mm, [x, y]) =>
+      Math.abs(x - ex) + Math.abs(y - ey) < Math.abs(mm[0] - ex) + Math.abs(mm[1] - ey) ? [x, y] : mm, libres[0]);
     const sitio = centroDe(cerca[0], cerca[1]);
-    fantasmas.push({ ...sitio, vx: 0, vy: 0, casa: { ...sitio } });
-  }
+    return { ...sitio, vx: 0, vy: 0, casa: { ...sitio }, tipo: m.id, vel: m.vel, stun: 0, huye: 0 };
+  });
 
   l.origen = origen; l.celda = c; l.celdas = celdas;
-  l.ancho = lado; l.alto = lado;
+  l.ancho = ancho; l.alto = alto;
   l.fase = fase; l.jaulas = jaulas; l.fantasmas = fantasmas;
+  l.especiales = especiales;
+  l.tizas = [];
+  l.poderes = e.players.map(() => null);
+  l.bolsas = e.players.map(() => null);
   l.entreFases = 0;
 
+  /* El ritmo también es del nivel: arriba persiguen más y descansan menos. */
+  l.caza = V.caza; l.retirada = V.retirada; l.forma = V.nombre;
+  l.ronda = V.caza;
+  /* El reloj es DE ESTE NIVEL, no de la partida. Con 99 niveles un solo reloj
+     no significa nada: o sobra para los tres primeros o no llega ni al décimo. */
+  l.reloj = relojDelNivel(fase);
   /* Todos salen de la entrada, separados un poco para no nacer encajados. */
   const entrada = centroDe(1, 1);
   l.entrada = entrada;
-  l.ronda = FANTASMA_CAZA;
   l.rastros = e.players.map(() => [{ ...entrada }]);
   e.players.forEach((p, i) => {
     p.x = entrada.x + (i % 2 ? 16 : -16);
