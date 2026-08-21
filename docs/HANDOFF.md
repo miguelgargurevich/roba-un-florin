@@ -8,7 +8,7 @@ Monorepo con workspaces npm:
 
 | Paquete | Qué es |
 |---|---|
-| `packages/engine` | el juego sin navegador: determinista, JSON serializable, 239 pruebas |
+| `packages/engine` | el juego sin navegador: determinista, JSON serializable, 244 pruebas |
 | `apps/web` | el cliente (Vite + canvas 2D). Solo dibuja y escucha teclas |
 | `apps/api` | cuentas, álbum, guardado, fiestas y avisos (.NET 9, Clean Arch + CQRS), 47 pruebas |
 | `apps/salas` | servidor de salas autoritativo (Node + `ws`), 36 pruebas |
@@ -23,6 +23,40 @@ A medias / sin hacer: el modo cooperativo (aplazado a propósito — una sala en
 aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Última sesión
+
+- 2026-08-11 (claude-code): **el laberinto. Los once minijuegos están enteros**
+  (`JUEGOS_LISTOS`: fútbol, tenis, vóley, básquet, hockey, lucha, carreraObs,
+  bolos, dardos, billar, laberinto).
+  Era el único que pedía algo que el motor NO tenía: **paredes que paran**
+  (`empujarFueraDeParedes`, eje a eje y por el lado de menos penetración, para
+  que en una esquina se resbale en vez de clavarse). Sin eso un laberinto es un
+  dibujo y las gemas se cogen en línea recta.
+  Es una **carrera**: cada gema cuenta para quien la coge, y el fantasma no te
+  mata — **te quita una gema**, que vuelve al tablero. Eso es lo que convierte un
+  callejón sin salida en una decisión.
+  **Cuatro fallos, y el cuarto costó de verdad.** Los tres primeros: el dibujo
+  sacaba el origen de la rejilla de la primera gema (el laberinto se desplazaba
+  al coger una); el radio de recogida eran 30 px sobre celdas de 92 (el bot
+  orbitaba la gema que tenía debajo); y los trastos del colegio seguían dentro —
+  una patineta en un pasillo se monta al pisarla y te lleva donde ella quiera.
+  El cuarto: **los dos bots y el fantasma se quedaban clavados en la misma celda
+  desde el segundo 20 hasta el final**, en todas las semillas. Cinco cambios de
+  fondo dieron salida byte a byte IDÉNTICA, que es la pista de que se estaba
+  mirando el sitio equivocado. Era el bot alternando entre **huir del fantasma**
+  (radio 200 px, dos celdas) e **ir a por su gema**: las dos decisiones
+  correctas por separado, y juntas un ciclo de dos que lo dejaba subiendo y
+  bajando en el sitio. Con el radio a 110 px —una celda, o sea una emergencia de
+  verdad— se arregló solo. Lección: cuando cinco arreglos no cambian NADA, el
+  problema no está donde se busca; hay que trazar la decisión, no el efecto.
+  De paso quedó el compromiso del bot con su gema (`Jugador.bot.meta`) y
+  `celdaLibreDe`, que resuelve que `floor()` te sitúe en la pared de al lado
+  cuando rozas el borde de un pasillo.
+  Medido: partidas de 53 a 83 s por gemas, con 13 a 36 capturas del fantasma; y
+  **reloj de 120 s** como garantía de que siempre hay resultado.
+  **Lo flojo, dicho claro**: el bot del laberinto es el peor de los once. Uno de
+  los dos acaba haciendo de comparsa (27-1 en la peor semilla), y un «humano» de
+  prueba que va en línea recta no navega el laberinto — un jugador de verdad sí,
+  pero eso no lo he podido medir.
 
 - 2026-08-11 (claude-code): **el billar**. Décimo minijuego entero — quedan
   **solo el laberinto** (`JUEGOS_LISTOS`: fútbol, tenis, vóley, básquet, hockey,

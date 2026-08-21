@@ -109,8 +109,12 @@ export interface Jugador {
   carry: Florin | null;
   stun: number; boost: number; invis: number;
   escudo: number; inmune: number;
-  /** solo los asientos que juega la máquina: a dónde iba y cuándo repensarlo */
-  bot?: { x: number; y: number; repensar: number };
+  /** solo los asientos que juega la máquina: a dónde iba y cuándo repensarlo.
+      `meta` es a QUÉ se ha comprometido, cuando el sitio importa más que el
+      punto: en el laberinto, elegir cada vez «la gema más cercana» hace que en
+      el borde de dos celdas la más cercana cambie de una a otra y el bot se
+      quede yendo y viniendo para siempre. Comprometerse lo arregla. */
+  bot?: { x: number; y: number; repensar: number; meta?: number };
   /** Cómo se llama, cuando no es "J2": los vecinos que juegan solos llevan el
       nombre del que vive en esa casa. */
   apodo?: string;
@@ -479,14 +483,33 @@ export interface CarreraObs {
 }
 
 /* ---- Laberinto / Pac-Man ---- */
+/** El laberinto. Es el único minijuego que pedía algo que el motor no tenía:
+    **paredes que paran**. Todo lo demás del juego se apoya en eso — sin
+    paredes, un laberinto es un dibujo y las gemas se cogen en línea recta.
+
+    La rejilla se guarda con su ORIGEN y el tamaño de celda, no derivados de
+    otra cosa: el dibujo los sacaba de la primera gema, así que el laberinto
+    entero se desplazaba al coger una. */
 export interface Laberinto {
+  /** Esquina de arriba a la izquierda de la rejilla, en píxeles. */
+  origen: { x: number; y: number };
+  /** Lo que mide una celda de lado. */
+  celda: number;
+  /** `true` es pared. */
   celdas: boolean[][];
   ancho: number;
   alto: number;
   gemas: { x: number; y: number }[];
-  fantasma: { x: number; y: number; vx: number; vy: number; timer: number };
-  recolectadas: number;
-  totalGemas: number;
+  /** El fantasma también respeta las paredes: si no, ir por un pasillo no
+      sirve de nada. */
+  fantasma: { x: number; y: number; vx: number; vy: number };
+  /** Gemas cogidas por cada uno: esto es una carrera, no una recolecta. */
+  puntos: number[];
+  total: number;
+  /** El reloj. Es lo que garantiza que la partida acabe pase lo que pase: gana
+      quien más lleve cuando se agote, y no hace falta que nadie sepa recorrer
+      el laberinto entero para que haya resultado. */
+  reloj: number;
   ganador: number | null;
 }
 

@@ -15,7 +15,7 @@
 import type { Estado, Jugador, EntradaJugador } from "./tipos.js";
 import { clamp, dist2 } from "./util.js";
 import { ANCHO_PISTA, dificultadDe } from "./datos.js";
-import { centroDelMapa, enLaPista, esMiPatio, freePedDe, patiosDe } from "./estado.js";
+import { celdaLibreDe, centroDelMapa, enLaPista, esMiPatio, esPared, freePedDe, patiosDe } from "./estado.js";
 
 /** Lo que decide el bot en un paso: hacia dónde va y si tira la chancla. */
 export interface PlanBot {
@@ -433,16 +433,107 @@ function aDondeVoyEnCarreraObs(e: Estado, p: Jugador): { x: number; y: number } 
   return { x: mx, y: my };
 }
 
-/** A dónde va en laberinto: recoger gemas. */
+/* ---- el bot del laberinto ----
+   Va a por su gema POR PASILLOS, no en línea recta: en un laberinto la gema más
+   cercana en línea recta suele estar al otro lado de un muro, y el bot se queda
+   empujando la pared. Se recorre la rejilla a lo ancho (BFS) desde su celda, que
+   con 13x13 es baratísimo y da el camino más corto DE VERDAD.
+
+   Y cada uno va a una gema DISTINTA: con todos detrás de la misma iban en fila
+   india, el de delante se las comía todas y los de atrás no cogían ni una
+   —medido: 0-5, 0-6, y la partida sin acabar— y acababan los dos parados en la
+   misma celda. */
 function aDondeVoyEnLaberinto(e: Estado, p: Jugador): { x: number; y: number } | null {
-  const l = e.laberinto!;
-  if (!l.gemas.length) return null;
-  let mejor = l.gemas[0], bd = Infinity;
-  for (const g of l.gemas) {
-    const d = dist2(p.x, p.y, g.x, g.y);
-    if (d < bd) { bd = d; mejor = g; }
+  const l = e.laberinto;
+  if (!l || !l.gemas.length) return null;
+  const c = l.celda;
+  const celdaDe = (x: number, y: number): [number, number] =>
+    [Math.floor((x - l.origen.x) / c), Math.floor((y - l.origen.y) / c)];
+  const centro = (id: number) => ({
+    x: l.origen.x + (id % l.ancho) * c + c / 2,
+    y: l.origen.y + Math.floor(id / l.ancho) * c + c / 2,
+  });
+
+  /* La celda LIBRE, no la que dice `floor`: rozando el borde de un pasillo te
+     sitúa en la pared de al lado, y desde una pared no hay camino por pasillos
+     — el bot acababa tirando en línea recta contra el muro para siempre. */
+  const [px, py] = celdaLibreDe(l, p.x, p.y);
+  const inicio = py * l.ancho + px;
+
+  /* El fantasma encima: huir por el pasillo que más lo aleje. Una gema no vale
+     la que te va a quitar. */
+  const gh = l.fantasma;
+  /* Huir solo cuando el fantasma está DE VERDAD encima: una celda. Con 200 px
+     —dos celdas— el bot alternaba entre huir e ir a por la gema en cada
+     replanteo, y el resultado era subir, bajar, subir… sin moverse del sitio.
+     Costó encontrarlo porque las dos decisiones eran correctas por separado. */
+  if (dist2(p.x, p.y, gh.x, gh.y) < 110 * 110) {
+    const [fx, fy] = celdaLibreDe(l, gh.x, gh.y);
+    const salidas = ([[0,-1],[0,1],[-1,0],[1,0]] as [number, number][])
+      .map(([dx, dy]) => [px + dx, py + dy] as [number, number])
+      .filter(([x, y]) => !esPared(l, x, y));
+    if (salidas.length) {
+      const lejos = salidas.reduce((m, s) =>
+        Math.abs(s[0] - fx) + Math.abs(s[1] - fy) > Math.abs(m[0] - fx) + Math.abs(m[1] - fy) ? s : m);
+      return centro(lejos[1] * l.ancho + lejos[0]);
+    }
   }
-  return { x: mejor.x, y: mejor.y };
+
+  /* Una gema por celda, con su posición real: hay que ir a la GEMA, no al
+     centro de la celda — orbitando el centro no se coge nunca. */
+  const gemaEn = new Map<number, { x: number; y: number }>();
+  for (const g of l.gemas) {
+    const [gx, gy] = celdaLibreDe(l, g.x, g.y);
+    gemaEn.set(gy * l.ancho + gx, g);
+  }
+
+  /* BFS: distancia y primer paso hacia cada celda alcanzable. */
+  const antes = new Map<number, number>([[inicio, -1]]);
+  const orden: number[] = [];
+  const cola = [inicio];
+  while (cola.length) {
+    const id = cola.shift()!;
+    orden.push(id);
+    const x = id % l.ancho, y = Math.floor(id / l.ancho);
+    for (const [dx, dy] of [[0,-1],[0,1],[-1,0],[1,0]] as [number, number][]) {
+      const nx = x + dx, ny = y + dy;
+      if (nx < 0 || ny < 0 || nx >= l.ancho || ny >= l.alto) continue;
+      if (esPared(l, nx, ny)) continue;
+      const nid = ny * l.ancho + nx;
+      if (antes.has(nid)) continue;
+      antes.set(nid, id);
+      cola.push(nid);
+    }
+  }
+
+  /* Las gemas alcanzables, en orden de cercanía por pasillo (`orden` ya viene
+     ordenado por el BFS). Cada bot coge la que le toca por su puesto. */
+  const alcanzables = orden.filter(id => gemaEn.has(id));
+  if (!alcanzables.length) {
+    const g = l.gemas.reduce((m, x) =>
+      dist2(p.x, p.y, x.x, x.y) < dist2(p.x, p.y, m.x, m.y) ? x : m);
+    return { x: g.x, y: g.y };
+  }
+  /* ---- comprometerse ----
+     Si sigue habiendo gema donde dijo que iba, se sigue yendo ahí. Eligiendo
+     cada vez «la más cercana», en el borde de dos celdas la más cercana cambia
+     de una a otra: el bot subía, bajaba, subía… y se quedaba en el sitio para
+     siempre. Medido: los dos jugadores clavados en la misma celda desde el
+     segundo veinte hasta el final de la prueba. */
+  const puesto = Math.max(0, e.players.indexOf(p));
+  const antesMeta = p.bot?.meta;
+  const sigue = antesMeta != null && gemaEn.has(antesMeta) && antes.has(antesMeta);
+  const meta = sigue ? antesMeta! : alcanzables[Math.min(puesto, alcanzables.length - 1)];
+  if (p.bot) p.bot.meta = meta;
+
+  /* Si la gema está en mi celda o en la de al lado, voy DERECHO a ella. */
+  const gema = gemaEn.get(meta)!;
+  if (meta === inicio || antes.get(meta) === inicio) return { x: gema.x, y: gema.y };
+
+  /* Si no, al primer paso del camino más corto. */
+  let paso = meta, prev = antes.get(paso) ?? -1;
+  while (prev >= 0 && prev !== inicio) { paso = prev; prev = antes.get(paso) ?? -1; }
+  return centro(paso);
 }
 
 /* ---- el bot del billar ----
@@ -653,7 +744,7 @@ function aDondeVoy(e: Estado, p: Jugador): { x: number; y: number } | null {
   if (e.reglas.modo === "bolos") return aDondeVoyEnBolos(e, p);
   if (e.reglas.modo === "dardos") return aDondeVoyEnDardos(e, p);
   if (e.reglas.modo === "billar") return aDondeVoyEnBillar(e, p);
-  if (e.laberinto) return aDondeVoyEnLaberinto(e, p);
+  if (e.reglas.modo === "laberinto") return aDondeVoyEnLaberinto(e, p);
   /* Corriendo solo existe el siguiente punto de paso. Mira un poco más allá
      para cortar la curva en vez de ir de baliza en baliza como un cono.
 
@@ -779,8 +870,8 @@ export function pensarBot(e: Estado, p: Jugador, dt: number): PlanBot {
   const usarLucha = enLucha && !!blancoLucha;
   const usar = !tenis && !voley && !esJuego && !!blanco && p.cd <= 0 && p.chancla.state === "held";
 
-  /* La meta se recuerda un rato. Recalculándola cada frame, dos Florines a la
-     misma distancia lo dejaban temblando en el sitio sin ir a por ninguno. */
+  /* La memoria, antes de decidir: el laberinto la usa para comprometerse con su
+     gema, y sin ella creada no habría dónde apuntarlo. */
   const b = (p.bot ??= { x: p.x, y: p.y, repensar: 0 });
   b.repensar -= dt;
   /* En el partido se replantea casi cada frame: la pelota se mueve, y un bot
@@ -794,6 +885,12 @@ export function pensarBot(e: Estado, p: Jugador, dt: number): PlanBot {
                    es medio campo tarde. */
                 (["tenis", "voley", "basquet", "hockey"].includes(e.reglas.modo) &&
                  b.repensar <= REPENSAR - 0.03);
+  /* El laberinto NO se replantea rápido, aunque apetezca: el primer paso del
+     camino más corto cambia según de qué lado del borde de la celda estés, así
+     que replanteando cada poco el bot sube, baja, sube… y no se mueve del sitio.
+     Medido: los dos jugadores clavados en la misma celda desde el segundo veinte
+     hasta el final. Se replantea al LLEGAR al paso anterior, que es cuando
+     estás en el centro de una celda y la respuesta es una sola. */
   if (b.repensar <= 0 || llegó) {
     const meta = aDondeVoy(e, p);
     b.repensar = REPENSAR;
@@ -804,13 +901,19 @@ export function pensarBot(e: Estado, p: Jugador, dt: number): PlanBot {
   const m = Math.hypot(dx, dy);
   /* Pegado al objetivo se planta: el aro tarda 0,55 s en llenarse y si sigue
      empujando se pasa de largo y vuelve a empezar. */
-  const corriendo = e.reglas.modo === "carrera" || e.reglas.modo === "carreraObs";
+  const corriendo = e.reglas.modo === "carrera" || e.reglas.modo === "carreraObs" ||
+                    e.reglas.modo === "laberinto";
   const mover = m < PEGADO && !corriendo
     ? { x: 0, y: 0 }
     /* El bamboleo evita la línea recta de robot. Sale del reloj y del número de
        jugador, así que sigue siendo reproducible. */
     : (() => {
-        const a = Math.atan2(dy, dx) + Math.sin(e.t * 1.7 + p.idx * 2.1) * 0.18;
+        /* El bamboleo evita la línea recta de robot… salvo en el laberinto, que
+           es todo pasillos de una celda: ahí desvía lo justo para no dar nunca
+           con el centro de la celda, y el bot se queda orbitando la gema. */
+        const vaivén = e.reglas.modo === "laberinto"
+          ? 0 : Math.sin(e.t * 1.7 + p.idx * 2.1) * 0.18;
+        const a = Math.atan2(dy, dx) + vaivén;
         return { x: Math.cos(a), y: Math.sin(a) };
       })();
 

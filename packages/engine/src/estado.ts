@@ -3,7 +3,7 @@
 
 import type {
   Base, Billar, DesfileItem, Estado, Evento, Florin, Jugador, Laser, Pedestal, RefObjetivo,
-  Rect, RefPed, Reglas, SitioDeJuego, JuegoDeSitio, Sonido, Tenis, Trasto, Variante, Voley, Circulo, Pino, Dardos, Bola,
+  Rect, RefPed, Reglas, SitioDeJuego, JuegoDeSitio, Sonido, Tenis, Trasto, Variante, Voley, Circulo, Pino, Dardos, Bola, Laberinto,
 } from "./tipos.js";
 import {
   ESCENARIOS, FLORES, GOAL, LASER_CARGA, PATIOS_PRECIO, TIERS, TRASTOS_ESCENARIO,
@@ -875,7 +875,10 @@ const MED_DARDOS = { w: 200, h: 200 };
    (1 400 x 900) se monta en el centro del mapa. Con 800 x 600 aquí, era el
    sitio más grande de los ocho y se quedaba fuera del patio del colegio. */
 const MED_CARRERA_OBS = { w: 460, h: 340 };
-const MED_LABERINTO = { w: 640, h: 640 };
+/* La PUERTA, no el laberinto: el de verdad mide 13x92 = 1 196 px de lado y se
+   monta en el centro del mapa. Con 640 aquí era, con los once sitios puestos,
+   el que se quedaba fuera del patio del colegio. */
+const MED_LABERINTO = { w: 380, h: 380 };
 const MED_BILLAR = { w: 500, h: 300 };
 const MED_HOCKEY = { w: 500, h: 300 };
 const MED_VOLEY = { w: 600, h: 360 };
@@ -906,7 +909,7 @@ const SITIOS: {
   { juego: "dardos", rotulo: "LOS DARDOS", medida: MED_DARDOS, donde: "colegio", listo: true },
   { juego: "voley", rotulo: "LA CANCHA DE VÓLEY", medida: MED_VOLEY, donde: "colegio", listo: true },
   { juego: "carreraObs", rotulo: "LA CARRERA", medida: MED_CARRERA_OBS, donde: "colegio", listo: true },
-  { juego: "laberinto", rotulo: "EL LABERINTO", medida: MED_LABERINTO, donde: "colegio", listo: false },
+  { juego: "laberinto", rotulo: "EL LABERINTO", medida: MED_LABERINTO, donde: "colegio", listo: true },
   { juego: "billar", rotulo: "EL BILLAR", medida: MED_BILLAR, donde: "colegio", listo: true },
   { juego: "hockey", rotulo: "AIR HOCKEY", medida: MED_HOCKEY, donde: "colegio", listo: true },
 ];
@@ -1423,31 +1426,123 @@ export function aLaCarreraDeObs(e: Estado): void {
 }
 
 
-/* ---- laberinto ---- */
+/* ---- el laberinto ----
+   Trece por trece, cavado con vuelta atrás recursiva. La celda mide 92 px
+   porque un jugador ocupa 40 de ancho: con los 40 de antes no cabía por su
+   propio pasillo.
+
+   Las gemas no van en todas las celdas libres —serían ochenta y cinco, y coger
+   ochenta y cinco cosas no es un juego— sino en los CALLEJONES SIN SALIDA y en
+   una de cada tres del resto. Los callejones son justamente donde no quieres
+   estar con un fantasma detrás, y ahí está la decisión. */
+export const LAB_CELDA = 92, LAB_LADO = 13;
+/** El radio de quien anda por ahí, para las paredes. Va HOLGADO a propósito:
+    con 22 sobre pasillos de 92 px, cualquiera que fuera un poco descentrado se
+    clavaba en la esquina de la celda de al lado y el empujón de salida le
+    cancelaba el avance. Con 15 quedan 31 px de margen a cada lado y el atasco
+    de esquina deja de existir. */
+export const LAB_BULTO = 15;
+/** Lo que corre el fantasma y lo que te cuesta que te pille. */
+export const FANTASMA_VEL = 168, FANTASMA_STUN = 1.4;
+/** Lo que dura la partida. */
+export const LAB_RELOJ = 120;
+
 export function aElLaberinto(e: Estado): void {
   const { cx, cy } = centroDelMapa();
-  const ancho = 16, alto = 16, cw = 40, ch = 40;
+  const ancho = LAB_LADO, alto = LAB_LADO, c = LAB_CELDA;
+  const origen = { x: Math.round(cx - (ancho * c) / 2), y: Math.round(cy - (alto * c) / 2) };
+  const centroDe = (gx: number, gy: number) =>
+    ({ x: origen.x + gx * c + c / 2, y: origen.y + gy * c + c / 2 });
+
+  /* Todo pared, y se cava. La pila es de dos en dos: una celda de paso y una de
+     pared entre medias, que es lo que hace que salgan pasillos y no una sala. */
   const celdas: boolean[][] = [];
   for (let y = 0; y < alto; y++) { celdas[y] = []; for (let x = 0; x < ancho; x++) celdas[y][x] = true; }
-  // carve a simple maze using recursive backtracking
-  const stack: [number, number][] = [[1, 1]];
+  const pila: [number, number][] = [[1, 1]];
   celdas[1][1] = false;
-  while (stack.length) {
-    const [cx, cy] = stack[stack.length - 1];
+  while (pila.length) {
+    const [gx, gy] = pila[pila.length - 1];
     const dirs: [number, number][] = [[0, -2], [0, 2], [-2, 0], [2, 0]];
-    const unvisited = dirs.filter(([dx, dy]) => celdas[cy + dy]?.[cx + dx]);
-    if (!unvisited.length) { stack.pop(); continue; }
-    const [dx, dy] = unvisited[Math.floor(azar(e) * unvisited.length)];
-    celdas[cy + dy / 2][cx + dx / 2] = false;
-    celdas[cy + dy][cx + dx] = false;
-    stack.push([cx + dx, cy + dy]);
+    const sinVer = dirs.filter(([dx, dy]) => celdas[gy + dy]?.[gx + dx]);
+    if (!sinVer.length) { pila.pop(); continue; }
+    const [dx, dy] = sinVer[Math.floor(azar(e) * sinVer.length)];
+    celdas[gy + dy / 2][gx + dx / 2] = false;
+    celdas[gy + dy][gx + dx] = false;
+    pila.push([gx + dx, gy + dy]);
   }
-  const gemas: { x: number; y: number }[] = [];
+
+  /* Las gemas: los callejones sin salida, y una de cada tres del resto. */
+  const libres: [number, number][] = [];
   for (let y = 0; y < alto; y++) for (let x = 0; x < ancho; x++)
-    if (!celdas[y][x] && !(x === 1 && y === 1)) gemas.push({ x: cx - (ancho / 2) * cw + x * cw + cw / 2, y: cy - (alto / 2) * ch + y * ch + ch / 2 });
-  e.laberinto = { celdas, ancho, alto, gemas, fantasma: { x: gemas[gemas.length - 1]?.x ?? cx, y: gemas[gemas.length - 1]?.y ?? cy, vx: 0, vy: 0, timer: 0 }, recolectadas: 0, totalGemas: gemas.length, ganador: null };
-  for (const p of e.players) { p.x = cx - (ancho / 2) * cw + cw + cw / 2; p.y = cy - (alto / 2) * ch + ch + ch / 2; p.vx = 0; p.vy = 0; p.stun = 0; p.montado = null; }
+    if (!celdas[y][x] && !(x === 1 && y === 1)) libres.push([x, y]);
+  const salidas = (x: number, y: number) =>
+    [[0,-1],[0,1],[-1,0],[1,0]].filter(([dx, dy]) => celdas[y+dy]?.[x+dx] === false).length;
+  const gemas = libres
+    .filter(([x, y], k) => salidas(x, y) === 1 || k % 3 === 0)
+    .map(([x, y]) => centroDe(x, y));
+
+  /* El fantasma nace lo más lejos posible de la entrada. */
+  const lejos = libres.reduce((mejor, [x, y]) =>
+    (x + y > mejor[0] + mejor[1] ? [x, y] : mejor), [1, 1]);
+
+  /* Y el laberinto se queda SOLO. Los demás minijuegos ya limpian sus trastos
+     («en un partido tiene que haber UNA pelota»); aquí es todavía más
+     necesario, porque una patineta tirada en un pasillo se monta sola al
+     pisarla y te lleva a donde ella quiera. Costó encontrarlo: el bot empujaba
+     hacia abajo y su velocidad iba hacia arriba. */
+  e.trastos = [];
+
+  e.laberinto = {
+    origen, celda: c, celdas, ancho, alto, gemas,
+    fantasma: { ...centroDe(lejos[0], lejos[1]), vx: 0, vy: 0 },
+    puntos: e.players.map(() => 0), total: gemas.length,
+    reloj: LAB_RELOJ, ganador: null,
+  };
+  /* Todos salen de la entrada, separados un poco para no nacer encajados. */
+  const entrada = centroDe(1, 1);
+  e.players.forEach((p, i) => {
+    p.x = entrada.x + (i % 2 ? 16 : -16);
+    p.y = entrada.y + (i > 1 ? 16 : -16);
+    p.vx = 0; p.vy = 0; p.stun = 0; p.montado = null;
+  });
 }
+
+/** ¿Es pared esta celda? Lo de fuera de la rejilla también. */
+export const esPared = (l: Laberinto, gx: number, gy: number): boolean =>
+  l.celdas[gy]?.[gx] !== false;
+
+/** En qué celda está algo. */
+export const celdaDeLaberinto = (l: Laberinto, x: number, y: number): [number, number] =>
+  [Math.floor((x - l.origen.x) / l.celda), Math.floor((y - l.origen.y) / l.celda)];
+
+/** El centro de una celda, en píxeles. */
+export const centroDeCelda = (l: Laberinto, gx: number, gy: number) =>
+  ({ x: l.origen.x + gx * l.celda + l.celda / 2,
+     y: l.origen.y + gy * l.celda + l.celda / 2 });
+
+/** La celda LIBRE donde está algo, o la libre más cercana si `floor` lo ha
+    metido en una de pared.
+
+    Esto no es un detalle: rozando el borde de un pasillo, `floor` te sitúa en la
+    celda de pared de al lado. Desde ahí el camino por pasillos no existe, y
+    tanto el bot como el fantasma acababan tirando en línea recta contra el muro
+    y sin moverse — medido: los dos jugadores y el fantasma congelados en el
+    segundo 20, y la partida sin acabar nunca. */
+export function celdaLibreDe(l: Laberinto, x: number, y: number): [number, number] {
+  const [gx, gy] = celdaDeLaberinto(l, x, y);
+  if (!esPared(l, gx, gy)) return [gx, gy];
+  let mejor: [number, number] | null = null, bd = Infinity;
+  for (let dy = -1; dy <= 1; dy++)
+    for (let dx = -1; dx <= 1; dx++) {
+      const cx = gx + dx, cy = gy + dy;
+      if (esPared(l, cx, cy)) continue;
+      const c = centroDeCelda(l, cx, cy);
+      const d = (c.x - x) ** 2 + (c.y - y) ** 2;
+      if (d < bd) { bd = d; mejor = [cx, cy]; }
+    }
+  return mejor ?? [gx, gy];
+}
+
 
 /* ---- el billar ----
    Por turnos, y con la regla que hace que un turno sea interesante: **si metes,

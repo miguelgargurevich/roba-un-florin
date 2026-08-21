@@ -24,6 +24,7 @@ export {
   BOLOS_MANOS, PINO_R, BOLA_R, PINO_SEP,
   DARDOS_CADA_UNO, DIANA_R, DIANA_ANILLOS, valorDelDardo,
   BILLAR_COLORES, BOLA_BILLAR_R, HOYA_R,
+  LAB_CELDA, LAB_LADO, LAB_BULTO, esPared,
   freePed, freePedDe, occupied, occupiedDe, esMiPatio,
   playerIncome, florinIncome, mismoFlorin, nuevoFlorin, laserActivo,
   bloqueadoPorLaser, orbitaDelCentro, puntoDelDesfile, ponerLaser,

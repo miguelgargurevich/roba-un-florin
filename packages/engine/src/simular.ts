@@ -10,7 +10,7 @@
 
 import type {
   Base, Bala, DesfileItem, EntradaJugador, Estado, Florin, Jugador, Ladron,
-  Pedestal, Premio, Abuela, RefObjetivo, RefPed, Trasto, Variante, Billar, JuegoDeSitio,
+  Pedestal, Premio, Abuela, RefObjetivo, RefPed, Trasto, Variante, Billar, Laberinto, JuegoDeSitio,
 } from "./tipos.js";
 import {
   ESCUDO_DUR, GARAJE, GOAL, LADRONES, LASER_CARGA, RULETA, RULETA_INCOGNITA, RULETA_PRECIO,
@@ -33,6 +33,7 @@ import {
   colocarParaTirar, reponerLosPinos, BOLA_R, PINO_R,
   colocarParaTirarDardo, valorDelDardo, DIANA_ANILLOS, DARDOS_ESPERA,
   colocarParaTacar, reponerLaBlanca, BOLA_BILLAR_R, HOYA_R, BILLAR_ESPERA,
+  esPared, LAB_BULTO, FANTASMA_VEL, FANTASMA_STUN, celdaLibreDe, centroDeCelda, LAB_RELOJ,
 } from "./estado.js";
 
 /* Cualquier cosa a la que se pueda golpear */
@@ -2678,43 +2679,169 @@ function pasoCarreraObs(e: Estado, dt: number): void {
 /* ============================================================
    Laberinto
    ============================================================ */
-function pasoLaberinto(e: Estado, dt: number): void {
-  const l = e.laberinto!;
-  if (l.ganador != null) return;
-  // collect gems
-  for (let i = l.gemas.length - 1; i >= 0; i--) {
-    const g = l.gemas[i];
-    for (const p of e.players) {
-      if (dist2(p.x, p.y, g.x, g.y) < 24 * 24) {
-        l.gemas.splice(i, 1);
-        l.recolectadas++;
-        sonar(e, "grab");
-        texto(e, g.x, g.y - 20, "+1", "#FFC53D");
-        break;
+/* ---- el laberinto ----
+   El único minijuego que pedía algo que el motor no tenía: **paredes que
+   paran**. Sin ellas un laberinto es un dibujo y las gemas se cogen en línea
+   recta, que es exactamente lo que pasaba.
+
+   Y es una CARRERA, no una recolecta: cada gema cuenta para quien la coge, y
+   gana el que más tenga cuando no quede ninguna. El fantasma no te mata, te
+   cuesta una gema — que es lo que convierte un callejón sin salida en una
+   decisión y no en un adorno. */
+
+/**
+ * Empuja a alguien fuera de las paredes de la rejilla. Eje por eje y por el
+ * lado de MENOS penetración: así, al rozar una esquina, se resbala en vez de
+ * clavarse. Se repite un par de veces porque salir de una pared puede meterte
+ * en la de al lado.
+ *
+ * Vale para cualquiera que ande por ahí —jugadores y fantasma—, y por eso pide
+ * un objeto con `x`/`y` y nada más.
+ */
+export function empujarFueraDeParedes(
+  l: Laberinto, quien: { x: number; y: number }, r: number,
+): void {
+  const c = l.celda;
+  for (let vuelta = 0; vuelta < 3; vuelta++) {
+    let tocó = false;
+    const gx = Math.floor((quien.x - l.origen.x) / c);
+    const gy = Math.floor((quien.y - l.origen.y) / c);
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        const cx = gx + dx, cy = gy + dy;
+        if (!esPared(l, cx, cy)) continue;
+        const px = l.origen.x + cx * c, py = l.origen.y + cy * c;
+        /* El punto de la celda más cercano a él: si está a menos de `r`, se
+           solapan. */
+        const mx = clamp(quien.x, px, px + c), my = clamp(quien.y, py, py + c);
+        const ex = quien.x - mx, ey = quien.y - my;
+        if (ex * ex + ey * ey >= r * r) continue;
+        tocó = true;
+        if (ex === 0 && ey === 0) {
+          /* Dentro del todo (no debería pasar): se sale por el lado más corto. */
+          const izq = quien.x - px, der = px + c - quien.x;
+          const arr = quien.y - py, aba = py + c - quien.y;
+          const min = Math.min(izq, der, arr, aba);
+          if (min === izq) quien.x = px - r;
+          else if (min === der) quien.x = px + c + r;
+          else if (min === arr) quien.y = py - r;
+          else quien.y = py + c + r;
+          continue;
+        }
+        const d = Math.hypot(ex, ey) || 1;
+        quien.x = mx + (ex / d) * r;
+        quien.y = my + (ey / d) * r;
       }
     }
-  }
-  if (l.recolectadas >= l.totalGemas) { terminarJuegoIndividual(e, e.players[0]?.idx ?? null); return; }
-  // ghost moves toward nearest player
-  const gh = l.fantasma;
-  let nearest: Jugador | null = null, nd = Infinity;
-  for (const p of e.players) { const d = dist2(p.x, p.y, gh.x, gh.y); if (d < nd) { nd = d; nearest = p; } }
-  if (nearest && nd > 0) {
-    const spd = 120 * dt;
-    gh.vx = (nearest.x - gh.x) / Math.sqrt(nd) * spd;
-    gh.vy = (nearest.y - gh.y) / Math.sqrt(nd) * spd;
-    gh.x += gh.vx; gh.y += gh.vy;
-  }
-  // ghost catches player
-  for (const p of e.players) {
-    if (dist2(p.x, p.y, gh.x, gh.y) < 20 * 20) {
-      p.stun = 1;
-      sonar(e, "ouch");
-      texto(e, p.x, p.y - 40, "¡Te atrapó!", "#FF5C86");
-    }
+    if (!tocó) break;
   }
 }
 
+function pasoLaberinto(e: Estado, dt: number): void {
+  const l = e.laberinto;
+  if (!l || l.ganador != null) return;
+
+  /* ---- las paredes ---- */
+  for (const p of e.players) {
+    empujarFueraDeParedes(l, p, LAB_BULTO);
+    /* Y de la rejilla no se sale: el borde es todo pared, pero un empujón
+       fuerte podría cruzarlo entre fotogramas. */
+    p.x = clamp(p.x, l.origen.x + LAB_BULTO, l.origen.x + l.ancho * l.celda - LAB_BULTO);
+    p.y = clamp(p.y, l.origen.y + LAB_BULTO, l.origen.y + l.alto * l.celda - LAB_BULTO);
+  }
+
+  /* ---- las gemas ---- */
+  for (let i = l.gemas.length - 1; i >= 0; i--) {
+    const g = l.gemas[i];
+    for (const p of e.players) {
+      if (p.stun > 0) continue;
+      /* Media celda de radio. Con 30 px sobre celdas de 92, el bot orbitaba el
+         centro a 32 px y no cogía la gema en la que estaba parado encima: dos
+         de cada tres partidas no acababan nunca. */
+      if (dist2(p.x, p.y, g.x, g.y) > (l.celda * 0.5) ** 2) continue;
+      l.gemas.splice(i, 1);
+      const k = e.players.indexOf(p);
+      l.puntos[k]++;
+      texto(e, g.x, g.y - 22, "+1", "#FFC53D");
+      polvo(e, g.x, g.y, "#FFC53D", 6);
+      sonar(e, "grab");
+      break;
+    }
+  }
+
+  l.reloj -= dt;
+  /* Se acaba por gemas o por reloj: lo segundo es lo que hace que la partida
+     tenga final aunque nadie sepa recorrer el laberinto entero. */
+  if (!l.gemas.length || l.reloj <= 0) {
+    l.reloj = Math.max(0, l.reloj);
+    const mejor = Math.max(...l.puntos);
+    const empate = l.puntos.filter(x => x === mejor).length > 1;
+    l.ganador = empate ? null : l.puntos.indexOf(mejor);
+    terminarJuegoIndividual(e, l.ganador == null ? null : e.players[l.ganador].idx);
+    return;
+  }
+
+  /* ---- el fantasma ----
+     Persigue al más cercano, pero POR LOS PASILLOS: prueba primero el eje en el
+     que está más lejos y, si ahí hay pared, el otro. Sin esto atravesaba los
+     muros y correr por un pasillo no servía de nada. */
+  const gh = l.fantasma;
+  let presa: Jugador | null = null, nd = Infinity;
+  for (const p of e.players) {
+    const d = dist2(p.x, p.y, gh.x, gh.y);
+    if (d < nd) { nd = d; presa = p; }
+  }
+  if (presa) {
+    const dx = presa.x - gh.x, dy = presa.y - gh.y;
+    const paso = FANTASMA_VEL * dt;
+    const intentos: [number, number][] = Math.abs(dx) > Math.abs(dy)
+      ? [[Math.sign(dx), 0], [0, Math.sign(dy)]]
+      : [[0, Math.sign(dy)], [Math.sign(dx), 0]];
+    let anduvo = false;
+    for (const [ix, iy] of intentos) {
+      if (!ix && !iy) continue;
+      const nx = gh.x + ix * paso, ny = gh.y + iy * paso;
+      const prueba = { x: nx, y: ny };
+      empujarFueraDeParedes(l, prueba, LAB_BULTO);
+      /* Si al empujarlo vuelve casi al sitio, ese camino está tapiado. */
+      if (Math.hypot(prueba.x - nx, prueba.y - ny) > paso * 0.5) continue;
+      gh.x = prueba.x; gh.y = prueba.y;
+      gh.vx = ix * FANTASMA_VEL; gh.vy = iy * FANTASMA_VEL;
+      anduvo = true;
+      break;
+    }
+    /* Y si los dos caminos estaban tapiados, se recentra en su pasillo. Un
+       fantasma congelado deja de ser una amenaza y se queda de adorno: pasó, y
+       se quedó clavado en la misma celda los cinco minutos de la prueba. */
+    if (!anduvo) {
+      const [cx, cy] = celdaLibreDe(l, gh.x, gh.y);
+      const c = centroDeCelda(l, cx, cy);
+      gh.x += (c.x - gh.x) * Math.min(1, dt * 6);
+      gh.y += (c.y - gh.y) * Math.min(1, dt * 6);
+      gh.vx = 0; gh.vy = 0;
+    }
+  }
+
+  /* ---- te pilla ----
+     No te mata: te cuesta una gema, que vuelve al laberinto donde te pilló. Es
+     lo que hace que meterse en un callejón sin salida sea una decisión. */
+  for (const p of e.players) {
+    if (p.stun > 0 || p.inmune > 0) continue;
+    if (dist2(p.x, p.y, gh.x, gh.y) > 30 * 30) continue;
+    const k = e.players.indexOf(p);
+    zap(e, p, FANTASMA_STUN, false);
+    p.inmune = FANTASMA_STUN + 0.8;
+    if (l.puntos[k] > 0) {
+      l.puntos[k]--;
+      l.gemas.push({ x: gh.x, y: gh.y });
+      texto(e, p.x, p.y - 46, "¡Te quitó una!", "#FF5C86");
+    } else {
+      texto(e, p.x, p.y - 46, "¡Te atrapó!", "#FF5C86");
+    }
+    polvo(e, p.x, p.y, "#FF3D6E", 12);
+    sonar(e, "ouch");
+  }
+}
 /* ============================================================
    Billar
    ============================================================ */

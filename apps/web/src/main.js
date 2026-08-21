@@ -1063,8 +1063,8 @@ const elPartido = () => (G && (G.futbol || G.tenis || G.voley || G.basquet)) || 
     la clase `partido` del CSS, el minimapa y las tarjetas del HUD preguntan lo
     mismo y se les había ido contestando de una en una. */
 const enMinijuego = () => !!(G && G.reglas &&
-  ["futbol","tenis","voley","basquet","hockey","lucha","carreraObs","bolos","dardos","billar"]
-    .includes(G.reglas.modo));
+  ["futbol","tenis","voley","basquet","hockey","lucha","carreraObs","bolos","dardos","billar",
+   "laberinto"].includes(G.reglas.modo));
 
 const laMesaOCancha = () => {
   /* La carrera de obstáculos también se ve entera: correr un óvalo sin ver la
@@ -1084,6 +1084,13 @@ const laMesaOCancha = () => {
   }
   /* Los dardos: la diana Y la raya en el mismo cuadro. Si no ves las dos, no
      sabes dónde estás apuntando desde. */
+  /* El laberinto entero en pantalla: en un laberinto lo que importa es ver por
+     dónde puedes ir, y eso no cabe en una cámara que te sigue. */
+  if (G && G.laberinto){
+    const l = G.laberinto;
+    return { x: l.origen.x - 40, y: l.origen.y - 40,
+             w: l.ancho * l.celda + 80, h: l.alto * l.celda + 80 };
+  }
   if (G && G.billar){
     const m = G.billar.mesa;
     return { x: m.x - 120, y: m.y - 100, w: m.w + 240, h: m.h + 200 };
@@ -1373,7 +1380,7 @@ function pintarAccion(){
       : cual === "sitio:carreraObs" ? "🏃 Correr los obstáculos · cinco"
       : cual === "sitio:bolos" ? "🎳 Jugar bolos · cinco manos"
       : cual === "sitio:dardos" ? "🎯 Tirar dardos · seis cada uno"
-      : cual === "sitio:laberinto" ? "🔮 Entrar al laberinto · recoge las gemas"
+      : cual === "sitio:laberinto" ? "🔮 Entrar al laberinto · a por las gemas"
       : cual === "sitio:billar" ? "🎱 Jugar billar · siete bolas"
       : "🎰 Girar la Ruleta · " + money(RULETA_PRECIO);
   }
@@ -1409,7 +1416,7 @@ const MINIJUEGOS = {
   dardos:     "🎯 ¡Dardos! Seis cada uno. Aguanta el botón para afinar el pulso — y cuidado con la chancla del otro.",
   voley:      "🏐 ¡Vóley, dos contra dos! La tocas con solo llegar; aguanta el botón para rematar.",
   carreraObs: "🏃 ¡Carrera de obstáculos! Tres vueltas a pie. Los conos te tumban.",
-  laberinto:  "🔮 ¡Al laberinto! Recoge todas las gemas.",
+  laberinto:  "🔮 ¡Al laberinto! Coge más gemas que el otro. Y si el fantasma te pilla, te quita una.",
   billar:     "🎱 ¡Al billar! Si metes, sigues tirando. Si cuelas la blanca, pierdes el turno.",
   hockey:     "🏒 ¡Air hockey! Primero a 5. No hay botón: el disco sale al chocar con él.",
 };
@@ -9373,32 +9380,65 @@ function drawPistaObs(){
 function drawLaberinto(){
   const l = G.laberinto;
   if (!l) return;
+  const c = l.celda, ox = l.origen.x, oy = l.origen.y;
   ctx.save();
-  ctx.fillStyle = "#1B0C1A";
-  const cw = 40, ch = 40;
-  const ox = l.gemas.length ? l.gemas[0].x - cw/2 : 0;
-  const oy = l.gemas.length ? l.gemas[0].y - ch/2 : 0;
+
+  /* El suelo del laberinto, para que se vea dónde acaba. El origen sale del
+     ESTADO: antes se calculaba desde la primera gema, así que el laberinto
+     entero se desplazaba en cuanto alguien cogía una. */
+  ctx.fillStyle = "#1E1226";
+  ctx.fillRect(ox, oy, l.ancho * c, l.alto * c);
+
   for (let y = 0; y < l.alto; y++){
     for (let x = 0; x < l.ancho; x++){
-      const px = ox + x * cw, py = oy + y * ch;
+      const px = ox + x * c, py = oy + y * c;
       if (l.celdas[y][x]){
-        ctx.fillStyle = "#3D2B4A";
-        ctx.fillRect(px, py, cw, ch);
+        // pared: bloque con brillo arriba, para que se lea el volumen
+        ctx.fillStyle = "#4A3560";
+        ctx.fillRect(px, py, c, c);
+        ctx.fillStyle = "rgba(255,255,255,.09)";
+        ctx.fillRect(px, py, c, 7);
+        ctx.fillStyle = "rgba(0,0,0,.20)";
+        ctx.fillRect(px, py + c - 7, c, 7);
+      } else {
+        // pasillo: unas losetas tenues
+        ctx.fillStyle = "rgba(255,255,255,.035)";
+        ctx.fillRect(px + 6, py + 6, c - 12, c - 12);
       }
     }
   }
-  // gemas
+
+  // las gemas, girando
   for (const g of l.gemas){
+    const k = 1 + Math.sin(G.t * 3 + g.x * 0.01) * 0.16;
     ctx.fillStyle = "#FFC53D";
     ctx.beginPath();
-    ctx.moveTo(g.x, g.y - 8); ctx.lineTo(g.x + 6, g.y); ctx.lineTo(g.x, g.y + 8); ctx.lineTo(g.x - 6, g.y);
+    ctx.moveTo(g.x, g.y - 15 * k); ctx.lineTo(g.x + 11 * k, g.y);
+    ctx.lineTo(g.x, g.y + 15 * k); ctx.lineTo(g.x - 11 * k, g.y);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,.45)";
+    ctx.beginPath();
+    ctx.moveTo(g.x, g.y - 15 * k); ctx.lineTo(g.x + 11 * k, g.y); ctx.lineTo(g.x, g.y);
     ctx.closePath(); ctx.fill();
   }
-  // fantasma
-  if (l.fantasma){
-    ctx.fillStyle = "rgba(255,61,110,.6)";
-    ctx.beginPath(); ctx.arc(l.fantasma.x, l.fantasma.y, 12, 0, 6.283); ctx.fill();
+
+  /* El fantasma: sábana con dos ojos y el borde ondulado. Se pinta después de
+     las gemas y antes de la gente, que es el orden en el que importa. */
+  const f = l.fantasma;
+  ctx.fillStyle = "rgba(255,61,110,.20)";
+  ctx.beginPath(); ctx.arc(f.x, f.y, 30, 0, 6.283); ctx.fill();
+  ctx.fillStyle = "#F3EAF0";
+  ctx.beginPath();
+  ctx.arc(f.x, f.y - 3, 16, Math.PI, 0);
+  for (let k = 0; k < 4; k++){
+    const x0 = f.x + 16 - k * 8;
+    ctx.quadraticCurveTo(x0 - 4, f.y + (k % 2 ? 20 : 10), x0 - 8, f.y + 14);
   }
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle = "#2A1226";
+  const mx = Math.sign(f.vx) * 3;
+  ctx.beginPath(); ctx.arc(f.x - 5 + mx, f.y - 5, 3, 0, 6.283); ctx.fill();
+  ctx.beginPath(); ctx.arc(f.x + 5 + mx, f.y - 5, 3, 0, 6.283); ctx.fill();
   ctx.restore();
 }
 
@@ -10280,7 +10320,8 @@ function draw(){
     /* En el estadio y en la calle se abre más: lo que hay ALREDEDOR —las
        tribunas, los carros, la gente— es medio chiste del sitio, y encuadrando
        solo la cancha no se ve nada de eso. */
-    const marco = G.bolos ? 40
+    const marco = G.laberinto ? 30
+                : G.bolos ? 40
                 : G.carreraObs ? 160
                 : G.lucha ? 420
                 : G.tenis || G.voley || G.basquet || G.hockey ? 260
@@ -10329,14 +10370,14 @@ function draw(){
     drawDiana();
   } else if (G.reglas?.modo === "billar"){
     drawMesaBillar();
+  } else if (G.reglas?.modo === "laberinto"){
+    drawLaberinto();
   } else if (corriendo){
     drawCircuito();                  // la pista es lo único que importa
   } else if (G.basquet){
     drawBasquet();
   } else if (G.voley){
     drawVoley();
-  } else if (G.laberinto){
-    drawLaberinto();
   } else {
     drawRuta();                      // la alfombra va debajo de todo
     drawCanchita();                  // debajo de la gente, encima del suelo
@@ -10918,6 +10959,28 @@ function hud(){
     return;
   }
 
+  /* ---- el marcador del laberinto ---- */
+  if (G.reglas?.modo === "laberinto"){
+    const l = G.laberinto;
+    const yo = G.players.indexOf(G.player);
+    const suyos = Math.max(...l.puntos.filter((_, i) => i !== yo));
+    el.goalLabel.textContent = l.ganador != null ? "Se acabó"
+      : G.player.stun > 0 ? "¡El fantasma!"
+      : "Quedan " + l.gemas.length + " gemas";
+    el.goal.textContent = l.puntos[yo] + " – " + suyos;
+    el.bar.style.width = clamp(l.puntos[yo] / Math.max(1, l.total) * 100, 0, 100).toFixed(1) + "%";
+    el.goalCard.classList.toggle("fiesta", l.puntos[yo] > suyos);
+    el.money.textContent = mmss(Math.max(0, l.reloj));
+    el.rate.textContent = l.puntos[yo] > suyos ? "Vas ganando"
+                        : l.puntos[yo] < suyos ? "Vas perdiendo" : "Empate";
+    el.lost.textContent = G.stats.hits;
+    el.alarma.hidden = true;
+    bau.boton.hidden = true; bau.soltar.hidden = true; bau.bajar.hidden = true;
+    cerrarArmasRapidas();
+    pintarAccion();
+    return;
+  }
+
   /* ---- el marcador del billar ---- */
   if (G.reglas?.modo === "billar"){
     const bl = G.billar;
@@ -11299,6 +11362,32 @@ function endGame(ganador){
       : ganaste ? "A cobrar en el recreo." : "La revancha es ahí mismo, en el patio.";
     document.getElementById("stSteals").textContent = f.goles[mio];
     document.getElementById("stHits").textContent = f.goles[1 - mio];
+    document.getElementById("stTime").textContent = mmss(G.t);
+    document.getElementById("stRate").textContent = G.stats.hits;
+    document.getElementById("btnVolverBarrio").hidden = !aventuraEnEspera;
+    el.end.hidden = false;
+    if (ganaste) Snd.win();
+    return;
+  }
+
+  /* ---- cómo acabó el laberinto ---- */
+  if (G.reglas?.modo === "laberinto"){
+    const l = G.laberinto;
+    const yo = G.players.indexOf(G.player);
+    const suyos = Math.max(...l.puntos.filter((_, i) => i !== yo));
+    const ganaste = l.ganador === yo, empate = l.ganador == null;
+    document.getElementById("lbSteals").textContent = "Gemas que cogiste";
+    document.getElementById("lbHits").textContent = "Las del otro";
+    document.getElementById("lbRate").textContent = "Chancletazos que diste";
+    document.getElementById("endEyebrow").textContent = "Se acabó el laberinto";
+    document.getElementById("endTitle").innerHTML = empate
+      ? "Quedaron <em>iguales</em>"
+      : ganaste ? "¡<em>Más gemas</em> que nadie!" : "Te <em>ganaron</em>";
+    document.getElementById("endSub").textContent = empate
+      ? "Mismas gemas los dos."
+      : ganaste ? "Y sin que te pillara." : "El fantasma te cuesta una cada vez.";
+    document.getElementById("stSteals").textContent = l.puntos[yo];
+    document.getElementById("stHits").textContent = suyos;
     document.getElementById("stTime").textContent = mmss(G.t);
     document.getElementById("stRate").textContent = G.stats.hits;
     document.getElementById("btnVolverBarrio").hidden = !aventuraEnEspera;

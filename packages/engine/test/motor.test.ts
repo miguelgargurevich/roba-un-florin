@@ -19,7 +19,7 @@ import {
   nuevoFlorin, baseDe, patiosDe, zap, multDeMontura, puntoDelDesfile, puntoDelOcho,
   centroDelMapa, WORLD_W, WORLD_H, OCHO_A, colocarPuestos, ponerFiesta, enFiesta, enElMar,
   nivelDeVitrina, nombreDeHito, HITOS_MAX, vitrinaDe, venderFlorin, precioDeVenta, soltarCarga,
-  valorDelDardo, DIANA_ANILLOS, BILLAR_COLORES, BOLA_BILLAR_R,
+  valorDelDardo, DIANA_ANILLOS, BILLAR_COLORES, BOLA_BILLAR_R, esPared,
   patear, TENIS_META, TENIS_ALCANCE, ladoDeLaCancha, esMinijuego, JUEGOS_LISTOS,
   VOLEY_META, VOLEY_TOQUES, ladoDeVoley, BASQUET_META, BASQUET_ALCANCE,
   type EntradaJugador, type Estado,
@@ -1824,6 +1824,93 @@ describe("tenis", () => {
   });
 });
 
+describe("el laberinto", () => {
+  const lab = (jugadores = 2, semilla = 1) =>
+    crearPartida({ jugadores, escenario: "colegio", semilla, armas: idsDeArmas(),
+                   reglas: { modo: "laberinto" } as any });
+  const enPared = (l: any, x: number, y: number) =>
+    esPared(l, Math.floor((x - l.origen.x) / l.celda), Math.floor((y - l.origen.y) / l.celda));
+
+  it("el laberinto está conectado: se llega a todas las gemas", () => {
+    /* Si una gema queda al otro lado de un muro sin camino, la partida no se
+       puede terminar cogiéndolas todas. */
+    const e = lab();
+    const l = e.laberinto!;
+    const inicio = [1, 1];
+    const vistos = new Set([inicio[1] * l.ancho + inicio[0]]);
+    const cola = [inicio];
+    while (cola.length) {
+      const [x, y] = cola.shift()!;
+      for (const [dx, dy] of [[0,-1],[0,1],[-1,0],[1,0]]) {
+        const nx = x + dx, ny = y + dy;
+        if (esPared(l, nx, ny)) continue;
+        const id = ny * l.ancho + nx;
+        if (vistos.has(id)) continue;
+        vistos.add(id); cola.push([nx, ny]);
+      }
+    }
+    for (const g of l.gemas) {
+      const gx = Math.floor((g.x - l.origen.x) / l.celda);
+      const gy = Math.floor((g.y - l.origen.y) / l.celda);
+      expect(vistos.has(gy * l.ancho + gx), "una gema quedó incomunicada").toBe(true);
+    }
+  });
+
+  it("las paredes paran de verdad: nadie las atraviesa", () => {
+    /* Es LA pieza que el motor no tenía. Se empuja a un jugador contra una
+       pared durante dos segundos desde las cuatro direcciones. */
+    const e = lab();
+    const l = e.laberinto!;
+    const p = e.players[0];
+    for (const [ix, iy] of [[1,0],[-1,0],[0,1],[0,-1]] as [number, number][]) {
+      const ent: Record<number, EntradaJugador> = {
+        0: { mover: { x: ix, y: iy }, apunta: null },
+        1: { mover: { x: 0, y: 0 }, apunta: null },
+      };
+      for (let k = 0; k < 120; k++) {
+        avanzar(e, ent, 1 / 60);
+        expect(enPared(l, p.x, p.y),
+               "se metió en una pared empujando hacia " + ix + "," + iy).toBe(false);
+      }
+    }
+  });
+
+  it("el fantasma te quita una gema, y no te la quita dos veces seguidas", () => {
+    const e = lab();
+    const l = e.laberinto!;
+    const p = e.players[0];
+    l.puntos[0] = 3;
+    l.fantasma.x = p.x; l.fantasma.y = p.y;
+    avanzar(e, nada(2), 1 / 60);
+    expect(l.puntos[0], "no te quitó la gema").toBe(2);
+    expect(p.stun, "no te aturdió").toBeGreaterThan(0);
+    /* Y la gema VUELVE al laberinto: no desaparece del mundo, se puede volver a
+       coger. (Aquí las tres del jugador se pusieron a mano sin quitarlas del
+       tablero, así que la devuelta suma una más.) */
+    expect(l.gemas.length, "la gema no volvió al tablero").toBe(l.total + 1);
+    const tras = l.puntos[0];
+    for (let k = 0; k < 30; k++) avanzar(e, nada(2), 1 / 60);
+    expect(l.puntos[0], "te desplumó en medio segundo").toBe(tras);
+  });
+
+  it("acaba por gemas o por reloj, y siempre con un resultado", () => {
+    const e = lab();
+    for (let k = 0; k < 60 * 200 && !e.over; k++) {
+      const ent: Record<number, EntradaJugador> = {};
+      for (const p of e.players) ent[p.idx] = pensarBot(e, p, 1 / 60).entrada;
+      avanzar(e, ent, 1 / 60);
+    }
+    const l = e.laberinto!;
+    expect(e.over, "la partida no acabó ni por gemas ni por reloj").toBe(true);
+    expect(!l.gemas.length || l.reloj <= 0).toBe(true);
+    expect(l.puntos[0] + l.puntos[1], "no se cogió ni una gema").toBeGreaterThan(0);
+  });
+
+  it("en el laberinto no hay trastos: una patineta te lleva donde ella quiera", () => {
+    expect(lab().trastos.length).toBe(0);
+  });
+});
+
 describe("el billar", () => {
   const mesa = (semilla = 1) =>
     crearPartida({ jugadores: 2, escenario: "colegio", semilla, armas: idsDeArmas(),
@@ -2601,6 +2688,7 @@ describe("un minijuego apaga el barrio", () => {
     expect(JUEGOS_LISTOS, "los bolos ya se juegan enteros").toContain("bolos");
     expect(JUEGOS_LISTOS, "los dardos ya se juegan enteros").toContain("dardos");
     expect(JUEGOS_LISTOS, "el billar ya se juega entero").toContain("billar");
+    expect(JUEGOS_LISTOS, "el laberinto ya se juega entero").toContain("laberinto");
   });
 });
 
