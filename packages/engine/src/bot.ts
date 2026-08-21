@@ -445,17 +445,73 @@ function aDondeVoyEnLaberinto(e: Estado, p: Jugador): { x: number; y: number } |
   return { x: mejor.x, y: mejor.y };
 }
 
-/** A dónde va en billar: golpear la bola blanca hacia la más cercana de color. */
+/* ---- el bot del billar ----
+   Elige la bola con la tacada más limpia —la que mejor esté alineada con una
+   hoya desde la blanca— y se pone DETRÁS de la blanca en esa línea. Apuntar a
+   la bola más cercana sin mirar a qué hoya va es tirar por tirar. */
+
+/** La mejor jugada: qué bola, a qué hoya, y lo alineado que está. */
+function mejorTacada(bl: NonNullable<Estado["billar"]>) {
+  const blanca = bl.bolas.find(b => b.color === 0 && !b.hoya);
+  if (!blanca) return null;
+  let mejor: { bola: typeof blanca; hoya: { x: number; y: number }; nota: number } | null = null;
+  for (const bola of bl.bolas) {
+    if (bola.color === 0 || bola.hoya) continue;
+    for (const hoya of bl.hoyas) {
+      /* Lo alineado: el ángulo entre "blanca → bola" y "bola → hoya". Cuanto más
+         recto, más fácil. Un corte de más de 90° no entra ni por suerte. */
+      const ax = bola.x - blanca.x, ay = bola.y - blanca.y;
+      const bx = hoya.x - bola.x, by = hoya.y - bola.y;
+      const na = Math.hypot(ax, ay) || 1, nb = Math.hypot(bx, by) || 1;
+      const cos = (ax * bx + ay * by) / (na * nb);
+      if (cos <= 0.15) continue;
+      /* Nota: alineación primero, y de dos igual de rectas, la más cerca. */
+      const nota = cos * 1000 - (na + nb) * 0.12;
+      if (!mejor || nota > mejor.nota) mejor = { bola, hoya, nota };
+    }
+  }
+  return mejor ? { blanca, ...mejor } : null;
+}
+
 function aDondeVoyEnBillar(e: Estado, p: Jugador): { x: number; y: number } | null {
-  const bl = e.billar!;
-  const cue = bl.bolas.find(b => b.color === 0 && !b.hoya);
-  if (!cue) return null;
-  const objetivo = bl.bolas.find(b => b.color !== 0 && !b.hoya);
-  if (!objetivo) return null;
-  // stand behind the cue ball, opposite to the target
-  const dx = objetivo.x - cue.x, dy = objetivo.y - cue.y;
+  const bl = e.billar;
+  if (!bl) return null;
+  const i = e.players.indexOf(p);
+  if (i !== bl.turno) return { x: bl.mesa.x - 70, y: bl.mesa.y + 60 };
+  const jugada = mejorTacada(bl);
+  if (!jugada) return null;
+  /* Detrás de la blanca, en la línea de la jugada. */
+  const dx = jugada.bola.x - jugada.blanca.x, dy = jugada.bola.y - jugada.blanca.y;
   const d = Math.hypot(dx, dy) || 1;
-  return { x: cue.x - (dx / d) * 30, y: cue.y - (dy / d) * 30 };
+  return { x: jugada.blanca.x - (dx / d) * 40, y: jugada.blanca.y - (dy / d) * 40 };
+}
+
+/** A dónde apunta. SIEMPRE que sea su turno, no solo al tirar: el motor lee
+    `p.apunta` del tick anterior. Ya van tres juegos con este mismo bicho. */
+function aDondeApuntaElTaquista(e: Estado, p: Jugador): { x: number; y: number } | null {
+  const bl = e.billar;
+  if (!bl || bl.ganador != null) return null;
+  if (e.players.indexOf(p) !== bl.turno) return null;
+  const jugada = mejorTacada(bl);
+  /* Apunta a la bola, no a la hoya: la blanca tiene que golpear la bola. */
+  return jugada ? { x: jugada.bola.x, y: jugada.bola.y } : null;
+}
+
+/** ¿Taca ya? Con la mesa quieta, junto a la blanca y con la puntería puesta. */
+function tacadaDelBot(e: Estado, p: Jugador): number | null {
+  const bl = e.billar;
+  if (!bl || bl.ganador != null || bl.espera > 0 || bl.rodando || p.stun > 0) return null;
+  const i = e.players.indexOf(p);
+  if (i !== bl.turno) return null;
+  const blanca = bl.bolas.find(b => b.color === 0 && !b.hoya);
+  if (!blanca) return null;
+  if (dist2(p.x, p.y, blanca.x, blanca.y) > 66 * 66) return null;
+  if (!p.apunta.on) return null;
+  /* Más fuerte si la jugada es larga: una tacada floja se queda a medio camino.
+     El vaivén del reloj es lo que evita que dos tacadas iguales salgan iguales. */
+  const jugada = mejorTacada(bl);
+  const largo = jugada ? Math.hypot(jugada.hoya.x - jugada.blanca.x, jugada.hoya.y - jugada.blanca.y) : 600;
+  return clamp(largo / 1400 + Math.sin(e.t * 1.3 + p.idx * 2.1) * 0.12, 0.3, 1);
 }
 
 /* ---- el bot del air hockey ----
@@ -596,8 +652,8 @@ function aDondeVoy(e: Estado, p: Jugador): { x: number; y: number } | null {
   if (e.reglas.modo === "carreraObs") return aDondeVoyEnCarreraObs(e, p);
   if (e.reglas.modo === "bolos") return aDondeVoyEnBolos(e, p);
   if (e.reglas.modo === "dardos") return aDondeVoyEnDardos(e, p);
+  if (e.reglas.modo === "billar") return aDondeVoyEnBillar(e, p);
   if (e.laberinto) return aDondeVoyEnLaberinto(e, p);
-  if (e.billar) return aDondeVoyEnBillar(e, p);
   /* Corriendo solo existe el siguiente punto de paso. Mira un poco más allá
      para cortar la curva en vez de ir de baliza en baliza como un cono.
 
@@ -689,6 +745,9 @@ export function pensarBot(e: Estado, p: Jugador, dt: number): PlanBot {
   const tenis = e.reglas.modo === "tenis", voley = e.reglas.modo === "voley";
   const basquet = e.reglas.modo === "basquet", bolos = e.reglas.modo === "bolos";
   const hockey = e.reglas.modo === "hockey", dardos = e.reglas.modo === "dardos";
+  const billar = e.reglas.modo === "billar";
+  const taco = billar ? tacadaDelBot(e, p) : null;
+  const puntoTaco = billar ? aDondeApuntaElTaquista(e, p) : null;
   const dardo = dardos ? tiroDelTirador(e, p) : null;
   const puntoDardo = dardos ? aDondeApuntaElTirador(e, p) : null;
   const zurdazo = hockey ? zurdazoDelBot(e, p) : null;
@@ -698,7 +757,7 @@ export function pensarBot(e: Estado, p: Jugador, dt: number): PlanBot {
                 : voley ? toqueDelBot(e, p)
                 : basquet ? tiroDelBot(e, p)
                 : zurdazo ? zurdazo.fuerza
-                : dardo ?? bolear;
+                : dardo ?? taco ?? bolear;
   const enLucha = !!e.lucha || !!e.dardos;
   /* Y en los dardos, el que espera hostiga al que tira. */
   const aTirando = e.dardos && e.players.indexOf(p) !== e.dardos.turno
@@ -714,6 +773,7 @@ export function pensarBot(e: Estado, p: Jugador, dt: number): PlanBot {
                : voley ? aDondeLaMandoEnVoley(e, p)
                : bolos ? puntoBolos
                : dardos ? puntoDardo
+               : billar ? puntoTaco
                : hockey ? (zurdazo ? zurdazo.apunta : null)
                : enLucha ? blancoLucha : aQuienLeTiro(e, p);
   const usarLucha = enLucha && !!blancoLucha;

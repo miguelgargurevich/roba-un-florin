@@ -10,7 +10,7 @@
 
 import type {
   Base, Bala, DesfileItem, EntradaJugador, Estado, Florin, Jugador, Ladron,
-  Pedestal, Premio, Abuela, RefObjetivo, RefPed, Trasto, Variante, JuegoDeSitio,
+  Pedestal, Premio, Abuela, RefObjetivo, RefPed, Trasto, Variante, Billar, JuegoDeSitio,
 } from "./tipos.js";
 import {
   ESCUDO_DUR, GARAJE, GOAL, LADRONES, LASER_CARGA, RULETA, RULETA_INCOGNITA, RULETA_PRECIO,
@@ -32,6 +32,7 @@ import {
   colocarEnElRing, LUCHA_SAQUE, OBS_TROPIEZO,
   colocarParaTirar, reponerLosPinos, BOLA_R, PINO_R,
   colocarParaTirarDardo, valorDelDardo, DIANA_ANILLOS, DARDOS_ESPERA,
+  colocarParaTacar, reponerLaBlanca, BOLA_BILLAR_R, HOYA_R, BILLAR_ESPERA,
 } from "./estado.js";
 
 /* Cualquier cosa a la que se pueda golpear */
@@ -1609,7 +1610,8 @@ function balonAlAlcance(e: Estado, p: Jugador): Trasto | null {
  */
 export function patear(e: Estado, p: Jugador,
                        fuerza = 0): "patada" | "cabezazo" | "golpe" | "pase" | "remate"
-                                  | "tiro" | "bola" | "zurdazo" | "dardo" | null {
+                                  | "tiro" | "bola" | "zurdazo" | "dardo"
+                                  | "tacada" | null {
   /* El mismo botón es la raqueta en el tenis y las manos en el vóley. Se
      reparte aquí y no en el cliente para que teclado, botón y sala pidan
      siempre lo mismo. */
@@ -1619,6 +1621,7 @@ export function patear(e: Estado, p: Jugador,
   if (e.bolos) return tirarBolos(e, p, clamp(fuerza, 0, 1));
   if (e.hockey) return golpeDeHockey(e, p, clamp(fuerza, 0, 1));
   if (e.dardos) return tirarDardo(e, p, clamp(fuerza, 0, 1));
+  if (e.billar) return tacada(e, p, clamp(fuerza, 0, 1));
   const f = e.futbol;
   if (!f || f.ganador != null || p.stun > 0) return null;
   const b = balonAlAlcance(e, p);
@@ -2715,54 +2718,173 @@ function pasoLaberinto(e: Estado, dt: number): void {
 /* ============================================================
    Billar
    ============================================================ */
-function pasoBillar(e: Estado, dt: number): void {
+/* ---- el billar ----
+   La física de choques ya estaba escrita y era correcta (choque elástico a lo
+   largo de la normal, con separación). Lo que no había era **quién tira, cuándo
+   y qué pasa después** — sin eso, siete bolas quietas en un paño verde.
+
+   La regla que hace que un turno importe: **si metes, sigues tirando**. Y la
+   blanca metida vuelve a la mesa y el turno se va, que es el castigo que todo
+   el mundo ya conoce sin que haya que explicarlo. */
+export const TACO_ALCANCE = 76;
+/** La tacada, del toque suave al bolazo. */
+const TACO_MIN = 380, TACO_MAX = 1250;
+/** Lo que frena una bola por segundo. Antes iba por FOTOGRAMA (0.985), o sea
+    que el billar corría distinto según la máquina. */
+const BILLAR_ROCE = 0.28;
+/** Por debajo de esto, quieta. */
+const BILLAR_PARA = 14;
+
+/** ¿Está todo quieto? Solo entonces se puede tirar. */
+const mesaQuieta = (bl: Billar): boolean =>
+  bl.bolas.every(b => b.hoya || (!b.vx && !b.vy));
+
+/** Tacada. Solo el que tiene el turno, junto a la blanca y con la mesa quieta. */
+function tacada(e: Estado, p: Jugador, k: number): "tacada" | null {
+  const bl = e.billar;
+  if (!bl || bl.ganador != null || bl.espera > 0 || bl.rodando || p.stun > 0) return null;
+  const i = e.players.indexOf(p);
+  if (i !== bl.turno) return null;
+  if (!mesaQuieta(bl)) return null;
+  const blanca = bl.bolas.find(b => b.color === 0 && !b.hoya);
+  if (!blanca) return null;
+  if (dist2(p.x, p.y, blanca.x, blanca.y) > TACO_ALCANCE * TACO_ALCANCE) return null;
+
+  /* A donde apuntes. Y si no apuntas, hacia la bola de color más cercana:
+     pegarle "a ninguna parte" no existe. */
+  const a = p.apunta;
+  let dx: number, dy: number;
+  if (a.on) { dx = a.wx - blanca.x; dy = a.wy - blanca.y; }
+  else {
+    const obj = bl.bolas
+      .filter(b => b.color !== 0 && !b.hoya)
+      .sort((m, n) => dist2(blanca.x, blanca.y, m.x, m.y) - dist2(blanca.x, blanca.y, n.x, n.y))[0];
+    if (!obj) return null;
+    dx = obj.x - blanca.x; dy = obj.y - blanca.y;
+  }
+  const m = Math.hypot(dx, dy) || 1;
+  const v = TACO_MIN + (TACO_MAX - TACO_MIN) * clamp(k, 0, 1);
+  blanca.vx = (dx / m) * v;
+  blanca.vy = (dy / m) * v;
+  bl.rodando = true;
+  /* Cuántas había metidas al empezar la tacada: la diferencia dice si sigue. */
+  bl.ultimo = { quien: i, metió: 0, falta: false };
+  polvo(e, blanca.x, blanca.y, "#FFEFE2", 5);
+  sonar(e, "throw");
+  return "tacada";
+}
+
+/** Se paró todo: contar lo metido y decidir de quién es el turno. */
+function cerrarTacada(e: Estado, metidas: number, falta: boolean): void {
   const bl = e.billar!;
-  if (bl.ganador != null) return;
-  const friccion = 0.985;
+  const quien = bl.turno;
+  bl.puntos[quien] += metidas;
+  bl.ultimo = { quien, metió: metidas, falta };
+
+  if (falta) {
+    texto(e, bl.mesa.x + bl.mesa.w / 2, bl.mesa.y - 30, "¡La blanca! Cambio de turno", "#FF5C86");
+    reponerLaBlanca(e);
+    sonar(e, "ouch");
+  } else if (metidas > 0) {
+    texto(e, bl.mesa.x + bl.mesa.w / 2, bl.mesa.y - 30,
+          metidas > 1 ? "¡" + metidas + " de golpe! Sigues" : "¡Metida! Sigues", "#3DDC97");
+    sonar(e, "win");
+  }
+
+  /* Se acabó cuando no queda color en la mesa. */
+  if (bl.bolas.filter(b => b.color !== 0).every(b => b.hoya)) {
+    const mejor = Math.max(...bl.puntos);
+    const empate = bl.puntos.filter(x => x === mejor).length > 1;
+    bl.ganador = empate ? null : bl.puntos.indexOf(mejor);
+    terminarJuegoIndividual(e, bl.ganador == null ? null : e.players[bl.ganador].idx);
+    return;
+  }
+
+  /* Si metió y no fue falta, sigue él. Si no, al siguiente. */
+  if (!(metidas > 0 && !falta)) bl.turno = (bl.turno + 1) % e.players.length;
+  colocarParaTacar(e);
+}
+
+function pasoBillar(e: Estado, dt: number): void {
+  const bl = e.billar;
+  if (!bl || bl.ganador != null) return;
+
+  /* Nadie se sube a la mesa: se tira desde el borde. */
+  for (const p of e.players) {
+    p.x = clamp(p.x, bl.mesa.x - 120, bl.mesa.x + bl.mesa.w + 120);
+    p.y = clamp(p.y, bl.mesa.y - 120, bl.mesa.y + bl.mesa.h + 120);
+  }
+
+  if (bl.espera > 0) {
+    bl.espera -= dt;
+    if (bl.espera <= 0) cerrarTacada(e, bl.ultimo?.metió ?? 0, !!bl.ultimo?.falta);
+    return;
+  }
+  if (!bl.rodando) return;
+
+  const roce = Math.pow(BILLAR_ROCE, dt);
+  const m = bl.mesa;
+  let metidas = 0, falta = false;
+
   for (const b of bl.bolas) {
     if (b.hoya) continue;
-    b.vx *= friccion; b.vy *= friccion;
+    b.vx *= roce; b.vy *= roce;
+    if (Math.hypot(b.vx, b.vy) < BILLAR_PARA) { b.vx = 0; b.vy = 0; }
     b.x += b.vx * dt; b.y += b.vy * dt;
-    // bounce off walls
-    const m = bl.mesa;
-    if (b.x < m.x + 10) { b.x = m.x + 10; b.vx = Math.abs(b.vx) * 0.8; }
-    if (b.x > m.x + m.w - 10) { b.x = m.x + m.w - 10; b.vx = -Math.abs(b.vx) * 0.8; }
-    if (b.y < m.y + 10) { b.y = m.y + 10; b.vy = Math.abs(b.vy) * 0.8; }
-    if (b.y > m.y + m.h - 10) { b.y = m.y + m.h - 10; b.vy = -Math.abs(b.vy) * 0.8; }
-    // pocket check
-    const esq = [[m.x + 15, m.y + 15], [m.x + m.w - 15, m.y + 15], [m.x + 15, m.y + m.h - 15], [m.x + m.w - 15, m.y + m.h - 15]];
-    for (const [hx, hy] of esq) {
-      if (dist2(b.x, b.y, hx, hy) < 18 * 18) { b.hoya = true; b.vx = 0; b.vy = 0; sonar(e, "place"); }
+
+    // las bandas
+    if (b.x < m.x + BOLA_BILLAR_R) { b.x = m.x + BOLA_BILLAR_R; b.vx = Math.abs(b.vx) * 0.86; }
+    if (b.x > m.x + m.w - BOLA_BILLAR_R) { b.x = m.x + m.w - BOLA_BILLAR_R; b.vx = -Math.abs(b.vx) * 0.86; }
+    if (b.y < m.y + BOLA_BILLAR_R) { b.y = m.y + BOLA_BILLAR_R; b.vy = Math.abs(b.vy) * 0.86; }
+    if (b.y > m.y + m.h - BOLA_BILLAR_R) { b.y = m.y + m.h - BOLA_BILLAR_R; b.vy = -Math.abs(b.vy) * 0.86; }
+
+    // las hoyas
+    for (const h of bl.hoyas) {
+      if (dist2(b.x, b.y, h.x, h.y) > HOYA_R * HOYA_R) continue;
+      b.hoya = true; b.vx = 0; b.vy = 0;
+      polvo(e, h.x, h.y, "#2A1226", 8);
+      sonar(e, "place");
+      if (b.color === 0) falta = true; else metidas++;
+      break;
     }
   }
-  // ball-ball collisions
+
+  /* ---- las bolas entre ellas ----
+     Choque elástico a lo largo de la normal, y separación para que no se queden
+     encajadas. Solo se intercambia si se acercan (`dot > 0`): si no, dos bolas
+     pegadas se empujarían para siempre. */
   for (let i = 0; i < bl.bolas.length; i++) {
     for (let j = i + 1; j < bl.bolas.length; j++) {
       const a = bl.bolas[i], b = bl.bolas[j];
       if (a.hoya || b.hoya) continue;
-      const d = dist2(a.x, a.y, b.x, b.y);
-      const minD = 14;
-      if (d < minD * minD && d > 0) {
-        const dx = b.x - a.x, dy = b.y - a.y;
-        const m = Math.sqrt(d);
-        const nx = dx / m, ny = dy / m;
-        const dvx = a.vx - b.vx, dvy = a.vy - b.vy;
-        const dot = dvx * nx + dvy * ny;
-        if (dot > 0) {
-          a.vx -= dot * nx; a.vy -= dot * ny;
-          b.vx += dot * nx; b.vy += dot * ny;
-        }
-        const sep = (minD - m) / 2;
-        a.x -= nx * sep; a.y -= ny * sep;
-        b.x += nx * sep; b.y += ny * sep;
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const d = Math.hypot(dx, dy);
+      const minD = BOLA_BILLAR_R * 2;
+      if (d >= minD || d < 0.01) continue;
+      const nx = dx / d, ny = dy / d;
+      const dot = (a.vx - b.vx) * nx + (a.vy - b.vy) * ny;
+      if (dot > 0) {
+        a.vx -= dot * nx; a.vy -= dot * ny;
+        b.vx += dot * nx; b.vy += dot * ny;
+        sonar(e, "whack");
       }
+      const sep = (minD - d) / 2;
+      a.x -= nx * sep; a.y -= ny * sep;
+      b.x += nx * sep; b.y += ny * sep;
     }
   }
-  // check if all colored balls are pocketed
-  const colored = bl.bolas.filter(b => b.color !== 0);
-  if (colored.every(b => b.hoya)) { terminarJuegoIndividual(e, e.players[bl.turno]?.idx ?? null); }
-}
 
+  /* Lo metido en ESTE fotograma se acumula en el resumen de la tacada. */
+  if (bl.ultimo) {
+    bl.ultimo.metió += metidas;
+    if (falta) bl.ultimo.falta = true;
+  }
+
+  if (mesaQuieta(bl)) {
+    bl.rodando = false;
+    bl.espera = BILLAR_ESPERA;
+  }
+}
 /* ============================================================
    Air Hockey
    ============================================================ */

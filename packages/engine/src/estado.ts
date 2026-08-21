@@ -3,7 +3,7 @@
 
 import type {
   Base, Billar, DesfileItem, Estado, Evento, Florin, Jugador, Laser, Pedestal, RefObjetivo,
-  Rect, RefPed, Reglas, SitioDeJuego, JuegoDeSitio, Sonido, Tenis, Trasto, Variante, Voley, Circulo, Pino, Dardos,
+  Rect, RefPed, Reglas, SitioDeJuego, JuegoDeSitio, Sonido, Tenis, Trasto, Variante, Voley, Circulo, Pino, Dardos, Bola,
 } from "./tipos.js";
 import {
   ESCENARIOS, FLORES, GOAL, LASER_CARGA, PATIOS_PRECIO, TIERS, TRASTOS_ESCENARIO,
@@ -907,7 +907,7 @@ const SITIOS: {
   { juego: "voley", rotulo: "LA CANCHA DE VÓLEY", medida: MED_VOLEY, donde: "colegio", listo: true },
   { juego: "carreraObs", rotulo: "LA CARRERA", medida: MED_CARRERA_OBS, donde: "colegio", listo: true },
   { juego: "laberinto", rotulo: "EL LABERINTO", medida: MED_LABERINTO, donde: "colegio", listo: false },
-  { juego: "billar", rotulo: "EL BILLAR", medida: MED_BILLAR, donde: "colegio", listo: false },
+  { juego: "billar", rotulo: "EL BILLAR", medida: MED_BILLAR, donde: "colegio", listo: true },
   { juego: "hockey", rotulo: "AIR HOCKEY", medida: MED_HOCKEY, donde: "colegio", listo: true },
 ];
 
@@ -1449,23 +1449,90 @@ export function aElLaberinto(e: Estado): void {
   for (const p of e.players) { p.x = cx - (ancho / 2) * cw + cw + cw / 2; p.y = cy - (alto / 2) * ch + ch + ch / 2; p.vx = 0; p.vy = 0; p.stun = 0; p.montado = null; }
 }
 
-/* ---- billar ---- */
+/* ---- el billar ----
+   Por turnos, y con la regla que hace que un turno sea interesante: **si metes,
+   sigues tirando**. La blanca metida vuelve a la mesa y el turno se va.
+
+   La física de choques y de hoyas ya estaba escrita; lo que no había era quién
+   tira, cuándo, y qué pasa después. */
+export const MESA_BILLAR = { w: 1100, h: 620 };
+export const BOLA_BILLAR_R = 15, HOYA_R = 32, BILLAR_ESPERA = 0.7;
+/** Cuántas de color hay. */
+export const BILLAR_COLORES = 7;
+
 export function aLaMesaDeBillar(e: Estado): void {
   const { cx, cy } = centroDelMapa();
-  const mesa = { x: Math.round(cx - 250), y: Math.round(cy - 150), w: 500, h: 300 };
-  const bolas: Billar["bolas"] = [];
-  const colores = [1, 2, 3, 4, 5, 6, 7];
-  let bx = mesa.x + mesa.w * 0.7;
-  const by = cy;
-  for (let i = 0; i < colores.length; i++) {
-    const fila = Math.floor(i / 3);
-    const pos = i % 3;
-    bolas.push({ x: bx + fila * 18, y: by - 18 + pos * 18, vx: 0, vy: 0, color: colores[i], hoya: false });
-  }
-  bolas.push({ x: mesa.x + mesa.w * 0.25, y: cy, vx: 0, vy: 0, color: 0, hoya: false });
-  e.billar = { mesa, bolas, turno: 0, foul: false, puntos: [0, 0], ganador: null };
-  for (const p of e.players) { p.x = mesa.x + 40; p.y = cy; p.vx = 0; p.vy = 0; p.stun = 0; p.montado = null; }
+  const mesa = {
+    x: Math.round(cx - MESA_BILLAR.w / 2), y: Math.round(cy - MESA_BILLAR.h / 2),
+    w: MESA_BILLAR.w, h: MESA_BILLAR.h,
+  };
+  /* Seis hoyas, como una mesa de verdad: las cuatro esquinas y dos en medio de
+     los lados largos. Con solo cuatro, la mitad de la mesa no tiene salida. */
+  const b = 34;
+  const hoyas = [
+    { x: mesa.x + b, y: mesa.y + b }, { x: mesa.x + mesa.w - b, y: mesa.y + b },
+    { x: mesa.x + b, y: mesa.y + mesa.h - b }, { x: mesa.x + mesa.w - b, y: mesa.y + mesa.h - b },
+    { x: mesa.x + mesa.w / 2, y: mesa.y + b - 6 },
+    { x: mesa.x + mesa.w / 2, y: mesa.y + mesa.h - b + 6 },
+  ];
+
+  /* El triángulo, a la derecha; la blanca, a la izquierda. */
+  const bolas: Bola[] = [];
+  const px = mesa.x + mesa.w * 0.68, py = cy;
+  const paso = BOLA_BILLAR_R * 2 + 2;
+  let n = 0;
+  for (let fila = 0; fila < 4 && n < BILLAR_COLORES; fila++)
+    for (let k = 0; k <= fila && n < BILLAR_COLORES; k++, n++)
+      bolas.push({
+        x: px + fila * paso * 0.87,
+        y: py + (k - fila / 2) * paso,
+        vx: 0, vy: 0, color: n + 1, hoya: false,
+      });
+  bolas.push({ x: mesa.x + mesa.w * 0.22, y: cy, vx: 0, vy: 0, color: 0, hoya: false });
+
+  e.billar = {
+    mesa, hoyas, bolas, turno: 0, puntos: e.players.map(() => 0),
+    rodando: false, ultimo: null, espera: 0, ganador: null,
+  };
+  repartirEquipos(e);
+  colocarParaTacar(e);
 }
+
+/** La blanca a la mesa, en un hueco libre de la banda izquierda. */
+export function reponerLaBlanca(e: Estado): void {
+  const bl = e.billar;
+  if (!bl) return;
+  const blanca = bl.bolas.find(b => b.color === 0);
+  if (!blanca) return;
+  blanca.hoya = false;
+  blanca.vx = 0; blanca.vy = 0;
+  /* Un sitio donde no toque a nadie: se prueba desde el punto de saque hacia
+     arriba y hacia abajo. Sin esto puede reaparecer dentro de otra bola. */
+  const cy = bl.mesa.y + bl.mesa.h / 2;
+  const x = bl.mesa.x + bl.mesa.w * 0.22;
+  for (const dy of [0, -60, 60, -120, 120, -180, 180]) {
+    const y = clamp(cy + dy, bl.mesa.y + HOYA_R, bl.mesa.y + bl.mesa.h - HOYA_R);
+    const libre = bl.bolas.every(b =>
+      b.color === 0 || b.hoya || dist2(b.x, b.y, x, y) > (BOLA_BILLAR_R * 2.4) ** 2);
+    if (libre) { blanca.x = x; blanca.y = y; return; }
+  }
+  blanca.x = x; blanca.y = cy;
+}
+
+/** El que tira, junto a la blanca; el que espera, al borde de la mesa. */
+export function colocarParaTacar(e: Estado): void {
+  const bl = e.billar;
+  if (!bl) return;
+  bl.espera = 0;
+  bl.rodando = false;
+  const blanca = bl.bolas.find(b => b.color === 0);
+  e.players.forEach((p, i) => {
+    if (i === bl.turno && blanca) { p.x = blanca.x - 46; p.y = blanca.y; }
+    else { p.x = bl.mesa.x - 70; p.y = bl.mesa.y + 60 + (i % 3) * 90; }
+    p.vx = 0; p.vy = 0; p.stun = 0; p.montado = null;
+  });
+}
+
 
 /* ---- air hockey ----
    Una mesa, un disco y dos arcos. Nadie cruza la línea del medio: es la regla

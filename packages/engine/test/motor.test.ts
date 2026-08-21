@@ -19,7 +19,7 @@ import {
   nuevoFlorin, baseDe, patiosDe, zap, multDeMontura, puntoDelDesfile, puntoDelOcho,
   centroDelMapa, WORLD_W, WORLD_H, OCHO_A, colocarPuestos, ponerFiesta, enFiesta, enElMar,
   nivelDeVitrina, nombreDeHito, HITOS_MAX, vitrinaDe, venderFlorin, precioDeVenta, soltarCarga,
-  valorDelDardo, DIANA_ANILLOS,
+  valorDelDardo, DIANA_ANILLOS, BILLAR_COLORES, BOLA_BILLAR_R,
   patear, TENIS_META, TENIS_ALCANCE, ladoDeLaCancha, esMinijuego, JUEGOS_LISTOS,
   VOLEY_META, VOLEY_TOQUES, ladoDeVoley, BASQUET_META, BASQUET_ALCANCE,
   type EntradaJugador, type Estado,
@@ -1824,6 +1824,109 @@ describe("tenis", () => {
   });
 });
 
+describe("el billar", () => {
+  const mesa = (semilla = 1) =>
+    crearPartida({ jugadores: 2, escenario: "colegio", semilla, armas: idsDeArmas(),
+                   reglas: { modo: "billar" } as any });
+  const blanca = (e: Estado) => e.billar!.bolas.find(b => b.color === 0)!;
+  /** Pone al que le toca junto a la blanca y taca hacia `hacia`. */
+  function tacar(e: Estado, hacia: { x: number; y: number }, fuerza = 0.8){
+    const bl = e.billar!;
+    const p = e.players[bl.turno];
+    const w = blanca(e);
+    p.x = w.x - 40; p.y = w.y; p.stun = 0;
+    p.apunta.on = true; p.apunta.wx = hacia.x; p.apunta.wy = hacia.y;
+    return patear(e, p, fuerza);
+  }
+  /** Deja que se pare todo y se cierre la tacada. */
+  const reposar = (e: Estado) => {
+    for (let k = 0; k < 60 * 12 && !e.over; k++) avanzar(e, nada(2), 1 / 60);
+  };
+
+  it("siete de color, una blanca y seis hoyas", () => {
+    const e = mesa();
+    const bl = e.billar!;
+    expect(bl.bolas.filter(b => b.color !== 0).length).toBe(BILLAR_COLORES);
+    expect(bl.bolas.filter(b => b.color === 0).length).toBe(1);
+    expect(bl.hoyas.length).toBe(6);
+    /* Y ninguna bola nace pegada a otra. */
+    for (let i = 0; i < bl.bolas.length; i++)
+      for (let j = i + 1; j < bl.bolas.length; j++)
+        expect(Math.hypot(bl.bolas[i].x - bl.bolas[j].x, bl.bolas[i].y - bl.bolas[j].y),
+               "dos bolas nacieron encajadas").toBeGreaterThan(BOLA_BILLAR_R * 1.9);
+  });
+
+  it("solo taca el que le toca, junto a la blanca y con la mesa quieta", () => {
+    const e = mesa();
+    const bl = e.billar!;
+    const otro = e.players[1 - bl.turno];
+    const w = blanca(e);
+    otro.x = w.x - 40; otro.y = w.y;
+    otro.apunta.on = true; otro.apunta.wx = w.x + 100; otro.apunta.wy = w.y;
+    expect(patear(e, otro, 0.8), "tacó uno que no le tocaba").toBe(null);
+    const suyo = e.players[bl.turno];
+    suyo.x = w.x - 400;
+    suyo.apunta.on = true; suyo.apunta.wx = w.x + 100; suyo.apunta.wy = w.y;
+    expect(patear(e, suyo, 0.8), "tacó desde el otro lado de la sala").toBe(null);
+    expect(tacar(e, { x: w.x + 200, y: w.y }), "no pudo tacar").toBe("tacada");
+    /* Y con la mesa rodando, no se taca otra vez. */
+    expect(tacar(e, { x: w.x + 200, y: w.y }), "tacó con la mesa rodando").toBe(null);
+  });
+
+  it("colar la blanca es falta: vuelve a la mesa y cambia el turno", () => {
+    const e = mesa();
+    const bl = e.billar!;
+    const quien = bl.turno;
+    const w = blanca(e);
+    /* Directa a una hoya, lejos del triángulo. */
+    const hoya = bl.hoyas.find(h => h.x < bl.mesa.x + bl.mesa.w / 2 && h.y < bl.mesa.y + 100)!;
+    w.x = hoya.x + 120; w.y = hoya.y + 120;
+    e.players[quien].x = w.x + 40; e.players[quien].y = w.y;
+    tacar(e, hoya, 1);
+    reposar(e);
+    expect(bl.turno, "no cambió el turno tras colar la blanca").not.toBe(quien);
+    expect(blanca(e).hoya, "la blanca se quedó en la hoya").toBe(false);
+    expect(inRect(blanca(e).x, blanca(e).y, bl.mesa, 0), "la blanca volvió fuera de la mesa").toBe(true);
+  });
+
+  it("si metes, sigues tirando", () => {
+    const e = mesa();
+    const bl = e.billar!;
+    const quien = bl.turno;
+    /* Una de color puesta a tiro hecho, y la blanca detrás en línea. */
+    const hoya = bl.hoyas[0];
+    const obj = bl.bolas.find(b => b.color !== 0)!;
+    obj.x = hoya.x + 90; obj.y = hoya.y + 90;
+    const w = blanca(e);
+    w.x = obj.x + 90; w.y = obj.y + 90;
+    e.players[quien].x = w.x + 40; e.players[quien].y = w.y;
+    tacar(e, obj, 1);
+    reposar(e);
+    expect(bl.puntos[quien], "no contó la bola metida").toBeGreaterThan(0);
+    expect(bl.turno, "metió y perdió el turno").toBe(quien);
+  });
+
+  it("los bots vacían la mesa y sale ganador", () => {
+    const e = mesa();
+    for (let k = 0; k < 60 * 400 && !e.over; k++){
+      const ent: Record<number, EntradaJugador> = {};
+      const tiran: [any, number][] = [];
+      for (const p of e.players){
+        const plan = pensarBot(e, p, 1 / 60);
+        ent[p.idx] = plan.entrada;
+        if (plan.patear != null) tiran.push([p, plan.patear]);
+      }
+      for (const [p, f] of tiran) patear(e, p, f);
+      avanzar(e, ent, 1 / 60);
+    }
+    const bl = e.billar!;
+    expect(e.over, "la partida no acabó").toBe(true);
+    expect(bl.bolas.filter(b => b.color !== 0).every(b => b.hoya),
+           "quedaron bolas en la mesa").toBe(true);
+    expect(bl.puntos[0] + bl.puntos[1]).toBe(BILLAR_COLORES);
+  });
+});
+
 describe("los dardos", () => {
   const diana = (semilla = 1) =>
     crearPartida({ jugadores: 2, escenario: "colegio", semilla, armas: idsDeArmas(),
@@ -2497,6 +2600,7 @@ describe("un minijuego apaga el barrio", () => {
     expect(JUEGOS_LISTOS, "la carrera de obstáculos ya se juega entera").toContain("carreraObs");
     expect(JUEGOS_LISTOS, "los bolos ya se juegan enteros").toContain("bolos");
     expect(JUEGOS_LISTOS, "los dardos ya se juegan enteros").toContain("dardos");
+    expect(JUEGOS_LISTOS, "el billar ya se juega entero").toContain("billar");
   });
 });
 

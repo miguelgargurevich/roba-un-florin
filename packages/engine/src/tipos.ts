@@ -491,13 +491,35 @@ export interface Laberinto {
 }
 
 /* ---- Billar ---- */
+/** Una bola de billar. `color` 0 es la blanca. */
+export interface Bola {
+  x: number; y: number;
+  vx: number; vy: number;
+  color: number;
+  hoya: boolean;
+}
+
+/** El billar. Por turnos, con la regla que hace que un turno sea interesante:
+    **si metes, sigues tirando**. Y si metes la blanca, vuelve a la mesa y el
+    turno se va — que es el castigo de siempre y el que todo el mundo conoce.
+
+    La tacada se apunta y se carga con el mismo botón que todo lo demás. Aquí la
+    carga sí es fuerza: en el billar la fuerza ES la jugada. */
 export interface Billar {
   mesa: Rect;
-  bolas: { x: number; y: number; vx: number; vy: number; color: number; hoya: boolean }[];
+  /** Las seis hoyas: cuatro esquinas y dos en medio. */
+  hoyas: { x: number; y: number }[];
+  bolas: Bola[];
   turno: number;
-  foul: boolean;
-  puntos: [number, number];
-  ganador: 0 | 1 | null;
+  /** Bolas metidas por cada uno. */
+  puntos: number[];
+  /** ¿Se está moviendo algo? Mientras sí, no se puede tirar. */
+  rodando: boolean;
+  /** Lo último que pasó, para el cartel. */
+  ultimo: { quien: number; metió: number; falta: boolean } | null;
+  /** Pausa tras la tacada, para ver el resultado. */
+  espera: number;
+  ganador: number | null;
 }
 
 /* ---- Air Hockey ---- */

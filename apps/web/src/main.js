@@ -22,7 +22,7 @@ import {
   fundir, queSaleDeFundir,
   TRASTOS_ESCENARIO, darleVehiculo, esEspecial, ANCHO_PISTA, aparcarNuevo, comprarPatio,
   ponerFiesta, enFiesta, patear, TENIS_META, JUEGOS_LISTOS, VOLEY_META, VOLEY_TOQUES, VOLEY_ALCANCE,
-  BASQUET_META, DIANA_ANILLOS,
+  BASQUET_META, DIANA_ANILLOS, BILLAR_COLORES, BOLA_BILLAR_R, HOYA_R,
   usarPotenciador, potenciadoresDe, potenciadorPorId,
   soltarCarga, trastoDe,
   venderFlorin,
@@ -412,14 +412,14 @@ window.addEventListener("keydown", e => {
   if (k === "x") usarMiItem();       // la E ya cambia de arma
   /* La B abre el álbum… salvo en un partido, donde es la de patear: a media
      pichanga nadie quiere el álbum, y el que lo quiera tiene el botón 📖. */
-  if (k === "b" && !elPartido() && !(G && (G.bolos || G.hockey || G.dardos)))
+  if (k === "b" && !elPartido() && !(G && (G.bolos || G.hockey || G.dardos || G.billar)))
     { if (document.getElementById("album").hidden) abrirAlbum(); else cerrarAlbum(); }
   if (k === "t") togglePanel("arm");
   if (k === "r") togglePanel("rul");
   if (k === "escape" && !document.getElementById("album").hidden) cerrarAlbum();
   if (k === "escape" && !elTienda.hidden) cerrarTienda();
   /* En teclado se patea con B, aguantándola para cargar. */
-  if (k === "b" && (elPartido() || (G && (G.bolos || G.hockey || G.dardos))) && G.started && !G.over && !pateo.desde)
+  if (k === "b" && (elPartido() || (G && (G.bolos || G.hockey || G.dardos || G.billar))) && G.started && !G.over && !pateo.desde)
     pateo.desde = performance.now();
   if (k === "escape" && !document.getElementById("salirAviso").hidden) cerrarSalir();
   if (k >= "1" && k <= "9") elegirArma(+k - 1);
@@ -1063,7 +1063,7 @@ const elPartido = () => (G && (G.futbol || G.tenis || G.voley || G.basquet)) || 
     la clase `partido` del CSS, el minimapa y las tarjetas del HUD preguntan lo
     mismo y se les había ido contestando de una en una. */
 const enMinijuego = () => !!(G && G.reglas &&
-  ["futbol","tenis","voley","basquet","hockey","lucha","carreraObs","bolos","dardos"]
+  ["futbol","tenis","voley","basquet","hockey","lucha","carreraObs","bolos","dardos","billar"]
     .includes(G.reglas.modo));
 
 const laMesaOCancha = () => {
@@ -1084,6 +1084,10 @@ const laMesaOCancha = () => {
   }
   /* Los dardos: la diana Y la raya en el mismo cuadro. Si no ves las dos, no
      sabes dónde estás apuntando desde. */
+  if (G && G.billar){
+    const m = G.billar.mesa;
+    return { x: m.x - 120, y: m.y - 100, w: m.w + 240, h: m.h + 200 };
+  }
   if (G && G.dardos){
     const t = G.dardos.tablero;
     return { x: t.x - 400, y: t.y - t.r - 80,
@@ -1120,7 +1124,8 @@ function soltarPateo(){
   elPateo.querySelector(".carga b").style.width = "0%";
   if (sala) sala.patear(f);
   /* En vóley el toque ya salió solo mientras aguantabas: soltar no repite. */
-  else if ((elPartido() || G.bolos || G.hockey || G.dardos) && !G.voley) patear(G, G.player, f);
+  else if ((elPartido() || G.bolos || G.hockey || G.dardos || G.billar) && !G.voley)
+    patear(G, G.player, f);
   Snd.unlock();
 }
 elPateo.addEventListener("pointerdown", e => {
@@ -1369,7 +1374,7 @@ function pintarAccion(){
       : cual === "sitio:bolos" ? "🎳 Jugar bolos · cinco manos"
       : cual === "sitio:dardos" ? "🎯 Tirar dardos · seis cada uno"
       : cual === "sitio:laberinto" ? "🔮 Entrar al laberinto · recoge las gemas"
-      : cual === "sitio:billar" ? "🎱 Jugar billar · una bola a la vez"
+      : cual === "sitio:billar" ? "🎱 Jugar billar · siete bolas"
       : "🎰 Girar la Ruleta · " + money(RULETA_PRECIO);
   }
   const p = G.player;
@@ -1405,7 +1410,7 @@ const MINIJUEGOS = {
   voley:      "🏐 ¡Vóley, dos contra dos! La tocas con solo llegar; aguanta el botón para rematar.",
   carreraObs: "🏃 ¡Carrera de obstáculos! Tres vueltas a pie. Los conos te tumban.",
   laberinto:  "🔮 ¡Al laberinto! Recoge todas las gemas.",
-  billar:     "🎱 ¡Billar! Entran todas las bolas.",
+  billar:     "🎱 ¡Al billar! Si metes, sigues tirando. Si cuelas la blanca, pierdes el turno.",
   hockey:     "🏒 ¡Air hockey! Primero a 5. No hay botón: el disco sale al chocar con él.",
 };
 
@@ -1725,6 +1730,8 @@ function rotularBotonJugar(){
     dardos:"Tirar dardos ▸", carreraObs:"Correr obstáculos ▸", laberinto:"Entrar al laberinto ▸",
     billar:"Jugar billar ▸", hockey:"Jugar air hockey ▸",
     tenis:"Jugar tenis ▸", voley:"Jugar vóley ▸", bolos:"Tirar a los bolos ▸" };
+  /* Los que faltan salen del propio catálogo, para que no haya que acordarse de
+     añadirlos aquí cada vez. */
   if (labels[m]){ b.textContent = labels[m]; return; }
   b.textContent = (typeof guardadaEnLaNube !== "undefined" && guardadaEnLaNube
     ? "Empezar de cero ▸" : "Jugar solo ▸");
@@ -9396,19 +9403,81 @@ function drawLaberinto(){
 }
 
 /* ---- la mesa de billar ---- */
-function drawBillar(){
+/* ---- la mesa de billar ----
+   Paño, bandas de madera, seis hoyas y las bolas numeradas. Las metidas NO se
+   dibujan en la mesa: se cuentan arriba. */
+const BOLA_COLOR = ["#F3EAF0", "#FFC53D", "#3DDC97", "#5CE1EA", "#8B6BEE",
+                    "#FF5C86", "#FF8A3D", "#2A1226"];
+function drawMesaBillar(){
   const bl = G.billar;
   if (!bl) return;
   const m = bl.mesa;
   ctx.save();
-  ctx.fillStyle = "#0A5E2A";
+
+  // la banda de madera, por fuera del paño
+  ctx.fillStyle = "#7A4A22";
+  roundRect(m.x - 26, m.y - 26, m.w + 52, m.h + 52, 22); ctx.fill();
+  ctx.fillStyle = "#0E7A38";
   ctx.fillRect(m.x, m.y, m.w, m.h);
-  ctx.strokeStyle = "#8B4513"; ctx.lineWidth = 8;
-  ctx.strokeRect(m.x, m.y, m.w, m.h);
+  ctx.fillStyle = "rgba(0,0,0,.07)";
+  for (let x = m.x; x < m.x + m.w; x += 60) ctx.fillRect(x, m.y, 30, m.h);
+
+  // las hoyas
+  for (const h of bl.hoyas){
+    ctx.fillStyle = "#1A0E18";
+    ctx.beginPath(); ctx.arc(h.x, h.y, HOYA_R, 0, 6.283); ctx.fill();
+    ctx.strokeStyle = "rgba(255,255,255,.18)"; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(h.x, h.y, HOYA_R, 0, 6.283); ctx.stroke();
+  }
+
+  /* La línea de saque, donde vuelve la blanca cuando se cuela. */
+  ctx.strokeStyle = "rgba(255,255,255,.20)"; ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(m.x + m.w * 0.22, m.y + 10); ctx.lineTo(m.x + m.w * 0.22, m.y + m.h - 10);
+  ctx.stroke();
+
+  /* La línea de la tacada: de la blanca hacia donde apuntas. En un billar sin
+     ver la línea se tira a ciegas, y aquí la puntería ES el juego. */
+  const blanca = bl.bolas.find(b => b.color === 0 && !b.hoya);
+  const miTurno = bl.turno === G.players.indexOf(G.player);
+  if (blanca && miTurno && !bl.rodando && bl.espera <= 0 && mira.on){
+    const dx = mira.wx - blanca.x, dy = mira.wy - blanca.y;
+    const d = Math.hypot(dx, dy) || 1;
+    ctx.strokeStyle = "rgba(255,255,255,.55)"; ctx.lineWidth = 3;
+    ctx.setLineDash([14, 12]);
+    ctx.beginPath();
+    ctx.moveTo(blanca.x, blanca.y);
+    ctx.lineTo(blanca.x + (dx / d) * 520, blanca.y + (dy / d) * 520);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // las bolas, con su número
   for (const b of bl.bolas){
-    ctx.fillStyle = b.color === 0 ? "#FFF" : ["#FF0","#F00","#00F","#F0F","#0FF","#F90","#800"][b.color] || "#888";
-    ctx.beginPath(); ctx.arc(b.x, b.y, 8, 0, 6.283); ctx.fill();
-    ctx.strokeStyle = "#333"; ctx.lineWidth = 1; ctx.stroke();
+    if (b.hoya) continue;
+    ctx.fillStyle = "rgba(0,0,0,.22)";
+    ctx.beginPath(); ctx.ellipse(b.x, b.y + 5, BOLA_BILLAR_R, BOLA_BILLAR_R * 0.55, 0, 0, 6.283); ctx.fill();
+    ctx.fillStyle = BOLA_COLOR[b.color] || "#888";
+    ctx.beginPath(); ctx.arc(b.x, b.y, BOLA_BILLAR_R, 0, 6.283); ctx.fill();
+    ctx.strokeStyle = "rgba(42,18,38,.45)"; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(b.x, b.y, BOLA_BILLAR_R, 0, 6.283); ctx.stroke();
+    // el brillo, que es lo que hace que parezca una bola y no un círculo
+    ctx.fillStyle = "rgba(255,255,255,.35)";
+    ctx.beginPath(); ctx.arc(b.x - 5, b.y - 5, BOLA_BILLAR_R * 0.3, 0, 6.283); ctx.fill();
+    if (b.color){
+      ctx.fillStyle = "#2A1226";
+      ctx.font = "700 12px system-ui, sans-serif";
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText(String(b.color), b.x, b.y);
+    }
+  }
+
+  // a quién le toca
+  const suyo = G.players[bl.turno];
+  if (suyo){
+    ctx.strokeStyle = suyo.idx === G.player.idx ? "rgba(255,197,61,.95)" : "rgba(255,255,255,.45)";
+    ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.ellipse(suyo.x, suyo.y + 16, 28, 14, 0, 0, 6.283); ctx.stroke();
   }
   ctx.restore();
 }
@@ -10258,6 +10327,8 @@ function draw(){
     drawPistaBolos();
   } else if (G.reglas?.modo === "dardos"){
     drawDiana();
+  } else if (G.reglas?.modo === "billar"){
+    drawMesaBillar();
   } else if (corriendo){
     drawCircuito();                  // la pista es lo único que importa
   } else if (G.basquet){
@@ -10266,8 +10337,6 @@ function draw(){
     drawVoley();
   } else if (G.laberinto){
     drawLaberinto();
-  } else if (G.billar){
-    drawBillar();
   } else {
     drawRuta();                      // la alfombra va debajo de todo
     drawCanchita();                  // debajo de la gente, encima del suelo
@@ -10769,14 +10838,14 @@ function hud(){
   /* Los bolos también tienen botón (la bola) y el hockey también (el zurdazo).
      En el hockey el choque con la paleta sigue siendo automático: el botón es
      el disparo fuerte que decides tú, no la única forma de tocar el disco. */
-  const enPartido = (!!elPartido() || !!G.bolos || !!G.hockey || !!G.dardos)
+  const enPartido = (!!elPartido() || !!G.bolos || !!G.hockey || !!G.dardos || !!G.billar)
                     && G.started && !G.over;
   elPateo.hidden = !enPartido;
   /* En el tenis el mismo botón es la raqueta: con la pelotita se entiende sin
      leer nada. */
   if (enPartido) elPateo.querySelector(".ic").textContent =
     G.tenis ? "🎾" : G.voley ? "🏐" : G.basquet ? "🏀" : G.bolos ? "🎳"
-    : G.hockey ? "🏒" : G.dardos ? "🎯" : "⚽";
+    : G.hockey ? "🏒" : G.dardos ? "🎯" : G.billar ? "🎱" : "⚽";
   if (enPartido && pateo.desde)
     elPateo.querySelector(".carga b").style.width = (fuerzaDePateo() * 100).toFixed(0) + "%";
   if (G.reglas?.modo === "futbol"){
@@ -10841,6 +10910,32 @@ function hud(){
     el.money.textContent = mmss(G.t);
     el.rate.textContent = v.puntos[mio] > v.puntos[1 - mio] ? "Vas ganando"
                         : v.puntos[mio] < v.puntos[1 - mio] ? "Vas perdiendo" : "Empate";
+    el.lost.textContent = G.stats.hits;
+    el.alarma.hidden = true;
+    bau.boton.hidden = true; bau.soltar.hidden = true; bau.bajar.hidden = true;
+    cerrarArmasRapidas();
+    pintarAccion();
+    return;
+  }
+
+  /* ---- el marcador del billar ---- */
+  if (G.reglas?.modo === "billar"){
+    const bl = G.billar;
+    const yo = G.players.indexOf(G.player);
+    const suyos = bl.puntos.filter((_, i) => i !== yo)[0];
+    const miTurno = bl.turno === yo;
+    const enMesa = bl.bolas.filter(b => b.color !== 0 && !b.hoya).length;
+    el.goalLabel.textContent = bl.ganador != null ? "Se acabó"
+      : bl.rodando ? "Rodando…"
+      : bl.espera > 0 ? (bl.ultimo && bl.ultimo.falta ? "¡La blanca!"
+                        : bl.ultimo && bl.ultimo.metió ? "¡Metida! Sigues" : "Nada. Cambio")
+      : miTurno ? "Tu tacada · quedan " + enMesa : "Taca el otro";
+    el.goal.textContent = bl.puntos[yo] + " – " + suyos;
+    el.bar.style.width = clamp(bl.puntos[yo] / BILLAR_COLORES * 100, 0, 100).toFixed(1) + "%";
+    el.goalCard.classList.toggle("fiesta", !!bl.ultimo && bl.ultimo.metió > 0 && !bl.ultimo.falta);
+    el.money.textContent = mmss(G.t);
+    el.rate.textContent = bl.puntos[yo] > suyos ? "Vas ganando"
+                        : bl.puntos[yo] < suyos ? "Vas perdiendo" : "Empate";
     el.lost.textContent = G.stats.hits;
     el.alarma.hidden = true;
     bau.boton.hidden = true; bau.soltar.hidden = true; bau.bajar.hidden = true;
@@ -11204,6 +11299,32 @@ function endGame(ganador){
       : ganaste ? "A cobrar en el recreo." : "La revancha es ahí mismo, en el patio.";
     document.getElementById("stSteals").textContent = f.goles[mio];
     document.getElementById("stHits").textContent = f.goles[1 - mio];
+    document.getElementById("stTime").textContent = mmss(G.t);
+    document.getElementById("stRate").textContent = G.stats.hits;
+    document.getElementById("btnVolverBarrio").hidden = !aventuraEnEspera;
+    el.end.hidden = false;
+    if (ganaste) Snd.win();
+    return;
+  }
+
+  /* ---- cómo acabó el billar ---- */
+  if (G.reglas?.modo === "billar"){
+    const bl = G.billar;
+    const yo = G.players.indexOf(G.player);
+    const suyos = bl.puntos.filter((_, i) => i !== yo);
+    const ganaste = bl.ganador === yo, empate = bl.ganador == null;
+    document.getElementById("lbSteals").textContent = "Bolas que metiste";
+    document.getElementById("lbHits").textContent = "Las del otro";
+    document.getElementById("lbRate").textContent = "Chancletazos que diste";
+    document.getElementById("endEyebrow").textContent = "Se acabó la mesa";
+    document.getElementById("endTitle").innerHTML = empate
+      ? "Quedaron <em>iguales</em>"
+      : ganaste ? "¡<em>Ganaste</em> la mesa!" : "Te <em>ganaron</em>";
+    document.getElementById("endSub").textContent = empate
+      ? "Mismas bolas los dos."
+      : ganaste ? "Taco fino." : "Apunta a la hoya, no a la bola. Otra.";
+    document.getElementById("stSteals").textContent = bl.puntos[yo];
+    document.getElementById("stHits").textContent = Math.max(...suyos);
     document.getElementById("stTime").textContent = mmss(G.t);
     document.getElementById("stRate").textContent = G.stats.hits;
     document.getElementById("btnVolverBarrio").hidden = !aventuraEnEspera;

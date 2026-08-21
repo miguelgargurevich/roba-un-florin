@@ -23,6 +23,7 @@ export {
   OBS_VUELTAS, OBS_ANCHO, OBS_CONO,
   BOLOS_MANOS, PINO_R, BOLA_R, PINO_SEP,
   DARDOS_CADA_UNO, DIANA_R, DIANA_ANILLOS, valorDelDardo,
+  BILLAR_COLORES, BOLA_BILLAR_R, HOYA_R,
   freePed, freePedDe, occupied, occupiedDe, esMiPatio,
   playerIncome, florinIncome, mismoFlorin, nuevoFlorin, laserActivo,
   bloqueadoPorLaser, orbitaDelCentro, puntoDelDesfile, ponerLaser,

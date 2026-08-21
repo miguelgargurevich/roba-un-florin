@@ -8,7 +8,7 @@ Monorepo con workspaces npm:
 
 | Paquete | Qué es |
 |---|---|
-| `packages/engine` | el juego sin navegador: determinista, JSON serializable, 234 pruebas |
+| `packages/engine` | el juego sin navegador: determinista, JSON serializable, 239 pruebas |
 | `apps/web` | el cliente (Vite + canvas 2D). Solo dibuja y escucha teclas |
 | `apps/api` | cuentas, álbum, guardado, fiestas y avisos (.NET 9, Clean Arch + CQRS), 47 pruebas |
 | `apps/salas` | servidor de salas autoritativo (Node + `ws`), 36 pruebas |
@@ -23,6 +23,28 @@ A medias / sin hacer: el modo cooperativo (aplazado a propósito — una sala en
 aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Última sesión
+
+- 2026-08-11 (claude-code): **el billar**. Décimo minijuego entero — quedan
+  **solo el laberinto** (`JUEGOS_LISTOS`: fútbol, tenis, vóley, básquet, hockey,
+  lucha, carreraObs, bolos, dardos, billar).
+  La física ya estaba escrita y era correcta: choque elástico a lo largo de la
+  normal con separación, bandas y hoyas. **Lo que no había era quién tira,
+  cuándo y qué pasa después** — sin eso, siete bolas quietas en un paño verde.
+  Ahora: siete de color, seis hoyas (cuatro esquinas y dos en medio; con solo
+  cuatro, media mesa no tiene salida), y la regla que hace que un turno importe:
+  **si metes, sigues tirando**; si cuelas la blanca, vuelve a la mesa y el turno
+  se va. La blanca reaparece **en un hueco libre**, probando posiciones desde el
+  punto de saque — si no, puede materializarse dentro de otra bola.
+  Un arreglo de fondo: el rozamiento iba **por fotograma** (`0.985`), o sea que
+  el billar corría distinto en cada máquina. Ahora `Math.pow(roce, dt)`.
+  El bot no apunta a la bola más cercana: elige la que mejor esté **alineada con
+  una hoya** (coseno del ángulo blanca→bola→hoya) y se pone detrás de la blanca
+  en esa línea. Apuntar a la más cercana sin mirar a qué hoya va es tirar por
+  tirar.
+  Medido: partidas de 45 s, 16 tacadas para las siete bolas (44 % de acierto),
+  2-5 con ganador y la mesa vacía.
+  En pantalla: la **línea de la tacada** desde la blanca hacia donde apuntas —
+  en un billar sin verla se tira a ciegas, y aquí la puntería es el juego.
 
 - 2026-08-11 (claude-code): **los dardos**. Noveno minijuego entero
   (`JUEGOS_LISTOS`: fútbol, tenis, vóley, básquet, hockey, lucha, carreraObs,
