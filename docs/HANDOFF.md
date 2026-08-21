@@ -8,7 +8,7 @@ Monorepo con workspaces npm:
 
 | Paquete | Qué es |
 |---|---|
-| `packages/engine` | el juego sin navegador: determinista, JSON serializable, 221 pruebas |
+| `packages/engine` | el juego sin navegador: determinista, JSON serializable, 229 pruebas |
 | `apps/web` | el cliente (Vite + canvas 2D). Solo dibuja y escucha teclas |
 | `apps/api` | cuentas, álbum, guardado, fiestas y avisos (.NET 9, Clean Arch + CQRS), 47 pruebas |
 | `apps/salas` | servidor de salas autoritativo (Node + `ws`), 36 pruebas |
@@ -23,6 +23,46 @@ A medias / sin hacer: el modo cooperativo (aplazado a propósito — una sala en
 aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Última sesión
+
+- 2026-08-11 (claude-code): **los bolos**, más **el zurdazo del hockey** y **el
+  antiatasco del fútbol**. Octavo minijuego entero (`JUEGOS_LISTOS`: fútbol,
+  tenis, vóley, básquet, hockey, lucha, carreraObs, bolos).
+  **Bolos**: cinco manos, dos bolas por mano, por turnos. Se lanza con el mismo
+  botón de cargar — la carga es la fuerza y la puntería el ángulo, **topado a
+  ±22°** (sin tope, la bola salía de lado y no llegaba nunca).
+  Los pinos NO son trastos: son diez círculos con sitio de nacimiento, y
+  **tumbado significa que se ha MOVIDO de él**, no que algo lo haya tocado. Eso
+  es lo que permite la cadena, y la cadena es la mitad del juego.
+  Tres fallos que hubo que cazar, todos medidos:
+  - **durante la espera los pinos no se movían.** El bloque de mover pinos vivía
+    dentro de "la bola rueda", así que los que la bola tocaba al final se
+    quedaban con la velocidad congelada. Ahora `moverLosPinos` va aparte y se
+    llama también en la espera;
+  - **cero plenos en veinte bolas** con el roce de pino a 0,10/s: los pinos se
+    paraban en el sitio y la cadena no se propagaba. A 0,75 y con transferencia
+    0,9: **3 plenos en 17 bolas**;
+  - **la bola salía siempre recta** (35-35 exacto en todas las semillas) porque
+    el bot calculaba la puntería solo al tirar, y el motor lee `p.apunta` del
+    tick ANTERIOR. Es el mismo bicho del tenis. Ahora apunta siempre que sea su
+    turno.
+  Medido tras eso: 44-46 en 63 s, y por puntería: 0 pinos en la canaleta, 6 por
+  el centro, 9 en el bolsillo. Gradiente simétrico.
+  Y **la puerta no es la pista**: `MED_BOLOS` y `MED_CARRERA_OBS` llevaban la
+  medida del juego de verdad (460x1500 y 800x600) y no cabían en el patio del
+  colegio — la prueba de que están los ocho sitios lo cazó. La pista se monta
+  aparte, en el centro del mapa.
+  **Zurdazo del hockey** (pedido): el botón de cargar, con la puntería como
+  dirección. Llega a 1 900 contra los ~700 de un choque, y **tiene cadencia de
+  1,1 s** — sin ella el bot lo disparaba cada fotograma (17 968 en un partido,
+  medido) y nadie marcaba nunca: 0-0 al reloj. El choque con la paleta sigue
+  siendo automático; el botón es el disparo que decides tú.
+  **Antiatasco del fútbol** (pedido): a los 4 s sin que la pelota vaya a ninguna
+  parte, al centro. El hockey ya lo tenía y el fútbol no, que es donde más pasa
+  —diez jugadores y cuatro esquinas—. Hay prueba con la pelota clavada en una
+  esquina.
+  De paso, `enMinijuego()` en un solo sitio: la clase `partido` del CSS, el
+  minimapa y los rótulos de las tarjetas preguntaban lo mismo y se les había
+  ido contestando de una en una. El minimapa tapaba al jugador en la bolera.
 
 - 2026-08-11 (claude-code): **el despliegue limpia solo**. El runbook decía "el
   `builder prune` tras cada build no es opcional" y aun así había que acordarse

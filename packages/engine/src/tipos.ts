@@ -296,6 +296,10 @@ export interface Futbol {
   ultimoGol: 0 | 1 | null;
   /** Cuántos goles hacen falta para ganar antes de que se acabe el reloj. */
   meta: number;
+  /** Segundos que la pelota lleva sin ir a ninguna parte. Pasado el tope,
+      vuelve al centro: una pelota atrapada en una esquina o entre seis piernas
+      no es un partido, es una foto. */
+  quieto: number;
   ganador: 0 | 1 | null;
 }
 
@@ -364,17 +368,43 @@ export interface Basquet {
 }
 
 /* ---- Bolos ---- */
+/** Un pino. Tiene sitio de nacimiento y sitio actual porque **caído no es
+    desaparecido**: se lo lleva la bola, empuja a los de al lado, y esa cadena
+    es la mitad de la gracia de los bolos. Un pino cuenta como tumbado cuando se
+    ha movido de su sitio, no cuando algo lo ha tocado. */
+export interface Pino {
+  x: number; y: number;
+  /** Donde nació: la vara con la que se mide si ya se cayó. */
+  ox: number; oy: number;
+  vx: number; vy: number;
+  pie: boolean;
+}
+
+/** Los bolos. Por turnos, dos bolas por mano, y la bola se lanza con el mismo
+    botón de cargar que todo lo demás: la carga es la fuerza y la puntería el
+    ángulo. No hay ventana que acertar — apuntas y sueltas cuando quieras. */
 export interface Bolos {
   pista: Rect;
-  pinLugar: { x: number; y: number }[];
-  pins: boolean[];
+  /** La raya de falta: desde detrás de aquí se lanza. */
+  faltaY: number;
+  pinos: Pino[];
   balon: number;
+  /** A quién le toca, por índice de jugador, y en qué bola de su mano va. */
   turno: number;
-  tiradas: number;
-  totalTiradas: number;
+  bola: 0 | 1;
+  /** Pinos en pie al empezar ESTA bola: para contar solo los de esta. */
+  enPieAlEmpezar: number;
+  /** Manos jugadas por cada uno y sus puntos. */
+  manos: number[];
   puntos: number[];
-  frames: number;
-  meta: number;
+  /** Cuántas manos juega cada uno. */
+  total: number;
+  /** Mientras la bola rueda no se puede lanzar otra. */
+  rodando: boolean;
+  /** Espera tras la bola, para ver caer los pinos antes de contar. */
+  espera: number;
+  /** El último resultado, para el cartel. */
+  ultimo: { quien: number; tumbados: number; pleno: boolean } | null;
   ganador: number | null;
 }
 
@@ -474,6 +504,11 @@ export interface Hockey {
   ultimoGol: 0 | 1 | null;
   /** Segundos que lleva el disco parado. Pasado el tope, vuelve al centro. */
   quieto: number;
+  /** Lo que le queda a cada uno para poder volver a zurdazo, por índice de
+      jugador. Un zurdazo hay que recogerlo: sin cadencia, un bot lo disparaba
+      cada fotograma —17 968 en un partido, medido— y el disco no paraba nunca
+      quieto lo bastante para que nadie marcara. */
+  recarga: number[];
   /** Y el reloj del partido: sin él, dos que defiendan bien no acaban nunca.
       Medido con un humano plantado en su arco: 3-0 y a jugar hasta mañana. */
   reloj: number;

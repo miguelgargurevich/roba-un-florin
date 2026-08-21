@@ -265,18 +265,61 @@ function tiroDelBot(e: Estado, p: Jugador): number | null {
   return Math.hypot(aro.x - p.x, aro.y - p.y) > 300 ? null : 0.8;
 }
 
-/** A dónde va en bolos: el que le toca tira, el otro espera. */
+/* ---- el bot bolichero ----
+   Al que le toca se pone detrás de la bola, escorado hacia el lado desde el que
+   piensa atacar; el que espera se aparta de la pista. Y apunta al HUECO —entre
+   el pino 1 y el 3—, que es donde apunta cualquiera: al pino de delante en
+   pleno centro la bola se frena y deja los de atrás en pie. */
 function aDondeVoyEnBolos(e: Estado, p: Jugador): { x: number; y: number } | null {
-  const b = e.bolos!;
-  const balon = e.trastos.find(t => t.id === b.balon);
-  if (!balon) return null;
+  const b = e.bolos;
+  if (!b) return null;
+  const bola = e.trastos.find(t => t.id === b.balon);
+  if (!bola) return null;
   const idx = e.players.indexOf(p);
-  if (idx === b.turno) {
-    // bowler: stand behind the ball
-    return { x: balon.x, y: b.pista.y + b.pista.h - 40 };
-  }
-  // other player: stand aside
-  return { x: b.pista.x + b.pista.w + 60, y: b.pista.y + b.pista.h / 2 };
+  if (idx !== b.turno)
+    return { x: b.pista.x + b.pista.w + 90, y: b.faltaY };
+  /* Detrás de la bola, y con un poco de escora que va cambiando: dos manos
+     idénticas seguidas serían dos plenos idénticos o dos fallos idénticos. */
+  const escora = Math.sin(e.t * 0.5 + idx * 1.9) * 60;
+  return { x: bola.x + escora * 0.2, y: bola.y + 46 };
+}
+
+/** A dónde apunta: al HUECO entre los dos pinos en pie más cercanos. Al pino de
+    delante en pleno centro la bola se frena y deja los de atrás en pie.
+
+    Se calcula SIEMPRE que sea su turno, no solo cuando ya puede lanzar. El
+    motor lee `p.apunta` de la entrada del tick ANTERIOR: calculándola solo en
+    el momento de tirar, la primera bola salía sin puntería —o sea, recta por el
+    centro— y salían 35-35 exactos en todas las semillas, con cero plenos en
+    veinte bolas. Es el mismo bicho que ya mordió en el tenis. */
+function aDondeApuntaElBolichero(e: Estado, p: Jugador): { x: number; y: number } | null {
+  const b = e.bolos;
+  if (!b || b.ganador != null) return null;
+  if (e.players.indexOf(p) !== b.turno) return null;
+  const enPie = b.pinos.filter(x => x.pie);
+  if (!enPie.length) return null;
+  /* Los dos más cercanos a quien lanza: con todos en pie, el hueco entre ellos
+     cae justo al lado del primero, que es el bolsillo. */
+  const cerca = enPie.slice().sort((m, n) => n.y - m.y).slice(0, 2);
+  const mx = cerca.reduce((s, x) => s + x.x, 0) / cerca.length;
+  const my = cerca.reduce((s, x) => s + x.y, 0) / cerca.length;
+  /* Y falla un poco, que si no cada mano es un pleno. Del reloj y del asiento,
+     así que sigue siendo reproducible. */
+  const desvio = Math.sin(e.t * 1.7 + p.idx * 2.6) * 46;
+  return { x: mx + desvio, y: my };
+}
+
+/** ¿Lanza ya, y con cuánta fuerza? */
+function tiroDelBolichero(e: Estado, p: Jugador): number | null {
+  const b = e.bolos;
+  if (!b || b.ganador != null || b.rodando || b.espera > 0) return null;
+  if (e.players.indexOf(p) !== b.turno) return null;
+  const bola = e.trastos.find(t => t.id === b.balon);
+  if (!bola) return null;
+  if (dist2(p.x, p.y, bola.x, bola.y) > 62 * 62) return null;
+  /* Y no antes de tener la puntería puesta: la del tick anterior. */
+  if (!p.apunta.on) return null;
+  return 0.72;
 }
 
 /* ---- el bot luchador ----
@@ -449,6 +492,26 @@ function aDondeVoyEnVoley(e: Estado, p: Jugador): { x: number; y: number } | nul
   };
 }
 
+/** ¿Zurdazo? Solo con el disco al alcance y de su lado: si no, el choque
+    automático de siempre ya hace el trabajo. Apunta a un palo, como al
+    embestir — al centro las para todas el que defiende. */
+function zurdazoDelBot(e: Estado, p: Jugador):
+    { fuerza: number; apunta: { x: number; y: number } } | null {
+  const h = e.hockey;
+  if (!h || h.ganador != null || h.saque > 0 || p.stun > 0) return null;
+  const pk = h.puck;
+  if (dist2(p.x, p.y, pk.x, pk.y) > 70 * 70) return null;
+  const mio = (p.equipo ?? 0) as 0 | 1;
+  const cx = h.mesa.x + h.mesa.w / 2;
+  if ((pk.x < cx ? 0 : 1) !== mio) return null;      // el disco es del otro
+  const arco = h.arcos[1 - mio];
+  const palo = Math.sin(e.t * 0.7 + p.idx * 2.1) > 0 ? 0.16 : 0.84;
+  return {
+    fuerza: 0.55 + Math.abs(Math.sin(e.t * 1.1 + p.idx)) * 0.4,
+    apunta: { x: arco.x + arco.w / 2, y: arco.y + arco.h * palo },
+  };
+}
+
 /** A dónde piensa mandarla: al hueco, con el mismo desvío medido del tenis. */
 function aDondeLaMandoEnVoley(e: Estado, p: Jugador): { x: number; y: number } | null {
   const v = e.voley;
@@ -486,7 +549,7 @@ function aDondeVoy(e: Estado, p: Jugador): { x: number; y: number } | null {
   if (e.reglas.modo === "hockey") return aDondeVoyEnHockey(e, p);
   if (e.reglas.modo === "lucha") return aDondeVoyEnLucha(e, p);
   if (e.reglas.modo === "carreraObs") return aDondeVoyEnCarreraObs(e, p);
-  if (e.bolos) return aDondeVoyEnBolos(e, p);
+  if (e.reglas.modo === "bolos") return aDondeVoyEnBolos(e, p);
   if (e.dardos) return aDondeVoyEnDardos(e, p);
   if (e.laberinto) return aDondeVoyEnLaberinto(e, p);
   if (e.billar) return aDondeVoyEnBillar(e, p);
@@ -575,10 +638,16 @@ export function pensarBot(e: Estado, p: Jugador, dt: number): PlanBot {
 
   const esJuego = !!(e.basquet || e.bolos || e.lucha || e.dardos || e.carreraObs || e.laberinto || e.billar || e.hockey);
   const tenis = e.reglas.modo === "tenis", voley = e.reglas.modo === "voley";
-  const basquet = e.reglas.modo === "basquet";
+  const basquet = e.reglas.modo === "basquet", bolos = e.reglas.modo === "bolos";
+  const hockey = e.reglas.modo === "hockey";
+  const zurdazo = hockey ? zurdazoDelBot(e, p) : null;
+  const bolear = bolos ? tiroDelBolichero(e, p) : null;
+  const puntoBolos = bolos ? aDondeApuntaElBolichero(e, p) : null;
   const raqueta = tenis ? golpeDelBot(e, p)
                 : voley ? toqueDelBot(e, p)
-                : basquet ? tiroDelBot(e, p) : null;
+                : basquet ? tiroDelBot(e, p)
+                : zurdazo ? zurdazo.fuerza
+                : bolear;
   const enLucha = !!e.lucha;
   const rivalEnLucha = enLucha ? e.players.find(q => q.idx !== p.idx) : null;
   /* En la lucha la chancla es la mitad del juego: a uno aturdido se le empuja
@@ -589,6 +658,8 @@ export function pensarBot(e: Estado, p: Jugador, dt: number): PlanBot {
     ? { x: rivalEnLucha.x, y: rivalEnLucha.y } : null;
   const blanco = tenis ? aDondeLaMando(e, p)
                : voley ? aDondeLaMandoEnVoley(e, p)
+               : bolos ? puntoBolos
+               : hockey ? (zurdazo ? zurdazo.apunta : null)
                : enLucha ? blancoLucha : aQuienLeTiro(e, p);
   const usarLucha = enLucha && !!blancoLucha;
   const usar = !tenis && !voley && !esJuego && !!blanco && p.cd <= 0 && p.chancla.state === "held";

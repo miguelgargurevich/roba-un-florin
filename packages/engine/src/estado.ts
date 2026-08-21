@@ -3,7 +3,7 @@
 
 import type {
   Base, Billar, DesfileItem, Estado, Evento, Florin, Jugador, Laser, Pedestal, RefObjetivo,
-  Rect, RefPed, Reglas, SitioDeJuego, JuegoDeSitio, Sonido, Tenis, Trasto, Variante, Voley, Circulo,
+  Rect, RefPed, Reglas, SitioDeJuego, JuegoDeSitio, Sonido, Tenis, Trasto, Variante, Voley, Circulo, Pino,
 } from "./tipos.js";
 import {
   ESCENARIOS, FLORES, GOAL, LASER_CARGA, PATIOS_PRECIO, TIERS, TRASTOS_ESCENARIO,
@@ -863,10 +863,18 @@ const cupoDe = (juego: JuegoDeSitio): number =>
 export const CANCHITA = { w: 900, h: 560 };
 export const CANCHA_TENIS = { w: 780, h: 500 };
 const MED_BASQUET = { w: 600, h: 420 };
-const MED_BOLOS = { w: 280, h: 700 };
+/* La PUERTA de la bolera, no la bolera: el sitio del mundo solo tiene que ser
+   un cuadro reconocible al que te metes — la pista de verdad (460 x 1500) se
+   monta aparte, en el centro del mapa. Con la medida de la pista aquí no cabía
+   en el patio del colegio y el mundo se quedaba sin bolera; hay prueba de que
+   están los ocho sitios. */
+const MED_BOLOS = { w: 300, h: 520 };
 const MED_LUCHA = { w: 400, h: 400 };
 const MED_DARDOS = { w: 200, h: 200 };
-const MED_CARRERA_OBS = { w: 800, h: 600 };
+/* Igual que la bolera: esto es la PUERTA, no el circuito. El óvalo de verdad
+   (1 400 x 900) se monta en el centro del mapa. Con 800 x 600 aquí, era el
+   sitio más grande de los ocho y se quedaba fuera del patio del colegio. */
+const MED_CARRERA_OBS = { w: 460, h: 340 };
 const MED_LABERINTO = { w: 640, h: 640 };
 const MED_BILLAR = { w: 500, h: 300 };
 const MED_HOCKEY = { w: 500, h: 300 };
@@ -893,7 +901,7 @@ const SITIOS: {
   { juego: "futbol", rotulo: "LA PICHANGA", medida: CANCHITA, donde: "colegio", listo: true },
   { juego: "tenis", rotulo: "LA CANCHA DE TENIS", medida: CANCHA_TENIS, donde: "colegio", listo: true },
   { juego: "basquet", rotulo: "LA CANCHA DE BÁSQUET", medida: MED_BASQUET, donde: "colegio", listo: true },
-  { juego: "bolos", rotulo: "LOS BOLOS", medida: MED_BOLOS, donde: "colegio", listo: false },
+  { juego: "bolos", rotulo: "LOS BOLOS", medida: MED_BOLOS, donde: "colegio", listo: true },
   { juego: "lucha", rotulo: "EL RING", medida: MED_LUCHA, donde: "colegio", listo: true },
   { juego: "dardos", rotulo: "LOS DARDOS", medida: MED_DARDOS, donde: "colegio", listo: false },
   { juego: "voley", rotulo: "LA CANCHA DE VÓLEY", medida: MED_VOLEY, donde: "colegio", listo: true },
@@ -998,7 +1006,7 @@ function aLaCancha(e: Estado): void {
   e.futbol = {
     cancha, arcos, balon: balon.id, goles: [0, 0],
     reloj: FUTBOL_RELOJ, saque: FUTBOL_SAQUE, ultimoGol: null,
-    meta: FUTBOL_META, ganador: null,
+    meta: FUTBOL_META, quieto: 0, ganador: null,
   };
   repartirEquipos(e);
   sacarDelCentro(e);
@@ -1181,24 +1189,93 @@ export function sacarDeMedioBasquet(e: Estado): void {
   });
 }
 
-/* ---- bolos ---- */
-const BOLOS_META = 10;
+/* ---- los bolos ----
+   Por turnos, dos bolas por mano. La pista es larga y estrecha, los diez pinos
+   en triángulo al fondo, y la bola se lanza desde detrás de la raya de falta.
+
+   Los pinos NO son trastos: no se patean, no vuelan y no se montan. Son diez
+   círculos con sitio de nacimiento, y "tumbado" significa que se ha movido de
+   él — no que algo lo haya tocado. Esa diferencia es la que permite que un pino
+   se lleve al de al lado, que es la mitad de la gracia. */
+export const PISTA_BOLOS = { w: 460, h: 1500 };
+/** Manos que juega cada uno, y lo que separa a los pinos entre sí. */
+export const BOLOS_MANOS = 5, PINO_SEP = 54;
+/** Radio del pino y de la bola. */
+export const PINO_R = 13, BOLA_R = 22;
+
+/** Los diez, en triángulo, con el 1 mirando a quien lanza. */
+function ponerLosPinos(cx: number, y0: number): Pino[] {
+  const pinos: Pino[] = [];
+  for (let fila = 0; fila < 4; fila++)
+    for (let k = 0; k <= fila; k++) {
+      const x = cx + (k - fila / 2) * PINO_SEP;
+      const y = y0 - fila * PINO_SEP * 0.87;      // triángulo, no cuadrícula
+      pinos.push({ x, y, ox: x, oy: y, vx: 0, vy: 0, pie: true });
+    }
+  return pinos;
+}
 
 export function aLaPistaDeBolos(e: Estado): void {
   const { cx, cy } = centroDelMapa();
-  const pista = { x: Math.round(cx - 140), y: Math.round(cy - 350), w: 280, h: 700 };
-  const pinLugar: { x: number; y: number }[] = [];
-  const filas = [[0], [-20, 20], [-40, 0, 40], [-60, -20, 20, 60]];
-  for (const fila of filas) for (const dx of fila) pinLugar.push({ x: cx + dx, y: pista.y + 60 });
+  const pista = {
+    x: Math.round(cx - PISTA_BOLOS.w / 2), y: Math.round(cy - PISTA_BOLOS.h / 2),
+    w: PISTA_BOLOS.w, h: PISTA_BOLOS.h,
+  };
+  /* Se lanza desde abajo y los pinos están arriba: la pista se lee de un
+     vistazo porque va en el eje largo de la pantalla. */
+  const faltaY = pista.y + pista.h - 190;
+
   let balon = e.trastos.find(t => t.tipo === "pelota");
   if (!balon) {
-    balon = { id: nuevoId(e), tipo: "pelota", x: cx, y: pista.y + pista.h - 60, vx: 0, vy: 0,
+    balon = { id: nuevoId(e), tipo: "pelota", x: cx, y: faltaY + 60, z: 0, vz: 0, vx: 0, vy: 0,
               montadoPor: null, pateadoPor: null, giro: 0, variante: 0 };
     e.trastos.push(balon);
   }
   e.trastos = e.trastos.filter(t => t === balon);
-  e.bolos = { pista, pinLugar, pins: pinLugar.map(() => true), balon: balon.id, turno: 0, tiradas: 0, totalTiradas: 0, puntos: [0, 0], frames: 0, meta: BOLOS_META, ganador: null };
+
+  e.bolos = {
+    pista, faltaY, pinos: ponerLosPinos(cx, pista.y + 300), balon: balon.id,
+    turno: 0, bola: 0, enPieAlEmpezar: 10,
+    manos: e.players.map(() => 0), puntos: e.players.map(() => 0),
+    total: BOLOS_MANOS, rodando: false, espera: 0, ultimo: null, ganador: null,
+  };
+  repartirEquipos(e);
+  colocarParaTirar(e);
 }
+
+/** La bola a la raya y cada uno en su sitio: el que tira detrás de la bola, el
+    que espera a un lado de la pista para no estorbar. */
+export function colocarParaTirar(e: Estado): void {
+  const b = e.bolos;
+  if (!b) return;
+  const cx = b.pista.x + b.pista.w / 2;
+  const balon = e.trastos.find(t => t.id === b.balon);
+  if (balon) {
+    balon.x = cx; balon.y = b.faltaY + 40;
+    balon.vx = 0; balon.vy = 0; balon.z = 0; balon.vz = 0;
+    balon.pateadoPor = null;
+  }
+  b.rodando = false;
+  b.espera = 0;
+  b.enPieAlEmpezar = b.pinos.filter(p => p.pie).length;
+
+  e.players.forEach((p, i) => {
+    if (i === b.turno) { p.x = cx; p.y = b.faltaY + 100; }
+    else { p.x = b.pista.x + b.pista.w + 90 + (i % 2) * 70; p.y = b.faltaY; }
+    p.vx = 0; p.vy = 0; p.stun = 0; p.montado = null;
+  });
+}
+
+/** Los diez otra vez en pie. */
+export function reponerLosPinos(e: Estado): void {
+  const b = e.bolos;
+  if (!b) return;
+  for (const pino of b.pinos) {
+    pino.x = pino.ox; pino.y = pino.oy;
+    pino.vx = 0; pino.vy = 0; pino.pie = true;
+  }
+}
+
 
 /* ---- la lucha del patio ----
    Sumo con chancla. El ring es un círculo y el punto es sacar al otro: no hay
@@ -1374,7 +1451,7 @@ export function aAirHockey(e: Estado): void {
   e.hockey = {
     mesa, arcos, puck: { x: cx, y: cy, vx: 0, vy: 0 }, puntos: [0, 0],
     meta: HOCKEY_META, saque: HOCKEY_SAQUE, sacador: 0, ultimoGol: null,
-    quieto: 0, reloj: HOCKEY_RELOJ, ganador: null,
+    quieto: 0, recarga: e.players.map(() => 0), reloj: HOCKEY_RELOJ, ganador: null,
   };
   repartirEquipos(e);
   sacarEnHockey(e);

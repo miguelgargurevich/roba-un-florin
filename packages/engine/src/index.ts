@@ -21,6 +21,7 @@ export {
   VOLEY_META, VOLEY_TOQUES, ladoDeVoley, BASQUET_META, ARO_R, BASQUET_TRIPLE, HOCKEY_META,
   LUCHA_META, LUCHA_R,
   OBS_VUELTAS, OBS_ANCHO, OBS_CONO,
+  BOLOS_MANOS, PINO_R, BOLA_R, PINO_SEP,
   freePed, freePedDe, occupied, occupiedDe, esMiPatio,
   playerIncome, florinIncome, mismoFlorin, nuevoFlorin, laserActivo,
   bloqueadoPorLaser, orbitaDelCentro, puntoDelDesfile, ponerLaser,

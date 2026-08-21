@@ -1664,6 +1664,23 @@ describe("fútbol", () => {
     expect(e.players.filter(p => p.equipo === 1).length).toBe(4);
   });
 
+  it("una pelota atrapada vuelve al centro", () => {
+    /* Muerta en una esquina, o pillada entre piernas que se la pisan unos a
+       otros, no es un partido: es una foto. */
+    const e = partido();
+    const f = e.futbol!;
+    f.saque = 0;
+    const balon = e.trastos.find(t => t.id === f.balon)!;
+    balon.x = f.cancha.x + 24; balon.y = f.cancha.y + 24;   // clavada en la esquina
+    balon.vx = 0; balon.vy = 0;
+    /* Los jugadores lejos, para que nadie la toque. */
+    for (const p of e.players) { p.x = f.cancha.x + f.cancha.w - 60; p.y = f.cancha.y + f.cancha.h - 60; }
+    for (let k = 0; k < 60 * 5; k++) avanzar(e, nada(6), 1 / 60);
+    const cx = f.cancha.x + f.cancha.w / 2, cy = f.cancha.y + f.cancha.h / 2;
+    expect(Math.hypot(balon.x - cx, balon.y - cy),
+           "la pelota se quedó muerta en la esquina").toBeLessThan(60);
+  });
+
   it("en fútbol no hay ladrones ni desfile: es un partido, no el barrio", () => {
     const e = partido();
     jugar(e, 30);
@@ -1803,6 +1820,101 @@ describe("tenis", () => {
     pelotear(e, 30);
     expect(e.thieves.length, "salieron ladrones a media cancha").toBe(0);
     expect(e.portal.desfile.length, "el desfile cruzó el partido").toBe(0);
+  });
+});
+
+describe("los bolos", () => {
+  const bolera = (semilla = 1) =>
+    crearPartida({ jugadores: 2, escenario: "colegio", semilla, armas: idsDeArmas(),
+                   reglas: { modo: "bolos" } as any });
+  const bola = (e: Estado) => e.trastos.find(t => t.id === e.bolos!.balon)!;
+  /** Lanza desde el centro apuntando a `mira` y deja rodar. */
+  function tirar(e: Estado, mira: number, fuerza = 0.72){
+    const b = e.bolos!;
+    const p = e.players[b.turno];
+    const bo = bola(e);
+    p.x = bo.x; p.y = bo.y + 40;
+    p.apunta.on = true; p.apunta.wx = bo.x + mira; p.apunta.wy = b.pinos[0].y;
+    patear(e, p, fuerza);
+    for (let k = 0; k < 60 * 8; k++) avanzar(e, nada(2), 1 / 60);
+  }
+
+  it("hay diez pinos en pie y una sola bola", () => {
+    const e = bolera();
+    expect(e.bolos!.pinos.length).toBe(10);
+    expect(e.bolos!.pinos.every(p => p.pie)).toBe(true);
+    expect(e.trastos.length, "quedaron trastos que estorban").toBe(1);
+  });
+
+  it("solo tira el que tiene el turno, y desde la raya", () => {
+    const e = bolera();
+    const b = e.bolos!;
+    const otro = e.players[1 - b.turno];
+    const bo = bola(e);
+    otro.x = bo.x; otro.y = bo.y + 30;
+    expect(patear(e, otro, 0.7), "tiró uno que no tenía el turno").toBe(null);
+    const suyo = e.players[b.turno];
+    suyo.x = bo.x - 400;                  // lejos de la bola
+    expect(patear(e, suyo, 0.7), "lanzó desde la grada").toBe(null);
+    suyo.x = bo.x; suyo.y = bo.y + 30;
+    expect(patear(e, suyo, 0.7)).toBe("bola");
+  });
+
+  it("un pino tumbado se ha MOVIDO de su sitio, y arrastra a los de al lado", () => {
+    /* Es la diferencia entre unos bolos y diez interruptores: la bola toca dos
+       o tres, y la cadena hace el resto. */
+    const e = bolera();
+    tirar(e, -25);
+    const b = e.bolos!;
+    const caidos = b.pinos.filter(p => !p.pie);
+    expect(caidos.length, "una bola al bolsillo no tumbó casi nada").toBeGreaterThan(5);
+    for (const p of caidos)
+      expect(Math.hypot(p.x - p.ox, p.y - p.oy), "un pino \"caído\" sigue en su sitio")
+        .toBeGreaterThan(10);
+  });
+
+  it("por el centro quedan pinos, y a la canaleta no cae ninguno", () => {
+    const centro = bolera();
+    tirar(centro, 0);
+    const porElCentro = centro.bolos!.pinos.filter(p => !p.pie).length;
+    expect(porElCentro).toBeGreaterThan(3);
+    expect(porElCentro, "por el centro caen los diez").toBeLessThan(10);
+
+    const fuera = bolera();
+    tirar(fuera, -400);                   // a la canaleta
+    expect(fuera.bolos!.pinos.filter(p => !p.pie).length,
+           "una bola a la canaleta tumbó pinos").toBe(0);
+  });
+
+  it("dos bolas por mano, y un pleno se salta la segunda", () => {
+    const e = bolera();
+    const b = e.bolos!;
+    const quien = b.turno;
+    tirar(e, 0);                          // por el centro nunca es pleno
+    expect(b.bola, "no pasó a la segunda bola").toBe(1);
+    expect(b.turno, "cambió de turno con una bola pendiente").toBe(quien);
+    tirar(e, -25);
+    expect(b.turno, "no pasó el turno tras las dos bolas").not.toBe(quien);
+    expect(b.pinos.every(p => p.pie), "no repuso los pinos").toBe(true);
+  });
+
+  it("los bots juegan las cinco manos y sale ganador o empate", () => {
+    const e = bolera();
+    for (let k = 0; k < 60 * 400 && !e.over; k++){
+      const ent: Record<number, EntradaJugador> = {};
+      const tiran: [any, number][] = [];
+      for (const p of e.players){
+        const plan = pensarBot(e, p, 1 / 60);
+        ent[p.idx] = plan.entrada;
+        if (plan.patear != null) tiran.push([p, plan.patear]);
+      }
+      for (const [p, f] of tiran) patear(e, p, f);
+      avanzar(e, ent, 1 / 60);
+    }
+    const b = e.bolos!;
+    expect(e.over, "la partida no acabó").toBe(true);
+    expect(b.manos.every(m => m >= b.total), "alguien no jugó sus manos").toBe(true);
+    expect(b.puntos[0] + b.puntos[1], "no cayó ni un pino").toBeGreaterThan(20);
   });
 });
 
@@ -1962,6 +2074,26 @@ describe("air hockey", () => {
     for (let k = 0; k < 60 * 4; k++) avanzar(e, nada(2), 1 / 60);
     expect(Math.abs(h.puck.x - (h.mesa.x + h.mesa.w / 2)),
            "el disco se quedó muerto en la esquina").toBeLessThan(200);
+  });
+
+  it("el zurdazo pega mucho más fuerte que un choque, pero tiene cadencia", () => {
+    const e = hockey();
+    const h = e.hockey!;
+    h.saque = 0;
+    const p = e.players[0];
+    h.puck.x = p.x + 40; h.puck.y = p.y; h.puck.vx = 0; h.puck.vy = 0;
+    p.apunta.on = true; p.apunta.wx = h.arcos[1].x; p.apunta.wy = h.arcos[1].y + 60;
+    expect(patear(e, p, 1)).toBe("zurdazo");
+    const fuerte = Math.hypot(h.puck.vx, h.puck.vy);
+    expect(fuerte, "el zurdazo salió flojo").toBeGreaterThan(1500);
+
+    /* Y no se puede repetir cada fotograma: sin cadencia, un bot lo disparaba
+       17 968 veces en un partido y el disco no paraba nunca. */
+    h.puck.x = p.x + 40; h.puck.y = p.y;
+    expect(patear(e, p, 1), "repitió el zurdazo sin recargar").toBe(null);
+    for (let k = 0; k < 60 * 2; k++) avanzar(e, nada(2), 1 / 60);
+    h.puck.x = p.x + 40; h.puck.y = p.y; h.puck.vx = 0; h.puck.vy = 0;
+    expect(patear(e, p, 1), "no recargó nunca").toBe("zurdazo");
   });
 
   it("los bots juegan y el partido acaba solo", () => {
@@ -2267,6 +2399,7 @@ describe("un minijuego apaga el barrio", () => {
     expect(JUEGOS_LISTOS, "el air hockey ya se juega entero").toContain("hockey");
     expect(JUEGOS_LISTOS, "la lucha ya se juega entera").toContain("lucha");
     expect(JUEGOS_LISTOS, "la carrera de obstáculos ya se juega entera").toContain("carreraObs");
+    expect(JUEGOS_LISTOS, "los bolos ya se juegan enteros").toContain("bolos");
   });
 });
 

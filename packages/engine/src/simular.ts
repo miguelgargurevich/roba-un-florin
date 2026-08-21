@@ -30,6 +30,7 @@ import {
   ladoDeVoley, colocarParaElSaqueDeVoley, VOLEY_SAQUE, VOLEY_TOQUES,
   sacarDeMedioBasquet, BASQUET_SAQUE, sacarEnHockey, HOCKEY_SAQUE,
   colocarEnElRing, LUCHA_SAQUE, OBS_TROPIEZO,
+  colocarParaTirar, reponerLosPinos, BOLA_R, PINO_R,
 } from "./estado.js";
 
 /* Cualquier cosa a la que se pueda golpear */
@@ -1298,6 +1299,11 @@ function avanzarTrastos(e: Estado, dt: number): void {
     /* Y la del básquet, mientras la lleva alguien, no se mueve sola: la
        coloca `pasoBasquet` delante del que bota. */
     if (e.basquet && v.id === e.basquet.balon && e.basquet.conLaBola != null) continue;
+    /* Y la de los bolos NUNCA se mueve aquí: su rodadura, su rebote en las
+       canaletas y su choque con los pinos son todo `pasoBolos`. Con el
+       rozamiento de rodar de los trastos (0,12/s se come tres cuartos de la
+       velocidad en 0,7 s) no llegaba a los pinos ni de milagro. */
+    if (e.bolos && v.id === e.bolos.balon) continue;
     v.x += v.vx * dt;
     v.y += v.vy * dt;
     v.giro += Math.hypot(v.vx, v.vy) * dt * 0.06;
@@ -1601,13 +1607,16 @@ function balonAlAlcance(e: Estado, p: Jugador): Trasto | null {
  * Devuelve qué pasó, para que el cliente lo cuente.
  */
 export function patear(e: Estado, p: Jugador,
-                       fuerza = 0): "patada" | "cabezazo" | "golpe" | "pase" | "remate" | "tiro" | null {
+                       fuerza = 0): "patada" | "cabezazo" | "golpe" | "pase" | "remate"
+                                  | "tiro" | "bola" | "zurdazo" | null {
   /* El mismo botón es la raqueta en el tenis y las manos en el vóley. Se
      reparte aquí y no en el cliente para que teclado, botón y sala pidan
      siempre lo mismo. */
   if (e.tenis) return golpeDeTenis(e, p, clamp(fuerza, 0, 1));
   if (e.voley) return golpeDeVoley(e, p, clamp(fuerza, 0, 1));
   if (e.basquet) return tiroDeBasquet(e, p, clamp(fuerza, 0, 1));
+  if (e.bolos) return tirarBolos(e, p, clamp(fuerza, 0, 1));
+  if (e.hockey) return golpeDeHockey(e, p, clamp(fuerza, 0, 1));
   const f = e.futbol;
   if (!f || f.ganador != null || p.stun > 0) return null;
   const b = balonAlAlcance(e, p);
@@ -1714,6 +1723,23 @@ function pasoFutbol(e: Estado, dt: number): void {
   for (const p of e.players) {
     p.x = clamp(p.x, c.x + 20, c.x + c.w - 20);
     p.y = clamp(p.y, c.y + 20, c.y + c.h - 20);
+  }
+
+  /* ---- la pelota no se queda atrapada ----
+     Una pelota muerta en una esquina, o pillada entre seis piernas que se la
+     pisan unos a otros, no es un partido: es una foto. A los cuatro segundos
+     sin ir a ninguna parte, al centro. El hockey ya tenía esta regla y el
+     fútbol no, que es donde más pasa — ahí hay diez jugadores y cuatro
+     esquinas. */
+  f.quieto = Math.hypot(balon.vx, balon.vy) < 70 ? f.quieto + dt : 0;
+  if (f.quieto > 4) {
+    f.quieto = 0;
+    texto(e, balon.x, balon.y - 46, "¡Bola al centro!", "#FFC53D");
+    balon.x = c.x + c.w / 2; balon.y = c.y + c.h / 2;
+    balon.vx = 0; balon.vy = 0; balon.z = 0; balon.vz = 0;
+    balon.pateadoPor = null;
+    polvo(e, balon.x, balon.y, "#FFC53D", 12);
+    return;
   }
 
   if (f.reloj <= 0) {
@@ -2182,48 +2208,204 @@ function finBasquet(e: Estado): void {
 /* ============================================================
    Bolos
    ============================================================ */
-function pasoBolos(e: Estado, dt: number): void {
+/* ---- los bolos ----
+   La bola se lanza con el mismo botón de cargar que todo lo demás: **la carga
+   es la fuerza y la puntería el ángulo**, y el motor recorta las dos. No hay
+   ventana que acertar — apuntas y sueltas cuando te apetezca, que es lo que
+   convierte esto en un juego de puntería y no en una lotería de reflejos.
+
+   Los pinos se empujan entre ellos. Es lo único que hay que hacer bien aquí:
+   una bola que borra los pinos que toca no son bolos, son diez interruptores.
+   Un pino cuenta como tumbado cuando se ha MOVIDO de su sitio. */
+export const BOLOS_ALCANCE = 70;
+/** Fuerza de la bola, del toque flojo al bolazo. */
+const BOLA_MIN = 620, BOLA_MAX = 1500;
+/** Lo que se abre el ángulo con la puntería: 22° a cada lado y no más, o se
+    lanza a la pared de al lado y no hay juego. */
+const BOLOS_ANGULO = 0.38;
+/** Lo que frena la bola y los pinos por segundo. */
+const BOLA_ROCE = 0.62, PINO_ROCE = 0.75;
+/** Desde este desvío, el pino está tumbado. */
+const PINO_CAIDO = 16;
+
+/** Lanzar la bola. Solo el que tiene el turno, y solo si no rueda ya una. */
+function tirarBolos(e: Estado, p: Jugador, k: number): "bola" | null {
+  const b = e.bolos;
+  if (!b || b.ganador != null || b.rodando || b.espera > 0) return null;
+  if (e.players.indexOf(p) !== b.turno) return null;
+  const bola = e.trastos.find(t => t.id === b.balon);
+  if (!bola) return null;
+  /* Hay que estar junto a la bola: se lanza desde la raya, no desde la grada. */
+  if (dist2(p.x, p.y, bola.x, bola.y) > BOLOS_ALCANCE * BOLOS_ALCANCE) return null;
+
+  /* El ángulo sale de la puntería, pero TOPADO: apuntar a la pared de al lado
+     no es una jugada, es tirar la bola. Sin el tope, con el ratón en cualquier
+     sitio la bola salía de lado y no llegaba nunca a los pinos. */
+  const a = p.apunta;
+  let ang = 0;
+  if (a.on) {
+    const dx = a.wx - bola.x, dy = a.wy - bola.y;
+    if (dy < 0) ang = clamp(Math.atan2(dx, -dy), -BOLOS_ANGULO, BOLOS_ANGULO);
+  }
+  const v = BOLA_MIN + (BOLA_MAX - BOLA_MIN) * clamp(k, 0, 1);
+  bola.vx = Math.sin(ang) * v;
+  bola.vy = -Math.cos(ang) * v;          // pista arriba: los pinos están al norte
+  bola.pateadoPor = p.idx;
+  b.rodando = true;
+  b.enPieAlEmpezar = b.pinos.filter(x => x.pie).length;
+  polvo(e, bola.x, bola.y, "#FFEFE2", 6);
+  sonar(e, "throw");
+  return "bola";
+}
+
+/** Cuenta lo de esta bola y pasa a la siguiente, o de mano, o acaba. */
+function cerrarBolaDeBolos(e: Estado): void {
   const b = e.bolos!;
-  if (b.ganador != null) return;
-  const balon = e.trastos.find(t => t.id === b.balon);
-  if (!balon) return;
-  // check pin collisions
-  for (let i = 0; i < b.pins.length; i++) {
-    if (!b.pins[i]) continue;
-    const pin = b.pinLugar[i];
-    if (dist2(balon.x, balon.y, pin.x, pin.y) < 22 * 22) {
-      b.pins[i] = false;
-      polvo(e, pin.x, pin.y, "#FFEFE2", 4);
+  const enPie = b.pinos.filter(x => x.pie).length;
+  const tumbados = b.enPieAlEmpezar - enPie;
+  const pleno = b.bola === 0 && enPie === 0;
+  b.puntos[b.turno] += tumbados;
+  b.ultimo = { quien: b.turno, tumbados, pleno };
+
+  const quien = e.players[b.turno];
+  const donde = { x: b.pista.x + b.pista.w / 2, y: b.pista.y + 380 };
+  texto(e, donde.x, donde.y, pleno ? "¡PLENO!" : "+" + tumbados, pleno ? "#FFC53D" : "#3DDC97");
+  if (pleno) polvo(e, donde.x, donde.y, "#FFC53D", 24);
+  sonar(e, tumbados > 0 ? "win" : "ouch");
+  e.eventos.push({ t: "punto", equipo: (b.turno % 2) as 0 | 1,
+                   puntos: [b.puntos[0] ?? 0, b.puntos[1] ?? 0],
+                   motivo: pleno ? "pleno" : tumbados + " pinos" });
+
+  /* Segunda bola solo si queda algo que tumbar. */
+  if (b.bola === 0 && enPie > 0) {
+    b.bola = 1;
+    colocarParaTirar(e);
+    return;
+  }
+
+  /* Se acabó la mano: pinos nuevos y le toca al siguiente. */
+  b.manos[b.turno]++;
+  b.bola = 0;
+  reponerLosPinos(e);
+  if (b.manos.every((m, i) => m >= b.total)) {
+    const mejor = Math.max(...b.puntos);
+    const empate = b.puntos.filter(x => x === mejor).length > 1;
+    b.ganador = empate ? null : b.puntos.indexOf(mejor);
+    terminarJuegoIndividual(e, b.ganador == null ? null : e.players[b.ganador].idx);
+    return;
+  }
+  b.turno = (b.turno + 1) % e.players.length;
+  colocarParaTirar(e);
+}
+
+function pasoBolos(e: Estado, dt: number): void {
+  const b = e.bolos;
+  if (!b || b.ganador != null) return;
+  const bola = e.trastos.find(t => t.id === b.balon);
+  if (!bola) return;
+
+  /* El que tira se queda detrás de la raya de falta; el resto, fuera de la
+     pista. Sin esto se puede ir andando hasta los pinos y tirarlos a patadas. */
+  e.players.forEach((p, i) => {
+    if (i === b.turno) {
+      p.x = clamp(p.x, b.pista.x + 30, b.pista.x + b.pista.w - 30);
+      p.y = clamp(p.y, b.faltaY + 20, b.pista.y + b.pista.h - 30);
+    }
+  });
+
+  if (b.espera > 0) {
+    /* Los pinos siguen cayéndose mientras se espera: es justo lo que se está
+       esperando a ver. */
+    moverLosPinos(e, dt);
+    b.espera -= dt;
+    if (b.espera <= 0) cerrarBolaDeBolos(e);
+    return;
+  }
+  if (!b.rodando) { moverLosPinos(e, dt); return; }
+
+  /* ---- la bola ---- */
+  const roce = Math.pow(BOLA_ROCE, dt);
+  bola.vx *= roce; bola.vy *= roce;
+  bola.x += bola.vx * dt;
+  bola.y += bola.vy * dt;
+  bola.giro += Math.hypot(bola.vx, bola.vy) * dt * 0.05;
+  // las canaletas: la bola rebota flojo y sigue, como en una bolera de verdad
+  if (bola.x < b.pista.x + BOLA_R) { bola.x = b.pista.x + BOLA_R; bola.vx = Math.abs(bola.vx) * 0.35; }
+  if (bola.x > b.pista.x + b.pista.w - BOLA_R) { bola.x = b.pista.x + b.pista.w - BOLA_R; bola.vx = -Math.abs(bola.vx) * 0.35; }
+
+  /* ---- la bola contra los pinos ---- */
+  for (const pino of b.pinos) {
+    const dx = pino.x - bola.x, dy = pino.y - bola.y;
+    const d = Math.hypot(dx, dy);
+    if (d > BOLA_R + PINO_R || d < 0.01) continue;
+    const nx = dx / d, ny = dy / d;
+    const golpe = Math.hypot(bola.vx, bola.vy);
+    pino.vx += nx * golpe * 0.75;
+    pino.vy += ny * golpe * 0.75;
+    /* La bola apenas se desvía: pesa diez veces más que un pino, y por eso un
+       pleno es posible en vez de que el primer pino la mande a la canaleta. */
+    bola.vx = bola.vx * 0.94 - nx * 22;
+    bola.vy = bola.vy * 0.94 - ny * 22;
+    sonar(e, "whack");
+  }
+
+  moverLosPinos(e, dt);
+
+  /* ---- ¿se acabó la bola? ----
+     Cuando se para, cuando se sale por el fondo, o cuando pasa de largo de los
+     pinos: los tres son "ya no va a tumbar nada más". */
+  const parada = Math.hypot(bola.vx, bola.vy) < 40;
+  const fuera = bola.y < b.pista.y + 20;
+  const pasoDeLargo = bola.y < b.pista.y + 120 && bola.vy > -40;
+  if (parada || fuera || pasoDeLargo) {
+    bola.vx = 0; bola.vy = 0;
+    b.rodando = false;
+    b.espera = 1.1;                     // deja ver caer los pinos antes de contar
+  }
+}
+
+/** Los pinos: se empujan entre ellos, ruedan y se caen.
+
+    Va aparte y se llama TAMBIÉN durante la espera. Estaba dentro del bloque de
+    "la bola rueda", así que los pinos que la bola tocaba en el último momento se
+    quedaban con la velocidad congelada y no llegaban a moverse nunca: por eso no
+    salía un pleno ni de casualidad en veinte bolas. */
+function moverLosPinos(e: Estado, dt: number): void {
+  const b = e.bolos!;
+  /* Entre ellos: esto es lo que hace que un pleno sea un pleno — la cadena. */
+  for (let i = 0; i < b.pinos.length; i++) {
+    const a = b.pinos[i];
+    for (let j = i + 1; j < b.pinos.length; j++) {
+      const c = b.pinos[j];
+      const dx = c.x - a.x, dy = c.y - a.y;
+      const d = Math.hypot(dx, dy);
+      if (d > PINO_R * 2 || d < 0.01) continue;
+      const nx = dx / d, ny = dy / d;
+      const solape = (PINO_R * 2 - d) / 2;
+      a.x -= nx * solape; a.y -= ny * solape;
+      c.x += nx * solape; c.y += ny * solape;
+      /* Se reparten la velocidad a lo largo de la normal: un choque elástico
+         de pobre, pero suficiente para que la cadena se propague. */
+      const va = a.vx * nx + a.vy * ny, vc = c.vx * nx + c.vy * ny;
+      const t = (va - vc) * 0.9;
+      a.vx -= nx * t; a.vy -= ny * t;
+      c.vx += nx * t; c.vy += ny * t;
     }
   }
-  // ball stopped?
-  if (Math.hypot(balon.vx, balon.vy) < 10 && balon.y < b.pista.y + 200) {
-    const knocked = b.pins.filter(p => !p).length;
-    b.puntos[b.turno] += knocked;
-    sonar(e, "bowl");
-    texto(e, b.pista.x + b.pista.w / 2, b.pista.y + b.pista.h / 2, "+" + knocked, "#FFC53D");
-    b.tiradas++;
-    b.totalTiradas++;
-    if (b.tiradas >= 2 || b.pins.every(p => !p)) {
-      b.turno = 1 - b.turno;
-      b.tiradas = 0;
-      b.frames++;
-      if (b.pins.every(p => !p)) b.pins = b.pinLugar.map(() => true);
-      if (b.frames >= b.meta * 2) {
-        b.ganador = b.puntos[0] > b.puntos[1] ? 0 : b.puntos[1] > b.puntos[0] ? 1 : null;
-        terminarJuegoIndividual(e, b.ganador != null ? (e.players.find(p => p.equipo === b.ganador!)?.idx ?? null) : null);
-        return;
-      }
+
+  /* Y cada uno: rueda, frena y, si se ha ido de su sitio, está tumbado. */
+  const roceP = Math.pow(PINO_ROCE, dt);
+  for (const pino of b.pinos) {
+    if (!pino.vx && !pino.vy) continue;
+    pino.x += pino.vx * dt;
+    pino.y += pino.vy * dt;
+    pino.vx *= roceP; pino.vy *= roceP;
+    if (Math.hypot(pino.vx, pino.vy) < 8) { pino.vx = 0; pino.vy = 0; }
+    if (pino.pie && Math.hypot(pino.x - pino.ox, pino.y - pino.oy) > PINO_CAIDO) {
+      pino.pie = false;
+      polvo(e, pino.x, pino.y, "#F5F5DC", 6);
     }
-    // reset ball
-    balon.x = b.pista.x + b.pista.w / 2;
-    balon.y = b.pista.y + b.pista.h - 60;
-    balon.vx = 0; balon.vy = 0;
-    balon.pateadoPor = null;
   }
-  // bounds
-  if (balon.x < b.pista.x + 10) { balon.x = b.pista.x + 10; balon.vx = Math.abs(balon.vx) * 0.6; }
-  if (balon.x > b.pista.x + b.pista.w - 10) { balon.x = b.pista.x + b.pista.w - 10; balon.vx = -Math.abs(balon.vx) * 0.6; }
 }
 
 /* ============================================================
@@ -2513,9 +2695,51 @@ function pasoBillar(e: Estado, dt: number): void {
 /** Radio del disco y de la paleta (tú). */
 const PUCK_R = 16, PALETA_R = 26;
 /** Lo que frena el disco por segundo, y su tope. */
-const HOCKEY_ROCE = 0.55, PUCK_MAX = 1450;
+const HOCKEY_ROCE = 0.55, PUCK_MAX = 2050;
+/** El ZURDAZO: el botón de cargar, aquí. Chocar con el disco lo empuja ~700 como
+    mucho; esto llega a 1 900, así que aguantar el botón se nota de verdad.
+
+    El choque sigue existiendo y sigue siendo automático: es el toque de siempre,
+    el que mantiene el juego fluido. El botón es el disparo que decides tú. */
+export const HOCKEY_ALCANCE = 78;
+const ZURDAZO_MIN = 950, ZURDAZO_MAX = 1900;
+/** Lo que tarda en poder volver a zurdazo. */
+export const ZURDAZO_RECARGA = 1.1;
 /** Lo que empuja un choque, aparte de la velocidad que llevabas. */
 const PALETA_EMPUJE = 430;
+
+/**
+ * El zurdazo: apuntas, cargas y sueltas. La dirección sale de la puntería y, si
+ * no apuntas, del arco contrario — pegarle "a ninguna parte" no existe.
+ */
+function golpeDeHockey(e: Estado, p: Jugador, k: number): "zurdazo" | null {
+  const h = e.hockey;
+  if (!h || h.ganador != null || h.saque > 0 || p.stun > 0) return null;
+  const i = e.players.indexOf(p);
+  if ((h.recarga[i] ?? 0) > 0) return null;
+  const pk = h.puck;
+  if (dist2(p.x, p.y, pk.x, pk.y) > HOCKEY_ALCANCE * HOCKEY_ALCANCE) return null;
+
+  const mio = (p.equipo ?? 0) as 0 | 1;
+  const arco = h.arcos[1 - mio];
+  const a = p.apunta;
+  let dx = a.on ? a.wx - pk.x : (arco.x + arco.w / 2) - pk.x;
+  let dy = a.on ? a.wy - pk.y : (arco.y + arco.h / 2) - pk.y;
+  const m = Math.hypot(dx, dy) || 1;
+  const v = ZURDAZO_MIN + (ZURDAZO_MAX - ZURDAZO_MIN) * clamp(k, 0, 1);
+  /* Se lo saca de encima primero: si no, el choque automático del mismo
+     fotograma le vuelve a pegar y se come el zurdazo. */
+  pk.x = p.x + (dx / m) * (PALETA_R + PUCK_R + 2);
+  pk.y = p.y + (dy / m) * (PALETA_R + PUCK_R + 2);
+  pk.vx = (dx / m) * v;
+  pk.vy = (dy / m) * v;
+  h.quieto = 0;
+  h.recarga[i] = ZURDAZO_RECARGA;
+  texto(e, p.x, p.y - 52, "¡Zurdazo!", "#5CE1EA");
+  polvo(e, pk.x, pk.y, "#CFE8FF", 10);
+  sonar(e, "whack");
+  return "zurdazo";
+}
 
 function pasoHockey(e: Estado, dt: number): void {
   const h = e.hockey;
@@ -2532,6 +2756,9 @@ function pasoHockey(e: Estado, dt: number): void {
       ? clamp(p.x, m.x + PALETA_R, cx - PALETA_R)
       : clamp(p.x, cx + PALETA_R, m.x + m.w - PALETA_R);
   }
+
+  for (let i = 0; i < h.recarga.length; i++)
+    if (h.recarga[i] > 0) h.recarga[i] -= dt;
 
   if (h.saque > 0) {
     h.saque -= dt;
