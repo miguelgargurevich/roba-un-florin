@@ -18,6 +18,7 @@ import {
   occupiedDe, playerIncome, spawnThief, usarArma, comprarArma, seleccionarArma,
   nuevoFlorin, baseDe, patiosDe, zap, multDeMontura, puntoDelDesfile, puntoDelOcho,
   centroDelMapa, WORLD_W, WORLD_H, OCHO_A, colocarPuestos, ponerFiesta, enFiesta, enElMar,
+  puntoDelPendulo,
   nivelDeVitrina, nombreDeHito, HITOS_MAX, vitrinaDe, venderFlorin, precioDeVenta, soltarCarga,
   valorDelDardo, DIANA_ANILLOS, BILLAR_COLORES, BOLA_BILLAR_R, esPared,
   LAB_FASES, LAB_LADOS, LAB_JAULAS,
@@ -2193,8 +2194,9 @@ describe("los dardos", () => {
     expect(patear(e, suyo, 1), "tiró pasado de la raya").toBe(null);
   });
 
-  it("el pulso es lo que acerca al centro, no la fuerza", () => {
-    /* Es LA decisión del juego: aguantar el botón cierra el error. */
+  it("el pulso afina la mano: aguantar sigue pagando", () => {
+    /* Sigue siendo media decisión —la otra media es el momento—, así que el
+       pulso tiene que notarse con el péndulo clavado en el centro. */
     const media = (pulso: number) => {
       let suma = 0;
       for (let s = 0; s < 40; s++){
@@ -2204,10 +2206,65 @@ describe("los dardos", () => {
       }
       return suma / 40;
     };
-    const flojo = media(0), lleno = media(1);
-    expect(lleno, "aguantar el pulso no sirve de nada").toBeGreaterThan(flojo + 8);
-    expect(lleno, "a pulso lleno el centro está garantizado")
-      .toBeLessThan(DIANA_ANILLOS[0]);
+    expect(media(1), "aguantar el pulso no sirve de nada").toBeGreaterThan(media(0) + 3);
+  });
+
+  it("el momento manda: soltar en el extremo del vaivén falla el tablero", () => {
+    /* La invariante nueva, y la razón de que el arco (176) sea MÁS ANCHO que la
+       diana (150 de radio): si en el extremo del péndulo se siguiera puntuando,
+       daría igual cuándo sueltas y el péndulo sería un adorno. */
+    const e = diana();
+    const d = e.dardos!;
+    d.pendulo = Math.PI / 2;                       // el extremo del vaivén
+    tirar(e, d.tablero, 1);                        // pulso perfecto, momento pésimo
+    expect(d.dardos[0].vale, "soltar en el extremo puntuó igual").toBe(0);
+    expect(Math.abs(d.dardos[0].x - d.tablero.x),
+           "el dardo no se fue al lado").toBeGreaterThan(d.tablero.r);
+  });
+
+  it("clavando el momento Y el pulso, el centro es tuyo", () => {
+    /* Lo contrario del anterior. Que el juego perfecto se premie sin dados es
+       lo que lo vuelve habilidad: el error residual (9 px) cabe entero dentro
+       del anillo del centro (30). */
+    for (let s = 0; s < 20; s++){
+      const e = diana(s + 1);
+      e.dardos!.pendulo = 0;                       // el vaivén cruzando el centro
+      tirar(e, e.dardos!.tablero, 1);
+      expect(e.dardos!.dardos[0].vale, "semilla " + s).toBe(DIANA_ANILLOS[0]);
+    }
+  });
+
+  it("el péndulo se mueve solo, y se reinicia en cada tiro", () => {
+    const e = diana();
+    const d = e.dardos!;
+    expect(d.pendulo, "no empieza a cero").toBe(0);
+    correr(e, 0.5);
+    expect(d.pendulo, "el péndulo está parado").toBeGreaterThan(0.5);
+    /* Y tras clavar uno, el siguiente sale del mismo sitio: es lo que permite
+       aprenderse el ritmo en vez de adivinarlo. */
+    tirar(e, d.tablero, 1);
+    expect(d.pendulo, "el vaivén nuevo no empieza limpio").toBe(0);
+    /* Mientras se ve el dardo clavado, quieto. */
+    correr(e, 0.2);
+    expect(d.pendulo, "el péndulo corrió durante la espera").toBe(0);
+  });
+
+  it("la guía no miente: el dardo cae donde la guía dice", () => {
+    /* El motor, el bot y la guía del cliente llaman a la MISMA función. Esta
+       prueba es la que impide que se separen: si alguien duplica la cuenta en
+       el cliente «para dibujarla», salta aquí. */
+    const e = diana();
+    const d = e.dardos!;
+    for (const fase of [0, 0.4, 1.1, 2.0, 3.3]){
+      const alto = d.tablero.y - 20;
+      d.pendulo = fase;
+      const guia = puntoDelPendulo(d, alto);
+      d.dardos.length = 0; d.tiros[d.turno] = 0; d.espera = 0;
+      tirar(e, { x: 0, y: alto }, 1);              // la x del mando da igual
+      const clavado = d.dardos[d.dardos.length - 1];
+      expect(Math.hypot(clavado.x - guia.x, clavado.y - guia.y),
+             "fase " + fase + ": el dardo no cayó donde la guía").toBeLessThan(10);
+    }
   });
 
   it("un dardo aturdido no sale: para eso está la chancla", () => {

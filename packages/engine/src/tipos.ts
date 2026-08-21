@@ -464,6 +464,13 @@ export interface Dardos {
   ultimo: { quien: number; vale: number; centro: boolean } | null;
   /** Pausa entre dardo y dardo, para verlo clavado. */
   espera: number;
+  /** El péndulo: la fase del vaivén, en radianes. La mano no se está quieta,
+      y avanza sola con el reloj — así que el dardo cae DONDE ESTÉ EL PÉNDULO
+      al soltar. El acierto es un momento, no un dado.
+
+      Se reinicia a cero en cada tiro: todos los tiros salen del mismo sitio,
+      que es lo que permite aprenderse el ritmo. */
+  pendulo: number;
   ganador: number | null;
 }
 

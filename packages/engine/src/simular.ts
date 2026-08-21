@@ -11,6 +11,7 @@
 import type {
   Base, Bala, DesfileItem, EntradaJugador, Estado, Florin, Jugador, Ladron,
   Pedestal, Premio, Abuela, RefObjetivo, RefPed, Trasto, Variante, Billar, Laberinto, JuegoDeSitio,
+  Dardos,
 } from "./tipos.js";
 import {
   ESCUDO_DUR, GARAJE, GOAL, LADRONES, LASER_CARGA, RULETA, RULETA_INCOGNITA, RULETA_PRECIO,
@@ -31,7 +32,7 @@ import {
   sacarDeMedioBasquet, BASQUET_SAQUE, sacarEnHockey, HOCKEY_SAQUE,
   colocarEnElRing, LUCHA_SAQUE, OBS_TROPIEZO,
   colocarParaTirar, reponerLosPinos, BOLA_R, PINO_R,
-  colocarParaTirarDardo, valorDelDardo, DIANA_ANILLOS, DARDOS_ESPERA,
+  colocarParaTirarDardo, valorDelDardo, DIANA_ANILLOS, DARDOS_ESPERA, DARDO_VAIVEN, puntoDelPendulo, errorDelDardo,
   colocarParaTacar, reponerLaBlanca, BOLA_BILLAR_R, HOYA_R, BILLAR_ESPERA,
   esPared, LAB_BULTO, FANTASMA_VEL, FANTASMA_STUN, celdaLibreDe, centroDeCelda,
   LAB_RELOJ, LAB_ENTRE_FASES, montarFaseDelLaberinto, LAB_FILA, LAB_MIGA, LAB_RASTRO,
@@ -2523,13 +2524,7 @@ function pasoLucha(e: Estado, dt: number): void {
    pasarse —eso ya se probó en el vóley y es una lotería— sino el otro jugador:
    te puede chanclear mientras apuntas, y un dardo aturdido no sale. */
 export const DARDO_ALCANCE = 90;
-/** El error, del pulso más malo al mejor. */
-/* A pulso máximo el error son 38 px y el anillo del centro mide 30, así que el
-   cincuenta es probable pero NO seguro. Con 26 lo era siempre —el error caía
-   entero dentro del anillo— y un cincuenta garantizado no es una decisión.
-   Medido apuntando al centro: unos 29 de media a pulso 0 y unos 44 a pulso
-   lleno, sobre un máximo de 50. */
-const DARDO_ERROR_MAX = 84, DARDO_ERROR_MIN = 38;
+
 
 /** Tirar un dardo. Solo el que tiene el turno, desde detrás de la raya. */
 function tirarDardo(e: Estado, p: Jugador, k: number): "dardo" | null {
@@ -2542,11 +2537,18 @@ function tirarDardo(e: Estado, p: Jugador, k: number): "dardo" | null {
      trampa. El motor ya no te deja pasarla, y aquí se comprueba igual. */
   if (p.y < d.raya - 10) return null;
 
-  /* A dónde apuntas, y si no apuntas, al centro. */
+  /* Aquí está el cambio: la ANCHURA la pone el péndulo —o sea, el instante en
+     que soltaste— y la ALTURA la pones tú con el mando. Las dos hacen falta
+     para el centro: bien apuntado y mal soltado se va a un lado, y bien soltado
+     con la altura torcida se queda en un anillo de arriba.
+
+     El palo ya no elige el lado a propósito: sobre un vaivén centrado en la
+     diana, apuntar de lado solo alejaría el vaivén del centro. Sería una
+     decisión falsa —siempre habría una respuesta correcta— así que el mando
+     manda la altura y nada más. */
   const a = p.apunta;
-  const mx = a.on ? a.wx : d.tablero.x;
-  const my = a.on ? a.wy : d.tablero.y;
-  const err = DARDO_ERROR_MAX - (DARDO_ERROR_MAX - DARDO_ERROR_MIN) * clamp(k, 0, 1);
+  const { x: mx, y: my } = puntoDelPendulo(d, a.on ? a.wy : null);
+  const err = errorDelDardo(k);
   const ang = rnd(e, 0, Math.PI * 2), radio = rnd(e, 0, err);
   const x = mx + Math.cos(ang) * radio, y = my + Math.sin(ang) * radio;
 
@@ -2557,6 +2559,7 @@ function tirarDardo(e: Estado, p: Jugador, k: number): "dardo" | null {
   d.tiros[i]++;
   d.ultimo = { quien: i, vale, centro };
   d.espera = DARDOS_ESPERA;
+  d.pendulo = 0;                     // el siguiente sale del mismo sitio
 
   const color = vale === 0 ? "#FF5C86" : centro ? "#FFC53D" : "#3DDC97";
   texto(e, x, y - 34, vale === 0 ? "¡Fuera!" : centro ? "¡CENTRO! 50" : "+" + vale, color);
@@ -2574,6 +2577,11 @@ function pasoDardos(e: Estado, dt: number): void {
 
   /* La raya no se pasa, y de la diana no se acerca nadie. */
   for (const p of e.players) p.y = Math.max(p.y, d.raya);
+
+  /* El péndulo solo se mueve cuando hay alguien a punto de tirar: mientras se
+     ve el dardo clavado se queda quieto, para que el vaivén nuevo empiece
+     limpio y el ritmo se pueda aprender. */
+  if (d.espera <= 0) d.pendulo += DARDO_VAIVEN * dt;
 
   if (d.espera <= 0) return;
   d.espera -= dt;

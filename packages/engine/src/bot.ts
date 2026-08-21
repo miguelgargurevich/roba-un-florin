@@ -15,7 +15,8 @@
 import type { Estado, Jugador, EntradaJugador } from "./tipos.js";
 import { clamp, dist2 } from "./util.js";
 import { ANCHO_PISTA, dificultadDe } from "./datos.js";
-import { celdaLibreDe, centroDelMapa, enLaPista, esMiPatio, esPared, freePedDe, patiosDe } from "./estado.js";
+import { celdaLibreDe, centroDelMapa, enLaPista, esMiPatio, esPared, freePedDe, patiosDe,
+         puntoDelPendulo } from "./estado.js";
 
 /** Lo que decide el bot en un paso: hacia dónde va y si tira la chancla. */
 export interface PlanBot {
@@ -362,23 +363,36 @@ function aDondeVoyEnDardos(e: Estado, p: Jugador): { x: number; y: number } | nu
 
 /** A dónde apunta. Se calcula SIEMPRE que sea su turno: el motor lee
     `p.apunta` del tick anterior, y calculándola solo al tirar el primer dardo
-    saldría sin puntería. Es el bicho que ya mordió en el tenis y en los bolos. */
+    saldría sin puntería. Es el bicho que ya mordió en el tenis y en los bolos.
+
+    Con el péndulo, el mando ya solo manda la ALTURA —el lado lo pone el
+    instante de soltar—, así que el temblor se fue casi todo a la vertical. En
+    horizontal queda un resto pequeño porque es lo que se dibuja de retícula, y
+    una retícula que no respira parece un bot. */
 function aDondeApuntaElTirador(e: Estado, p: Jugador): { x: number; y: number } | null {
   const d = e.dardos;
   if (!d || d.ganador != null) return null;
   if (e.players.indexOf(p) !== d.turno) return null;
-  /* El temblor sale del reloj y del asiento: reproducible, y distinto para cada
-     uno. Del tamaño de un anillo, así que a veces cae en el 25 y a veces en el
-     centro. */
   const anillo = d.tablero.r / 5;
   return {
-    x: d.tablero.x + Math.sin(e.t * 1.9 + p.idx * 2.3) * anillo * 1.1,
-    y: d.tablero.y + Math.cos(e.t * 1.4 + p.idx * 1.7) * anillo * 1.1,
+    x: d.tablero.x + Math.sin(e.t * 1.9 + p.idx * 2.3) * anillo * 0.3,
+    y: d.tablero.y + Math.cos(e.t * 1.4 + p.idx * 1.7) * anillo * 0.95,
   };
 }
 
-/** ¿Tira ya? Cuando está en la raya y con la puntería puesta. Aguanta casi
-    todo el pulso: un bot que tira a lo loco no es rival. */
+/** El ojo del bot para el péndulo: cuántos píxeles de error se le permiten al
+    soltar. Sale del asiento, así que es reproducible y cada rival tiene su
+    pulso — y ninguno lo tiene perfecto, que es lo que lo hace ganable.
+
+    Referencia: al cruzar el centro la marca va a 458 px/s, o sea 15 px por
+    tick a 30 Hz. Con 30 px de margen el bot acierta el anillo del centro casi
+    siempre; con 74 se le va al 25 o al 15. */
+const DARDO_OJO = [34, 58, 44, 72, 50, 66];
+
+/** ¿Tira ya? Ahora no basta estar colocado: hay que PILLAR EL PÉNDULO. El bot
+    espera a que el vaivén pase por donde quiere y suelta ahí, con el margen de
+    su asiento. Sin esto tiraba en el primer tick que tenía puntería —o sea
+    siempre en el mismo punto del vaivén— y a un lado fijo del tablero. */
 function tiroDelTirador(e: Estado, p: Jugador): number | null {
   const d = e.dardos;
   if (!d || d.ganador != null || d.espera > 0 || p.stun > 0) return null;
@@ -386,6 +400,13 @@ function tiroDelTirador(e: Estado, p: Jugador): number | null {
   if (i !== d.turno || d.tiros[i] >= d.total) return null;
   if (Math.abs(p.y - (d.raya + 40)) > 60) return null;
   if (!p.apunta.on) return null;
+
+  /* Dónde va la punta ahora mismo, con la misma cuenta que usa el motor. */
+  const ahora = puntoDelPendulo(d, p.apunta.wy);
+  const ojo = DARDO_OJO[p.idx % DARDO_OJO.length];
+  if (Math.abs(ahora.x - d.tablero.x) > ojo) return null;
+
+  /* Y aguanta casi todo el pulso: un bot que tira a lo loco no es rival. */
   return 0.82;
 }
 

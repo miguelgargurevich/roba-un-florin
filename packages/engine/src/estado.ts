@@ -1322,6 +1322,52 @@ export function colocarEnElRing(e: Estado): void {
    otro: te puede chanclear mientras apuntas. */
 export const DARDOS_CADA_UNO = 6, DARDOS_ESPERA = 0.9;
 export const DIANA_R = 150;
+/** El vaivén del péndulo: cuánto se va la mano a cada lado, y a qué ritmo.
+
+    El arco (176) es algo MÁS ANCHO que la diana (150 de radio), a propósito:
+    soltar en el extremo del vaivén es fallar el tablero entero. Si el arco
+    cupiera dentro, cualquier momento valdría y el péndulo sería un adorno.
+
+    A 2,6 rad/s el vaivén tarda 2,4 s en ir y volver, y al cruzar el centro la
+    marca va a 458 px/s. O sea: acertar el anillo del centro (30 px) pide
+    soltar con menos de 65 ms de error. Se puede —un vaivén es periódico y eso
+    se anticipa, no se reacciona— pero no se regala. */
+export const DARDO_ARCO = 176, DARDO_VAIVEN = 2.6;
+
+/** Dónde está la punta del dardo AHORA MISMO: el centro de la diana, más el
+    vaivén del péndulo a lo ancho, y a la altura que apuntes tú.
+
+    Vive aquí y exportada a propósito, y es LA función: la usa el motor al
+    soltar, la usa el bot para elegir el momento y la usa la guía que se dibuja.
+    Si fueran tres cuentas parecidas, la guía mentiría — y una guía que miente
+    es peor que no tener guía. */
+/** El error que NO controlas, del pulso más malo al mejor.
+
+    Antes valía 84→38 y era el juego entero: apuntabas al centro, aguantabas, y
+    tirabas un dado con el radio más chico. Ahora el reto lo pone el péndulo —el
+    momento de soltar— y este error es solo el temblor de la mano. De ahí que
+    baje tanto: si siguiera en 38, clavar el péndulo en el centro seguiría
+    saliendo 25 la mitad de las veces y el momento no se notaría.
+
+    Aguantar sigue pagando (36→9), pero YA NO BASTA: el péndulo no se para por
+    aguantar, así que la paciencia afina la mano y el momento sigue siendo tuyo.
+    Y el precio de tomarse el tiempo es el de siempre: el otro te chanclea. */
+const DARDO_ERROR_MAX = 36, DARDO_ERROR_MIN = 9;
+
+/** El radio del temblor para un pulso dado. Exportada por lo mismo que
+    `puntoDelPendulo`: el círculo que dibuja la guía tiene que ser EL círculo
+    del que sale el dardo, no uno parecido. */
+export function errorDelDardo(k: number): number {
+  return DARDO_ERROR_MAX - (DARDO_ERROR_MAX - DARDO_ERROR_MIN) * clamp(k, 0, 1);
+}
+
+export function puntoDelPendulo(d: Dardos, apuntaY: number | null): { x: number; y: number } {
+  return {
+    x: d.tablero.x + Math.sin(d.pendulo) * DARDO_ARCO,
+    y: apuntaY ?? d.tablero.y,
+  };
+}
+
 /** Lo que vale cada anillo, de dentro hacia fuera. El último es el borde. */
 export const DIANA_ANILLOS = [50, 25, 15, 10, 5];
 
@@ -1332,7 +1378,7 @@ export function aLosDardos(e: Estado): void {
   e.dardos = {
     tablero, raya, dardos: [], turno: 0,
     tiros: e.players.map(() => 0), puntos: e.players.map(() => 0),
-    total: DARDOS_CADA_UNO, ultimo: null, espera: 0, ganador: null,
+    total: DARDOS_CADA_UNO, ultimo: null, espera: 0, pendulo: 0, ganador: null,
   };
   repartirEquipos(e);
   colocarParaTirarDardo(e);

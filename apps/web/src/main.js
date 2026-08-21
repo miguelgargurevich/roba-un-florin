@@ -19,6 +19,7 @@ import {
   occupiedDe, orbitaDelCentro, playerIncome, puntoDelDesfile, rumboDeTiro,
   bajarse, conAtajosDeSala as conAtajosMotor, nombreDeHito, patiosDe, precioDeVenta,
   puestoDe, puestosDeCarrera, VUELTAS, CIRCUITOS, pensarBot, GARAJE, VEHICULOS,
+  DARDO_ARCO, puntoDelPendulo, errorDelDardo,
   fundir, queSaleDeFundir,
   TRASTOS_ESCENARIO, darleVehiculo, esEspecial, ANCHO_PISTA, aparcarNuevo, comprarPatio,
   ponerFiesta, enFiesta, patear, TENIS_META, JUEGOS_LISTOS, VOLEY_META, VOLEY_TOQUES, VOLEY_ALCANCE,
@@ -1413,7 +1414,7 @@ const MINIJUEGOS = {
   basquet:    "🏀 ¡Básquet, tres contra tres! Primero a " + BASQUET_META + ". Chanclazo al que la lleva.",
   bolos:      "🎳 ¡A los bolos! Cinco manos, dos bolas cada una. Apunta y carga: la carga es la fuerza.",
   lucha:      "🥊 ¡La lucha del patio! Sácalo del ring 3 veces. Embiste corriendo, y hay chancla.",
-  dardos:     "🎯 ¡Dardos! Seis cada uno. Aguanta el botón para afinar el pulso — y cuidado con la chancla del otro.",
+  dardos:     "🎯 ¡Dardos! Seis cada uno. La mano se va sola de lado a lado: SUELTA cuando la marca cruce el centro. El palo pone la altura, aguantar cierra el temblor — y cuidado con la chancla del otro.",
   voley:      "🏐 ¡Vóley, dos contra dos! La tocas con solo llegar; aguanta el botón para rematar.",
   carreraObs: "🏃 ¡Carrera de obstáculos! Tres vueltas a pie. Los conos te tumban.",
   laberinto:  "🔮 ¡Al laberinto! Saca a tus amigos de las jaulas. Tres fases, y cada una con otro fantasma.",
@@ -9288,6 +9289,62 @@ function drawDiana(){
   ctx.font = "700 13px system-ui, sans-serif";
   ctx.fillText("LA RAYA", t.x - 300, d.raya - 16);
 
+  /* ---- el péndulo y su guía ----
+     La mano se va sola de lado a lado, y el dardo cae DONDE ESTÉ al soltar. Lo
+     que se dibuja aquí no es un adorno: es la única forma de que el momento sea
+     una decisión y no una sorpresa. Tres cosas, y las tres hacen falta:
+
+       · el CARRIL, con los extremos fuera de la diana — para que se vea que
+         soltar a destiempo no es «peor tiro», es fallar el tablero;
+       · la MARCA, donde va la punta ahora mismo;
+       · el CÍRCULO del temblor, que se cierra mientras aguantas.
+
+     La marca y el círculo salen de `puntoDelPendulo` y `errorDelDardo`, las
+     mismas funciones con las que el motor clava el dardo. Copiar las cuentas
+     aquí «para dibujar» sería una guía que miente, y eso es peor que no tenerla. */
+  const mío = d.turno === G.players.indexOf(G.player);
+  if (d.ganador == null && d.espera <= 0 && mío && d.tiros[d.turno] < d.total){
+    const k = fuerzaDePateo();
+    const alto = G.player.apunta?.on ? G.player.apunta.wy : t.y;
+    const marca = puntoDelPendulo(d, alto);
+    const err = errorDelDardo(k);
+
+    // el carril del vaivén, y los topes: ahí se falla el tablero
+    ctx.strokeStyle = "rgba(255,255,255,.28)"; ctx.lineWidth = 3;
+    ctx.setLineDash([9, 9]);
+    ctx.beginPath();
+    ctx.moveTo(t.x - DARDO_ARCO, alto); ctx.lineTo(t.x + DARDO_ARCO, alto);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.strokeStyle = "rgba(255,92,134,.75)"; ctx.lineWidth = 4;
+    for (const lado of [-1, 1]){
+      ctx.beginPath();
+      ctx.moveTo(t.x + lado * DARDO_ARCO, alto - 13);
+      ctx.lineTo(t.x + lado * DARDO_ARCO, alto + 13);
+      ctx.stroke();
+    }
+    // la muesca del centro: aquí es donde hay que soltar
+    ctx.strokeStyle = "rgba(255,197,61,.9)"; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(t.x, alto - 9); ctx.lineTo(t.x, alto + 9); ctx.stroke();
+
+    // el círculo del temblor, que se cierra con el pulso
+    ctx.strokeStyle = k > 0.66 ? "rgba(61,220,151,.9)" : "rgba(255,255,255,.5)";
+    ctx.lineWidth = 2;
+    ctx.setLineDash([5, 6]);
+    ctx.beginPath(); ctx.arc(marca.x, marca.y, err, 0, 6.283); ctx.stroke();
+    ctx.setLineDash([]);
+
+    // la marca: la punta del dardo, ahora mismo
+    ctx.fillStyle = "#FFC53D";
+    ctx.beginPath(); ctx.arc(marca.x, marca.y, 7, 0, 6.283); ctx.fill();
+    ctx.strokeStyle = "#2A1226"; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(marca.x, marca.y, 7, 0, 6.283); ctx.stroke();
+    ctx.strokeStyle = "rgba(255,197,61,.55)"; ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(marca.x, marca.y - 20); ctx.lineTo(marca.x, marca.y + 20);
+    ctx.stroke();
+  }
+
   // los dardos clavados, del color de quien los tiró
   for (const dar of d.dardos){
     const mio = dar.dueño === G.players.indexOf(G.player);
@@ -11088,11 +11145,14 @@ function hud(){
     const yo = G.players.indexOf(G.player);
     const suyos = d.puntos.filter((_, i) => i !== yo)[0];
     const miTurno = d.turno === yo;
-    /* La carga aquí es PULSO, no fuerza: el cartel lo dice, porque un botón que
-       se llama igual y hace otra cosa se entiende mal una sola vez. */
+    /* Lo que manda es el MOMENTO, así que el cartel avisa cuando la marca está
+       cruzando el centro: el jugador que no ha entendido el péndulo lo entiende
+       la primera vez que ve «¡Ahora!» y suelta. */
+    const cerca = Math.abs(Math.sin(d.pendulo)) < 0.16;
     el.goalLabel.textContent = d.ganador != null ? "Se acabó"
       : d.espera > 0 ? (d.ultimo ? (d.ultimo.vale === 0 ? "¡Fuera!" : "+" + d.ultimo.vale) : "…")
-      : miTurno ? "Aguanta el pulso · te quedan " + (d.total - d.tiros[yo])
+      : miTurno ? (cerca ? "¡Ahora! · te quedan " + (d.total - d.tiros[yo])
+                         : "Suelta en el centro · te quedan " + (d.total - d.tiros[yo]))
       : "Tira el otro";
     el.goal.textContent = d.puntos[yo] + " – " + suyos;
     el.bar.style.width = clamp(d.tiros[yo] / d.total * 100, 0, 100).toFixed(1) + "%";
