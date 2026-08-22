@@ -24,6 +24,20 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Última sesión
 
+- 2026-08-21 (claude-code): **cuatro Florines nuevos y el patio gratis** (pedido).
+  - **La banda del Multiverso**: Sirena (Marino), Dragón (Volcánico), Brujito
+    (Encantado) y Florín Multiverso (Dimensional) — 20 rarezas, 160 láminas.
+    Solo salen de la Fusionadora: dos Wiracocha dan la Sirena y la escalera
+    sigue hasta el Multiverso, que es el nuevo final. APPENDIDOS, nunca
+    intercalados (el tier se guarda como número en las partidas y el álbum).
+    `TIER_SUPREMO` ahora se busca por estilo (length-1 apuntaría al nuevo).
+    De paso se cerró una gotera: `rollTier` topaba en length-1, o sea que una
+    vitrina de vecino podía rellenarse con un Wiracocha — ahora el mundo topa
+    en el Amaru.
+  - **Patio 2 GRATIS en aventura** (PATIOS_PRECIO[0]=0): cartel «GRATIS ·
+    métete y es tuyo», reclamable sin un centavo. Los otros tres siguen
+    costando. 278 pruebas de motor.
+
 - 2026-08-21 (claude-code): **la lluvia de Florines al vencer al Brujo** (pedido).
   El tercer chanclazo ya no acaba la partida: el Brujo revienta en 28
   florincitos que salen disparados, caen con la gravedad de siempre, botan

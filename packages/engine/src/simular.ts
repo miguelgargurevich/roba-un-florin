@@ -19,7 +19,7 @@ import {
   fusionTier, fusionPrecio,
   LASER_DUR, LASER_PRECIO, LASER_RECARGA, RODAR_ROCE, TRASTO_ALCANCE, HITO_R, VUELTAS,
   PORTAL_VEL, CAJA_GIRA, CAJA_VUELVE, potenciadoresDe, potenciadorPorId,
-  TIERS, VARIANTES, VEHICULOS, WEAPONS, WORLD_H, WORLD_W, esVehiculo, varLabel, varMult,
+  TIERS, TIER_SUPREMO, VARIANTES, VEHICULOS, WEAPONS, WORLD_H, WORLD_W, esVehiculo, varLabel, varMult,
 } from "./datos.js";
 import { azar, clamp, dist2, inRect, lerp, money, pick, rnd, tiraDeTabla } from "./util.js";
 import {
@@ -45,12 +45,16 @@ import {
 /* Cualquier cosa a la que se pueda golpear */
 type Blanco = Ladron | Abuela | Jugador;
 
-export const maxTier = (e: Estado) => clamp(1 + Math.floor(e.t / 48), 1, TIERS.length - 1);
+/* El tope de lo que el mundo REPARTE es el Amaru: del Wiracocha para arriba
+   (la banda del Multiverso incluida) solo se llega por la Fusionadora. Antes el
+   tope era `length - 1` y una vitrina de vecino podía rellenarse con un
+   Wiracocha — el único que "no se encuentra" apareciendo en un pedestal. */
+export const maxTier = (e: Estado) => clamp(1 + Math.floor(e.t / 48), 1, TIER_SUPREMO - 1);
 
 export function rollTier(e: Estado): number {
   const m = maxTier(e);
   const t = m - Math.floor(Math.pow(azar(e), 1.7) * (m + 1));
-  return clamp(t, 0, TIERS.length - 1);
+  return clamp(t, 0, TIER_SUPREMO - 1);
 }
 
 /** `espera` son segundos en los que nadie puede recogerlo. Sirve para soltar a

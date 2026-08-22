@@ -8076,7 +8076,9 @@ function drawBase(b){
   ctx.setLineDash([]);
 
   // letrero
-  const rotulo = b.locked ? b.name.toUpperCase() + " · " + money(b.price) : b.name.toUpperCase();
+  const rotulo = b.locked
+    ? b.name.toUpperCase() + " · " + (b.price ? money(b.price) : "GRATIS")
+    : b.name.toUpperCase();
   const lw = Math.max(150, rotulo.length*11 + 34);
   ctx.fillStyle = "#2A1226";
   roundRect(r.x+r.w/2-lw/2, r.y-38, lw, 34, 12); ctx.fill();
@@ -8163,10 +8165,11 @@ function drawBase(b){
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
     ctx.fillStyle = "#B03A2E";
     ctx.font = "800 25px " + (getComputedStyle(document.body).getPropertyValue("--display") || "system-ui");
-    ctx.fillText("SE VENDE", 0, -18);
+    ctx.fillText(b.price ? "SE VENDE" : "GRATIS", 0, -18);
     ctx.fillStyle = "#4A3A20";
     ctx.font = "700 13px system-ui, sans-serif";
-    ctx.fillText(money(b.price) + " · métete para comprarlo", 0, 8);
+    ctx.fillText(b.price ? money(b.price) + " · métete para comprarlo"
+                         : "métete y es tuyo", 0, 8);
     ctx.restore();
     ctx.restore();
     return;
@@ -8298,6 +8301,48 @@ function drawFlorinEn(ctx, x, y, s, f, t){
       ctx.moveTo(Math.cos(a)*r0, top+H*.5 + Math.sin(a)*r0*.55);
       ctx.lineTo(Math.cos(a)*r1, top+H*.5 + Math.sin(a)*r1*.55);
       ctx.stroke();
+    }
+  }
+  /* ---- la banda del Multiverso: cada uno con su aura ----
+     Solo salen de la Fusionadora, así que el aura es el trofeo: quien tiene uno
+     en la vitrina quiere que se note desde la otra punta del patio. */
+  if (T.style === "sirena"){                    // burbujas subiendo
+    ctx.fillStyle = "rgba(92,225,234,.6)";
+    for (let i=0;i<5;i++){
+      const f = (t*.5 + i*.2) % 1;
+      ctx.globalAlpha = (1-f) * .7;
+      ctx.beginPath();
+      ctx.arc(Math.sin(i*2.1 + t)*16, bot - f*46, 2 + (i%3), 0, 6.283); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+  if (T.style === "dragon"){                    // llamitas alrededor
+    for (let i=0;i<4;i++){
+      const a = i*1.5708 + t*1.1;
+      const px = Math.cos(a)*24, py = top+H*.55 + Math.sin(a)*10;
+      const alto2 = 5 + Math.sin(t*7 + i*2)*2;
+      ctx.fillStyle = "#FF6B2B";
+      ctx.beginPath(); ctx.moveTo(px-3, py); ctx.lineTo(px, py-alto2); ctx.lineTo(px+3, py);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = "#FFD84D";
+      ctx.beginPath(); ctx.moveTo(px-1.4, py); ctx.lineTo(px, py-alto2*.55); ctx.lineTo(px+1.4, py);
+      ctx.closePath(); ctx.fill();
+    }
+  }
+  if (T.style === "brujito"){                   // las chispas del Brujo, mansas
+    for (let i=0;i<3;i++){
+      const a = t*2.2 + i*2.094;
+      ctx.fillStyle = ["#E14CFF","#FFC53D","#5CE1EA"][i];
+      ctx.beginPath();
+      ctx.arc(Math.cos(a)*25, top+H*.5 + Math.sin(a)*9, 2.4, 0, 6.283); ctx.fill();
+    }
+  }
+  if (T.style === "multiverso"){                // el aro de las ocho dimensiones
+    for (let i=0;i<8;i++){
+      const a0 = i*.7854 + t*.7;
+      ctx.strokeStyle = "hsl(" + (i*45) + ",80%,62%)"; ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.ellipse(0, top+H*.6, 27, 9, .3, a0, a0 + .62); ctx.stroke();
     }
   }
 
@@ -8518,7 +8563,9 @@ function drawFlorinEn(ctx, x, y, s, f, t){
   }
 
   /* ---- carita en la cara frontal ---- */
-  const dark = (T.style === "ninja" || T.style === "cosmic" || T.style === "amaru");
+  const dark = (T.style === "ninja" || T.style === "cosmic" || T.style === "amaru" ||
+                T.style === "sirena" || T.style === "dragon" || T.style === "brujito" ||
+                T.style === "multiverso");
   const ink = dark ? "#FFEFE2" : "#241209";
   const ey = top + 13;
   const blink = Math.sin(t*.9) > .984;

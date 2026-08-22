@@ -13,6 +13,7 @@ import {
   vehiculoDelSitio,
   puestosDeCarrera, puestoDe, pensarBot, LASER_DUR, LASER_PRECIO, PORTAL_RAREZAS, RAR_COLOR, SALA_MAX,
   reglasPara,
+  comprarPatio,
   RULETA, RULETA_INCOGNITA, RULETA_PRECIO, TIERS, WEAPONS, varMult,
   avanzar, bajarse, cargar, crearPartida, girarRuleta, idsDeArmas, inRect,
   occupiedDe, playerIncome, spawnThief, usarArma, comprarArma, seleccionarArma,
@@ -500,6 +501,22 @@ describe("el desfile del portal", () => {
 });
 
 describe("el catálogo de Florines", () => {
+  it("en aventura el segundo patio es GRATIS: métete y es tuyo", () => {
+    /* El pedido: un espacio de patio gratis al jugar aventura. Es el primero de
+       los extra — los otros tres siguen costando, y caros. */
+    const e = partida({ reglas: { patiosExtra: true } });
+    const gratis = e.bases.find(b => b.locked && b.price === 0)!;
+    expect(gratis, "no hay patio gratis").toBeTruthy();
+    expect(e.bases.filter(b => b.locked && b.price > 0).length,
+           "los de pago ya no son tres").toBe(PATIOS_PRECIO.length - 1);
+    const p = e.players[0];
+    p.money = 0;                                  // sin un centavo: da igual
+    comprarPatio(e, p, gratis);
+    expect(gratis.locked, "no se pudo reclamar").toBe(false);
+    expect(gratis.owner).toBe(p.idx);
+    expect(p.money, "el patio gratis cobró").toBe(0);
+  });
+
   it("cada rareza tiene su color: sin él la píldora sale gris", () => {
     for (const T of TIERS) expect(RAR_COLOR[T.rar]).toBeTruthy();
   });
@@ -1463,10 +1480,35 @@ describe("la Fusionadora", () => {
     expect(TIERS[q.tier].rar).toBe("Supremo");
   });
 
-  it("y en el Supremo ya no se puede fundir más", () => {
+  it("dos Wiracocha ya NO son el final: abren la banda del Multiverso", () => {
+    /* La regla vieja era «en el Supremo no se funde más». Ahora encima hay
+       cuatro rarezas que SOLO salen de aquí: dos Wiracocha dan la Sirena, y la
+       escalera sigue hasta el Florín Multiverso. */
     const { e, p } = conDos(TIER_SUPREMO, null, TIER_SUPREMO, null);
+    expect(fundir(e, p, 0, 1)).toBe(true);
+    const nuevo = occupiedDe(e, p)[0].florin;
+    expect(nuevo.tier).toBe(TIER_SUPREMO + 1);
+    expect(TIERS[nuevo.tier].rar).toBe("Marino");
+  });
+
+  it("y en el Florín Multiverso, ahora sí, ya no se funde más", () => {
+    const tope = TIERS.length - 1;
+    expect(TIERS[tope].rar).toBe("Dimensional");
+    const { e, p } = conDos(tope, null, tope, null);
     expect(fundir(e, p, 0, 1)).toBe(false);
     expect(occupiedDe(e, p).length).toBe(2);
+  });
+
+  it("la banda del Multiverso no se encuentra en el mundo: solo de fundir", () => {
+    /* La misma regla del Wiracocha, elevada: el desfile, la Ruleta y las
+       vitrinas de los vecinos topan en el Amaru. Las pruebas del portal y de la
+       Ruleta ya lo vigilan con TIER_SUPREMO; esta vigila el catálogo. */
+    expect(TIERS.length).toBe(20);
+    expect(TIER_SUPREMO, "el Wiracocha se movió de sitio").toBe(15);
+    expect(TIERS[TIER_SUPREMO].rar).toBe("Supremo");
+    for (let k = TIER_SUPREMO + 1; k < TIERS.length; k++)
+      expect(TIERS[k].price, TIERS[k].name + " no sube la escalera")
+        .toBeGreaterThan(TIERS[k - 1].price);
   });
 
   it("dos Amaru Galaxia dan el Supremo Galaxia", () => {

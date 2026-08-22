@@ -25,7 +25,10 @@ export let WORLD_W = MUNDO_NORMAL.w, WORLD_H = MUNDO_NORMAL.h;
    doble de sitio, que es un descampado con las mismas cuatro bicis. */
 export let ESCALA_MAPA = 1;
 export const GOAL = 60000;
-export const PATIOS_PRECIO = [4000, 12000, 30000, 70000];
+/* El primero es GRATIS: en aventura siempre hay un segundo patio esperando —
+   métete y es tuyo. Da un respiro al arranque (dos sitios donde guardar antes
+   del primer robo) sin regalar nada más: los otros tres se pagan, y caros. */
+export const PATIOS_PRECIO = [0, 12000, 30000, 70000];
 
 export const TIERS = [
   { name:"Florín Común",       rar:"Común",     price:100,   income:3,   n:5,  style:"plain",
@@ -89,6 +92,28 @@ export const TIERS = [
   { name:"Florín Wiracocha",   rar:"Supremo",   price:1_200_000, income:26000, n:8, style:"supremo",
     top:"#F2E4C0", strip:"#E0CFA0", side:"#8A6A3C", sideDark:"#5A4526",
     petal:"#FFD84D", petal2:"#FF8A2B", center:"#FFF6E1" },
+
+  /* ---- LA BANDA DEL MULTIVERSO ----
+     Cuatro rarezas MÁS ALLÁ del Wiracocha, y con su misma regla elevada: no se
+     encuentran en el mundo, no salen de la Ruleta ni del desfile — solo de la
+     Fusionadora, fundiendo hacia arriba. Dos Wiracocha dan la Sirena, dos
+     Sirenas el Dragón, y así hasta el Multiverso, que es el verdadero final.
+
+     Van APPENDIDAS, nunca intercaladas, por la misma razón de siempre: el tier
+     se guarda como número en las partidas y en el álbum de la nube, y meter una
+     en medio convertiría el Wiracocha de alguien en otra cosa. */
+  { name:"Florín Sirena",      rar:"Marino",      price:1_600_000, income:34000, n:6, style:"sirena",
+    top:"#1E4E5E", strip:"#17404E", side:"#123240", sideDark:"#0B2230",
+    petal:"#5CE1EA", petal2:"#2AB6C7", center:"#FF9EC4" },
+  { name:"Florín Dragón",      rar:"Volcánico",   price:2_200_000, income:44000, n:7, style:"dragon",
+    top:"#4A1E18", strip:"#3C1712", side:"#2E110D", sideDark:"#1E0B08",
+    petal:"#FF6B2B", petal2:"#E0331F", center:"#FFD84D" },
+  { name:"Florín Brujito",     rar:"Encantado",   price:2_900_000, income:57000, n:5, style:"brujito",
+    top:"#3A2470", strip:"#2E1C5A", side:"#241548", sideDark:"#170D30",
+    petal:"#E14CFF", petal2:"#A82AD4", center:"#FFC53D" },
+  { name:"Florín Multiverso",  rar:"Dimensional", price:3_900_000, income:74000, n:8, style:"multiverso",
+    top:"#241436", strip:"#1F1030", side:"#170B26", sideDark:"#0E0618",
+    petal:"#8B6BEE", petal2:"#5CE1EA", center:"#FFF6E1" },
 ];
 
 /** Cuánto dura abierto el paraguas, en segundos. */
@@ -299,8 +324,11 @@ export const RULETA_PRECIO = 1200;
 export const fusionTier = (a: number, b: number, tope: number) =>
   Math.min(tope, Math.round((a + b) / 2) + 1);
 
-/** El de más arriba, que solo sale de la Fusionadora juntando dos Amaru. */
-export const TIER_SUPREMO = TIERS.length - 1;
+/** El Wiracocha: el primero que NO se encuentra en el mundo, solo de fundir
+    dos Amaru. Ya no es el último de la tabla —encima está la banda del
+    Multiverso, también de fusión— así que se busca por estilo y no por
+    posición: `length - 1` apuntaría al Florín Multiverso. */
+export const TIER_SUPREMO = TIERS.findIndex(t => t.style === "supremo");
 
 /** Lo que cuesta la fusión: la mitad de lo que vale lo que sale. */
 export const fusionPrecio = (tierResultado: number) =>
@@ -403,7 +431,8 @@ export const RAR_COLOR: Record<string, string> = {
   "Legendario":"#FF5C86","Mítico":"#FFD84D","Cósmico":"#5CE1EA",
   "Sabrosón":"#C6E86B","Hincha":"#FF6B4A","Mensajero":"#D9A066",
   "Cibernético":"#8FA9C4","Milenario":"#E0D3AE","Orbital":"#7FA8FF",
-  "Imperial":"#FF8A00","Ancestral":"#3DDC97","Supremo":"#FFD84D"
+  "Imperial":"#FF8A00","Ancestral":"#3DDC97","Supremo":"#FFD84D",
+  "Marino":"#5CE1EA","Volcánico":"#FF6B2B","Encantado":"#E14CFF","Dimensional":"#8B6BEE"
 };
 
 export const FLORES = [
