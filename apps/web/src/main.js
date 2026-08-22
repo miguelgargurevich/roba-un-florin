@@ -10966,6 +10966,32 @@ function drawLaberinto(){
     }
   }
 
+  /* ---- LA LLUVIA DE FLORINES ----
+     El botín del Brujo, cayendo. Cada gota es un florincito de verdad — el
+     bloquecito con su pasto, su carita y su flor — dibujado con SOMBRA EN EL
+     SUELO y el cuerpo levantado según su altura `z`: es lo que hace que se lea
+     como cosas cayendo y no como confeti pegado a la pantalla. El pasto va del
+     tono de cada gota, así que la lluvia sale variada como el álbum. */
+  for (const g of l.lluvia){
+    ctx.fillStyle = "rgba(0,0,0,.32)";
+    ctx.beginPath();
+    ctx.ellipse(g.x, g.y, pp(7), pp(3), 0, 0, 6.283); ctx.fill();
+    const gy = g.y - g.z * 0.5;
+    const R = pp(9), giro = g.z > 0 ? Math.sin(g.x + g.z * 0.03) * 0.4 : 0;
+    ctx.save();
+    ctx.translate(g.x, gy); ctx.rotate(giro);
+    ctx.fillStyle = "#8A5A2E";
+    roundRect(-R * 0.55, -R * 0.3, R * 1.1, R * 0.95, R * 0.14); ctx.fill();
+    ctx.fillStyle = "hsl(" + g.tono + ",70%,55%)";
+    roundRect(-R * 0.55, -R * 0.3, R * 1.1, R * 0.32, R * 0.14); ctx.fill();
+    ctx.fillStyle = "#2A1226";
+    ctx.beginPath(); ctx.arc(-R * 0.18, R * 0.18, R * 0.07, 0, 6.283); ctx.fill();
+    ctx.beginPath(); ctx.arc(R * 0.18, R * 0.18, R * 0.07, 0, 6.283); ctx.fill();
+    ctx.fillStyle = "#FFC53D";
+    ctx.beginPath(); ctx.arc(R * 0.34, -R * 0.52, R * 0.14, 0, 6.283); ctx.fill();
+    ctx.restore();
+  }
+
   /* El cartel de fase, en el descanso. */
   if (l.entreFases > 0){
     const cx = ox + W / 2, cy = oy + H / 2;

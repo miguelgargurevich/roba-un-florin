@@ -35,7 +35,7 @@ import {
   colocarParaTirarDardo, valorDelDardo, DIANA_ANILLOS, DARDOS_ESPERA, DARDO_VAIVEN, puntoDelPendulo, errorDelDardo,
   colocarParaTacar, reponerLaBlanca, BOLA_BILLAR_R, HOYA_R, BILLAR_ESPERA,
   comidaPorId, armaPorId, LAB_SILBATO, LAB_LINTERNA, LAB_MOCHILA,
-  BRUJO, LAB_MAGIA, LAB_MAGIA_MUROS, BRUJO_FURIA,
+  BRUJO, LAB_MAGIA, LAB_MAGIA_MUROS, BRUJO_FURIA, LLUVIA_FLORINES, LLUVIA_DURA,
   LAB_TIZA_DURA, LAB_HUIDA, LAB_CONGELA,
   esPared, LAB_BULTO, FANTASMA_VEL, FANTASMA_STUN, celdaLibreDe, centroDeCelda,
   LAB_ENTRE_FASES, montarFaseDelLaberinto, LAB_FILA, LAB_MIGA, LAB_RASTRO,
@@ -1621,7 +1621,25 @@ function avanzarJugador(e: Estado, p: Jugador, ent: EntradaJugador | undefined, 
             sonar(e, "win");
             f.stun = 9999;                 // se queda vencido, sin desaparecer
             f.vx = 0; f.vy = 0;
-            finDelLaberinto(e);
+            /* ---- LA LLUVIA DE FLORINES ----
+               El Brujo revienta en florincitos: salen disparados hacia arriba
+               desde donde cayó, llueven, botan y se quedan desparramados por
+               los pasillos. Es el botín que tenía guardado — y la razón de que
+               la partida NO acabe aquí: el festejo dura unos segundos, porque
+               `over` tapa el mundo y una lluvia que nadie ve no es una lluvia.
+               El final de verdad lo pone `pasoLaberinto` cuando el festejo se
+               agota. */
+            lab3.festejo = LLUVIA_DURA;
+            for (let k = 0; k < LLUVIA_FLORINES; k++) {
+              const ang = azar(e) * Math.PI * 2;
+              const lejos = 60 + azar(e) * 260;
+              lab3.lluvia.push({
+                x: f.x, y: f.y, z: 12,
+                vx: Math.cos(ang) * lejos, vy: Math.sin(ang) * lejos,
+                vz: 380 + azar(e) * 420,
+                tono: Math.floor(azar(e) * 360),
+              });
+            }
           } else {
             texto(e, f.x, f.y - 50, "¡LE QUEDAN " + lab3.brujoVidas + "!", "#E14CFF");
             /* Huye a una celda libre lejana, elegida con el azar del estado. */
@@ -3151,6 +3169,29 @@ function pasoLaberinto(e: Estado, dt: number): void {
       sonar(e, "win");
       break;
     }
+  }
+
+  /* ---- el festejo: la lluvia de florines ----
+     Va ANTES de la comprobación de fase: con el Brujo vencido, «todas libres y
+     cero vidas» significaría fin inmediato y la lluvia no caería. Los
+     florincitos vuelan con la gravedad de siempre, botan perdiendo la mitad y
+     se quedan quietos; al agotarse el festejo, ahora sí, la pantalla final. */
+  if (l.festejo > 0) {
+    for (const g of l.lluvia) {
+      if (g.z <= 0 && g.vz === 0) continue;
+      g.x += g.vx * dt; g.y += g.vy * dt;
+      g.z += g.vz * dt;
+      g.vz -= GRAVEDAD * dt;
+      if (g.z <= 0) {
+        g.z = 0;
+        g.vz = Math.abs(g.vz) > 130 ? -g.vz * 0.45 : 0;
+        g.vx *= 0.6; g.vy *= 0.6;
+        if (g.vz === 0) { g.vx = 0; g.vy = 0; }
+      }
+    }
+    l.festejo -= dt;
+    if (l.festejo <= 0) finDelLaberinto(e);
+    return;
   }
 
   /* ---- ¿se acabó la fase? ---- */

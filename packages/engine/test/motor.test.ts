@@ -24,7 +24,7 @@ import {
   LAB_FASES, LAB_NIVELES, ladoDelNivel, jaulasDelNivel, monstruosDelNivel,
   relojDelNivel, BESTIARIO, monstruoDelNivel, monstruosDe, montarFaseDelLaberinto,
   LAB_ESCALON, varianteDelNivel, anchoDelNivel, altoDelNivel,
-  TEMA_MULTIVERSO, BRUJO, LAB_MAGIA, esNivelFinal, BRUJO_VIDAS,
+  TEMA_MULTIVERSO, BRUJO, LAB_MAGIA, esNivelFinal, BRUJO_VIDAS, LLUVIA_FLORINES, LLUVIA_DURA,
   celdaLibreDe, centroDeCelda,
   especialesDelNivel, LAB_COMIDAS, LAB_ARMAS, LAB_TEMAS, temaDelNivel,
   patear, TENIS_META, TENIS_ALCANCE, ladoDeLaCancha, esMinijuego, JUEGOS_LISTOS,
@@ -2448,7 +2448,19 @@ describe("el laberinto", () => {
         expect(Math.hypot(brujo.x - donde.x, brujo.y - donde.y),
                "no huyó tras el golpe " + golpe).toBeGreaterThan(l.celda * 4);
     }
-    expect(e.over, "vencer al Brujo no acabó la partida").toBe(true);
+    /* El tercer golpe NO acaba nada: suelta LA LLUVIA DE FLORINES. El festejo
+       existe porque `over` tapa el mundo en el mismo tick — una lluvia que
+       nadie ve no es una lluvia. */
+    expect(e.over, "el golpe final se saltó la lluvia").toBe(false);
+    expect(l.lluvia.length, "el Brujo no soltó los florines").toBe(LLUVIA_FLORINES);
+    expect(l.festejo, "no hay festejo").toBeGreaterThan(0);
+    /* Y llueven de verdad: suben, caen con la gravedad y acaban en el suelo. */
+    correr(e, 0.3);
+    expect(l.lluvia.some(g => g.z > 0), "los florines no volaron").toBe(true);
+    correr(e, LLUVIA_DURA + 0.5);
+    expect(l.lluvia.every(g => g.z === 0 && g.vz === 0),
+           "un florín se quedó flotando").toBe(true);
+    expect(e.over, "el festejo no terminó la partida").toBe(true);
     expect(l.puntos[0], "los golpes no valieron puntos").toBe(puntosAntes + BRUJO_VIDAS);
     expect(l.ganador).toBe(0);
   });

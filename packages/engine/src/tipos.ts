@@ -629,6 +629,14 @@ export interface Laberinto {
       Tres chanclazos lo vencen, y con cada uno huye a otra dimensión. */
   duelo: boolean;
   brujoVidas: number;
+  /** LA LLUVIA DE FLORINES: al vencer al Brujo revienta en florincitos que
+      caen del cielo, botan y se quedan desparramados. Van en el estado —no son
+      un adorno del cliente— para que en una sala online la vean todos igual. */
+  lluvia: { x: number; y: number; z: number; vx: number; vy: number; vz: number; tono: number }[];
+  /** El festejo: lo que dura la lluvia antes de la pantalla final. Sin esta
+      pausa, `over` tapa el mundo en el mismo tick del golpe y la lluvia no la
+      vería nadie. */
+  festejo: number;
   /** La magia del Brujo: el reloj hasta el próximo hechizo y cuántos lleva.
       Alternan: uno abre muros («alteró la realidad»), el otro te lanza a otra
       dimensión. La cuenta separa los dos y hace la magia predecible en las

@@ -24,6 +24,17 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Última sesión
 
+- 2026-08-21 (claude-code): **la lluvia de Florines al vencer al Brujo** (pedido).
+  El tercer chanclazo ya no acaba la partida: el Brujo revienta en 28
+  florincitos que salen disparados, caen con la gravedad de siempre, botan
+  perdiendo la mitad y se quedan desparramados. El festejo dura 3,2 s y LUEGO
+  llega la pantalla final — sin esa pausa, `over` tapa el mundo en el mismo
+  tick y la lluvia no la vería nadie. Va en el estado (no es adorno del
+  cliente): en una sala online la ven todos igual. Cada gota se dibuja como un
+  florín de verdad —bloquecito, pasto del tono de la gota, carita y flor— con
+  sombra en el suelo y el cuerpo levantado según su `z`, que es lo que la hace
+  leerse como cosas cayendo y no como confeti pegado a la pantalla.
+
 - 2026-08-21 (claude-code): **al Brujo se le vence** (pedido: «cómo vencemos al
   brujo» — la respuesta era «no se puede», y un jefe invencible es un jefe a
   medias). Los rescates le rompen la magia y la chancla lo remata:
