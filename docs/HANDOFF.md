@@ -62,8 +62,11 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
     valió: **no huye de un monstruo congelado o huyendo** — desperdiciaba la
     ventana que él mismo abría. Medido a 8 semillas por nivel:
     nivel 7 pasó de 6,5 rescates y 12,8 capturas a **16,0 y 4,5**.
-  - Pendiente: más temas (Amazonas, Volcán, Luna) — añadir uno es añadir una
-    fila en `LAB_TEMAS`.
+  - **Ocho temas** ya: colegio, zoológico, nave, Prehistoria, Egipto, Amazonas
+    (bichos de selva), Volcán (dragoncitos) y Luna (astronautas). Un tema es una
+    fila en `LAB_TEMAS` más su pintor en `PRESOS`; los tres últimos salieron del
+    decorado que ya tenía cada escenario (el Amazonas tiene río y caimanes, el
+    Volcán cráter y lava, la Luna módulo y bandera).
 
 - 2026-08-21 (claude-code): **los dardos con péndulo, y cada puerta con su
   pinta** (dos pedidos).

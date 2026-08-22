@@ -1618,6 +1618,24 @@ export const LAB_TEMAS: {
     presos: [{ id: "momia1", label: "la Momia" }, { id: "momia2", label: "el Faraón" },
              { id: "momia3", label: "el Escriba" }, { id: "momia4", label: "la Reina" }],
     pared: "#FFC53D", suelo: "#3A3016", suelo2: "#332A13", fondo: "#1C170A" },
+  /* Los tres nuevos salen del decorado que ya tiene cada escenario: el Amazonas
+     tiene río, lianas y caimanes, así que se rescatan bichos de selva; el Volcán
+     tiene cráter y ríos de lava, así que dragoncitos; y la Luna tiene módulo,
+     bandera y huellas de bota, así que astronautas —distintos de los
+     marcianitos de la nave, que van con su traje de color y su visor. */
+  { id: "amazonas", nombre: "EL AMAZONAS", pinta: "selva",
+    presos: [{ id: "guacamayo", label: "el Guacamayo" }, { id: "perezoso", label: "el Perezoso" },
+             { id: "rana", label: "la Rana" }, { id: "tucan", label: "el Tucán" },
+             { id: "caiman", label: "el Caimán" }],
+    pared: "#3DDC97", suelo: "#17301F", suelo2: "#13281A", fondo: "#0A1810" },
+  { id: "volcan", nombre: "EL VOLCÁN", pinta: "dragon",
+    presos: [{ id: "rojo", label: "el Dragoncito" }, { id: "naranja", label: "Chispa" },
+             { id: "negro", label: "Carboncito" }, { id: "azul", label: "el Raro" }],
+    pared: "#FF5C5C", suelo: "#3A1A18", suelo2: "#331614", fondo: "#1C0C0A" },
+  { id: "luna", nombre: "LA LUNA", pinta: "astronauta",
+    presos: [{ id: "uno", label: "la Astronauta" }, { id: "dos", label: "el Comandante" },
+             { id: "tres", label: "la Ingeniera" }, { id: "cuatro", label: "el Novato" }],
+    pared: "#C9D4E8", suelo: "#22262E", suelo2: "#1D2028", fondo: "#101218" },
 ];
 export function temaDelNivel(n: number) {
   return LAB_TEMAS[escalon(n) % LAB_TEMAS.length];

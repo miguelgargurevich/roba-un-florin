@@ -1454,7 +1454,7 @@ const MINIJUEGOS = {
   dardos:     "🎯 ¡Dardos! Seis cada uno. La mano se va sola de lado a lado: SUELTA cuando la marca cruce el centro. El palo pone la altura, aguantar cierra el temblor — y cuidado con la chancla del otro.",
   voley:      "🏐 ¡Vóley, dos contra dos! La tocas con solo llegar; aguanta el botón para rematar.",
   carreraObs: "🏃 ¡Carrera de obstáculos! Tres vueltas a pie. Los conos te tumban.",
-  laberinto:  "🔮 ¡Al laberinto! 99 niveles. Saca a los de las jaulas antes de que se acabe el reloj: en el colegio son tus amigos, en el zoológico los animales, en la nave los marcianitos. Cada tres niveles cambia todo — otro monstruo, otra forma y dos especiales que buscar (uno de comer y un arma). Y un chanclazo congela al bicho.",
+  laberinto:  "🔮 ¡Al laberinto! 99 niveles. Saca a los de las jaulas antes de que se acabe el reloj: ocho escenarios y en cada uno rescatas a otros — tus amigos en el colegio, los animales del zoológico, los marcianitos de la nave, dragoncitos en el Volcán, astronautas en la Luna. Cada tres niveles cambia todo — otro monstruo, otra forma y dos especiales que buscar (uno de comer y un arma). Y un chanclazo congela al bicho.",
   billar:     "🎱 ¡Al billar! Si metes, sigues tirando. Si cuelas la blanca, pierdes el turno.",
   hockey:     "🏒 ¡Air hockey! Primero a 5. No hay botón: el disco sale al chocar con él.",
 };
@@ -9857,6 +9857,175 @@ const PRESOS = {
     ctx.fillStyle = col;
     ctx.fillRect(x - R * 0.24, y + R * 0.4 + paso, R * 0.18, R * 0.34);
     ctx.fillRect(x + R * 0.1, y + R * 0.4 - paso, R * 0.18, R * 0.34);
+  },
+  /* Los bichos de la selva. No son los del zoológico: allí hay recintos con
+     jirafas y leones, y aquí río, lianas y caimanes — el decorado del Amazonas
+     ya los tenía y las jaulas los devuelven. */
+  selva(x, y, R, quien, t){
+    const ala = Math.sin(t * 8) * R * 0.2;
+    if (quien === "guacamayo" || quien === "tucan"){
+      const cuerpo = quien === "tucan" ? "#2A1226" : "#FF5C86";
+      ctx.fillStyle = cuerpo;
+      ctx.beginPath(); ctx.ellipse(x, y + R * 0.1, R * 0.42, R * 0.58, 0, 0, 6.283); ctx.fill();
+      // el ala que aletea
+      ctx.fillStyle = quien === "tucan" ? "#3A2A38" : "#5CE1EA";
+      ctx.beginPath();
+      ctx.ellipse(x - R * 0.34, y + ala, R * 0.24, R * 0.44, 0.4, 0, 6.283); ctx.fill();
+      // la cabeza y el pico, que es lo que los distingue
+      ctx.fillStyle = cuerpo;
+      ctx.beginPath(); ctx.arc(x + R * 0.1, y - R * 0.5, R * 0.3, 0, 6.283); ctx.fill();
+      ctx.fillStyle = quien === "tucan" ? "#FFC53D" : "#FFC53D";
+      ctx.beginPath();
+      ctx.moveTo(x + R * 0.3, y - R * 0.58);
+      ctx.lineTo(x + R * (quien === "tucan" ? 1.05 : 0.72), y - R * 0.42);
+      ctx.lineTo(x + R * 0.3, y - R * 0.3);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = "#F7F3F9";
+      ctx.beginPath(); ctx.arc(x + R * 0.16, y - R * 0.58, R * 0.08, 0, 6.283); ctx.fill();
+      ctx.fillStyle = "#2A1226";
+      ctx.beginPath(); ctx.arc(x + R * 0.17, y - R * 0.58, R * 0.04, 0, 6.283); ctx.fill();
+      return;
+    }
+    if (quien === "rana"){
+      const salto = Math.abs(Math.sin(t * 5)) * R * 0.14;
+      ctx.fillStyle = "#6FCF6A";
+      ctx.beginPath(); ctx.ellipse(x, y + R * 0.2 - salto, R * 0.6, R * 0.42, 0, 0, 6.283); ctx.fill();
+      // las patas de atrás dobladas, que es la silueta de una rana
+      ctx.strokeStyle = "#57A854"; ctx.lineWidth = R * 0.14; ctx.lineCap = "round";
+      for (const lado of [-1, 1]){
+        ctx.beginPath();
+        ctx.moveTo(x + lado * R * 0.4, y + R * 0.1 - salto);
+        ctx.lineTo(x + lado * R * 0.62, y + R * 0.44 - salto);
+        ctx.lineTo(x + lado * R * 0.34, y + R * 0.56 - salto);
+        ctx.stroke();
+      }
+      for (const lado of [-1, 1]){
+        ctx.fillStyle = "#F7F3F9";
+        ctx.beginPath(); ctx.arc(x + lado * R * 0.24, y - R * 0.24 - salto, R * 0.17, 0, 6.283); ctx.fill();
+        ctx.fillStyle = "#2A1226";
+        ctx.beginPath(); ctx.arc(x + lado * R * 0.24, y - R * 0.24 - salto, R * 0.08, 0, 6.283); ctx.fill();
+      }
+      return;
+    }
+    if (quien === "caiman"){
+      ctx.fillStyle = "#4E7A34";
+      ctx.beginPath(); ctx.ellipse(x - R * 0.1, y + R * 0.2, R * 0.66, R * 0.28, 0, 0, 6.283); ctx.fill();
+      // el morro largo con los dientes
+      ctx.beginPath();
+      ctx.moveTo(x + R * 0.3, y + R * 0.04);
+      ctx.lineTo(x + R * 1.0, y + R * 0.16);
+      ctx.lineTo(x + R * 0.3, y + R * 0.36);
+      ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = "#F7F3F9"; ctx.lineWidth = R * 0.05;
+      for (let k = 0; k < 4; k++){
+        const px = x + R * (0.42 + k * 0.15);
+        ctx.beginPath(); ctx.moveTo(px, y + R * 0.14); ctx.lineTo(px, y + R * 0.24); ctx.stroke();
+      }
+      // las escamas del lomo
+      ctx.fillStyle = "#3A5E26";
+      for (let k = 0; k < 4; k++){
+        ctx.beginPath();
+        ctx.moveTo(x - R * 0.5 + k * R * 0.24, y);
+        ctx.lineTo(x - R * 0.42 + k * R * 0.24, y - R * 0.2);
+        ctx.lineTo(x - R * 0.34 + k * R * 0.24, y);
+        ctx.closePath(); ctx.fill();
+      }
+      ctx.fillStyle = "#FFC53D";
+      ctx.beginPath(); ctx.arc(x + R * 0.24, y - R * 0.02, R * 0.08, 0, 6.283); ctx.fill();
+      return;
+    }
+    /* el perezoso, colgado de su rama y sin ninguna prisa */
+    ctx.strokeStyle = "#6B4A2A"; ctx.lineWidth = R * 0.14;
+    ctx.beginPath(); ctx.moveTo(x - R * 0.8, y - R * 0.7); ctx.lineTo(x + R * 0.8, y - R * 0.7); ctx.stroke();
+    ctx.fillStyle = "#A88C6A";
+    ctx.beginPath(); ctx.ellipse(x, y + R * 0.16, R * 0.4, R * 0.52, 0, 0, 6.283); ctx.fill();
+    ctx.strokeStyle = "#A88C6A"; ctx.lineWidth = R * 0.16; ctx.lineCap = "round";
+    for (const lado of [-1, 1]){
+      ctx.beginPath();
+      ctx.moveTo(x + lado * R * 0.2, y - R * 0.1);
+      ctx.quadraticCurveTo(x + lado * R * 0.52, y - R * 0.5, x + lado * R * 0.3, y - R * 0.7);
+      ctx.stroke();
+    }
+    ctx.fillStyle = "#C9AE8A";
+    ctx.beginPath(); ctx.arc(x, y - R * 0.28, R * 0.3, 0, 6.283); ctx.fill();
+    ctx.fillStyle = "#5A4526";
+    for (const lado of [-1, 1]){
+      ctx.beginPath();
+      ctx.ellipse(x + lado * R * 0.13, y - R * 0.28, R * 0.09, R * 0.07, 0, 0, 6.283); ctx.fill();
+    }
+  },
+
+  /* Los dragoncitos del Volcán. Pequeños y con las alas moviéndose: el cráter y
+     los ríos de lava ya estaban en el escenario, les faltaba quién los habite. */
+  dragon(x, y, R, quien, t){
+    const COL = { rojo:"#FF5C5C", naranja:"#FF9E5C", negro:"#5A4550", azul:"#5CE1EA" };
+    const col = COL[quien] || "#FF5C5C";
+    const ala = Math.sin(t * 9) * R * 0.34;
+    // las alas, detrás
+    ctx.fillStyle = "rgba(0,0,0,.35)";
+    for (const lado of [-1, 1]){
+      ctx.beginPath();
+      ctx.moveTo(x, y - R * 0.2);
+      ctx.quadraticCurveTo(x + lado * R * 0.9, y - R * 0.7 - ala * lado,
+                           x + lado * R * 0.7, y + R * 0.1);
+      ctx.closePath(); ctx.fill();
+    }
+    ctx.fillStyle = col;
+    // el cuerpo, la cola y la cabezota
+    ctx.beginPath(); ctx.ellipse(x, y + R * 0.18, R * 0.42, R * 0.4, 0, 0, 6.283); ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(x - R * 0.3, y + R * 0.2);
+    ctx.quadraticCurveTo(x - R * 0.9, y + R * 0.36, x - R * 0.85, y + R * 0.66);
+    ctx.quadraticCurveTo(x - R * 0.55, y + R * 0.4, x - R * 0.24, y + R * 0.42);
+    ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.arc(x + R * 0.18, y - R * 0.34, R * 0.34, 0, 6.283); ctx.fill();
+    // los cuernitos y el morro
+    ctx.strokeStyle = col; ctx.lineWidth = R * 0.1; ctx.lineCap = "round";
+    for (const d of [-1, 1]){
+      ctx.beginPath();
+      ctx.moveTo(x + R * 0.1 + d * R * 0.14, y - R * 0.58);
+      ctx.lineTo(x + R * 0.06 + d * R * 0.26, y - R * 0.82);
+      ctx.stroke();
+    }
+    ctx.fillStyle = "#2A1226";
+    ctx.beginPath(); ctx.arc(x + R * 0.34, y - R * 0.38, R * 0.07, 0, 6.283); ctx.fill();
+    // la chispita, que es lo que lo hace un dragón y no un lagarto
+    ctx.fillStyle = "#FFC53D";
+    ctx.beginPath();
+    ctx.arc(x + R * 0.58 + Math.sin(t * 12) * R * 0.06, y - R * 0.22, R * 0.09, 0, 6.283);
+    ctx.fill();
+  },
+
+  /* Los astronautas de la Luna. Traje blanco, visor dorado y mochila: distintos
+     a propósito de los marcianitos de la nave, que van de colores. */
+  astronauta(x, y, R, quien, t){
+    const bota = Math.sin(t * 5) * R * 0.05;
+    // la mochila
+    ctx.fillStyle = "#9A9182";
+    roundRect(x - R * 0.5, y - R * 0.42, R * 0.28, R * 0.7, R * 0.1); ctx.fill();
+    // el traje, con sus pliegues
+    ctx.fillStyle = "#F3EFE6";
+    roundRect(x - R * 0.36, y - R * 0.34 + bota, R * 0.72, R * 0.86, R * 0.22); ctx.fill();
+    ctx.strokeStyle = "rgba(150,145,130,.5)"; ctx.lineWidth = R * 0.05;
+    for (let k = 1; k < 4; k++){
+      const yy = y - R * 0.2 + bota + k * R * 0.2;
+      ctx.beginPath(); ctx.moveTo(x - R * 0.34, yy); ctx.lineTo(x + R * 0.34, yy); ctx.stroke();
+    }
+    // el casco y el visor dorado
+    ctx.fillStyle = "#F3EFE6";
+    ctx.beginPath(); ctx.arc(x, y - R * 0.52 + bota, R * 0.38, 0, 6.283); ctx.fill();
+    ctx.fillStyle = "#C9A46A";
+    ctx.beginPath(); ctx.arc(x, y - R * 0.5 + bota, R * 0.26, 0, 6.283); ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,.45)";
+    ctx.beginPath(); ctx.ellipse(x - R * 0.1, y - R * 0.58 + bota, R * 0.1, R * 0.06, -0.5, 0, 6.283); ctx.fill();
+    // el parche de color, que es lo que distingue a uno de otro
+    const COL = { uno:"#FF5C86", dos:"#5CE1EA", tres:"#FFC53D", cuatro:"#3DDC97" };
+    ctx.fillStyle = COL[quien] || "#FF5C86";
+    ctx.beginPath(); ctx.arc(x + R * 0.2, y - R * 0.1 + bota, R * 0.1, 0, 6.283); ctx.fill();
+    // las botas
+    ctx.fillStyle = "#9A9182";
+    ctx.fillRect(x - R * 0.34, y + R * 0.46 + bota, R * 0.28, R * 0.18);
+    ctx.fillRect(x + R * 0.06, y + R * 0.46 - bota, R * 0.28, R * 0.18);
   },
   momia(x, y, R, quien, t){
     const bota = Math.sin(t * 5) * R * 0.05;
