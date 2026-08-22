@@ -1521,15 +1521,31 @@ export const BESTIARIO: { id: string; nombre: string; vel: number; color: string
   { id: "muneco", nombre: "EL MUÑECO", vel: 0.88, color: "#C08A4A" },
   { id: "profe",  nombre: "LA PROFE",  vel: 0.97, color: "#5CE1EA" },
 ];
+/* ---- EL BRUJO SUPREMO ----
+   El jefe del nivel 100, y solo del nivel 100 — por eso NO está en el
+   BESTIARIO: el bestiario rota por los 99 niveles y el Brujo no es uno más de
+   la rueda, es el final. Corre más que todos, la chancla y la linterna apenas
+   lo congelan, el mochilazo ni lo mueve, y cada quince segundos ALTERA LA
+   REALIDAD con su magia: abre muros donde no había paso, o te lanza a otra
+   dimensión del laberinto. */
+export const BRUJO = { id: "brujo", nombre: "EL BRUJO SUPREMO", vel: 1.15, color: "#E14CFF" };
+/** Cada cuánto lanza su magia, y cuántos muros abre por hechizo. */
+export const LAB_MAGIA = 15, LAB_MAGIA_MUROS = 8;
+
 /** El color de un bicho por su id. Es la señal que se lee a CUALQUIER tamaño:
     en el nivel 30 el laberinto mide 57 celdas y un monstruo son doce píxeles de
     pantalla — ahí la silueta no se distingue y el color sí. Es lo que hacen los
     fantasmas del Pac-Man, y por eso lo hacen. */
 export function colorDeBicho(id: string): string {
+  if (id === BRUJO.id) return BRUJO.color;
   return BESTIARIO.find(b => b.id === id)?.color ?? "#FF5C86";
 }
 
-export const LAB_NIVELES = 99;
+export const LAB_NIVELES = 100;
+/** ¿Es el nivel 100? El final es UN nivel especial, no una curva: el Multiverso
+    gigante con las ocho dimensiones cruzadas y el Brujo Supremo. Todo lo que
+    pregunta por él pasa por aquí, para que "final" signifique una sola cosa. */
+export const esNivelFinal = (n: number) => n >= LAB_NIVELES - 1;
 export const LAB_FASES = LAB_NIVELES;
 
 /** El escalón: cada SEIS niveles cambia todo a la vez. Con 99 niveles eso son
@@ -1554,6 +1570,9 @@ const escalon = (n: number) => Math.floor(Math.max(0, n) / LAB_ESCALON);
    El alto crece un escalón cada tres niveles con tope: sin tope, el último
    mediría 79 celdas de alto y cruzarlo sería un paseo, no una persecución. */
 export function altoDelNivel(n: number): number {
+  /* El final es EL MÁS GRANDE de todos: 59 × 35 celdas, 5 400 px de ancho.
+     Cuatro pantallas — para eso están los portales. */
+  if (esNivelFinal(n)) return 35;
   return 15 + 2 * Math.min(escalon(n), 9);
 }
 export function anchoDelNivel(n: number): number {
@@ -1569,9 +1588,13 @@ export function ladoDelNivel(n: number): number { return altoDelNivel(n); }
     dieciséis jaulas es lo que cabe en la fila (1 200 px de rastro a 46 px de
     separación dan para veintiséis, así que sobra). */
 export function jaulasDelNivel(n: number): number {
+  /* En el final se rescata a TODOS: un preso de cada dimensión más los tres
+     Florines nuevos. La cuenta sale de la lista, no de la curva. */
+  if (esNivelFinal(n)) return TEMA_MULTIVERSO.presos.length;
   return Math.min(4 + escalon(n), 16);
 }
 export function monstruosDelNivel(n: number): number {
+  if (esNivelFinal(n)) return 5;         // el Brujo y su séquito
   return Math.min(1 + escalon(n), BESTIARIO.length);
 }
 
@@ -1637,7 +1660,36 @@ export const LAB_TEMAS: {
              { id: "tres", label: "la Ingeniera" }, { id: "cuatro", label: "el Novato" }],
     pared: "#C9D4E8", suelo: "#22262E", suelo2: "#1D2028", fondo: "#101218" },
 ];
+/* ---- EL MULTIVERSO: el tema del nivel 100 ----
+   No entra en la rotación: es el final. El laberinto se parte en OCHO BANDAS
+   verticales —una por dimensión, cada una con los colores de su tema— y en cada
+   banda hay un preso de ese mundo. Y en las bandas centrales, los tres Florines
+   nuevos: los más espectaculares jamás vistos, que solo existen aquí.
+
+   Los ids de los presos son los reales de cada tema (elegidos SIN colisiones:
+   «rojo» existe en la nave y en el volcán, así que de la nave va el Cian y del
+   volcán Carboncito), y así el cliente los dibuja con el pintor de su mundo sin
+   ninguna tabla nueva. */
+export const TEMA_MULTIVERSO = {
+  id: "multiverso", nombre: "EL MULTIVERSO", pinta: "multi",
+  presos: [
+    { id: "mayo",        label: "Mayo" },            // el colegio
+    { id: "leon",        label: "el León" },         // el zoológico
+    { id: "cian",        label: "el Cian" },         // la nave
+    { id: "cuellilargo", label: "Cuellilargo" },     // la Prehistoria
+    { id: "momia2",      label: "el Faraón" },       // Egipto
+    { id: "guacamayo",   label: "el Guacamayo" },    // el Amazonas
+    { id: "negro",       label: "Carboncito" },      // el Volcán
+    { id: "dos",         label: "el Comandante" },   // la Luna
+    { id: "florin-prisma",   label: "el Florín Prisma" },
+    { id: "florin-eclipse",  label: "el Florín Eclipse" },
+    { id: "florin-infinito", label: "el Florín Infinito" },
+  ],
+  pared: "#E14CFF", suelo: "#241436", suelo2: "#1F1030", fondo: "#0E0618",
+};
+
 export function temaDelNivel(n: number) {
+  if (esNivelFinal(n)) return TEMA_MULTIVERSO;
   return LAB_TEMAS[escalon(n) % LAB_TEMAS.length];
 }
 
@@ -1685,8 +1737,12 @@ export const LAB_TIZA_DURA = 12, LAB_HUIDA = 7, LAB_CONGELA = 5;
 export function relojDelNivel(n: number): number {
   /* Sale de lo que el nivel PIDE: un rato por jaula más lo que mide el
      laberinto. El tamaño pesa el doble desde que es rectangular — el de arriba
-     mide 57 × 33 celdas y cruzarlo de punta a punta son 5 244 px. */
-  return 35 + jaulasDelNivel(n) * 12 + (anchoDelNivel(n) + altoDelNivel(n)) * 2;
+     mide 57 × 33 celdas y cruzarlo de punta a punta son 5 244 px.
+
+     El final lleva un plus: once jaulas repartidas por ocho dimensiones y un
+     Brujo tirándote a otra parte no se hacen con el reloj de un nivel normal. */
+  const base = 35 + jaulasDelNivel(n) * 12 + (anchoDelNivel(n) + altoDelNivel(n)) * 2;
+  return esNivelFinal(n) ? base + 95 : base;
 }
 
 /* ---- las variantes ----
@@ -1702,6 +1758,11 @@ export function relojDelNivel(n: number): number {
 export function varianteDelNivel(n: number): {
   trenzado: number; caza: number; retirada: number; nombre: string;
 } {
+  /* El final tiene forma propia: dimensiones cruzadas — bucles de sobra para
+     poder darle la vuelta al Brujo, y el ritmo del tope. */
+  if (esNivelFinal(n))
+    return { trenzado: 0.3, caza: FANTASMA_CAZA + 6, retirada: 2.5,
+             nombre: "dimensiones cruzadas" };
   const forma = escalon(n) % 3;
   return {
     /* Qué parte de los callejones sin salida se abre. 0 es el laberinto puro. */
@@ -1716,11 +1777,15 @@ export function varianteDelNivel(n: number): {
 
 /** El de cabecera del nivel: el que se anuncia en el cartel. */
 export function monstruoDelNivel(n: number): { id: string; nombre: string; vel: number } {
+  if (esNivelFinal(n)) return BRUJO;
   return BESTIARIO[Math.max(0, n) % BESTIARIO.length];
 }
 /** Quiénes salen en el nivel: el de cabecera primero y detrás los ya conocidos,
     hacia atrás. Así el monstruo nuevo es el que ves primero. */
 export function monstruosDe(n: number): { id: string; nombre: string; vel: number }[] {
+  /* El final: el Brujo delante y un séquito de los rápidos y los raros. */
+  if (esNivelFinal(n))
+    return [BRUJO, BESTIARIO[3], BESTIARIO[5], BESTIARIO[1], BESTIARIO[7]];
   const cuantos = monstruosDelNivel(n);
   const salen = [];
   for (let k = 0; k < cuantos; k++)
@@ -1762,6 +1827,7 @@ export function aElLaberinto(e: Estado): void {
     ronda: FANTASMA_CAZA, entreFases: 0,
     caza: FANTASMA_CAZA, retirada: FANTASMA_RETIRADA, forma: "sin vueltas",
     especiales: [], tizas: [], tema: LAB_TEMAS[0].id,
+    portales: [], portalCd: e.players.map(() => 0), magia: 0, magiaN: 0,
     poderes: e.players.map(() => null), bolsas: e.players.map(() => null),
     reloj: relojDelNivel(0), ganador: null,
   };
@@ -1838,6 +1904,12 @@ export function montarFaseDelLaberinto(e: Estado, fase: number): void {
      Poniéndolas en las celdas más lejanas, el laberinto se convertía en una
      excursión: cuatro rescates en tres minutos, medido. */
   const cuantas = jaulasDelNivel(fase);
+  const final = esNivelFinal(fase);
+  /* En el final el laberinto se parte en OCHO BANDAS verticales, una por
+     dimensión. La banda de una celda es esto, y de aquí sale todo lo demás:
+     dónde nace cada preso, de qué color se pinta cada tramo y qué conecta cada
+     portal. */
+  const bandaDe = (gx: number) => Math.min(7, Math.floor(gx * 8 / ancho));
   const callejones = libres.filter(([x, y]) => salidasDe(x, y) === 1);
   /* Con trenzado quedan pocos callejones —es el punto del trenzado—, así que
      ahí se completa con los cruces más lejanos de la entrada. Sin esto, un nivel
@@ -1863,11 +1935,33 @@ export function montarFaseDelLaberinto(e: Estado, fase: number): void {
       .sort((a, b) => (b[0] + b[1]) - (a[0] + a[1]));
     elegidas.push(...resto.slice(0, cuantas - elegidas.length));
   }
+  /* ---- el final: cada preso EN SU DIMENSIÓN ----
+     El preso del zoológico nace en la banda del zoológico y el Faraón en la de
+     Egipto; los tres Florines nuevos, en las bandas centrales. Con el reparto
+     genérico salían mezclados, y entonces las bandas serían pintura y no
+     mundos. Se elige entre los callejones de la banda —la jaula al fondo de un
+     callejón es la decisión de este juego— y si el trenzado no dejó ninguno,
+     cualquier celda libre de la banda lejos de la entrada. */
+  if (final) {
+    elegidas.length = 0;
+    const usadas = new Set<string>();
+    T.presos.forEach((_, k) => {
+      const banda = k < 8 ? k : [2, 4, 6][k - 8];
+      const deLaBanda = (lista: [number, number][]) =>
+        lista.filter(([x, y]) => bandaDe(x) === banda && !usadas.has(x + "," + y) &&
+                                 Math.abs(x - 1) + Math.abs(y - 1) > 6);
+      const cands = deLaBanda(callejones).length ? deLaBanda(callejones) : deLaBanda(libres);
+      const [x, y] = cands.length ? cands[Math.floor(azar(e) * cands.length)]
+                                  : libres[Math.floor(azar(e) * libres.length)];
+      usadas.add(x + "," + y);
+      elegidas.push([x, y]);
+    });
+  }
   const jaulas: Jaula[] = elegidas.map(([x, y], k) => {
     const sitio = centroDe(x, y);
     return {
       ...sitio,
-      quien: T.presos[(fase * 3 + k) % T.presos.length].id,
+      quien: final ? T.presos[k].id : T.presos[(fase * 3 + k) % T.presos.length].id,
       libre: false, porQuien: null, puesto: 0,
       amigo: { ...sitio },
     };
@@ -1921,6 +2015,27 @@ export function montarFaseDelLaberinto(e: Estado, fase: number): void {
   l.poderes = e.players.map(() => null);
   l.bolsas = e.players.map(() => null);
   l.entreFases = 0;
+
+  /* ---- los portales del final ----
+     Cuatro pares que CRUZAN el Multiverso: la dimensión 0 con la 7, la 1 con la
+     6… Sin ellos, un laberinto de 5 400 px es una caminata; con ellos es un
+     mapa que se piensa — a la Luna se puede llegar por el colegio. Nacen en
+     celdas libres de su banda, lejos de las jaulas. */
+  l.portales = [];
+  if (final) {
+    const tomadas = new Set(elegidas.map(([x, y]) => x + "," + y));
+    for (let par = 0; par < 4; par++)
+      for (const banda of [par, 7 - par]) {
+        const cands = libres.filter(([x, y]) => bandaDe(x) === banda &&
+          !tomadas.has(x + "," + y) && Math.abs(x - 1) + Math.abs(y - 1) > 4);
+        const [x, y] = cands[Math.floor(azar(e) * cands.length)] ?? libres[0];
+        tomadas.add(x + "," + y);
+        l.portales.push({ ...centroDe(x, y), par });
+      }
+  }
+  l.portalCd = e.players.map(() => 0);
+  l.magia = final ? LAB_MAGIA : 0;
+  l.magiaN = 0;
 
   /* El ritmo también es del nivel: arriba persiguen más y descansan menos. */
   l.caza = V.caza; l.retirada = V.retirada; l.forma = V.nombre;

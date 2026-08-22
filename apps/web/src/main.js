@@ -23,7 +23,7 @@ import {
   monstruoDelNivel, varianteDelNivel, especialesDelNivel, armaPorId, comidaPorId,
   montarFaseDelLaberinto,
   colorDeBicho,
-  LAB_TEMAS, temaDelNivel,
+  LAB_TEMAS, temaDelNivel, TEMA_MULTIVERSO, BRUJO,
   fundir, queSaleDeFundir,
   TRASTOS_ESCENARIO, darleVehiculo, esEspecial, ANCHO_PISTA, aparcarNuevo, comprarPatio,
   ponerFiesta, enFiesta, patear, TENIS_META, JUEGOS_LISTOS, VOLEY_META, VOLEY_TOQUES, VOLEY_ALCANCE,
@@ -1454,7 +1454,7 @@ const MINIJUEGOS = {
   dardos:     "🎯 ¡Dardos! Seis cada uno. La mano se va sola de lado a lado: SUELTA cuando la marca cruce el centro. El palo pone la altura, aguantar cierra el temblor — y cuidado con la chancla del otro.",
   voley:      "🏐 ¡Vóley, dos contra dos! La tocas con solo llegar; aguanta el botón para rematar.",
   carreraObs: "🏃 ¡Carrera de obstáculos! Tres vueltas a pie. Los conos te tumban.",
-  laberinto:  "🔮 ¡Al laberinto! 99 niveles. Saca a los de las jaulas antes de que se acabe el reloj: ocho escenarios y en cada uno rescatas a otros — tus amigos en el colegio, los animales del zoológico, los marcianitos de la nave, dragoncitos en el Volcán, astronautas en la Luna. Cada tres niveles cambia todo — otro monstruo, otra forma y dos especiales que buscar (uno de comer y un arma). Y un chanclazo congela al bicho.",
+  laberinto:  "🔮 ¡Al laberinto! 100 niveles. Saca a los de las jaulas antes de que se acabe el reloj: ocho escenarios y en cada uno rescatas a otros — tus amigos en el colegio, los animales del zoológico, los marcianitos de la nave, dragoncitos en el Volcán, astronautas en la Luna. Cada tres niveles cambia todo — otro monstruo, otra forma y dos especiales que buscar (uno de comer y un arma). Y un chanclazo congela al bicho. El nivel 100 es EL MULTIVERSO: las ocho dimensiones cruzadas por portales, los tres Florines jamás vistos, y EL BRUJO SUPREMO alterando la realidad.",
   billar:     "🎱 ¡Al billar! Si metes, sigues tirando. Si cuelas la blanca, pierdes el turno.",
   hockey:     "🏒 ¡Air hockey! Primero a 5. No hay botón: el disco sale al chocar con él.",
 };
@@ -10027,6 +10027,69 @@ const PRESOS = {
     ctx.fillRect(x - R * 0.34, y + R * 0.46 + bota, R * 0.28, R * 0.18);
     ctx.fillRect(x + R * 0.06, y + R * 0.46 - bota, R * 0.28, R * 0.18);
   },
+  /* Los tres Florines nuevos del nivel 100: los más espectaculares jamás
+     vistos, y SOLO existen aquí. Son Florines de verdad —el bloquecito con su
+     carita y su flor— pero cada uno con lo suyo: el Prisma con su aura que
+     recorre el arcoíris, el Eclipse oscuro con la corona dorada, y el Infinito
+     con el símbolo flotando. */
+  florin(x, y, R, quien, t){
+    const flota = Math.sin(t * 0.7) * R * 0.08;
+    const eclipse = quien === "florin-eclipse";
+    // el aura, que es lo que lo hace espectacular desde lejos
+    const tono = quien === "florin-prisma" ? ((t * 40) % 360)
+               : eclipse ? 45 : 265;
+    const halo = ctx.createRadialGradient(x, y + flota, R * 0.3, x, y + flota, R * 1.7);
+    halo.addColorStop(0, "hsla(" + tono + ",95%,65%,.5)");
+    halo.addColorStop(1, "hsla(" + tono + ",95%,65%,0)");
+    ctx.fillStyle = halo;
+    ctx.beginPath(); ctx.arc(x, y + flota, R * 1.7, 0, 6.283); ctx.fill();
+    // el bloquecito, con su pasto encima
+    ctx.fillStyle = eclipse ? "#241430" : "#8A5A2E";
+    roundRect(x - R * 0.52, y - R * 0.3 + flota, R * 1.04, R * 0.92, R * 0.12); ctx.fill();
+    ctx.fillStyle = quien === "florin-prisma" ? "hsl(" + tono + ",80%,55%)"
+                  : eclipse ? "#3A2452" : "#6FCF6A";
+    roundRect(x - R * 0.52, y - R * 0.3 + flota, R * 1.04, R * 0.3, R * 0.12); ctx.fill();
+    // la carita
+    ctx.fillStyle = eclipse ? "#FFC53D" : "#2A1226";
+    ctx.beginPath(); ctx.arc(x - R * 0.18, y + R * 0.16 + flota, R * 0.06, 0, 6.283); ctx.fill();
+    ctx.beginPath(); ctx.arc(x + R * 0.18, y + R * 0.16 + flota, R * 0.06, 0, 6.283); ctx.fill();
+    ctx.strokeStyle = eclipse ? "#FFC53D" : "#2A1226"; ctx.lineWidth = R * 0.05;
+    ctx.beginPath(); ctx.arc(x, y + R * 0.24 + flota, R * 0.14, 0.4, Math.PI - 0.4); ctx.stroke();
+    // lo suyo de cada uno
+    if (quien === "florin-prisma"){
+      for (let k = 0; k < 3; k++){                      // los prismas que orbitan
+        const a2 = t * 2 + k * 2.09;
+        const px = x + Math.cos(a2) * R * 1.05, py = y + flota + Math.sin(a2) * R * 0.7;
+        ctx.fillStyle = "hsl(" + ((tono + k * 120) % 360) + ",90%,62%)";
+        ctx.beginPath();
+        ctx.moveTo(px, py - R * 0.12); ctx.lineTo(px - R * 0.1, py + R * 0.08);
+        ctx.lineTo(px + R * 0.1, py + R * 0.08);
+        ctx.closePath(); ctx.fill();
+      }
+    } else if (eclipse){
+      ctx.strokeStyle = "#FFC53D"; ctx.lineWidth = R * 0.08;    // la corona
+      ctx.beginPath(); ctx.arc(x, y - R * 0.5 + flota, R * 0.42, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke();
+    } else {
+      ctx.strokeStyle = "#B98CFF"; ctx.lineWidth = R * 0.09;    // el infinito
+      const iy = y - R * 0.62 + flota;
+      ctx.beginPath(); ctx.arc(x - R * 0.14, iy, R * 0.12, 0, 6.283); ctx.stroke();
+      ctx.beginPath(); ctx.arc(x + R * 0.14, iy, R * 0.12, 0, 6.283); ctx.stroke();
+    }
+    // la flor de siempre, que es lo que lo hace un Florín
+    ctx.strokeStyle = "#3DDC97"; ctx.lineWidth = R * 0.06;
+    ctx.beginPath(); ctx.moveTo(x + R * 0.3, y - R * 0.3 + flota); ctx.lineTo(x + R * 0.36, y - R * 0.56 + flota); ctx.stroke();
+    ctx.fillStyle = "#FF9ECF";
+    for (let k = 0; k < 5; k++){
+      const a2 = k * 1.257;
+      ctx.beginPath();
+      ctx.arc(x + R * 0.36 + Math.cos(a2) * R * 0.09, y - R * 0.62 + flota + Math.sin(a2) * R * 0.09,
+              R * 0.06, 0, 6.283);
+      ctx.fill();
+    }
+    ctx.fillStyle = "#FFC53D";
+    ctx.beginPath(); ctx.arc(x + R * 0.36, y - R * 0.62 + flota, R * 0.05, 0, 6.283); ctx.fill();
+  },
+
   momia(x, y, R, quien, t){
     const bota = Math.sin(t * 5) * R * 0.05;
     ctx.fillStyle = "#E8DCC0";
@@ -10062,12 +10125,21 @@ const PRESOS = {
 
 /** Dibuja al preso del tema que toque. */
 function drawPreso(x, y, R, quien, t){
+  /* En el Multiverso el preso NO se dibuja con el tema del nivel —que es
+     «multi», o sea todos—: se dibuja con el pintor DE SU MUNDO. El Faraón
+     vendado aunque esté a tres dimensiones de Egipto; los Florines, con el
+     suyo. Los ids del final se eligieron sin colisiones justo para esto. */
+  if (G.laberinto?.tema === "multiverso"){
+    if (quien.startsWith("florin")) return PRESOS.florin(x, y, R, quien, t);
+    const suyo = LAB_TEMAS.find(T => T.presos.some(p => p.id === quien));
+    return (PRESOS[suyo?.pinta] || PRESOS.persona)(x, y, R, quien, t);
+  }
   const tema = LAB_TEMAS.find(T => T.id === (G.laberinto?.tema ?? "colegio")) || LAB_TEMAS[0];
   (PRESOS[tema.pinta] || PRESOS.persona)(x, y, R, quien, t);
 }
 /** El nombre del preso, del tema. */
 function nombreDePreso(quien){
-  for (const T of LAB_TEMAS){
+  for (const T of [...LAB_TEMAS, TEMA_MULTIVERSO]){
     const p = T.presos.find(x => x.id === quien);
     if (p) return T.id === "colegio" ? (LADRONES[quien]?.label || p.label) : p.label;
   }
@@ -10118,6 +10190,8 @@ function drawMapaLaberinto(){
   for (const j of l.jaulas) if (!j.libre) punto(j.x, j.y, "#FFC53D", 3);
   for (const sp of l.especiales) if (!sp.tomado)
     punto(sp.x, sp.y, sp.clase === "comida" ? "#FF9ECF" : "#5CE1EA", 2.6);
+  for (const por of l.portales)
+    punto(por.x, por.y, ["#FF5C86", "#5CE1EA", "#FFC53D", "#3DDC97"][por.par % 4], 2.4);
   for (const f of l.fantasmas) punto(f.x, f.y, f.stun > 0 ? "#5CE1EA" : "#FF3D6E", 3);
   punto(G.player.x, G.player.y, "#F7F3F9", 3.4);
   ctx.restore();
@@ -10429,6 +10503,56 @@ const BICHOS = {
 
   /* La Profe. Es del colegio de ESTE juego y de ningún otro: en un laberinto
      que es el colegio de Sta. Teresita, lo que da más miedo es que te pillen. */
+  /* EL BRUJO SUPREMO: el jefe del nivel 100 y de ningún otro. Túnica, sombrero
+     de pico, y el bastón con el orbe del que orbitan las chispas — la magia se
+     tiene que ver VENIR: cuando las chispas se aceleran es que algo va a pasar.
+     Es nuestro, como todo el bestiario. */
+  brujo(x, y, R, viva, t){
+    const col = viva ? "#5A2E7A" : "#5A6070";
+    // la túnica, con el bajo ondeando como la sombra
+    ctx.fillStyle = col;
+    ctx.beginPath();
+    ctx.moveTo(x, y - R * 0.9);
+    ctx.quadraticCurveTo(x + R * 0.75, y - R * 0.2, x + R * 0.62, y + R * 0.72);
+    for (let k = 0; k < 4; k++)
+      ctx.quadraticCurveTo(x + R * (0.45 - k * 0.3), y + R * (k % 2 ? 0.55 : 0.9),
+                           x + R * (0.3 - k * 0.31), y + R * 0.72);
+    ctx.quadraticCurveTo(x - R * 0.75, y - R * 0.2, x, y - R * 0.9);
+    ctx.closePath(); ctx.fill();
+    // el sombrero de pico, torcido
+    ctx.fillStyle = viva ? "#3A1F52" : "#4A4F60";
+    ctx.beginPath();
+    ctx.moveTo(x - R * 0.55, y - R * 0.72);
+    ctx.lineTo(x + R * 0.55, y - R * 0.72);
+    ctx.lineTo(x + R * 0.28, y - R * 0.86);
+    ctx.quadraticCurveTo(x + R * 0.3, y - R * 1.5, x - R * 0.12, y - R * 1.62);
+    ctx.quadraticCurveTo(x + R * 0.02, y - R * 1.1, x - R * 0.22, y - R * 0.86);
+    ctx.closePath(); ctx.fill();
+    // los ojos, que brillan bajo el ala
+    ctx.fillStyle = viva ? "#E14CFF" : "#8E9BB5";
+    for (const lado of [-1, 1]){
+      ctx.beginPath();
+      ctx.ellipse(x + lado * R * 0.2, y - R * 0.52, R * 0.1, R * 0.06, 0, 0, 6.283);
+      ctx.fill();
+    }
+    // el bastón con el orbe
+    ctx.strokeStyle = viva ? "#C08A4A" : "#6A7080"; ctx.lineWidth = R * 0.1;
+    ctx.beginPath();
+    ctx.moveTo(x + R * 0.62, y + R * 0.7); ctx.lineTo(x + R * 0.78, y - R * 0.7);
+    ctx.stroke();
+    ctx.fillStyle = viva ? "#E14CFF" : "#8E9BB5";
+    ctx.beginPath(); ctx.arc(x + R * 0.8, y - R * 0.82, R * 0.16, 0, 6.283); ctx.fill();
+    // las chispas que orbitan: la magia que se ve venir
+    if (viva) for (let k = 0; k < 3; k++){
+      const a2 = t * 3 + k * 2.09;
+      ctx.fillStyle = ["#FFC53D", "#5CE1EA", "#FF5C86"][k];
+      ctx.beginPath();
+      ctx.arc(x + Math.cos(a2) * R * 1.15, y - R * 0.2 + Math.sin(a2) * R * 0.75,
+              R * 0.09, 0, 6.283);
+      ctx.fill();
+    }
+  },
+
   profe(x, y, R, viva, t){
     ctx.fillStyle = viva ? "#4A3560" : "#6A7080";
     // el vestido largo
@@ -10537,7 +10661,12 @@ function drawLaberinto(){
   /* Los colores son DEL TEMA: el zoológico va en verde, la nave en cian, la
      Prehistoria en tierra. Es el cambio que más se nota al pasar de bloque —
      antes los 99 niveles eran el mismo violeta. */
-  const T = LAB_TEMAS.find(x => x.id === l.tema) || LAB_TEMAS[0];
+  /* El nivel 100 no tiene UN tema: tiene los ocho. El laberinto va partido en
+     bandas verticales y cada una se pinta con los colores de su dimensión —
+     cruzar el Multiverso se tiene que VER como cruzar mundos. */
+  const multi = l.tema === "multiverso";
+  const T = multi ? TEMA_MULTIVERSO : (LAB_TEMAS.find(x => x.id === l.tema) || LAB_TEMAS[0]);
+  const temaDeBanda = gx => LAB_TEMAS[Math.min(7, Math.floor(gx * 8 / l.ancho))];
   ctx.fillStyle = T.fondo;
   ctx.fillRect(ox, oy, W, H);
 
@@ -10546,7 +10675,8 @@ function drawLaberinto(){
   for (let y = 0; y < l.alto; y++)
     for (let x = 0; x < l.ancho; x++){
       if (l.celdas[y][x]) continue;
-      ctx.fillStyle = (x + y) % 2 ? T.suelo : T.suelo2;
+      const TT = multi ? temaDeBanda(x) : T;
+      ctx.fillStyle = (x + y) % 2 ? TT.suelo : TT.suelo2;
       ctx.fillRect(ox + x * c, oy + y * c, c, c);
     }
 
@@ -10564,13 +10694,39 @@ function drawLaberinto(){
       if (!pared(x + 1, y)) { borde.moveTo(px + c, py); borde.lineTo(px + c, py + c); }
     }
   ctx.lineJoin = "round"; ctx.lineCap = "round";
-  const nPared = parseInt(T.pared.slice(1), 16);
-  ctx.strokeStyle = "rgba(" + ((nPared >> 16) & 255) + "," + ((nPared >> 8) & 255) + ","
-                    + (nPared & 255) + ",.22)";
+  /* En el final el neón de las paredes es un DEGRADADO con los colores de las
+     ocho dimensiones, de punta a punta: es el mismo trazo de siempre, pero al
+     recorrerlo cambias de mundo sin que nadie te lo diga. */
+  let tinta = T.pared, tintaSuave;
+  if (multi){
+    const g = ctx.createLinearGradient(ox, 0, ox + W, 0);
+    LAB_TEMAS.forEach((tt, i) => g.addColorStop(i / (LAB_TEMAS.length - 1), tt.pared));
+    tinta = g;
+    tintaSuave = g;
+    ctx.globalAlpha = 0.25;
+  } else {
+    const nPared = parseInt(T.pared.slice(1), 16);
+    tintaSuave = "rgba(" + ((nPared >> 16) & 255) + "," + ((nPared >> 8) & 255) + ","
+                 + (nPared & 255) + ",.22)";
+  }
+  ctx.strokeStyle = tintaSuave;
   ctx.lineWidth = pp(9);
   ctx.stroke(borde);
-  ctx.strokeStyle = T.pared; ctx.lineWidth = pp(3);
+  ctx.globalAlpha = 1;
+  ctx.strokeStyle = tinta; ctx.lineWidth = pp(3);
   ctx.stroke(borde);
+
+  /* Las costuras entre dimensiones: una grieta punteada donde termina un mundo
+     y empieza el siguiente. */
+  if (multi){
+    ctx.strokeStyle = "rgba(243,234,240,.16)"; ctx.lineWidth = pp(2);
+    ctx.setLineDash([pp(4), pp(8)]);
+    for (let b2 = 1; b2 < 8; b2++){
+      const bx = ox + Math.round(b2 * l.ancho / 8) * c;
+      ctx.beginPath(); ctx.moveTo(bx, oy); ctx.lineTo(bx, oy + H); ctx.stroke();
+    }
+    ctx.setLineDash([]);
+  }
 
   /* Penumbra en los bordes y una lucecita donde estás. La penumbra NO tapa: el
      laberinto se sigue viendo entero, porque planear la ruta es medio juego —
@@ -10733,6 +10889,28 @@ function drawLaberinto(){
   for (const sp of l.especiales)
     if (!sp.tomado) drawEspecial(sp, c * 0.24, G.t);
 
+  /* Los portales del final: dos aros del color de su par, girando en sentidos
+     contrarios. El color es el emparejamiento — ves un aro dorado y sabes que
+     su gemelo dorado está en la otra punta del Multiverso. */
+  const COLOR_PORTAL = ["#FF5C86", "#5CE1EA", "#FFC53D", "#3DDC97"];
+  for (const por of l.portales){
+    const colP = COLOR_PORTAL[por.par % COLOR_PORTAL.length];
+    const halo = ctx.createRadialGradient(por.x, por.y, 0, por.x, por.y, c * 0.8);
+    halo.addColorStop(0, colP + "44");
+    halo.addColorStop(1, colP + "00");
+    ctx.fillStyle = halo;
+    ctx.beginPath(); ctx.arc(por.x, por.y, c * 0.8, 0, 6.283); ctx.fill();
+    for (const [r, giro, seg] of [[0.34, 1, 4], [0.22, -1.6, 3]]){
+      ctx.strokeStyle = colP; ctx.lineWidth = pp(3);
+      for (let k = 0; k < seg; k++){
+        const a0 = G.t * 2 * giro + k * 6.283 / seg;
+        ctx.beginPath(); ctx.arc(por.x, por.y, c * r, a0, a0 + 6.283 / seg * 0.62); ctx.stroke();
+      }
+    }
+    ctx.fillStyle = "#F7F3F9";
+    ctx.beginPath(); ctx.arc(por.x, por.y, pp(3), 0, 6.283); ctx.fill();
+  }
+
   /* Los monstruos. Cada nivel trae el suyo de cabecera y a los seis niveles lo
      acompañan los de antes, así que aquí puede haber hasta ocho bichos
      distintos a la vez: por eso cada uno tiene su SILUETA y no un color de
@@ -10745,7 +10923,8 @@ function drawLaberinto(){
        de arriba. A 0,44 casi llenan el pasillo, como los de los laberintos de
        siempre — y el dibujo queda algo mayor que el alcance real (30 px), que
        es generoso con quien juega y no lo contrario. */
-    drawMonstruo(f, c * 0.44, cazando && f.stun <= 0 && f.huye <= 0);
+    drawMonstruo(f, c * (f.tipo === "brujo" ? 0.62 : 0.44),
+                 cazando && f.stun <= 0 && f.huye <= 0);
     /* Congelado: hielo alrededor. Es la ventana para pasarle por delante, y hay
        que verla —si no se ve, no se aprovecha. */
     if (f.stun > 0){

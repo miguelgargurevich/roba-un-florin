@@ -30,7 +30,7 @@ export {
   BESTIARIO, monstruoDelNivel, monstruosDe, montarFaseDelLaberinto,
   LAB_ESCALON, varianteDelNivel, anchoDelNivel, altoDelNivel,
   LAB_COMIDAS, LAB_ARMAS, especialesDelNivel, comidaPorId, armaPorId, colorDeBicho,
-  LAB_TEMAS, temaDelNivel,
+  LAB_TEMAS, temaDelNivel, TEMA_MULTIVERSO, BRUJO, LAB_MAGIA, esNivelFinal,
   celdaLibreDe, centroDeCelda,
   LAB_SILBATO, LAB_LINTERNA, LAB_MOCHILA, LAB_TIZA_DURA, LAB_HUIDA, LAB_CONGELA,
   freePed, freePedDe, occupied, occupiedDe, esMiPatio,

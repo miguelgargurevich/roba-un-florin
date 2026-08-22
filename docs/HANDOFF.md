@@ -24,6 +24,26 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Última sesión
 
+- 2026-08-21 (claude-code): **el nivel 100: EL MULTIVERSO** (pedido). El final de
+  los 100 niveles del laberinto, y es UN nivel especial, no una curva más:
+  - el laberinto más grande (61×35), partido en **ocho bandas verticales** —una
+    por tema, con sus colores— y el neón de las paredes en degradado con los
+    ocho; costuras punteadas entre dimensiones;
+  - se rescata a **todos**: un preso de cada mundo EN SU BANDA (el Faraón en
+    Egipto, el León en el zoo…) más **tres Florines nuevos** que solo existen
+    aquí: Prisma (aura arcoíris), Eclipse (corona dorada) e Infinito;
+  - **cuatro pares de portales** que cruzan el Multiverso (dimensión i ↔ 7−i),
+    con respiro anti-rebote; se ven en el mapita por color de par;
+  - **EL BRUJO SUPREMO**: jefe solo del final (no está en el bestiario). Corre
+    más, la chancla/linterna le compran 2 s en vez de 5, el mochilazo no lo
+    mueve, y cada 15 s **altera la realidad**: abre muros (nunca cierra — cerrar
+    podría dejar una jaula sin camino) o te lanza a otra dimensión (con tregua,
+    y tu fila contigo: no deshace rescates).
+  - Bicho arreglado de paso: el vuelo de la chancla usaba los topes del MUNDO y
+    el nivel 100 se sale del mapa (coordenadas negativas) — volvía en el mismo
+    tick de salir. Ahora dentro del laberinto los topes son los del laberinto.
+  - 274 pruebas de motor (4 nuevas del final).
+
 - 2026-08-21 (claude-code): **el laberinto pasa a 99 niveles** (pedido, en varias
   vueltas). Ya no son tres fases a mano: son curvas y tablas, con **un escalón
   cada tres niveles**.

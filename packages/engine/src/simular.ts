@@ -35,6 +35,7 @@ import {
   colocarParaTirarDardo, valorDelDardo, DIANA_ANILLOS, DARDOS_ESPERA, DARDO_VAIVEN, puntoDelPendulo, errorDelDardo,
   colocarParaTacar, reponerLaBlanca, BOLA_BILLAR_R, HOYA_R, BILLAR_ESPERA,
   comidaPorId, armaPorId, LAB_SILBATO, LAB_LINTERNA, LAB_MOCHILA,
+  BRUJO, LAB_MAGIA, LAB_MAGIA_MUROS,
   LAB_TIZA_DURA, LAB_HUIDA, LAB_CONGELA,
   esPared, LAB_BULTO, FANTASMA_VEL, FANTASMA_STUN, celdaLibreDe, centroDeCelda,
   LAB_ENTRE_FASES, montarFaseDelLaberinto, LAB_FILA, LAB_MIGA, LAB_RASTRO,
@@ -1553,7 +1554,15 @@ function avanzarJugador(e: Estado, p: Jugador, ent: EntradaJugador | undefined, 
     if (c.state === "out") {
       c.x += c.vx * dt; c.y += c.vy * dt;
       c.travel += Math.hypot(c.vx, c.vy) * dt;
-      if (c.travel > 420 || c.x < 14 || c.x > WORLD_W - 14 || c.y < 14 || c.y > WORLD_H - 14) c.state = "back";
+      /* Los topes del vuelo: dentro del laberinto los pone EL LABERINTO. El
+         nivel 100 se sale del mapa (empieza en coordenadas negativas) y con los
+         topes del mundo la chancla «volvía» en el mismo tick de salir. */
+      const lw = e.laberinto && e.laberinto.celdas.length ? e.laberinto : null;
+      const tope = lw
+        ? c.x < lw.origen.x + 8 || c.x > lw.origen.x + lw.ancho * lw.celda - 8 ||
+          c.y < lw.origen.y + 8 || c.y > lw.origen.y + lw.alto * lw.celda - 8
+        : c.x < 14 || c.x > WORLD_W - 14 || c.y < 14 || c.y > WORLD_H - 14;
+      if (c.travel > 420 || tope) c.state = "back";
       /* En el laberinto la chancla CHOCA con las paredes: una chancla que
          atraviesa muros mata monstruos desde el otro pasillo, y entonces no
          hace falta ni acercarse. Al chocar se vuelve, como cuando llega al
@@ -1590,7 +1599,10 @@ function avanzarJugador(e: Estado, p: Jugador, ent: EntradaJugador | undefined, 
       for (const f of e.laberinto.fantasmas) {
         if (f.stun > 0) continue;
         if (dist2(c.x, c.y, f.x, f.y) > 34 * 34) continue;
-        f.stun = LAB_CONGELA;
+        /* Al Brujo Supremo un chanclazo apenas le hace cosquillas: dos segundos
+           en vez de cinco. Sigue habiendo respuesta — solo que contra el jefe
+           la respuesta compra menos. */
+        f.stun = f.tipo === BRUJO.id ? LAB_CONGELA * 0.4 : LAB_CONGELA;
         f.vx = 0; f.vy = 0;
         p.stats.hits++;
         texto(e, f.x, f.y - 40, "¡CHANCLETAZO!", "#FF3D6E");
@@ -2911,14 +2923,17 @@ function usarArmaDelLaberinto(e: Estado, p: Jugador): boolean {
       texto(e, p.x, p.y - 40, "Ahí no hay nadie", "#8E9BB5");
       return true;
     }
-    delante.stun = Math.max(delante.stun, LAB_CONGELA);
+    delante.stun = Math.max(delante.stun,
+                            delante.tipo === BRUJO.id ? LAB_CONGELA * 0.4 : LAB_CONGELA);
     texto(e, delante.x, delante.y - 34, "¡Congelado!", "#5CE1EA");
     polvo(e, delante.x, delante.y, "#5CE1EA", 14);
   } else if (bolsa.tipo === "mochila") {
     /* El botón de pánico, y solo uno por bloque: los de alrededor se van a su
        esquina. No los congela — los MANDA LEJOS, que es distinto y peor para
        ellos, porque tienen que volver. */
-    const alrededor = cerca(LAB_MOCHILA);
+    /* El mochilazo no mueve al Brujo: un jefe al que lo mandas a su esquina con
+       un botón no es un jefe. */
+    const alrededor = cerca(LAB_MOCHILA).filter(f => f.tipo !== BRUJO.id);
     for (const f of alrededor) {
       f.x = f.casa.x; f.y = f.casa.y; f.vx = 0; f.vy = 0; f.huye = LAB_HUIDA;
     }
@@ -2932,6 +2947,106 @@ function usarArmaDelLaberinto(e: Estado, p: Jugador): boolean {
   p.cd = 0.35;
   sonar(e, "throw");
   return true;
+}
+
+/* ---- el nivel 100: los portales y la magia del Brujo ---- */
+
+/** Lanza a alguien a otra parte del laberinto, con todo lo suyo: su fila
+    aparece con él y su rastro empieza de cero — un rastro que cruza medio
+    Multiverso metería a los amigos por los muros. Lo usan los portales y la
+    magia del Brujo, que son la misma mudanza con distinto humor. */
+function lanzarAOtraParte(e: Estado, k: number, a: { x: number; y: number }): void {
+  const l = e.laberinto!;
+  const p = e.players[k];
+  p.x = a.x; p.y = a.y; p.vx = 0; p.vy = 0;
+  l.rastros[k] = [{ x: a.x, y: a.y }];
+  for (const j of l.jaulas)
+    if (j.libre && j.porQuien === k) { j.amigo.x = a.x; j.amigo.y = a.y; }
+  if (p.bot) { p.bot.meta = undefined; p.bot.premio = undefined; }
+}
+
+/** Pisa un portal y sales por su pareja. El respiro (`portalCd`) no es un
+    detalle: sales ENCIMA del portal de vuelta, y sin él rebotarías entre
+    dimensiones cada tick para siempre. */
+function portalesDelMultiverso(e: Estado, dt: number): void {
+  const l = e.laberinto!;
+  if (!l.portales.length) return;
+  e.players.forEach((p, k) => {
+    if (l.portalCd[k] > 0) { l.portalCd[k] -= dt; return; }
+    for (const por of l.portales) {
+      if (dist2(p.x, p.y, por.x, por.y) > (l.celda * 0.45) ** 2) continue;
+      const otro = l.portales.find(o => o !== por && o.par === por.par);
+      if (!otro) break;
+      polvo(e, por.x, por.y, "#B98CFF", 14);
+      lanzarAOtraParte(e, k, otro);
+      l.portalCd[k] = 2;
+      texto(e, otro.x, otro.y - 40, "¡Cruce de dimensión!", "#B98CFF");
+      polvo(e, otro.x, otro.y, "#B98CFF", 14);
+      sonar(e, "grab");
+      break;
+    }
+  });
+}
+
+/** La magia del Brujo, cada quince segundos y alternando dos hechizos:
+
+      · ALTERA LA REALIDAD — abre muros donde no había paso. Solo ABRE, nunca
+        cierra: cerrar podría dejar una jaula sin camino y un nivel sin
+        solución. La realidad alterada siempre se puede recorrer, solo que ya
+        no es la que te habías aprendido.
+      · TE LANZA A OTRA DIMENSIÓN — al jugador más cercano, a una celda libre
+        cualquiera. No deshace rescates (tu fila va contigo): el precio es el
+        de siempre en este juego, el CAMINO.
+
+    Alternan con la cuenta (`magiaN`), no con un dado: una magia predecible se
+    puede probar, y hasta aprender. */
+function magiaDelBrujo(e: Estado, dt: number): void {
+  const l = e.laberinto!;
+  if (l.tema !== "multiverso" || l.ganador != null || l.entreFases > 0) return;
+  const brujo = l.fantasmas.find(f => f.tipo === BRUJO.id);
+  if (!brujo) return;
+  l.magia -= dt;
+  if (l.magia > 0) return;
+  l.magia = LAB_MAGIA;
+  l.magiaN++;
+
+  if (l.magiaN % 2 === 1) {
+    /* Abre muros: paredes con pasillo a los dos lados, como el trenzado. */
+    let abiertos = 0;
+    for (let intento = 0; intento < 80 && abiertos < LAB_MAGIA_MUROS; intento++) {
+      const x = 1 + Math.floor(azar(e) * (l.ancho - 2));
+      const y = 1 + Math.floor(azar(e) * (l.alto - 2));
+      if (!l.celdas[y][x]) continue;
+      const abre = (l.celdas[y][x - 1] === false && l.celdas[y][x + 1] === false) ||
+                   (l.celdas[y - 1]?.[x] === false && l.celdas[y + 1]?.[x] === false);
+      if (!abre) continue;
+      l.celdas[y][x] = false;
+      const c = centroDeCelda(l, x, y);
+      polvo(e, c.x, c.y, "#E14CFF", 10);
+      abiertos++;
+    }
+    texto(e, brujo.x, brujo.y - 50, "¡EL BRUJO ALTERÓ LA REALIDAD!", "#E14CFF");
+    sonar(e, "whack");
+  } else {
+    /* Lanza al más cercano a otra dimensión. Con tregua: aparecer al lado de
+       un monstruo y caer sin haber hecho nada no es magia, es una trampa. */
+    let presa = e.players[0], nd = Infinity, kp = 0;
+    e.players.forEach((p, k) => {
+      const d = dist2(p.x, p.y, brujo.x, brujo.y);
+      if (d < nd) { nd = d; presa = p; kp = k; }
+    });
+    for (let intento = 0; intento < 40; intento++) {
+      const x = 1 + Math.floor(azar(e) * (l.ancho - 2));
+      const y = 1 + Math.floor(azar(e) * (l.alto - 2));
+      if (l.celdas[y][x]) continue;
+      polvo(e, presa.x, presa.y, "#E14CFF", 16);
+      lanzarAOtraParte(e, kp, centroDeCelda(l, x, y));
+      presa.inmune = Math.max(presa.inmune, FANTASMA_TREGUA);
+      texto(e, presa.x, presa.y - 46, "¡Te lanzó a otra dimensión!", "#E14CFF");
+      sonar(e, "ouch");
+      break;
+    }
+  }
 }
 
 function pasoLaberinto(e: Estado, dt: number): void {
@@ -2960,6 +3075,8 @@ function pasoLaberinto(e: Estado, dt: number): void {
   });
   colocarLaFila(e);
   especialesDelLaberinto(e, dt);
+  portalesDelMultiverso(e, dt);
+  magiaDelBrujo(e, dt);
 
   l.reloj -= dt;
 

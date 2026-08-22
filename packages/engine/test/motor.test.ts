@@ -24,6 +24,7 @@ import {
   LAB_FASES, LAB_NIVELES, ladoDelNivel, jaulasDelNivel, monstruosDelNivel,
   relojDelNivel, BESTIARIO, monstruoDelNivel, monstruosDe, montarFaseDelLaberinto,
   LAB_ESCALON, varianteDelNivel, anchoDelNivel, altoDelNivel,
+  TEMA_MULTIVERSO, BRUJO, LAB_MAGIA, esNivelFinal,
   celdaLibreDe, centroDeCelda,
   especialesDelNivel, LAB_COMIDAS, LAB_ARMAS, LAB_TEMAS, temaDelNivel,
   patear, TENIS_META, TENIS_ALCANCE, ladoDeLaCancha, esMinijuego, JUEGOS_LISTOS,
@@ -2088,7 +2089,8 @@ describe("el laberinto", () => {
         expect(l.celdas[gy][gx], "nivel " + n + ": una jaula nació dentro de una pared").toBe(false);
       }
       for (const f of l.fantasmas){
-        expect(BESTIARIO.some(b => b.id === f.tipo), "nivel " + n + ": monstruo sin tipo").toBe(true);
+        expect(BESTIARIO.some(b => b.id === f.tipo) || f.tipo === BRUJO.id,
+               "nivel " + n + ": monstruo sin tipo").toBe(true);
         expect(Math.hypot(f.x - l.entrada.x, f.y - l.entrada.y),
                "nivel " + n + ": un monstruo nació encima de la entrada").toBeGreaterThan(l.celda * 2);
       }
@@ -2113,7 +2115,8 @@ describe("el laberinto", () => {
         expect(T.presos.some(p => p.id === j.quien),
                "nivel " + n + " (" + T.id + "): rescatando a un " + j.quien).toBe(true);
     }
-    expect(temas.size, "no se recorren todos los escenarios").toBe(LAB_TEMAS.length);
+    /* Los ocho de la rotación, más el Multiverso del nivel 100. */
+    expect(temas.size, "no se recorren todos los escenarios").toBe(LAB_TEMAS.length + 1);
   });
 
   it("cada tema tiene su color, y ninguno repite el del vecino", () => {
@@ -2318,6 +2321,89 @@ describe("el laberinto", () => {
     usarArma(e, p);
     correr(e, 0.4);
     expect(gh.stun, "el chanclazo no lo congeló").toBeGreaterThan(0);
+  });
+
+  it("el nivel 100 es el Multiverso: todos los presos, cada uno en su dimensión", () => {
+    /* El final: el laberinto más grande, partido en ocho bandas —una por
+       tema—, y se rescata a TODOS: un preso de cada mundo más los tres
+       Florines nuevos, que solo existen aquí. */
+    const e = lab();
+    montarFaseDelLaberinto(e, 99);
+    const l = e.laberinto!;
+    expect(l.tema).toBe("multiverso");
+    expect(esNivelFinal(99)).toBe(true);
+    /* Todos, y exactamente una vez. */
+    const quienes = l.jaulas.map(j => j.quien).sort();
+    expect(quienes).toEqual(TEMA_MULTIVERSO.presos.map(p => p.id).sort());
+    /* Y cada preso EN SU BANDA: el Faraón en Egipto, no en el zoológico. Los
+       Florines van en las bandas centrales. */
+    const banda = (x: number) =>
+      Math.min(7, Math.floor((x - l.origen.x) / l.celda * 8 / l.ancho));
+    TEMA_MULTIVERSO.presos.forEach((p, k) => {
+      const j = l.jaulas.find(x => x.quien === p.id)!;
+      expect(banda(j.x), p.label + " no está en su dimensión")
+        .toBe(k < 8 ? k : [2, 4, 6][k - 8]);
+    });
+    /* El Brujo manda, con su séquito. */
+    expect(l.fantasmas[0].tipo).toBe(BRUJO.id);
+    expect(l.fantasmas.length).toBe(5);
+  });
+
+  it("los portales del nivel 100 cruzan el Multiverso, sin rebote", () => {
+    const e = lab();
+    montarFaseDelLaberinto(e, 99);
+    const l = e.laberinto!;
+    expect(l.portales.length, "faltan portales").toBe(8);
+    /* Cuatro pares, y cada portal en celda LIBRE: uno en una pared es una
+       trampa invisible. */
+    for (const por of l.portales)
+      expect(enPared(l, por.x, por.y), "un portal nació en una pared").toBe(false);
+    /* Pisas uno, sales por su pareja — y no rebotas de vuelta. */
+    const p = e.players[0];
+    const por = l.portales[0];
+    const otro = l.portales.find(o => o !== por && o.par === por.par)!;
+    p.x = por.x; p.y = por.y;
+    for (let k = 0; k < 30; k++) avanzar(e, nada(2), 1 / 60);
+    expect(Math.hypot(p.x - otro.x, p.y - otro.y), "no cruzó la dimensión")
+      .toBeLessThan(l.celda);
+  });
+
+  it("la magia del Brujo altera la realidad: abre muros y no deshace nada", () => {
+    const e = lab();
+    montarFaseDelLaberinto(e, 99);
+    const l = e.laberinto!;
+    const muros = () => l.celdas.flat().filter(Boolean).length;
+    const antes = muros();
+    /* Se libera una jaula para comprobar que la magia no la toca. */
+    l.jaulas[0].libre = true; l.jaulas[0].porQuien = 0;
+    l.puntos[0] = 1;
+    l.magia = 0.05;                                  // el hechizo, ya
+    for (let k = 0; k < 30; k++) avanzar(e, nada(2), 1 / 60);
+    expect(l.magiaN, "no lanzó la magia").toBeGreaterThan(0);
+    expect(muros(), "la realidad no se alteró: ni un muro abierto").toBeLessThan(antes);
+    expect(l.jaulas[0].libre, "la magia deshizo un rescate").toBe(true);
+    expect(l.puntos[0]).toBe(1);
+  });
+
+  it("al Brujo casi nada lo para: la chancla le compra menos", () => {
+    const e = lab();
+    montarFaseDelLaberinto(e, 99);
+    const l = e.laberinto!;
+    const p = e.players[0];
+    e.players[1].x = l.entrada.x + l.celda * 8;      // el otro, lejos
+    const brujo = l.fantasmas[0];
+    const abierta = [[1, 0], [0, 1], [-1, 0], [0, -1]]
+      .find(([dx, dy]) => !enPared(l, p.x + dx * l.celda, p.y + dy * l.celda))!;
+    brujo.x = p.x + abierta[0] * l.celda * 0.8;
+    brujo.y = p.y + abierta[1] * l.celda * 0.8;
+    brujo.stun = 0;
+    p.chancla.state = "held"; p.cd = 0;
+    p.apunta.on = true;
+    p.apunta.wx = p.x + abierta[0] * 300; p.apunta.wy = p.y + abierta[1] * 300;
+    usarArma(e, p);
+    correr(e, 0.4);
+    expect(brujo.stun, "el chanclazo no le hizo nada").toBeGreaterThan(0);
+    expect(brujo.stun, "el Brujo cayó como un bicho cualquiera").toBeLessThan(3);
   });
 
   it("cada nivel trae un monstruo de cabecera, y el nuevo es el primero", () => {

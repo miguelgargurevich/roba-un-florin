@@ -546,6 +546,12 @@ export interface Especial {
 /** Una raya de tiza: los monstruos no la cruzan mientras dure. */
 export interface Tiza { x: number; y: number; queda: number }
 
+/** Un portal del nivel 100 — no confundir con el `Portal` del mundo, que es la
+    puerta al escenario especial. Písalo y sales por su pareja, al otro lado del
+    Multiverso: `par` dice cuál es — van de la dimensión i a la 7−i, así que los
+    viajes SE CRUZAN. */
+export interface PortalDelLaberinto { x: number; y: number; par: number }
+
 export interface Fantasma {
   x: number; y: number; vx: number; vy: number;
   casa: { x: number; y: number };
@@ -612,6 +618,17 @@ export interface Laberinto {
       rescatas — animales en el zoológico, marcianitos en la nave, dinos en la
       Prehistoria. Es lo que hace que subir de nivel se sienta como viajar. */
   tema: string;
+  /** Los portales del nivel 100 (vacío en los demás), y el respiro de cada
+      jugador tras cruzar uno — sin él, caer sobre el portal de salida te
+      devuelve en el mismo tick y rebotas entre dimensiones para siempre. */
+  portales: PortalDelLaberinto[];
+  portalCd: number[];
+  /** La magia del Brujo: el reloj hasta el próximo hechizo y cuántos lleva.
+      Alternan: uno abre muros («alteró la realidad»), el otro te lanza a otra
+      dimensión. La cuenta separa los dos y hace la magia predecible en las
+      pruebas. */
+  magia: number;
+  magiaN: number;
   /** Los dos especiales del bloque, tirados por el laberinto. */
   especiales: Especial[];
   /** Las rayas de tiza puestas, con lo que les queda. */
