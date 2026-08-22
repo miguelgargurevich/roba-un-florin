@@ -24,6 +24,23 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Última sesión
 
+- 2026-08-21 (claude-code): **el Brujo, suelto por la aventura** (pedido, en dos
+  vueltas). La historia del nivel 100 ahora se ANUNCIA: el Brujo aparece cada
+  ~130 s (60 s en el Multiverso, su casa) haciendo de las suyas, con un globo
+  de PISTA que enseña una regla del duelo (dónde está, que la chancla sola no
+  basta, que rescatar a todos le rompe la magia, que hay portales). El robo a
+  vecinos es real (el pedestal queda vacío) — es la explicación de la lluvia
+  del duelo: el botín que suelta es lo robado. La chancla rebota en su risa.
+  - **Y te afecta a ti** (pedido): 1) montado → te DESAPARECE el vehículo (se
+    va volando a la otra punta); 2) Florín en brazos → te lo manotea (regla de
+    los ladrones: el botín sin asegurar está en juego); 3) tu vitrina con
+    Florines y tú lejos → EL ASALTO: canaliza 3,5 s con la ALARMA de siempre y
+    el aro de cuenta atrás — si llegas a 240 px huye sin nada, si no, se lo
+    lleva (cuenta en TE ROBARON). Es la única travesura que quita progreso, y
+    por eso la única que se puede parar.
+  - El globo esquiva el borde del mundo (va debajo si no cabe arriba).
+  - 286 pruebas de motor.
+
 - 2026-08-21 (claude-code): **cuatro Florines nuevos y el patio gratis** (pedido).
   - **La banda del Multiverso**: Sirena (Marino), Dragón (Volcánico), Brujito
     (Encantado) y Florín Multiverso (Dimensional) — 20 rarezas, 160 láminas.

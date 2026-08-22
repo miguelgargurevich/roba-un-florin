@@ -780,6 +780,7 @@ export function crearPartida(op: OpcionesPartida): Estado {
     basquet: null, bolos: null, lucha: null, dardos: null,
     carreraObs: null, laberinto: null, billar: null, hockey: null, voley: null,
     fiesta: null,
+    brujoSuelto: null, brujoCada: 65,
     over: false, winnerIdx: null, proximoId: 0,
     eventos: [],
   };
@@ -1531,6 +1532,23 @@ export const BESTIARIO: { id: string; nombre: string; vel: number; color: string
 export const BRUJO = { id: "brujo", nombre: "EL BRUJO SUPREMO", vel: 1.15, color: "#E14CFF" };
 /** Cada cuánto lanza su magia, y cuántos muros abre por hechizo. */
 export const LAB_MAGIA = 15, LAB_MAGIA_MUROS = 8;
+/* ---- las pistas del Brujo ----
+   Lo que suelta en cada aparición. No son adornos: cada una enseña UNA regla
+   del enfrentamiento oculto en el nivel 100 del laberinto — dónde está, que la
+   chancla sola no basta, que rescatar a todos le rompe la magia, que hay
+   portales. Quien las lee llega al duelo sabiendo jugar. El orden rota con
+   cada aparición, así que verlo tres veces son tres pistas distintas. */
+export const BRUJO_FRASES = [
+  "¡Jajá! Otro Florín para mi colección… ven a buscarlos al FONDO del laberinto",
+  "99 niveles no se atreve nadie… y en el 100 estoy YO",
+  "Tu chancla me hace cosquillas… mientras tenga mi magia",
+  "Mi magia sale de los que tengo PRESOS… ¿y quién va a rescatarlos a todos?",
+  "En mi Multiverso las dimensiones se cruzan por portales… no te pierdas",
+  "Guardo TRES Florines que nadie ha visto jamás… y no pienso soltarlos",
+];
+/** Cada cuánto aparece (normal y en su casa, el Multiverso), y cuánto se queda. */
+export const BRUJO_VISITA = 130, BRUJO_VISITA_MULTI = 60, BRUJO_SE_QUEDA = 8;
+
 /** Los chanclazos que aguanta en el duelo, y lo que corre desesperado. */
 export const BRUJO_VIDAS = 3, BRUJO_FURIA = 1.28;
 /** La lluvia del final: cuántos florines suelta y lo que dura el festejo. */

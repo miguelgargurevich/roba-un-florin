@@ -36,6 +36,7 @@ import {
   colocarParaTacar, reponerLaBlanca, BOLA_BILLAR_R, HOYA_R, BILLAR_ESPERA,
   comidaPorId, armaPorId, LAB_SILBATO, LAB_LINTERNA, LAB_MOCHILA,
   BRUJO, LAB_MAGIA, LAB_MAGIA_MUROS, BRUJO_FURIA, LLUVIA_FLORINES, LLUVIA_DURA,
+  BRUJO_FRASES, BRUJO_VISITA, BRUJO_VISITA_MULTI, BRUJO_SE_QUEDA,
   LAB_TIZA_DURA, LAB_HUIDA, LAB_CONGELA,
   esPared, LAB_BULTO, FANTASMA_VEL, FANTASMA_STUN, celdaLibreDe, centroDeCelda,
   LAB_ENTRE_FASES, montarFaseDelLaberinto, LAB_FILA, LAB_MIGA, LAB_RASTRO,
@@ -1006,6 +1007,8 @@ export function avanzar(e: Estado, entradas: Record<number, EntradaJugador>, dt:
     }
   }
 
+  pasoBrujoSuelto(e, dt);
+
   /* ---- los vecinos reponen sus vitrinas ---- */
   for (const b of e.bases) {
     if (b.isPlayer) continue;
@@ -1158,6 +1161,20 @@ export function avanzar(e: Estado, entradas: Record<number, EntradaJugador>, dt:
       pip: e.alarma ? e.alarma.pip - dt : 0.9,
       victimaIdx: victima.owner!,
       llevandose: !!robando && robando.state === "back",
+    };
+  } else if (e.brujoSuelto?.asalto) {
+    /* El asalto del Brujo suena por la MISMA alarma que los ladrones: la
+       flecha del borde ya sabe llevarte a casa, y esta carrera es idéntica —
+       llegar antes de que se lo lleve. */
+    const victima = e.bases[e.brujoSuelto.asalto.base];
+    if (!e.alarma) sonar(e, "alarma");
+    else if (e.alarma.pip <= 0) { sonar(e, "alarma"); e.alarma.pip = 0.9; }
+    e.alarma = {
+      quien: "EL BRUJO", color: "#E14CFF", patio: victima.name,
+      x: e.brujoSuelto.x, y: e.brujoSuelto.y,
+      pip: e.alarma ? e.alarma.pip - dt : 0.9,
+      victimaIdx: victima.owner!,
+      llevandose: false,
     };
   } else {
     e.alarma = null;
@@ -1593,6 +1610,17 @@ function avanzarJugador(e: Estado, p: Jugador, ent: EntradaJugador | undefined, 
       }
       c.state = "back";
     };
+    /* ---- chanclazo al Brujo suelto: se ríe ----
+       Fuera del laberinto es intocable, y que se ría lo DICE: la pista de que
+       hay un sitio donde sí se le puede dar está en sus propias frases. */
+    if (e.brujoSuelto && c.state === "out" &&
+        dist2(c.x, c.y, e.brujoSuelto.x, e.brujoSuelto.y) < 40 * 40) {
+      texto(e, e.brujoSuelto.x, e.brujoSuelto.y - 60,
+            "¡JAJÁ! Aquí no puedes tocarme…", "#E14CFF");
+      sonar(e, "ouch");
+      c.state = "back";
+    }
+
     /* ---- chanclazo a un monstruo ----
        Esto faltaba, y era raro: el juego se llama Chancla Edition, la chancla
        noquea ladrones y abuelas desde el primer día, y en el laberinto no
@@ -3007,6 +3035,125 @@ function usarArmaDelLaberinto(e: Estado, p: Jugador): boolean {
   p.cd = 0.35;
   sonar(e, "throw");
   return true;
+}
+
+/* ---- el Brujo, suelto por el mundo ----
+   La historia del nivel 100 no puede vivir solo en el laberinto: nadie llega a
+   un final oculto que no se anuncia. Así que el Brujo APARECE en la aventura,
+   haciendo de las suyas — se materializa junto a la vitrina de un vecino, le
+   roba un Florín delante de todos, suelta una pista y se esfuma.
+
+   El robo no es teatro: el Florín del pedestal desaparece de verdad (el vecino
+   lo repone solo, como siempre). Es la explicación de la lluvia del duelo — el
+   botín que suelta al caer es TODO LO QUE LLEVA ROBADO por los mundos.
+
+   Aparece cerca de quien juega, porque una aparición que nadie ve no cuenta la
+   historia. Y en el Multiverso —su casa— el doble de seguido. */
+function pasoBrujoSuelto(e: Estado, dt: number): void {
+  if (e.reglas.modo !== "aventura" || !e.reglas.vecinos || e.over) return;
+
+  const b = e.brujoSuelto;
+  if (b) {
+    b.queda -= dt;
+    /* ---- el asalto a TU vitrina ----
+       Canaliza unos segundos con la alarma sonando: es la única travesura que
+       quita progreso de verdad, así que es la única que se puede PARAR. Si el
+       dueño llega a 240 px, huye sin nada; si no llegas, el Florín es suyo — y
+       ya sabes dónde recuperarlo: en el fondo del laberinto. */
+    if (b.asalto) {
+      const base = e.bases[b.asalto.base];
+      const ped = base?.peds[b.asalto.ped];
+      const dueno = base?.owner != null ? e.players[base.owner] : null;
+      if (!ped?.florin || !dueno) { b.asalto = null; }
+      else if (dist2(dueno.x, dueno.y, b.x, b.y) < 240 * 240) {
+        texto(e, b.x, b.y - 64, "¡Grr! ¡Me las pagarás!", "#E14CFF");
+        polvo(e, b.x, b.y, "#E14CFF", 16);
+        b.asalto = null;
+        b.queda = Math.min(b.queda, 0.6);          // huye sin botín
+      } else {
+        b.asalto.canal -= dt;
+        if (b.asalto.canal <= 0) {
+          ped.florin = null;
+          dueno.stats.lost++;                 // cuenta en el «TE ROBARON» de siempre
+          texto(e, b.x, b.y - 64, "¡Otro para mi colección!", "#E14CFF");
+          polvo(e, ped.x, ped.y, "#E14CFF", 22);
+          sonar(e, "lost");
+          b.asalto = null;
+          b.queda = Math.min(b.queda, 0.8);
+        }
+      }
+    }
+    if (b.queda <= 0) {
+      polvo(e, b.x, b.y, "#E14CFF", 20);
+      e.brujoSuelto = null;
+    }
+    return;
+  }
+
+  e.brujoCada -= dt;
+  if (e.brujoCada > 0) return;
+  e.brujoCada = e.esc.id === "multiverso" ? BRUJO_VISITA_MULTI : BRUJO_VISITA;
+  const frase = Math.floor(azar(e) * BRUJO_FRASES.length);
+  const aparecer = (x: number, y: number, asalto?: { base: number; ped: number; canal: number }) => {
+    e.brujoSuelto = { x, y, queda: BRUJO_SE_QUEDA, frase, asalto: asalto ?? null };
+    polvo(e, x, y, "#E14CFF", 22);
+    texto(e, x, y - 70, "¡EL BRUJO ANDA SUELTO!", "#E14CFF");
+    sonar(e, "alarma");
+  };
+
+  /* ---- las travesuras, en orden de picardía ----
+     1. ¿Alguien montado? Le DESAPARECE el vehículo: se baja a pie y el trasto
+        se va volando a la otra punta del mapa. Molesta sin quitar nada.
+     2. ¿Alguien con un Florín EN BRAZOS? Se lo manotea. El botín sin asegurar
+        siempre estuvo en juego — es la misma regla de los ladrones.
+     3. ¿Una vitrina tuya con Florines y tú lejos? EL ASALTO (arriba).
+     4. Si no, le roba a un vecino, como siempre. */
+  for (const p of e.players) {
+    if (p.montado == null) continue;
+    const tr = e.trastos[p.montado];
+    if (!tr) continue;
+    bajarse(e, p);
+    tr.x = clamp(tr.x + (azar(e) < 0.5 ? -1 : 1) * rnd(e, 1400, 2200), 60, WORLD_W - 60);
+    tr.y = clamp(tr.y + (azar(e) < 0.5 ? -1 : 1) * rnd(e, 600, 1200), 60, WORLD_H - 60);
+    aparecer(p.x + 46, p.y - 20);
+    texto(e, p.x, p.y - 44, "¡Ese caballito ahora es MÍO!", "#E14CFF");
+    return;
+  }
+  for (const p of e.players) {
+    if (!p.carry) continue;
+    p.carry = null;
+    aparecer(p.x + 46, p.y - 20);
+    texto(e, p.x, p.y - 44, "¡MÍO! Jajajá…", "#E14CFF");
+    sonar(e, "lost");
+    return;
+  }
+  for (const base of e.bases) {
+    if (base.owner == null || base.locked) continue;
+    const dueno = e.players[base.owner];
+    if (!dueno) continue;
+    const k = base.peds.findIndex(pd => pd.florin);
+    if (k < 0) continue;
+    const ped = base.peds[k];
+    if (dist2(dueno.x, dueno.y, ped.x, ped.y) < 500 * 500) continue;   // te ve: ni lo intenta
+    aparecer(ped.x, ped.y - 26, { base: e.bases.indexOf(base), ped: k, canal: 3.5 });
+    return;
+  }
+
+  /* La vitrina de vecino MÁS CERCANA al jugador que tenga algo que robar. */
+  const p0 = e.players[0];
+  let mejor: { x: number; y: number; florin: Florin | null } | null = null;
+  let nd = Infinity;
+  for (const base of e.bases) {
+    if (base.isPlayer || base.locked) continue;
+    for (const ped of base.peds) {
+      if (!ped.florin) continue;
+      const d = dist2(p0.x, p0.y, ped.x, ped.y);
+      if (d < nd) { nd = d; mejor = ped; }
+    }
+  }
+  if (!mejor) { e.brujoCada = 20; return; }        // nada que robar: reintenta pronto
+  aparecer(mejor.x, mejor.y - 26);
+  mejor.florin = null;                             // el robo, de verdad
 }
 
 /* ---- el nivel 100: los portales y la magia del Brujo ---- */

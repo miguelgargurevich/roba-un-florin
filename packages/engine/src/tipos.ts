@@ -948,6 +948,20 @@ export interface Estado {
       dice que hay evento; el motor solo la respeta y la deja caducar. */
   fiesta: Fiesta | null;
 
+  /** EL BRUJO, SUELTO POR EL MUNDO. En aventura aparece cada tanto junto a la
+      vitrina de un vecino, le roba un Florín delante de tus narices, suelta una
+      PISTA de la historia y se esfuma. Es el hilo que lleva al nivel 100 del
+      laberinto: ahí está su guarida, ahí guarda lo robado, y ahí se le vence.
+      En el escenario Multiverso —su casa— aparece el doble de seguido. */
+  brujoSuelto: {
+    x: number; y: number; queda: number; frase: number;
+    /** El ASALTO a tu vitrina: canaliza unos segundos ANTES de llevarse nada, y
+        suena la alarma de siempre. Si llegas a tiempo, huye sin botín — la
+        única travesura que puedes parar, porque es la única que quita progreso
+        de verdad. */
+    asalto?: { base: number; ped: number; canal: number } | null;
+  } | null;
+  brujoCada: number;
   over: boolean;
   winnerIdx: number | null;
   /** contador para los ids de ladrones y del desfile */

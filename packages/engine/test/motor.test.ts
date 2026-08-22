@@ -26,6 +26,8 @@ import {
   relojDelNivel, BESTIARIO, monstruoDelNivel, monstruosDe, montarFaseDelLaberinto,
   LAB_ESCALON, varianteDelNivel, anchoDelNivel, altoDelNivel,
   TEMA_MULTIVERSO, BRUJO, LAB_MAGIA, esNivelFinal, BRUJO_VIDAS, LLUVIA_FLORINES, LLUVIA_DURA,
+  BRUJO_FRASES, BRUJO_VISITA, BRUJO_VISITA_MULTI, BRUJO_SE_QUEDA,
+  esVehiculo,
   celdaLibreDe, centroDeCelda,
   especialesDelNivel, LAB_COMIDAS, LAB_ARMAS, LAB_TEMAS, temaDelNivel,
   patear, TENIS_META, TENIS_ALCANCE, ladoDeLaCancha, esMinijuego, JUEGOS_LISTOS,
@@ -1486,7 +1488,7 @@ describe("la Fusionadora", () => {
        escalera sigue hasta el Florín Multiverso. */
     const { e, p } = conDos(TIER_SUPREMO, null, TIER_SUPREMO, null);
     expect(fundir(e, p, 0, 1)).toBe(true);
-    const nuevo = occupiedDe(e, p)[0].florin;
+    const nuevo = occupiedDe(e, p)[0].florin!;
     expect(nuevo.tier).toBe(TIER_SUPREMO + 1);
     expect(TIERS[nuevo.tier].rar).toBe("Marino");
   });
@@ -3428,6 +3430,115 @@ describe("los sitios con minijuego", () => {
   });
 
 
+});
+
+describe("el Brujo, suelto por el mundo", () => {
+  /** Corre hasta que aparezca, con tope. */
+  function esperarBrujo(e: Estado, tope = 200) {
+    for (let k = 0; k < 60 * tope && !e.brujoSuelto; k++) avanzar(e, nada(e.players.length), 1 / 60);
+    return e.brujoSuelto;
+  }
+
+  it("aparece en aventura, roba un Florín de verdad y suelta una pista", () => {
+    const e = partida({ reglas: { patiosExtra: true } });
+    const b = esperarBrujo(e);
+    expect(b, "el Brujo nunca apareció").toBeTruthy();
+    /* El robo es real: el Brujo aparece ENCIMA del pedestal que saqueó (26 px
+       arriba), y ese pedestal tiene que estar vacío en este mismo tick — los
+       vecinos reponen solos a los 7-12 s, así que se mira antes de avanzar. */
+    const saqueado = e.bases.filter(x => !x.isPlayer)
+      .flatMap(x => x.peds)
+      .reduce((m, p2) => Math.hypot(p2.x - b!.x, p2.y - (b!.y + 26)) <
+                         Math.hypot(m.x - b!.x, m.y - (b!.y + 26)) ? p2 : m);
+    expect(saqueado.florin, "no robó nada: es teatro").toBe(null);
+    expect(b!.frase, "sin pista no hay historia").toBeGreaterThanOrEqual(0);
+    expect(BRUJO_FRASES[b!.frase], "la frase no existe").toBeTruthy();
+    /* Y se esfuma solo. */
+    for (let k = 0; k < 60 * (BRUJO_SE_QUEDA + 1); k++) avanzar(e, nada(1), 1 / 60);
+    expect(e.brujoSuelto, "se quedó a vivir").toBe(null);
+  });
+
+  it("si estás montado, te desaparece el vehículo — molesta sin quitar nada", () => {
+    const e = partida({ reglas: { patiosExtra: true } });
+    const p = e.players[0];
+    /* Cualquier trasto montable sirve: al Brujo le da igual la marca. */
+    const idx = e.trastos.findIndex(t2 => esVehiculo(t2.tipo));
+    expect(idx, "el escenario no tiene vehículos").toBeGreaterThanOrEqual(0);
+    p.montado = idx;
+    const tr = e.trastos[idx];
+    const donde = { x: tr.x, y: tr.y };
+    e.brujoCada = 0.01;
+    correr(e, 0.2);
+    expect(e.brujoSuelto, "no apareció").toBeTruthy();
+    expect(p.montado, "sigue montado").toBe(null);
+    expect(Math.hypot(tr.x - donde.x, tr.y - donde.y),
+           "el vehículo sigue donde estaba").toBeGreaterThan(800);
+  });
+
+  it("si llevas un Florín en brazos, te lo manotea", () => {
+    const e = partida({ reglas: { patiosExtra: true } });
+    const p = e.players[0];
+    p.carry = nuevoFlorin(e, 3, {});
+    e.brujoCada = 0.01;
+    correr(e, 0.2);
+    expect(e.brujoSuelto, "no apareció").toBeTruthy();
+    expect(p.carry, "no manoteó el botín").toBe(null);
+  });
+
+  it("el asalto a tu vitrina: suena la alarma, y si llegas huye sin nada", () => {
+    const e = partida({ reglas: { patiosExtra: true } });
+    const p = e.players[0];
+    const mia = e.bases.find(b2 => b2.owner === 0)!;
+    const ped = mia.peds[0];
+    ped.florin = nuevoFlorin(e, 5, {});
+    /* Lejos de casa: el asalto arranca y la alarma es la de siempre. */
+    p.x = mia.rect.x + 2500; p.y = mia.rect.y;
+    e.brujoCada = 0.01;
+    correr(e, 0.3);
+    expect(e.brujoSuelto?.asalto, "no asaltó").toBeTruthy();
+    expect(e.alarma?.quien).toBe("EL BRUJO");
+    expect(ped.florin, "se lo llevó sin canalizar").toBeTruthy();
+    /* Llegas a tiempo: huye sin botín. */
+    p.x = e.brujoSuelto!.x + 50; p.y = e.brujoSuelto!.y;
+    correr(e, 0.3);
+    expect(e.brujoSuelto?.asalto ?? null, "siguió asaltando contigo delante").toBe(null);
+    expect(ped.florin, "se lo llevó igual").toBeTruthy();
+  });
+
+  it("y si NO llegas, se lo lleva — cuenta en el TE ROBARON", () => {
+    const e = partida({ reglas: { patiosExtra: true } });
+    const p = e.players[0];
+    const mia = e.bases.find(b2 => b2.owner === 0)!;
+    const ped = mia.peds[0];
+    ped.florin = nuevoFlorin(e, 5, {});
+    p.x = mia.rect.x + 2500; p.y = mia.rect.y;
+    e.brujoCada = 0.01;
+    correr(e, 5);                                   // canaliza 3,5 s y se lo lleva
+    expect(ped.florin, "no se llevó nada").toBe(null);
+    expect(p.stats.lost).toBeGreaterThan(0);
+  });
+
+  it("en el Multiverso —su casa— aparece el doble de seguido", () => {
+    expect(BRUJO_VISITA_MULTI * 2).toBeLessThanOrEqual(BRUJO_VISITA);
+    const e = partida({ escenario: "multiverso", reglas: { patiosExtra: true } });
+    const b = esperarBrujo(e, BRUJO_VISITA_MULTI + 30);
+    expect(b, "en su propia casa no aparece").toBeTruthy();
+  });
+
+  it("fuera de aventura no se aparece: los partidos son sagrados", () => {
+    const e = partida({ jugadores: 2, escenario: "colegio",
+                        reglas: { modo: "laberinto" } as any });
+    for (let k = 0; k < 60 * 30; k++) avanzar(e, nada(2), 1 / 60);
+    expect(e.brujoSuelto).toBe(null);
+  });
+
+  it("cada frase enseña algo del nivel 100", () => {
+    /* Las pistas SON el tutorial del duelo: si un día se reescriben, que sigan
+       nombrando el laberinto, la magia y los presos. */
+    const todas = BRUJO_FRASES.join(" ").toLowerCase();
+    for (const clave of ["laberinto", "magia", "presos", "100"])
+      expect(todas.includes(clave), "ninguna pista habla de: " + clave).toBe(true);
+  });
 });
 
 describe("los patios del Multiverso", () => {

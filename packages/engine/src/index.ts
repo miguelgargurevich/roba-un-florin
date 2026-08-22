@@ -31,6 +31,7 @@ export {
   LAB_ESCALON, varianteDelNivel, anchoDelNivel, altoDelNivel,
   LAB_COMIDAS, LAB_ARMAS, especialesDelNivel, comidaPorId, armaPorId, colorDeBicho,
   LAB_TEMAS, temaDelNivel, TEMA_MULTIVERSO, BRUJO, LAB_MAGIA, esNivelFinal, BRUJO_VIDAS, LLUVIA_FLORINES, LLUVIA_DURA,
+  BRUJO_FRASES, BRUJO_VISITA, BRUJO_VISITA_MULTI, BRUJO_SE_QUEDA,
   celdaLibreDe, centroDeCelda,
   LAB_SILBATO, LAB_LINTERNA, LAB_MOCHILA, LAB_TIZA_DURA, LAB_HUIDA, LAB_CONGELA,
   freePed, freePedDe, occupied, occupiedDe, esMiPatio,

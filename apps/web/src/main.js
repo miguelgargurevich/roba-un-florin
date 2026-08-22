@@ -24,6 +24,7 @@ import {
   montarFaseDelLaberinto,
   colorDeBicho,
   LAB_TEMAS, temaDelNivel, TEMA_MULTIVERSO, BRUJO,
+  BRUJO_FRASES,
   fundir, queSaleDeFundir,
   TRASTOS_ESCENARIO, darleVehiculo, esEspecial, ANCHO_PISTA, aparcarNuevo, comprarPatio,
   ponerFiesta, enFiesta, patear, TENIS_META, JUEGOS_LISTOS, VOLEY_META, VOLEY_TOQUES, VOLEY_ALCANCE,
@@ -8941,6 +8942,7 @@ function decoCalle(c, E){
    metiéndote se arma la pichanga. */
 function drawCanchita(){
   for (const sitio of G.sitios || []) dibujarSitio(sitio);
+  drawBrujoSuelto();
 }
 
 /* ---- las puertas de los minijuegos ----
@@ -10356,6 +10358,80 @@ function drawEspecial(sp, R, t){
   ctx.fillStyle = "rgba(0,0,0,.3)";
   ctx.beginPath(); ctx.ellipse(sp.x, sp.y + R * 0.9, R * 0.5, R * 0.16, 0, 0, 6.283); ctx.fill();
   (DIBUJO_ESPECIAL[sp.tipo] || DIBUJO_ESPECIAL.mango)(sp.x, y, R);
+}
+
+/* ---- el Brujo, suelto por el mundo ----
+   La aparición de aventura: flota sobre la vitrina que acaba de saquear, con
+   el Florín robado en la mano y su globo de PISTA. El globo es lo importante —
+   las frases son el tutorial del duelo del nivel 100, y un globo que dura lo
+   que dura la aparición se puede LEER, cosa que un texto flotante que se
+   desvanece no. Al final parpadea: se va. */
+function drawBrujoSuelto(){
+  const b = G.brujoSuelto;
+  if (!b) return;
+  const flota = Math.sin(G.t * 2.2) * 6;
+  const y = b.y - 26 + flota;
+  if (b.queda < 1.2 && Math.sin(G.t * 18) > 0) return;   // parpadea al irse
+
+  // la sombra en el suelo, que es lo que dice que FLOTA
+  ctx.fillStyle = "rgba(0,0,0,.3)";
+  ctx.beginPath(); ctx.ellipse(b.x, b.y + 34, 22, 8, 0, 0, 6.283); ctx.fill();
+  // el halo de su color
+  const halo = ctx.createRadialGradient(b.x, y, 10, b.x, y, 70);
+  halo.addColorStop(0, "rgba(225,76,255,.3)");
+  halo.addColorStop(1, "rgba(225,76,255,0)");
+  ctx.fillStyle = halo;
+  ctx.beginPath(); ctx.arc(b.x, y, 70, 0, 6.283); ctx.fill();
+  // él, con el pintor del laberinto
+  (BICHOS.brujo)(b.x, y, 30, true, G.t);
+  /* El aro del ASALTO: se cierra con la canalización. Es la respuesta visual a
+     la única pregunta que importa mientras suena la alarma — ¿llego o no? */
+  if (b.asalto){
+    ctx.strokeStyle = "#FF3D6E"; ctx.lineWidth = 4; ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.arc(b.x, y, 42, -1.5708, -1.5708 + 6.283 * (b.asalto.canal / 3.5));
+    ctx.stroke();
+    ctx.lineCap = "butt";
+  }
+  // el Florín recién robado, en la mano
+  ctx.save();
+  ctx.translate(b.x - 34, y + 6 + Math.sin(G.t * 3) * 3);
+  ctx.fillStyle = "#8A5A2E"; roundRect(-8, -6, 16, 13, 3); ctx.fill();
+  ctx.fillStyle = "#6FCF6A"; roundRect(-8, -6, 16, 5, 3); ctx.fill();
+  ctx.fillStyle = "#FFC53D";
+  ctx.beginPath(); ctx.arc(5, -10, 2.6, 0, 6.283); ctx.fill();
+  ctx.restore();
+
+  /* el globo con la pista */
+  const frase = BRUJO_FRASES[b.frase] || "";
+  ctx.font = "700 13px system-ui, sans-serif";
+  const partes = [];
+  let linea = "";
+  for (const palabra of frase.split(" ")){
+    if (ctx.measureText(linea + " " + palabra).width > 230 && linea){ partes.push(linea); linea = palabra; }
+    else linea = linea ? linea + " " + palabra : palabra;
+  }
+  partes.push(linea);
+  const an = Math.min(250, Math.max(...partes.map(t => ctx.measureText(t).width)) + 22);
+  const al = partes.length * 16 + 14;
+  /* Arriba… salvo que no quepa: las casas de la fila de arriba están pegadas
+     al borde del mundo y el globo se salía de la pantalla. Ahí va DEBAJO. */
+  const abajo = y - 66 - al < cam.y + 8;
+  const gy = abajo ? y + 52 : y - 66 - al;
+  ctx.fillStyle = "#F7F3F9";
+  roundRect(b.x - an/2, gy, an, al, 10); ctx.fill();
+  ctx.beginPath();                                       // el piquito
+  if (abajo){
+    ctx.moveTo(b.x - 7, gy); ctx.lineTo(b.x, gy - 9); ctx.lineTo(b.x + 7, gy);
+  } else {
+    ctx.moveTo(b.x - 7, gy + al); ctx.lineTo(b.x, gy + al + 9); ctx.lineTo(b.x + 7, gy + al);
+  }
+  ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = "#E14CFF"; ctx.lineWidth = 2.5;
+  roundRect(b.x - an/2, gy, an, al, 10); ctx.stroke();
+  ctx.fillStyle = "#2A1226";
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  partes.forEach((t2, i) => ctx.fillText(t2, b.x, gy + 14 + i * 16));
 }
 
 /* ---- el bestiario, dibujado ----
