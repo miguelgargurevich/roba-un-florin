@@ -1446,6 +1446,17 @@ let conosPisados = 0;
    se dibujaba encima del patio y debajo seguían corriendo los ladrones, el
    desfile y los puestos — y el cartel de "Jugar básquet" volvía a salir DENTRO
    del básquet, porque el sitio seguía puesto. */
+/* ---- EVENTO: el nivel 100 de prueba, una semana ----
+   Del 21 al 28 de agosto de 2026 el menú ofrece entrar DIRECTO al nivel 100
+   del laberinto — el Multiverso y el Brujo sin pasar por los 99. Es una
+   tarjeta más del menú, pero con reloj: pasada la fecha desaparece sola, y el
+   nivel 100 vuelve a ser lo que es — el final solo para quien llegue.
+
+   La fecha vive en el CLIENTE a propósito: el motor no puede mirar el reloj
+   de pared (rompería el determinismo de las salas), y el menú sí. */
+const NIVEL100_HASTA = Date.parse("2026-08-29T00:00:00-05:00");
+const nivel100Activo = () => Date.now() < NIVEL100_HASTA;
+
 const MINIJUEGOS = {
   futbol:     "⚽ ¡Pichanga en el patio! Al terminar vuelves a lo tuyo.",
   tenis:      "🎾 ¡Al tenis! Primero a " + TENIS_META + " puntos.",
@@ -1456,6 +1467,7 @@ const MINIJUEGOS = {
   voley:      "🏐 ¡Vóley, dos contra dos! La tocas con solo llegar; aguanta el botón para rematar.",
   carreraObs: "🏃 ¡Carrera de obstáculos! Tres vueltas a pie. Los conos te tumban.",
   laberinto:  "🔮 ¡Al laberinto! 100 niveles. Saca a los de las jaulas antes de que se acabe el reloj: ocho escenarios y en cada uno rescatas a otros — tus amigos en el colegio, los animales del zoológico, los marcianitos de la nave, dragoncitos en el Volcán, astronautas en la Luna. Cada tres niveles cambia todo — otro monstruo, otra forma y dos especiales que buscar (uno de comer y un arma). Y un chanclazo congela al bicho. El nivel 100 es EL MULTIVERSO: las ocho dimensiones cruzadas por portales, los tres Florines jamás vistos, y EL BRUJO SUPREMO alterando la realidad.",
+  laberinto100: "🧙 ¡EVENTO! Directo al NIVEL 100: el Multiverso de las ocho dimensiones. Rescata a los once —los tres Florines jamás vistos incluidos—, y cuando caiga el último preso el Brujo pierde su magia: TRES CHANCLAZOS y es tuyo. Hasta el 28 de agosto.",
   billar:     "🎱 ¡Al billar! Si metes, sigues tirando. Si cuelas la blanca, pierdes el turno.",
   hockey:     "🏒 ¡Air hockey! Primero a 5. No hay botón: el disco sale al chocar con él.",
 };
@@ -1501,7 +1513,10 @@ function renderBotonesPanel(){}
    verlo. Se apuntan solos en cuanto su `listo` pase a true. */
 for (const b of document.querySelectorAll("#minijuegosFila .modoBtn")){
   const j = b.dataset.modo;
-  if (j && !JUEGOS_LISTOS.includes(j)) b.remove();
+  /* La tarjeta del evento no es un juego del motor: es una PUERTA al laberinto
+     que arranca en el nivel 100. Vive mientras el evento viva. */
+  const ok = j === "laberinto100" ? nivel100Activo() : !j || JUEGOS_LISTOS.includes(j);
+  if (j && !ok) b.remove();
 }
 
 for (const b of document.querySelectorAll("#modoFila .modoBtn, #minijuegosFila .modoBtn"))
@@ -1774,6 +1789,7 @@ function rotularBotonJugar(){
   if (m === "carrera"){ b.textContent = "Correr ▸"; return; }
   const labels = { basquet:"Jugar básquet ▸", bolos:"Jugar bolos ▸", lucha:"Pelear ▸",
     dardos:"Tirar dardos ▸", carreraObs:"Correr obstáculos ▸", laberinto:"Entrar al laberinto ▸",
+    laberinto100:"¡Al nivel 100! ▸",
     billar:"Jugar billar ▸", hockey:"Jugar air hockey ▸",
     tenis:"Jugar tenis ▸", voley:"Jugar vóley ▸", bolos:"Tirar a los bolos ▸" };
   /* Los que faltan salen del propio catálogo, para que no haya que acordarse de
@@ -13004,10 +13020,14 @@ function startGame(modo){
      cancha. */
   const m2 = modoElegido();
   if (MINIJUEGOS[m2]) {
+    /* La tarjeta del evento es el laberinto de siempre… montado en la fase 99.
+       Mismo motor, mismas reglas, mismo duelo: solo se salta la cola. */
+    const mini = m2 === "laberinto100" ? "laberinto" : m2;
     G = m2 === "futbol"
       ? nuevaPartidaMotor(1, "colegio", false, "normal", [], 0, ladoSel, "colegio")
       : nuevaPartidaMotor(1, "colegio", false, "normal", [], 0, 0, "colegio",
-                          m2 === "tenis" ? 1 : 0, m2 === "tenis" ? null : m2);
+                          mini === "tenis" ? 1 : 0, mini === "tenis" ? null : mini);
+    if (m2 === "laberinto100") montarFaseDelLaberinto(G, 99);
     G.started = true;
   }
   aLaCancha();                       // deja la pantalla lista, sea cual sea el G

@@ -24,6 +24,16 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Última sesión
 
+- 2026-08-21 (claude-code): **el nivel 100 de prueba, una semana** (pedido).
+  Tarjeta nueva en el menú («🧙 El Nivel 100 · EVENTO») que entra DIRECTO al
+  Multiverso: mismo motor, mismas reglas, solo se salta la cola — es el
+  laberinto de siempre montado en la fase 99. La fecha (hasta el 28/8/2026,
+  `NIVEL100_HASTA` en main.js) la vigila el CLIENTE a propósito: el motor no
+  puede mirar el reloj de pared sin romper el determinismo de las salas, y el
+  menú sí. Pasada la fecha, la tarjeta desaparece sola y el nivel 100 vuelve a
+  ser el final para quien llegue. Para extender el evento: cambiar esa fecha y
+  redesplegar la web.
+
 - 2026-08-21 (claude-code): **el Brujo, suelto por la aventura** (pedido, en dos
   vueltas). La historia del nivel 100 ahora se ANUNCIA: el Brujo aparece cada
   ~130 s (60 s en el Multiverso, su casa) haciendo de las suyas, con un globo
