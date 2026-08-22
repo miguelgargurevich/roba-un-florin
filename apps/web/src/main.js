@@ -10233,13 +10233,16 @@ function drawMapaLaberinto(){
   const x0 = VW - ancho - 14, y0 = VH - alto - 14;
 
   ctx.save();
-  ctx.fillStyle = "rgba(12,7,16,.82)";
+  /* Translúcido a propósito: el mapita tapa una esquina entera del laberinto, y
+     con el fondo opaco lo que había debajo simplemente no existía. Así se ve el
+     mapa Y se intuye el mundo que pasa detrás. */
+  ctx.fillStyle = "rgba(12,7,16,.42)";
   roundRect(x0 - 6, y0 - 6, ancho + 12, alto + 12, 8); ctx.fill();
-  ctx.strokeStyle = "rgba(139,107,238,.6)"; ctx.lineWidth = 2;
+  ctx.strokeStyle = "rgba(139,107,238,.4)"; ctx.lineWidth = 2;
   roundRect(x0 - 6, y0 - 6, ancho + 12, alto + 12, 8); ctx.stroke();
 
   // los pasillos, en claro: lo que importa es por dónde SE PUEDE ir
-  ctx.fillStyle = "rgba(140,110,190,.42)";
+  ctx.fillStyle = "rgba(140,110,190,.34)";
   for (let y = 0; y < l.alto; y++)
     for (let x = 0; x < l.ancho; x++)
       if (!l.celdas[y][x]) ctx.fillRect(x0 + x * esc, y0 + y * esc, esc + 0.6, esc + 0.6);

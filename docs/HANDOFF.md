@@ -24,6 +24,12 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Última sesión
 
+- 2026-08-21 (claude-code): **el HUD ya no tapa la cancha** (pedido, dos ajustes).
+  En minijuegos (`#app.partido`) las tarjetas de arriba se encogen y se apagan
+  (padding 3px, tipografía menor, fondo al 62 %) — tapaban jaulas enteras. Y el
+  mapita del laberinto pasa a translúcido (fondo .82→.42): tapaba una esquina
+  entera y lo de debajo no existía; ahora se ve el mapa y se intuye el mundo.
+
 - 2026-08-21 (claude-code): **el nivel 100 de prueba, una semana** (pedido).
   Tarjeta nueva en el menú («🧙 El Nivel 100 · EVENTO») que entra DIRECTO al
   Multiverso: mismo motor, mismas reglas, solo se salta la cola — es el

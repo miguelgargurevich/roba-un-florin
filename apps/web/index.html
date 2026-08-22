@@ -332,6 +332,20 @@
   #tienda[hidden]{display:none}
   /* En un partido la cancha entera cabe en pantalla: el minimapa sobra. */
   #app.partido .bottom{display:none}
+  /* Y el HUD se ENCOGE Y SE APAGA: en un minijuego los paneles de arriba
+     tapaban media cancha —jaulas enteras detrás del marcador—. Más chicos, más
+     translúcidos, y el marcador sigue leyéndose porque lo que importa de él es
+     grande de por sí. */
+  #app.partido .card{
+    padding:3px 9px;border-radius:10px;box-shadow:0 3px 0 rgba(0,0,0,.25);
+    background:color-mix(in srgb, var(--plum-800) 62%, transparent);
+    border-width:1.5px;
+  }
+  #app.partido .label{font-size:8px;margin-bottom:1px}
+  #app.partido .val{font-size:15px}
+  #app.partido .money .val{font-size:17px}
+  #app.partido .goal{flex:0 1 340px;min-width:150px}
+  #app.partido .bar{height:5px;margin-top:3px}
   #admin{
     position:absolute;inset:0;z-index:32;display:grid;place-items:start center;padding:18px;
     background:rgba(15,7,14,.92);overflow:auto;touch-action:pan-y;-webkit-overflow-scrolling:touch;
