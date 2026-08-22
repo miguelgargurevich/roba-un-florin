@@ -53,8 +53,17 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
     extraído de `decoZoo`), marcianitos en la nave, dinos en la Prehistoria,
     momias en Egipto. Con su color de paredes y de suelo, que es lo que más se
     nota al cambiar de bloque.
-  - Pendiente: que el bot recoja los especiales (hoy los ignora), y más temas
-    (Amazonas, Volcán, Luna) — añadir uno es añadir una fila en `LAB_TEMAS`.
+  - **El bot pelea y recoge** (pedido). `esJuego` apagaba el botón entero en el
+    laberinto, así que el bot ni tiraba la chancla ni usaba lo que recogía.
+    Ahora se desvía por los especiales que le quedan DE PASO (a dos celdas, o a
+    menos de la mitad de lo que le falta para su jaula) y usa cada arma en su
+    momento: la tiza cuando le vienen por detrás, la linterna solo de frente, el
+    mochilazo guardado hasta que hay dos encima. Y el arreglo que de verdad
+    valió: **no huye de un monstruo congelado o huyendo** — desperdiciaba la
+    ventana que él mismo abría. Medido a 8 semillas por nivel:
+    nivel 7 pasó de 6,5 rescates y 12,8 capturas a **16,0 y 4,5**.
+  - Pendiente: más temas (Amazonas, Volcán, Luna) — añadir uno es añadir una
+    fila en `LAB_TEMAS`.
 
 - 2026-08-21 (claude-code): **los dardos con péndulo, y cada puerta con su
   pinta** (dos pedidos).

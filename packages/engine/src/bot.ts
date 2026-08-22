@@ -16,7 +16,7 @@ import type { Estado, Jugador, EntradaJugador } from "./tipos.js";
 import { clamp, dist2 } from "./util.js";
 import { ANCHO_PISTA, dificultadDe } from "./datos.js";
 import { celdaLibreDe, centroDelMapa, enLaPista, esMiPatio, esPared, freePedDe, patiosDe,
-         puntoDelPendulo } from "./estado.js";
+         puntoDelPendulo, LAB_SILBATO, LAB_LINTERNA, LAB_MOCHILA } from "./estado.js";
 
 /** Lo que decide el bot en un paso: hacia dónde va y si tira la chancla. */
 export interface PlanBot {
@@ -493,8 +493,14 @@ function aDondeVoyEnLaberinto(e: Estado, p: Jugador): { x: number; y: number } |
      Y la huida DURA: `huyendo` es su memoria. Mientras corre no se replantea el
      objetivo, y al agotarse vuelve a por LA MISMA jaula —eso lo guarda `meta`—
      en vez de elegir otra desde cero. */
-  const gh = l.fantasmas.length
-    ? l.fantasmas.reduce((m, f) => dist2(p.x, p.y, f.x, f.y) < dist2(p.x, p.y, m.x, m.y) ? f : m)
+  /* Solo los que PUEDEN pillarte. Uno congelado (chanclazo, linterna) o huyendo
+     (silbato, mochilazo) no es una amenaza, y contarlo como tal era desperdiciar
+     la ventana que el bot mismo acababa de abrir: se gastaba el arma y seguía
+     huyendo del bicho helado. Medido: con el silbato hacía 2,1 rescates MENOS
+     que sin arma ninguna. */
+  const amenazas = l.fantasmas.filter(f => f.stun <= 0 && f.huye <= 0);
+  const gh = amenazas.length
+    ? amenazas.reduce((m, f) => dist2(p.x, p.y, f.x, f.y) < dist2(p.x, p.y, m.x, m.y) ? f : m)
     : null;
   const dGh = gh ? dist2(p.x, p.y, gh.x, gh.y) : Infinity;
   /* Encima de verdad (menos de una celda), o cortándome el paso: en la
@@ -548,8 +554,11 @@ function aDondeVoyEnLaberinto(e: Estado, p: Jugador): { x: number; y: number } |
     jaulaEn.set(gy * l.ancho + gx, j);
   }
 
-  /* BFS: distancia y primer paso hacia cada celda alcanzable. */
+  /* BFS: distancia y primer paso hacia cada celda alcanzable. La distancia se
+     guarda porque es lo que permite decidir un DESVÍO —«esto está más cerca que
+     mi jaula»— sin adivinar por línea recta, que en un laberinto miente. */
   const antes = new Map<number, number>([[inicio, -1]]);
+  const cuanto = new Map<number, number>([[inicio, 0]]);
   const orden: number[] = [];
   const cola = [inicio];
   while (cola.length) {
@@ -563,6 +572,7 @@ function aDondeVoyEnLaberinto(e: Estado, p: Jugador): { x: number; y: number } |
       const nid = ny * l.ancho + nx;
       if (antes.has(nid)) continue;
       antes.set(nid, id);
+      cuanto.set(nid, (cuanto.get(id) ?? 0) + 1);
       cola.push(nid);
     }
   }
@@ -587,12 +597,49 @@ function aDondeVoyEnLaberinto(e: Estado, p: Jugador): { x: number; y: number } |
   const meta = sigue ? antesMeta! : alcanzables[Math.min(puesto, alcanzables.length - 1)];
   if (p.bot) p.bot.meta = meta;
 
-  /* Si la jaula está en mi celda o en la de al lado, voy DERECHO a ella. */
-  const jaula = jaulaEn.get(meta)!;
-  if (meta === inicio || antes.get(meta) === inicio) return { x: jaula.x, y: jaula.y };
+  /* ---- el desvío por un especial ----
+     La regla es la de cualquiera que juega: se coge lo que está DE CAMINO, no
+     se cruza el laberinto por un mango. En números, se va a por él si está más
+     cerca que la jaula a la que iba, o si está a cuatro celdas o menos (o sea,
+     prácticamente aquí).
+
+     Y hay una excepción que importa: si NO lleva arma y tiene un monstruo
+     encima, el arma vale el desvío aunque quede más lejos. Es la diferencia
+     entre morir con la tiza a tres celdas y usarla.
+
+     `premio` es la memoria: en el punto en que las dos cosas cuestan lo mismo,
+     sin memoria elegiría una, avanzaría, elegiría la otra y se quedaría clavado
+     — el mismo bicho que ya obligó a inventar `meta` para las jaulas. */
+  const dJaula = cuanto.get(meta) ?? Infinity;
+  const yo = Math.max(0, e.players.indexOf(p));
+  const sinArma = !l.bolsas[yo];
+  const apurado = sinArma && dGh < 260 * 260;
+  let premio: { id: number; x: number; y: number } | null = null;
+  for (const sp of l.especiales) {
+    if (sp.tomado) continue;
+    const [sx, sy] = celdaLibreDe(l, sp.x, sp.y);
+    const id = sy * l.ancho + sx;
+    const d = cuanto.get(id);
+    if (d == null) continue;                       // no hay camino: ni mirarlo
+    /* Ya iba a por este: se sigue yendo mientras siga ahí y no sea un disparate
+       (el doble de lejos que la jaula ya es un disparate). */
+    const yaIba = p.bot?.premio === id && d < dJaula * 2;
+    const vale = yaIba || d <= 2 || d < dJaula * 0.5 ||
+                 (apurado && sp.clase === "arma" && d <= 5);
+    if (!vale) continue;
+    if (!premio || d < (cuanto.get(premio.id) ?? Infinity)) premio = { id, x: sp.x, y: sp.y };
+  }
+  if (p.bot) p.bot.premio = premio ? premio.id : undefined;
+
+  /* El objetivo de verdad: el especial si se desvía, y si no, la jaula. */
+  const destino = premio ? premio.id : meta;
+  const punto = premio ? { x: premio.x, y: premio.y } : jaulaEn.get(meta)!;
+
+  /* Si está en mi celda o en la de al lado, voy DERECHO. */
+  if (destino === inicio || antes.get(destino) === inicio) return punto;
 
   /* Si no, al primer paso del camino más corto. */
-  let paso = meta, prev = antes.get(paso) ?? -1;
+  let paso = destino, prev = antes.get(paso) ?? -1;
   while (prev >= 0 && prev !== inicio) { paso = prev; prev = antes.get(paso) ?? -1; }
   return centro(paso);
 }
@@ -885,6 +932,63 @@ function aDondeVoy(e: Estado, p: Jugador): { x: number; y: number } | null {
   return mejor;
 }
 
+/* ---- el bot usa lo que lleva ----
+   Hasta ahora el laberinto apagaba el botón entero (`esJuego`), así que el bot
+   recogía el arma y se la llevaba de paseo hasta el final del nivel.
+
+   Cada arma se usa en un momento distinto, y ahí está la gracia — un bot que
+   apriete el botón en cuanto ve un monstruo gasta la tiza al aire y el mochilazo
+   con un solo bicho delante:
+
+     · tiza     — cuando uno le viene DETRÁS y cerca: la raya se pone en tu
+                  celda, o sea que sirve para cerrar por donde te siguen.
+     · silbato  — cuando hay uno a tiro, y mejor si hay varios.
+     · linterna — solo si lo tiene DELANTE, que es lo único que congela.
+     · mochila  — un uso: se guarda hasta que hay DOS o más encima.
+     · chancla  — lo de siempre, cuando no lleva nada: gratis e infinita, así
+                  que se tira en cuanto uno se pone a tiro y de frente.
+
+   El blanco que devuelve es a dónde apunta, y hace falta: la linterna y la
+   chancla necesitan dirección. */
+function armaDelLaberinto(e: Estado, p: Jugador): { usar: boolean; blanco: { x: number; y: number } | null } {
+  const l = e.laberinto;
+  const nada = { usar: false, blanco: null };
+  if (!l || l.ganador != null || l.entreFases > 0 || p.stun > 0 || p.cd > 0) return nada;
+  if (!l.fantasmas.length) return nada;
+
+  const yo = Math.max(0, e.players.indexOf(p));
+  const bolsa = l.bolsas[yo];
+  const c = l.celda;
+  const vivos = l.fantasmas.filter(f => f.stun <= 0 && f.huye <= 0);
+  if (!vivos.length) return nada;
+  const cerca = vivos.reduce((m, f) => dist2(p.x, p.y, f.x, f.y) < dist2(p.x, p.y, m.x, m.y) ? f : m);
+  const d = Math.hypot(cerca.x - p.x, cerca.y - p.y);
+  const blanco = { x: cerca.x, y: cerca.y };
+  /* Delante o detrás: contra la dirección en la que va el bot. Sin esto, «lo
+     tengo delante» no significa nada. */
+  const v = Math.hypot(p.vx, p.vy);
+  const deFrente = v > 30 && ((cerca.x - p.x) * p.vx + (cerca.y - p.y) * p.vy) / (v * (d || 1)) > 0.3;
+
+  if (!bolsa) {
+    /* La chancla: gratis e infinita. Solo hace falta que esté a tiro y que la
+       tenga en la mano. */
+    if (p.chancla.state !== "held") return nada;
+    return { usar: d < 260 && (deFrente || d < 120), blanco };
+  }
+
+  if (bolsa.tipo === "tiza")
+    return { usar: d < c * 2.6 && !deFrente, blanco };
+  if (bolsa.tipo === "silbato")
+    return { usar: d < c * (LAB_SILBATO - 0.6), blanco };
+  if (bolsa.tipo === "linterna")
+    return { usar: d < c * (LAB_LINTERNA - 0.4) && deFrente, blanco };
+  if (bolsa.tipo === "mochila") {
+    const encima = vivos.filter(f => dist2(p.x, p.y, f.x, f.y) < (c * (LAB_MOCHILA - 0.4)) ** 2).length;
+    return { usar: encima >= 2, blanco };
+  }
+  return nada;
+}
+
 /** Un paso de bot. Devuelve la entrada como si la hubiera tecleado alguien. */
 export function pensarBot(e: Estado, p: Jugador, dt: number): PlanBot {
   if (p.stun > 0) return { entrada: QUIETO, usar: false, patear: null };
@@ -921,7 +1025,12 @@ export function pensarBot(e: Estado, p: Jugador, dt: number): PlanBot {
      siete segundos. Se la tira desde donde la tiraría cualquiera. */
   const blancoLucha = rivalEnLucha && dist2(p.x, p.y, rivalEnLucha.x, rivalEnLucha.y) < 260 * 260
     ? { x: rivalEnLucha.x, y: rivalEnLucha.y } : null;
-  const blanco = tenis ? aDondeLaMando(e, p)
+  /* El laberinto tiene su propio criterio: cada arma se usa en un momento
+     distinto, y la chancla también cuenta. Se calcula antes del blanco porque
+     la linterna y la chancla necesitan la DIRECCIÓN del monstruo. */
+  const enLab = e.laberinto ? armaDelLaberinto(e, p) : null;
+  const blanco = enLab ? enLab.blanco
+               : tenis ? aDondeLaMando(e, p)
                : voley ? aDondeLaMandoEnVoley(e, p)
                : bolos ? puntoBolos
                : dardos ? puntoDardo
@@ -929,7 +1038,8 @@ export function pensarBot(e: Estado, p: Jugador, dt: number): PlanBot {
                : hockey ? (zurdazo ? zurdazo.apunta : null)
                : enLucha ? blancoLucha : aQuienLeTiro(e, p);
   const usarLucha = enLucha && !!blancoLucha;
-  const usar = !tenis && !voley && !esJuego && !!blanco && p.cd <= 0 && p.chancla.state === "held";
+  const usar = enLab ? enLab.usar
+             : !tenis && !voley && !esJuego && !!blanco && p.cd <= 0 && p.chancla.state === "held";
 
   /* La memoria, antes de decidir: el laberinto la usa para comprometerse con su
      gema, y sin ella creada no habría dónde apuntarlo. */

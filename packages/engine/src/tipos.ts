@@ -118,6 +118,11 @@ export interface Jugador {
     x: number; y: number; repensar: number;
     /** A qué se ha comprometido, cuando el sitio importa más que el punto. */
     meta?: number;
+    /** La celda del especial al que va, si decidió desviarse. Hace falta memoria
+        por lo mismo que `meta`: en el punto en que ir al especial y ir a la
+        jaula cuestan lo mismo, sin memoria elige uno, avanza, elige el otro,
+        avanza, y se queda en el sitio. */
+    premio?: number;
     /** Segundos que le quedan de huida. Es la memoria que le permite RETOMAR:
         mientras corre, no se replantea el objetivo, y al agotarse vuelve a por
         la misma jaula en vez de elegir otra desde cero. */

@@ -31,6 +31,7 @@ export {
   LAB_ESCALON, varianteDelNivel, anchoDelNivel, altoDelNivel,
   LAB_COMIDAS, LAB_ARMAS, especialesDelNivel, comidaPorId, armaPorId, colorDeBicho,
   LAB_TEMAS, temaDelNivel,
+  celdaLibreDe, centroDeCelda,
   LAB_SILBATO, LAB_LINTERNA, LAB_MOCHILA, LAB_TIZA_DURA, LAB_HUIDA, LAB_CONGELA,
   freePed, freePedDe, occupied, occupiedDe, esMiPatio,
   playerIncome, florinIncome, mismoFlorin, nuevoFlorin, laserActivo,

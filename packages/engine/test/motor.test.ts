@@ -24,6 +24,7 @@ import {
   LAB_FASES, LAB_NIVELES, ladoDelNivel, jaulasDelNivel, monstruosDelNivel,
   relojDelNivel, BESTIARIO, monstruoDelNivel, monstruosDe, montarFaseDelLaberinto,
   LAB_ESCALON, varianteDelNivel, anchoDelNivel, altoDelNivel,
+  celdaLibreDe, centroDeCelda,
   especialesDelNivel, LAB_COMIDAS, LAB_ARMAS, LAB_TEMAS, temaDelNivel,
   patear, TENIS_META, TENIS_ALCANCE, ladoDeLaCancha, esMinijuego, JUEGOS_LISTOS,
   VOLEY_META, VOLEY_TOQUES, ladoDeVoley, BASQUET_META, BASQUET_ALCANCE,
@@ -2158,6 +2159,86 @@ describe("el laberinto", () => {
       vistas.add(comida.id + "+" + arma.id);
     }
     expect(vistas.size, "la pareja se repite antes de lo debido").toBe(20);
+  });
+
+  it("el bot se desvía por un especial que le queda de camino", () => {
+    /* Antes los recogía nunca: el laberinto apagaba el botón entero y su cerebro
+       solo miraba jaulas. Se desvía por lo que está DE PASO —no cruza el
+       laberinto por un mango—, así que la prueba le pone uno al lado. */
+    const e = lab();
+    const l = e.laberinto!;
+    const bot = e.players[1];
+    const sp = l.especiales[0];
+    /* El especial a un par de celdas del bot, en una celda libre de verdad. */
+    const cerca = celdaLibreDe(l, bot.x + l.celda, bot.y);
+    const c2 = centroDeCelda(l, cerca[0], cerca[1]);
+    sp.x = c2.x; sp.y = c2.y; sp.tomado = false;
+    for (let k = 0; k < 60 * 8 && !sp.tomado; k++){
+      const ent: Record<number, EntradaJugador> = {};
+      for (const p of e.players) ent[p.idx] = pensarBot(e, p, 1 / 60).entrada;
+      avanzar(e, ent, 1 / 60);
+    }
+    expect(sp.tomado, "el bot pasó de largo por un especial a dos celdas").toBe(true);
+  });
+
+  it("el bot usa lo que lleva, y cada arma en su momento", () => {
+    /* Y NO lo usa al aire: el mochilazo tiene un solo uso y se guarda para
+       cuando hay dos monstruos encima. */
+    const e = lab();
+    const l = e.laberinto!;
+    const bot = e.players[1];
+    const yo = e.players.indexOf(bot);
+    const pega = (tipo: string) => { l.bolsas[yo] = { tipo, usos: 3 }; };
+
+    /* Silbato con un monstruo a dos celdas: lo toca. */
+    pega("silbato");
+    l.fantasmas.forEach(f => { f.x = -99999; f.stun = 0; f.huye = 0; });
+    l.fantasmas[0].x = bot.x + l.celda * 2; l.fantasmas[0].y = bot.y;
+    bot.cd = 0;
+    expect(pensarBot(e, bot, 1 / 60).usar, "no sopló el silbato con uno a dos celdas").toBe(true);
+
+    /* Mochilazo con UN solo monstruo: se lo guarda. */
+    pega("mochila");
+    bot.cd = 0;
+    expect(pensarBot(e, bot, 1 / 60).usar, "gastó el mochilazo con un solo bicho").toBe(false);
+    /* Y con dos encima: lo suelta. */
+    l.fantasmas[1] ??= { ...l.fantasmas[0] };
+    l.fantasmas[1].x = bot.x + l.celda; l.fantasmas[1].y = bot.y + 10;
+    l.fantasmas[1].stun = 0; l.fantasmas[1].huye = 0;
+    l.fantasmas[0].x = bot.x + l.celda; l.fantasmas[0].y = bot.y - 10;
+    bot.cd = 0;
+    expect(pensarBot(e, bot, 1 / 60).usar, "no soltó el mochilazo con dos encima").toBe(true);
+  });
+
+  it("el bot NO huye de un monstruo congelado: usa la ventana que abrió", () => {
+    /* Este era el bicho gordo. El cerebro de movimiento miraba TODOS los
+       fantasmas, así que el bot gastaba el arma y seguía huyendo del bicho
+       helado — desperdiciando exactamente la ventana que acababa de abrir.
+       Medido: con el silbato hacía 2,1 rescates menos que sin arma ninguna.
+
+       La propiedad, dicha exacta: un monstruo congelado tiene que dar LO MISMO
+       que no haya monstruo. Así que se corre dos veces —con uno helado pegado y
+       sin ninguno— y el bot tiene que acabar en el mismo sitio. */
+    const corrida = (helado: boolean) => {
+      const e = lab();
+      const l = e.laberinto!;
+      const bot = e.players[1];
+      l.fantasmas.forEach(f => { f.x = -99999; f.y = -99999; });
+      for (let k = 0; k < 60 * 3; k++){
+        if (helado){
+          l.fantasmas[0].stun = 3;               // sigue helado todo el rato
+          l.fantasmas[0].x = bot.x + 40; l.fantasmas[0].y = bot.y;
+        }
+        const ent: Record<number, EntradaJugador> = {};
+        for (const p of e.players) ent[p.idx] = pensarBot(e, p, 1 / 60).entrada;
+        avanzar(e, ent, 1 / 60);
+      }
+      return { x: bot.x, y: bot.y };
+    };
+    const conHelado = corrida(true), sinNadie = corrida(false);
+    expect(Math.hypot(conHelado.x - sinNadie.x, conHelado.y - sinNadie.y),
+           "el bot cambió de rumbo por un monstruo que no puede pillarlo")
+      .toBeLessThan(30);
   });
 
   it("recoger la comida te la pone, y se gasta sola", () => {
