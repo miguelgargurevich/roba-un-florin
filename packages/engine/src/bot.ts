@@ -468,7 +468,12 @@ function aDondeVoyEnLaberinto(e: Estado, p: Jugador): { x: number; y: number } |
   const l = e.laberinto;
   if (!l) return null;
   const cerradas = l.jaulas.filter(j => !j.libre);
-  if (!cerradas.length) return null;
+  /* En el duelo del nivel 100 ya no hay jaulas: el objetivo ES el Brujo. El bot
+     lo caza por pasillos con el mismo BFS con el que buscaba jaulas — el Brujo
+     pasa a ser «la jaula» que persigue. */
+  const brujoDuelo = l.duelo && l.brujoVidas > 0
+    ? l.fantasmas.find(f => f.tipo === "brujo") : null;
+  if (!cerradas.length && !brujoDuelo) return null;
   const c = l.celda;
   const celdaDe = (x: number, y: number): [number, number] =>
     [Math.floor((x - l.origen.x) / c), Math.floor((y - l.origen.y) / c)];
@@ -498,7 +503,10 @@ function aDondeVoyEnLaberinto(e: Estado, p: Jugador): { x: number; y: number } |
      la ventana que el bot mismo acababa de abrir: se gastaba el arma y seguía
      huyendo del bicho helado. Medido: con el silbato hacía 2,1 rescates MENOS
      que sin arma ninguna. */
-  const amenazas = l.fantasmas.filter(f => f.stun <= 0 && f.huye <= 0);
+  /* Y en el duelo el Brujo no asusta: hay que ir A POR él, no huirle. Que te
+     pille sigue costando la vuelta a la entrada — es la apuesta del duelo. */
+  const amenazas = brujoDuelo ? []
+    : l.fantasmas.filter(f => f.stun <= 0 && f.huye <= 0);
   const gh = amenazas.length
     ? amenazas.reduce((m, f) => dist2(p.x, p.y, f.x, f.y) < dist2(p.x, p.y, m.x, m.y) ? f : m)
     : null;
@@ -549,7 +557,8 @@ function aDondeVoyEnLaberinto(e: Estado, p: Jugador): { x: number; y: number } |
   /* Una gema por celda, con su posición real: hay que ir a la GEMA, no al
      centro de la celda — orbitando el centro no se coge nunca. */
   const jaulaEn = new Map<number, { x: number; y: number }>();
-  for (const j of cerradas) {
+  const blancos: { x: number; y: number }[] = brujoDuelo ? [brujoDuelo] : cerradas;
+  for (const j of blancos) {
     const [gx, gy] = celdaLibreDe(l, j.x, j.y);
     jaulaEn.set(gy * l.ancho + gx, j);
   }
@@ -593,7 +602,9 @@ function aDondeVoyEnLaberinto(e: Estado, p: Jugador): { x: number; y: number } |
      segundo veinte hasta el final de la prueba. */
   const puesto = Math.max(0, e.players.indexOf(p));
   const antesMeta = p.bot?.meta;
-  const sigue = antesMeta != null && jaulaEn.has(antesMeta) && antes.has(antesMeta);
+  /* Con el Brujo no vale comprometerse: la meta de hace un segundo es donde YA
+     NO está. Se replantea siempre — el compromiso era para jaulas quietas. */
+  const sigue = !brujoDuelo && antesMeta != null && jaulaEn.has(antesMeta) && antes.has(antesMeta);
   const meta = sigue ? antesMeta! : alcanzables[Math.min(puesto, alcanzables.length - 1)];
   if (p.bot) p.bot.meta = meta;
 

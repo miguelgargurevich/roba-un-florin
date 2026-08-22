@@ -623,6 +623,12 @@ export interface Laberinto {
       devuelve en el mismo tick y rebotas entre dimensiones para siempre. */
   portales: PortalDelLaberinto[];
   portalCd: number[];
+  /** EL DUELO: la fase final del nivel 100. Mientras quede una jaula cerrada el
+      Brujo es invencible — su magia sale de tener a todos presos—; al liberar
+      al último, la pierde: el séquito se esfuma y quedan él, tú y la chancla.
+      Tres chanclazos lo vencen, y con cada uno huye a otra dimensión. */
+  duelo: boolean;
+  brujoVidas: number;
   /** La magia del Brujo: el reloj hasta el próximo hechizo y cuántos lleva.
       Alternan: uno abre muros («alteró la realidad»), el otro te lanza a otra
       dimensión. La cuenta separa los dos y hace la magia predecible en las

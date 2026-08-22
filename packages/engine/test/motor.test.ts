@@ -24,7 +24,7 @@ import {
   LAB_FASES, LAB_NIVELES, ladoDelNivel, jaulasDelNivel, monstruosDelNivel,
   relojDelNivel, BESTIARIO, monstruoDelNivel, monstruosDe, montarFaseDelLaberinto,
   LAB_ESCALON, varianteDelNivel, anchoDelNivel, altoDelNivel,
-  TEMA_MULTIVERSO, BRUJO, LAB_MAGIA, esNivelFinal,
+  TEMA_MULTIVERSO, BRUJO, LAB_MAGIA, esNivelFinal, BRUJO_VIDAS,
   celdaLibreDe, centroDeCelda,
   especialesDelNivel, LAB_COMIDAS, LAB_ARMAS, LAB_TEMAS, temaDelNivel,
   patear, TENIS_META, TENIS_ALCANCE, ladoDeLaCancha, esMinijuego, JUEGOS_LISTOS,
@@ -2404,6 +2404,53 @@ describe("el laberinto", () => {
     correr(e, 0.4);
     expect(brujo.stun, "el chanclazo no le hizo nada").toBeGreaterThan(0);
     expect(brujo.stun, "el Brujo cayó como un bicho cualquiera").toBeLessThan(3);
+  });
+
+  it("al Brujo se le vence: los rescates le rompen la magia y tres chanclazos lo tumban", () => {
+    /* El duelo entero, del primer rescate al golpe final:
+       1. mientras quede una jaula, el nivel NO acaba al chanclearlo;
+       2. al liberar al último, el séquito se esfuma y el nivel SIGUE;
+       3. cada chanclazo le quita una vida, vale un punto, y él huye lejos;
+       4. el tercero lo vence y acaba los cien niveles. */
+    const e = lab();
+    montarFaseDelLaberinto(e, 99);
+    const l = e.laberinto!;
+    const p = e.players[0];
+    e.players[1].x = l.entrada.x + l.celda * 10;   // el otro, fuera del tiro
+
+    /* Se libera a todos: empieza el duelo, y NADA acaba. */
+    for (const j of l.jaulas){ j.libre = true; j.porQuien = 0; j.amigo.x = p.x; j.amigo.y = p.y; }
+    l.puntos[0] = l.jaulas.length;
+    correr(e, 0.2);
+    expect(l.duelo, "liberar al último no arrancó el duelo").toBe(true);
+    expect(e.over, "el nivel acabó sin vencer al Brujo").toBe(false);
+    expect(l.fantasmas.length, "el séquito no se esfumó").toBe(1);
+    expect(l.fantasmas[0].tipo).toBe(BRUJO.id);
+    expect(l.magiaN, "siguió lanzando hechizos sin magia").toBe(0);
+
+    /* Tres chanclazos. Tras cada uno huye lejos: hay que volver a alcanzarlo. */
+    const brujo = l.fantasmas[0];
+    const puntosAntes = l.puntos[0];
+    for (let golpe = 1; golpe <= BRUJO_VIDAS; golpe++){
+      const abierta = [[1, 0], [0, 1], [-1, 0], [0, -1]]
+        .find(([dx, dy]) => !enPared(l, p.x + dx * l.celda, p.y + dy * l.celda))!;
+      brujo.x = p.x + abierta[0] * l.celda * 0.8;
+      brujo.y = p.y + abierta[1] * l.celda * 0.8;
+      brujo.stun = 0; brujo.huye = 0;
+      const donde = { x: brujo.x, y: brujo.y };
+      p.chancla.state = "held"; p.cd = 0; p.stun = 0;
+      p.apunta.on = true;
+      p.apunta.wx = p.x + abierta[0] * 300; p.apunta.wy = p.y + abierta[1] * 300;
+      usarArma(e, p);
+      correr(e, 0.5);
+      expect(l.brujoVidas, "el golpe " + golpe + " no le quitó vida").toBe(BRUJO_VIDAS - golpe);
+      if (golpe < BRUJO_VIDAS)
+        expect(Math.hypot(brujo.x - donde.x, brujo.y - donde.y),
+               "no huyó tras el golpe " + golpe).toBeGreaterThan(l.celda * 4);
+    }
+    expect(e.over, "vencer al Brujo no acabó la partida").toBe(true);
+    expect(l.puntos[0], "los golpes no valieron puntos").toBe(puntosAntes + BRUJO_VIDAS);
+    expect(l.ganador).toBe(0);
   });
 
   it("cada nivel trae un monstruo de cabecera, y el nuevo es el primero", () => {

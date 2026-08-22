@@ -35,7 +35,7 @@ import {
   colocarParaTirarDardo, valorDelDardo, DIANA_ANILLOS, DARDOS_ESPERA, DARDO_VAIVEN, puntoDelPendulo, errorDelDardo,
   colocarParaTacar, reponerLaBlanca, BOLA_BILLAR_R, HOYA_R, BILLAR_ESPERA,
   comidaPorId, armaPorId, LAB_SILBATO, LAB_LINTERNA, LAB_MOCHILA,
-  BRUJO, LAB_MAGIA, LAB_MAGIA_MUROS,
+  BRUJO, LAB_MAGIA, LAB_MAGIA_MUROS, BRUJO_FURIA,
   LAB_TIZA_DURA, LAB_HUIDA, LAB_CONGELA,
   esPared, LAB_BULTO, FANTASMA_VEL, FANTASMA_STUN, celdaLibreDe, centroDeCelda,
   LAB_ENTRE_FASES, montarFaseDelLaberinto, LAB_FILA, LAB_MIGA, LAB_RASTRO,
@@ -1601,7 +1601,45 @@ function avanzarJugador(e: Estado, p: Jugador, ent: EntradaJugador | undefined, 
         if (dist2(c.x, c.y, f.x, f.y) > 34 * 34) continue;
         /* Al Brujo Supremo un chanclazo apenas le hace cosquillas: dos segundos
            en vez de cinco. Sigue habiendo respuesta — solo que contra el jefe
-           la respuesta compra menos. */
+           la respuesta compra menos.
+
+           SALVO EN EL DUELO. Con la magia rota, cada chanclazo le quita una
+           vida y él huye a otra dimensión — no se queda a recibir el segundo:
+           hay que CAZARLO por los portales. El golpe vale un punto, como un
+           rescate, y el tercero lo vence y acaba los cien niveles. */
+        const lab3 = e.laberinto;
+        if (f.tipo === BRUJO.id && lab3.duelo) {
+          lab3.brujoVidas--;
+          lab3.puntos[e.players.indexOf(p)]++;
+          p.stats.hits++;
+          polvo(e, f.x, f.y, "#E14CFF", 26);
+          sonar(e, "whack");
+          c.state = "back";
+          if (lab3.brujoVidas <= 0) {
+            texto(e, f.x, f.y - 50, "¡VENCISTE AL BRUJO SUPREMO!", "#FFC53D");
+            polvo(e, f.x, f.y, "#FFC53D", 40);
+            sonar(e, "win");
+            f.stun = 9999;                 // se queda vencido, sin desaparecer
+            f.vx = 0; f.vy = 0;
+            finDelLaberinto(e);
+          } else {
+            texto(e, f.x, f.y - 50, "¡LE QUEDAN " + lab3.brujoVidas + "!", "#E14CFF");
+            /* Huye a una celda libre lejana, elegida con el azar del estado. */
+            for (let intento = 0; intento < 40; intento++) {
+              const x = 1 + Math.floor(azar(e) * (lab3.ancho - 2));
+              const y = 1 + Math.floor(azar(e) * (lab3.alto - 2));
+              if (lab3.celdas[y][x]) continue;
+              if (dist2(centroDeCelda(lab3, x, y).x, centroDeCelda(lab3, x, y).y, p.x, p.y)
+                  < (lab3.celda * 8) ** 2) continue;
+              const a3 = centroDeCelda(lab3, x, y);
+              f.x = a3.x; f.y = a3.y; f.vx = 0; f.vy = 0;
+              f.huye = 1.5;
+              polvo(e, a3.x, a3.y, "#E14CFF", 16);
+              break;
+            }
+          }
+          break;
+        }
         f.stun = f.tipo === BRUJO.id ? LAB_CONGELA * 0.4 : LAB_CONGELA;
         f.vx = 0; f.vy = 0;
         p.stats.hits++;
@@ -3005,6 +3043,9 @@ function magiaDelBrujo(e: Estado, dt: number): void {
   if (l.tema !== "multiverso" || l.ganador != null || l.entreFases > 0) return;
   const brujo = l.fantasmas.find(f => f.tipo === BRUJO.id);
   if (!brujo) return;
+  /* En el duelo ya no hay hechizos: le rompiste la magia. Es la recompensa de
+     rescatar a todos — el suelo deja de moverse justo cuando toca cazarlo. */
+  if (l.duelo) return;
   l.magia -= dt;
   if (l.magia > 0) return;
   l.magia = LAB_MAGIA;
@@ -3121,8 +3162,31 @@ function pasoLaberinto(e: Estado, dt: number): void {
       l.entreFases = LAB_ENTRE_FASES;
       return;
     }
-    finDelLaberinto(e);
-    return;
+    /* ---- EL DUELO ----
+       En el nivel 100 liberar al último NO acaba nada: le ROMPE LA MAGIA al
+       Brujo — su poder salía de tener a todos presos. El séquito se esfuma, él
+       entra en furia (corre más que tú de reacción), y queda lo que este juego
+       es desde el primer día: tú y la chancla. Tres chanclazos lo vencen. */
+    if (l.brujoVidas > 0) {
+      if (!l.duelo) {
+        l.duelo = true;
+        const brujo = l.fantasmas.find(f => f.tipo === BRUJO.id);
+        for (const f of l.fantasmas)
+          if (f !== brujo) polvo(e, f.x, f.y, "#8E9BB5", 12);
+        l.fantasmas = brujo ? [brujo] : [];
+        if (brujo) { brujo.vel = BRUJO_FURIA; brujo.stun = 0; brujo.huye = 0; }
+        l.ronda = 9999;                    // ya no hay retiradas: es el duelo
+        texto(e, l.entrada.x, l.entrada.y - 60,
+              "¡EL BRUJO PERDIÓ SU MAGIA! ¡CHANCLÉALO!", "#FFC53D");
+        sonar(e, "alarma");
+      }
+      /* Y NO se retorna: el duelo se pelea abajo, con el movimiento y las
+         capturas de siempre. Un `return` aquí congelaba al Brujo justo cuando
+         empieza lo bueno. */
+    } else {
+      finDelLaberinto(e);
+      return;
+    }
   }
   if (l.reloj <= 0) { l.reloj = 0; finDelLaberinto(e); return; }
 

@@ -24,6 +24,23 @@ aventura ya es cooperativa mientras no tenga objetivo y amenaza compartidos).
 
 ## Última sesión
 
+- 2026-08-21 (claude-code): **al Brujo se le vence** (pedido: «cómo vencemos al
+  brujo» — la respuesta era «no se puede», y un jefe invencible es un jefe a
+  medias). Los rescates le rompen la magia y la chancla lo remata:
+  - mientras quede una jaula, el Brujo es INVENCIBLE y lo enseña con un escudo
+    de magia pulsando (chanclearlo solo lo frena 2 s);
+  - al liberar al último preso NO acaba el nivel: empieza **EL DUELO** — el
+    séquito se esfuma, los hechizos se apagan, él entra en furia (1,28×, más
+    rápido que tú) y ya no hay retiradas;
+  - **tres chanclazos** lo vencen. Cada golpe vale un punto, y él huye a otra
+    dimensión: hay que cazarlo por los portales. Corazones encima y en el HUD;
+  - el bot también pelea el duelo: el Brujo pasa a ser «la jaula» de su BFS,
+    sin miedo y SIN compromiso de meta (un blanco móvil no admite el
+    compromiso que las jaulas quietas necesitaban);
+  - se puede perder: si el reloj se agota en el duelo, el Brujo escapa y gana
+    quien más puntos tenga. Pantalla final propia: «¡Venciste al Brujo
+    Supremo!». 275 pruebas (una nueva recorre el duelo entero).
+
 - 2026-08-21 (claude-code): **el nivel 100: EL MULTIVERSO** (pedido). El final de
   los 100 niveles del laberinto, y es UN nivel especial, no una curva más:
   - el laberinto más grande (61×35), partido en **ocho bandas verticales** —una

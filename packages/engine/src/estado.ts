@@ -1531,6 +1531,8 @@ export const BESTIARIO: { id: string; nombre: string; vel: number; color: string
 export const BRUJO = { id: "brujo", nombre: "EL BRUJO SUPREMO", vel: 1.15, color: "#E14CFF" };
 /** Cada cuánto lanza su magia, y cuántos muros abre por hechizo. */
 export const LAB_MAGIA = 15, LAB_MAGIA_MUROS = 8;
+/** Los chanclazos que aguanta en el duelo, y lo que corre desesperado. */
+export const BRUJO_VIDAS = 3, BRUJO_FURIA = 1.28;
 
 /** El color de un bicho por su id. Es la señal que se lee a CUALQUIER tamaño:
     en el nivel 30 el laberinto mide 57 celdas y un monstruo son doce píxeles de
@@ -1828,6 +1830,7 @@ export function aElLaberinto(e: Estado): void {
     caza: FANTASMA_CAZA, retirada: FANTASMA_RETIRADA, forma: "sin vueltas",
     especiales: [], tizas: [], tema: LAB_TEMAS[0].id,
     portales: [], portalCd: e.players.map(() => 0), magia: 0, magiaN: 0,
+    duelo: false, brujoVidas: 0,
     poderes: e.players.map(() => null), bolsas: e.players.map(() => null),
     reloj: relojDelNivel(0), ganador: null,
   };
@@ -2036,6 +2039,8 @@ export function montarFaseDelLaberinto(e: Estado, fase: number): void {
   l.portalCd = e.players.map(() => 0);
   l.magia = final ? LAB_MAGIA : 0;
   l.magiaN = 0;
+  l.duelo = false;
+  l.brujoVidas = final ? BRUJO_VIDAS : 0;
 
   /* El ritmo también es del nivel: arriba persiguen más y descansan menos. */
   l.caza = V.caza; l.retirada = V.retirada; l.forma = V.nombre;

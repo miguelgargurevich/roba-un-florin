@@ -10925,6 +10925,27 @@ function drawLaberinto(){
        es generoso con quien juega y no lo contrario. */
     drawMonstruo(f, c * (f.tipo === "brujo" ? 0.62 : 0.44),
                  cazando && f.stun <= 0 && f.huye <= 0);
+    /* El Brujo enseña SU regla encima: mientras queden jaulas, el escudo de
+       magia (no lo puedes dañar, y se ve por qué); en el duelo, los corazones
+       que le quedan. Sin esto, el jugador chanclea al jefe, no pasa nada y
+       cree que el juego está roto. */
+    if (f.tipo === "brujo"){
+      if (!l.duelo && l.brujoVidas > 0){
+        ctx.strokeStyle = "rgba(225,76,255," + (0.45 + Math.sin(G.t * 4) * 0.2) + ")";
+        ctx.lineWidth = pp(2.5);
+        ctx.setLineDash([pp(7), pp(5)]);
+        ctx.beginPath(); ctx.arc(f.x, f.y - c * 0.1, c * 0.85, 0, 6.283); ctx.stroke();
+        ctx.setLineDash([]);
+      } else if (l.duelo && l.brujoVidas > 0){
+        ctx.font = "800 " + pp(13) + "px system-ui, sans-serif";
+        ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.fillText("❤".repeat(l.brujoVidas), f.x, f.y - c * 1.05);
+      } else if (l.brujoVidas <= 0){
+        ctx.font = "800 " + pp(14) + "px system-ui, sans-serif";
+        ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.fillText("💫", f.x, f.y - c * 0.9);
+      }
+    }
     /* Congelado: hielo alrededor. Es la ventana para pasarle por delante, y hay
        que verla —si no se ve, no se aprovecha. */
     if (f.stun > 0){
@@ -12543,6 +12564,8 @@ function hud(){
     const poder = l.poderes[yo];
     const arma = bolsa ? armaPorId(bolsa.tipo) : null;
     el.goalLabel.textContent = l.ganador != null ? "Se acabó"
+      : l.duelo && l.brujoVidas > 0 ? "¡SIN MAGIA! Chancléalo · le quedan "
+                                      + "❤".repeat(l.brujoVidas)
       : l.entreFases > 0 ? "¡Nivel " + (l.fase + 2) + " de " + l.fases + "!"
       : G.player.stun > 0 ? "¡Te atrapó! A la entrada"
       : bolsa && arma ? "Nivel " + (l.fase + 1) + " · " + arma.nombre + " ×" + bolsa.usos
@@ -12969,8 +12992,14 @@ function endGame(ganador){
     document.getElementById("lbSteals").textContent = "Amigos que rescataste";
     document.getElementById("lbHits").textContent = "Los del otro";
     document.getElementById("lbRate").textContent = "Chancletazos que diste";
-    document.getElementById("endEyebrow").textContent = "Se acabó el laberinto";
-    document.getElementById("endTitle").innerHTML = empate
+    /* Vencer al Brujo en el nivel 100 merece su propio cartel: es el final de
+       los cien niveles, no una partida más. */
+    const brujoVencido = l.tema === "multiverso" && l.brujoVidas <= 0;
+    document.getElementById("endEyebrow").textContent = brujoVencido
+      ? "El nivel 100, superado" : "Se acabó el laberinto";
+    document.getElementById("endTitle").innerHTML = brujoVencido
+      ? "¡<em>Venciste</em> al Brujo Supremo!"
+      : empate
       ? "Quedaron <em>iguales</em>"
       : ganaste ? "¡<em>Rescataste</em> a más!" : "Rescataron <em>más que tú</em>";
     document.getElementById("endSub").textContent = empate
